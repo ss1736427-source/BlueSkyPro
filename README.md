@@ -4,6 +4,12 @@ BlueSky PRO is a desktop-oriented UAS flight planning and mission management sys
 
 This review package presents the product concept, system logic and development direction. It intentionally excludes source code, proprietary implementation details, internal coefficients, model parameters, credentials and other material required to reproduce the system.
 
+## Start here
+
+For the technical team, begin with [`00_PROJECT_OVERVIEW.md`](00_PROJECT_OVERVIEW.md). It gives the system-level picture and separates implemented, defined, planned and experimental areas.
+
+Then use [`10_TECHNICAL_REVIEW_GUIDE.md`](10_TECHNICAL_REVIEW_GUIDE.md) for the review sequence and [`11_ACCESS_CONTROL.md`](11_ACCESS_CONTROL.md) for repository-control rules.
+
 ## What is being demonstrated
 
 - End-to-end flight planning and mission lifecycle
