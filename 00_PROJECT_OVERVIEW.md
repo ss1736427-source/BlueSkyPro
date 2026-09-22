@@ -222,7 +222,15 @@ The technical review should concentrate on:
 9. security and access boundaries;
 10. implementation sequencing and technical risks.
 
-## 14. Review entry points
+## 14. Certification readiness
+
+Certification preparation is a major part of the existing project concept, not an afterthought. The project already contains a separate certification workstream covering certification object/scope, certification basis, regulatory applicability, requirements, compliance, verification, evidence and traceability.
+
+For the technical team, read 12_CERTIFICATION_READINESS.md after the system overview. It explains how certification readiness affects backend, frontend, AI, configuration management, safety, insurance/risk and operational readiness.
+
+The detailed working material is maintained in the public knowledge repository and is referenced from that document.
+
+## 15. Review entry points
 
 Start here, then follow only the areas relevant to the specialist's role:
 
@@ -236,5 +244,7 @@ Start here, then follow only the areas relevant to the specialist's role:
 8. [08_DISCLOSURE_BOUNDARY.md](08_DISCLOSURE_BOUNDARY.md)
 9. [09_PROJECT_IP_RECORD.md](09_PROJECT_IP_RECORD.md)
 10. [10_TECHNICAL_REVIEW_GUIDE.md](10_TECHNICAL_REVIEW_GUIDE.md)
+11. [11_ACCESS_CONTROL.md](11_ACCESS_CONTROL.md)
+12. [12_CERTIFICATION_READINESS.md](12_CERTIFICATION_READINESS.md)
 
 The detailed project knowledge base remains a separate public reference repository and should be treated as background material, not as a substitute for the controlled technical review surface.
