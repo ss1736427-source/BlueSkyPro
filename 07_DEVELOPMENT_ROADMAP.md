@@ -99,3 +99,17 @@ After Zone Partition verification, assignment testing should include at least:
 - heterogeneous aircraft route limits → route adapted to assigned UAV;
 - identical inputs/configuration → reproducible route;
 - no valid route for a required zone → multi-UAV plan blocked pending replanning.
+
+### Wind + Performance Engine verification cases
+
+- identical route with headwind/tailwind/crosswind → segment timing responds correctly;
+- spatially varying wind → segment-level calculation rather than one global correction;
+- forecast and observed wind remain separately traceable;
+- payload/equipment change → performance and energy estimates change;
+- battery degradation correction → bounded, versioned and traceable effect;
+- insufficient energy/reserve → plan blocked;
+- performance model outside validity envelope → plan blocked;
+- wind outside configured aircraft envelope → plan blocked;
+- material timing change → previous 4D verification invalidated and rerun;
+- identical inputs/model/configuration → reproducible result;
+- forecast-versus-actual flight data → approved correction candidate with source traceability.
