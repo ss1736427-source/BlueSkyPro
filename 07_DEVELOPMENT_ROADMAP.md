@@ -83,3 +83,19 @@ After Zone Partition verification, assignment testing should include at least:
 - identical inputs/configuration → reproducible assignment;
 - assignment failure → no route generation or release until replanning;
 - complete assignment → verified ZoneAssignmentSet becomes the sole input to Route-in-Zone generation.
+
+### Route-in-Zone Generator verification cases
+
+- route remains inside assigned zone → valid;
+- required launch/recovery transition is explicit and valid;
+- route attempts to enter another UAV zone → generation rejected or regenerated;
+- restricted geometry intersection → route rejected;
+- mandatory waypoint/corridor requirement → satisfied or route rejected;
+- minimum turn radius/maneuverability violation → route rejected;
+- complete sweep coverage → coverage PASS;
+- boundary margin causing uncovered area → explicit uncovered report;
+- unavoidable shared corridor/crossing → explicitly marked for 4D verification;
+- valid alternative route exists → generator avoids unnecessary cross-zone conflict;
+- heterogeneous aircraft route limits → route adapted to assigned UAV;
+- identical inputs/configuration → reproducible route;
+- no valid route for a required zone → multi-UAV plan blocked pending replanning.
