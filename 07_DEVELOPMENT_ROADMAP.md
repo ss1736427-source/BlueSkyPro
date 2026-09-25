@@ -148,7 +148,7 @@ After Zone Partition verification, assignment testing should include at least:
 
 ### Ground Conflict Resolution verification cases
 
-- conflict resolved by delay of 0 s → valid only if separation already passes;
+- 0 s delay candidate → accepted only when the resulting trajectory passes the 4D separation check;
 - conflict resolved by minimum feasible delay within 0–5 s → selected over unnecessary larger delay;
 - no delay within 0–5 s resolves conflict → vertical evaluation only if permitted;
 - vertical correction violates altitude/airspace constraint → rejected;
@@ -214,3 +214,14 @@ RELEASE ELIGIBLE / BLOCKED
 ```
 
 The integration gate must verify dependency invalidation, deterministic replay, complete traceability and blocking behavior at every mandatory gate.
+
+### Cross-stage integration audit cases
+
+- changing any upstream planning object invalidates all dependent PASS results;
+- every correction produces a new versioned planning object;
+- trajectory-affecting correction always triggers fleet-wide 4D re-verification;
+- blocked state prevents downstream route, release or execution progression;
+- environmental/performance update invalidates affected timing and conflict verification;
+- exact source versions are present on every verification result;
+- final technical PASS is the only planning release gate before the separate authorization workflow;
+- end-to-end replay from recorded inputs/configuration produces the same state transitions and results.
