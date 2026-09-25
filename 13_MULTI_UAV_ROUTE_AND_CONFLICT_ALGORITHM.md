@@ -1630,3 +1630,177 @@ RELEASE / BLOCK
 ```
 
 The module does not issue ad hoc in-flight avoidance commands.
+
+## 25. Final Verification Gate — Formal Model
+
+### Objective
+
+The Final Verification Gate is the last planning-stage gate before a multi-UAV mission can proceed to the applicable authorization, operational release or execution workflow. It confirms that the complete planning chain remains internally consistent after all route, performance, trajectory and conflict corrections.
+
+The gate does not create a new route or resolve a new conflict. If a check fails, the mission returns to the appropriate earlier planning stage and is not released.
+
+### 25.1 Inputs
+
+The gate consumes the latest verified versions of:
+- MissionCoverageModel;
+- ConstrainedOpenSpace;
+- ZoneSet;
+- ZoneAssignmentSet;
+- RouteSet;
+- PerformanceAdjustedRouteSet;
+- TrajectorySet;
+- ConflictReport;
+- ConflictResolution records, if any;
+- current UAV configuration/readiness snapshot;
+- applicable environmental data references;
+- applicable authorization and operational constraints;
+- verification and configuration versions.
+
+Only the latest linked versions may be used. A correction that changes an upstream object invalidates dependent downstream verification results.
+
+### 25.2 Verification hierarchy
+
+The gate evaluates the complete dependency chain:
+
+```text
+MISSION
+  ↓
+CONSTRAINTS
+  ↓
+ZONES
+  ↓
+ASSIGNMENTS
+  ↓
+ROUTES
+  ↓
+PERFORMANCE
+  ↓
+TRAJECTORIES
+  ↓
+4D CONFLICTS
+  ↓
+FINAL GATE
+```
+
+### 25.3 Mandatory checks
+
+The final gate verifies at minimum:
+
+```text
+MISSION / COVERAGE              = PASS
+CONSTRAINED OPEN SPACE          = PASS
+ZONE PARTITION                  = PASS
+ZONE OVERLAP / COVERAGE         = PASS
+UAV ↔ ZONE ASSIGNMENT           = PASS
+UAV READINESS / CAPABILITY      = PASS
+ROUTE VALIDITY                  = PASS
+ROUTE-IN-ZONE                   = PASS
+WIND + PERFORMANCE              = PASS
+ENERGY / RESERVE                = PASS
+4D TRAJECTORY                   = PASS
+4D CONFLICT VERIFICATION        = PASS
+UNRESOLVED CONFLICTS            = 0
+TRACEABILITY                    = COMPLETE
+VERSION CONSISTENCY             = PASS
+```
+
+Authorization-specific checks remain linked to the applicable operational workflow and must not be assumed merely because technical planning checks pass.
+
+### 25.4 Dependency invalidation
+
+Any change to an upstream object invalidates dependent results. Examples:
+- zone change → assignment and route verification invalidated;
+- assignment change → route/performance/trajectory/conflict results invalidated;
+- route change → performance/trajectory/conflict results invalidated;
+- performance/timing change → trajectory/conflict results invalidated;
+- temporal or vertical conflict correction → affected trajectory and conflict verification invalidated;
+- UAV configuration/readiness change → capability, performance, energy and potentially trajectory/conflict checks invalidated;
+- material environmental change → performance and downstream temporal/conflict checks invalidated.
+
+The system must never retain a downstream PASS as valid when its source object has changed.
+
+### 25.5 Gate states
+
+```text
+FINAL_CHECK_PENDING
+        ↓
+FINAL_CHECK_RUNNING
+        ↓
+FINAL_CHECK_PASS
+        └─→ RELEASE_ELIGIBLE
+
+or
+
+FINAL_CHECK_FAIL
+        ↓
+BLOCKED / RETURN TO REQUIRED STAGE
+```
+
+`RELEASE_ELIGIBLE` means that the technical planning package passed this gate. It does not itself constitute regulatory authorization or permission to fly.
+
+### 25.6 Failure handling
+
+A failed check must produce a structured failure record containing:
+- check_id;
+- object/version checked;
+- expected condition;
+- observed result;
+- failure classification;
+- source data references;
+- required return stage;
+- timestamp.
+
+The system should return the mission to the earliest appropriate stage capable of correcting the failure rather than restarting the entire planning process unnecessarily.
+
+### 25.7 Final verification result
+
+The gate produces a `FinalCheckResult` containing:
+- final_check_id;
+- planning_run_id;
+- linked object/version set;
+- individual check results;
+- warnings;
+- blocking failures;
+- traceability/evidence references;
+- final state;
+- algorithm/configuration versions;
+- timestamp.
+
+### 25.8 Determinism and replay
+
+For identical linked inputs, configuration, environmental references and algorithm versions, the final verification result should be reproducible.
+
+The complete evidence package must permit reconstruction of why the mission passed or failed without relying on hidden state.
+
+### 25.9 Assurance boundary
+
+The Final Verification Gate is a technical planning gate. It separates planning completion from subsequent authorization and operational execution processes.
+
+```text
+FINAL_CHECK_PASS
+       ↓
+RELEASE_ELIGIBLE
+       ↓
+AUTHORIZATION / OPERATIONAL WORKFLOW
+       ↓
+EXECUTION
+```
+
+A failed final check cannot be bypassed by the UI.
+
+### 25.10 Relationship to audit and certification
+
+The gate produces a machine-readable and human-reviewable evidence package suitable for engineering verification, operational review and future certification work.
+
+At minimum, the evidence package should preserve:
+- mission and planning versions;
+- UAV configuration/readiness snapshot;
+- zone and assignment evidence;
+- route and performance calculations;
+- trajectory and conflict reports;
+- applied corrections;
+- final check results;
+- configuration/model versions;
+- timestamps and planning-run identifiers.
+
+This makes the planning decision traceable from mission objective through final technical release eligibility.
