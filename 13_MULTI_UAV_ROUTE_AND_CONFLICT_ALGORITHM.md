@@ -1163,3 +1163,237 @@ VERIFIED TRAJECTORYSET
 ```
 
 This establishes one authoritative temporal representation for subsequent fleet conflict analysis.
+
+## 23. 4D Conflict Verification Engine — Formal Model
+
+### Objective
+
+The 4D Conflict Verification Engine determines whether any pair of UAV trajectories violates the configured operational separation criteria in space and time. It is a verification component, not an autonomous collision-avoidance controller.
+
+A 2D geometric crossing is not by itself a conflict. A conflict exists only when the trajectories occupy an insufficiently separated operational volume during overlapping time intervals according to the applicable separation model.
+
+### 23.1 Inputs
+
+- verified TrajectorySet;
+- horizontal separation criteria;
+- vertical separation criteria;
+- temporal overlap criteria;
+- operational-volume definitions;
+- altitude restrictions;
+- configurable safety/assurance margins;
+- launch/recovery shared-volume definitions;
+- mission-specific separation constraints;
+- conflict algorithm/configuration version.
+
+### 23.2 Verification principle
+
+For each relevant UAV pair, determine whether their trajectory segments can simultaneously occupy an insufficiently separated spatial volume.
+
+Conceptually:
+
+```text
+SPATIAL PROXIMITY
+       +
+TEMPORAL OVERLAP
+       +
+VERTICAL SEPARATION CHECK
+       ↓
+CONFLICT STATE
+```
+
+A spatial intersection with non-overlapping occupancy times may therefore be `NO_CONFLICT`.
+
+### 23.3 Pair selection
+
+The engine should first identify candidate trajectory pairs using spatial/temporal bounding information to avoid unnecessary all-to-all detailed calculations. The optimization must not change the verification result.
+
+Every relevant pair must remain auditable, including the reason a pair was excluded from detailed verification when exclusion is mathematically proven safe by the configured broad-phase method.
+
+### 23.4 Segment-level verification
+
+For candidate trajectory segments, evaluate:
+- closest horizontal separation during temporal overlap;
+- vertical separation during temporal overlap;
+- duration of insufficient separation;
+- location/operational volume of the event;
+- trajectory states involved;
+- uncertainty/margin values;
+- applicable separation criteria.
+
+Where the trajectory representation is sampled, the configured resolution and interpolation method must be sufficient to detect a potential minimum-separation event. Sampling must not be treated as proof of safety if the configured verification model requires continuous-segment evaluation.
+
+### 23.5 Conflict classification
+
+Each detected event should be classified at minimum as:
+
+```text
+NO_CONFLICT
+WARNING
+CONFLICT
+UNRESOLVED
+```
+
+The distinction between WARNING and CONFLICT is configuration-driven and traceable to the applicable separation margins. `UNRESOLVED` is used when verification cannot establish the required state with sufficient evidence.
+
+### 23.6 Conflict record
+
+Each conflict record contains at minimum:
+- conflict_id;
+- UAV_A_ID and UAV_B_ID;
+- trajectory IDs and versions;
+- route/zone references;
+- segment references;
+- conflict location/volume;
+- start/end time of overlap;
+- minimum horizontal separation;
+- minimum vertical separation;
+- required separation values;
+- separation deficit;
+- uncertainty/margin values;
+- conflict classification;
+- source planning/verification run;
+- evidence references.
+
+### 23.7 Fleet-level verification
+
+The engine verifies all relevant UAV pairs and shared operational volumes, including common launch/recovery areas where applicable.
+
+The result is a fleet-level `ConflictReport` containing:
+- verified trajectory set/version;
+- number of evaluated pairs;
+- candidate-pair count;
+- conflict/warning/unresolved counts;
+- detailed conflict records;
+- verification configuration/version;
+- evidence references;
+- overall gate result.
+
+### 23.8 Verification gate
+
+The default release gate is:
+
+```text
+CONFLICTS = 0
+UNRESOLVED = 0
+REQUIRED EVIDENCE = COMPLETE
+        ↓
+CONFLICT_VERIFICATION_PASS
+```
+
+If a conflict exists and is eligible for Stage I Ground Conflict Resolution, the state becomes:
+
+```text
+RESOLUTION_REQUIRED
+```
+
+If verification is inconclusive, the state is `UNRESOLVED` and release is blocked until sufficient evidence or replanning exists.
+
+### 23.9 Relationship to 0–5 second temporal correction
+
+The conflict engine does not itself apply the temporal correction. It reports the conflict and the feasible correction range required by the next planning stage.
+
+For a temporal correction, the verification layer should expose whether a delay within the configured **0–5 s** range can restore the required separation. The correction engine then applies the selected delay and generates a new trajectory for re-verification.
+
+```text
+CONFLICT
+   ↓
+FEASIBLE DELAY WINDOW
+   ↓
+GROUND CONFLICT RESOLUTION
+   ↓
+NEW TRAJECTORY
+   ↓
+4D RE-VERIFY
+```
+
+### 23.10 Vertical separation
+
+Vertical separation is evaluated as part of the same 4D event, not as an independent 2D route rule.
+
+A vertical correction is eligible only when the mission, aircraft, altitude constraints, restricted airspace and applicable operational rules permit it. The correction engine must record the before/after altitude profile and re-run full verification.
+
+### 23.11 Shared operational volumes
+
+Some locations may be intentionally shared, such as defined launch/recovery areas or explicitly authorized transition corridors.
+
+For each shared volume, the model should define:
+- geometry/volume;
+- allowed UAV states;
+- allowed occupancy times or sequencing rules;
+- required separation;
+- responsible planning rule.
+
+Shared-volume conflicts are verified using the same authoritative trajectory representation.
+
+### 23.12 Verification uncertainty
+
+The engine must distinguish nominal separation from separation including configured uncertainty margins.
+
+If uncertainty prevents establishing compliance, the event is `UNRESOLVED` rather than being assumed safe.
+
+The uncertainty model and margin configuration are versioned with the verification run.
+
+### 23.13 Determinism and traceability
+
+For identical TrajectorySet, separation model, configuration and algorithm version, the verification result should be reproducible.
+
+Each verification run records:
+- planning_run_id;
+- conflict_verification_run/version;
+- trajectory set/version;
+- separation criteria version;
+- uncertainty/margin configuration;
+- candidate-pair method/version;
+- detailed result;
+- evidence references;
+- timestamp.
+
+### 23.14 State transitions
+
+```text
+TRAJECTORY_VALID
+       ↓
+CONFLICT_ANALYZING
+       ↓
+CONFLICT_VERIFICATION
+   ├─ PASS
+   ├─ RESOLUTION_REQUIRED
+   └─ UNRESOLVED → BLOCKED
+```
+
+After an approved correction:
+
+```text
+RESOLUTION_REQUIRED
+       ↓
+CORRECTION_APPLIED
+       ↓
+NEW TRAJECTORY
+       ↓
+CONFLICT_VERIFICATION
+```
+
+A previous PASS is invalidated whenever a trajectory-affecting correction changes the verified trajectory.
+
+### 23.15 Output
+
+`ConflictReport` is the authoritative output and contains the fleet-level gate result plus all required evidence and conflict records.
+
+Only `CONFLICT_VERIFICATION_PASS` or an explicitly eligible `RESOLUTION_REQUIRED` state may proceed to Ground Conflict Resolution. `UNRESOLVED` blocks release.
+
+### 23.16 Boundary with Ground Conflict Resolution
+
+The separation is explicit:
+
+```text
+4D CONFLICT ENGINE
+= detects + classifies + evidences
+
+GROUND CONFLICT RESOLUTION
+= selects + applies bounded correction
+
+4D CONFLICT ENGINE
+= verifies corrected trajectory again
+```
+
+This prevents the verification engine from becoming an uncontrolled maneuver generator and preserves a clear assurance boundary.
