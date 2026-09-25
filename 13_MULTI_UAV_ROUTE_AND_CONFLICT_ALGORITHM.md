@@ -1880,3 +1880,115 @@ The end-to-end implementation is consistent only if:
 - every dependent PASS can be traced to immutable source versions;
 - fleet-wide conflict verification is repeated after trajectory-affecting corrections;
 - Final Verification is the only technical release gate before authorization/operational workflow.
+
+## 27. End-to-End Multi-UAV Test Matrix
+
+### Purpose
+
+This matrix defines the minimum verification set for the complete zone-based multi-UAV planning chain. It is intended to drive implementation tests, integration tests, regression tests and future assurance evidence.
+
+### 27.1 Test categories
+
+| ID | Category | Objective |
+|---|---|---|
+| E2E-001 | Baseline | Complete valid mission reaches RELEASE_ELIGIBLE |
+| E2E-002 | Partition | Invalid restricted geometry blocks partition |
+| E2E-003 | Partition | Non-overlapping zones provide valid spatial separation |
+| E2E-004 | Partition | Incomplete coverage is explicitly reported |
+| E2E-005 | Assignment | Heterogeneous fleet receives capability-aware assignment |
+| E2E-006 | Assignment | Insufficient feasible UAVs produces ASSIGNMENT_FAILED |
+| E2E-007 | Route | Route remains inside assigned zone |
+| E2E-008 | Route | Unavoidable shared corridor is explicitly marked |
+| E2E-009 | Performance | Headwind/tailwind changes timing and energy |
+| E2E-010 | Performance | Insufficient reserve blocks release |
+| E2E-011 | Trajectory | Segment timing produces monotonic 4D trajectory |
+| E2E-012 | Trajectory | Launch/recovery occupancy is represented |
+| E2E-013 | Conflict | 2D crossing with sufficient 4D separation = NO_CONFLICT |
+| E2E-014 | Conflict | Insufficient 4D separation = CONFLICT |
+| E2E-015 | Conflict | Uncertainty prevents proof = UNRESOLVED |
+| E2E-016 | Resolution | Minimum feasible delay ≤5 s resolves conflict |
+| E2E-017 | Resolution | No feasible delay, permitted vertical correction resolves conflict |
+| E2E-018 | Resolution | Correction creates secondary conflict and is rejected |
+| E2E-019 | Resolution | No permitted correction = BLOCKED |
+| E2E-020 | Invalidation | Route change invalidates downstream PASS results |
+| E2E-021 | Invalidation | Performance change invalidates trajectory/conflict results |
+| E2E-022 | Invalidation | UAV readiness/configuration change invalidates affected checks |
+| E2E-023 | Reproducibility | Identical inputs produce identical planning state/results |
+| E2E-024 | Traceability | Every result links to exact source versions |
+| E2E-025 | Final Gate | Complete evidence package produces FINAL_CHECK_PASS |
+| E2E-026 | Final Gate | Version mismatch produces FINAL_CHECK_FAIL |
+| E2E-027 | Authorization Boundary | Technical PASS does not bypass authorization workflow |
+| E2E-028 | Regression | Previously verified mission remains reproducible after code changes when algorithm/configuration versions are unchanged |
+
+### 27.2 Mandatory scenario: baseline
+
+A baseline mission must exercise the complete chain:
+
+```text
+MISSION
+ → CONSTRAINED SPACE
+ → ZONE PARTITION
+ → ZONE VERIFICATION
+ → UAV ASSIGNMENT
+ → ASSIGNMENT VERIFICATION
+ → ROUTE-IN-ZONE
+ → ROUTE VERIFICATION
+ → WIND + PERFORMANCE
+ → 4D TRAJECTORY
+ → 4D CONFLICT VERIFY
+ → [GROUND RESOLUTION if required]
+ → 4D RE-VERIFY
+ → FINAL CHECK
+ → RELEASE_ELIGIBLE
+```
+
+The baseline evidence must retain every intermediate object/version.
+
+### 27.3 Negative-path testing
+
+Every mandatory gate must have at least one deliberate failure test. A failure must stop downstream progression and identify the earliest appropriate return stage.
+
+Minimum negative paths:
+- invalid mission geometry;
+- unusable constrained space;
+- invalid/overlapping partition;
+- assignment failure;
+- invalid route;
+- insufficient energy/reserve;
+- invalid trajectory;
+- unresolved conflict;
+- prohibited vertical correction;
+- failed final verification;
+- version inconsistency.
+
+### 27.4 Correction and replay testing
+
+For every correction-producing stage:
+1. record original object version;
+2. apply one explicit correction;
+3. create a new object version;
+4. invalidate dependent results;
+5. regenerate dependent objects;
+6. re-run required verification;
+7. compare the recorded result with the expected deterministic outcome.
+
+### 27.5 Evidence requirements
+
+Each test execution should retain at minimum:
+- test_id;
+- mission/planning input version;
+- software/algorithm version;
+- configuration version;
+- environmental dataset reference;
+- UAV configuration snapshot;
+- input object versions;
+- output object versions;
+- gate results;
+- warnings/failures;
+- traceability references;
+- timestamp;
+- reproducibility/replay result.
+
+### 27.6 Acceptance principle
+
+A multi-UAV planning implementation is not considered technically complete merely because a route can be generated. It must demonstrate correct state transitions, constraint enforcement, conflict verification, bounded correction, dependency invalidation, deterministic replay and complete evidence generation across the full chain.
