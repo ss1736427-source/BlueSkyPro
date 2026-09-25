@@ -66,3 +66,20 @@ The implementation should include at least:
 - conflict remaining after allowed corrections → plan blocked;
 - wind/performance timing change introducing a conflict → re-verification required;
 - repeated planning run with identical inputs/configuration → reproducibility check.
+
+### UAV ↔ Zone Assignment Engine verification cases
+
+After Zone Partition verification, assignment testing should include at least:
+- one feasible UAV per zone → complete assignment;
+- more UAVs than zones → valid reserve/unassigned aircraft;
+- fewer feasible UAVs than zones → explicit unassigned zones and assignment failure;
+- incompatible payload/capability → candidate rejected;
+- insufficient endurance/reserve → candidate rejected;
+- unavailable or non-ready UAV → candidate rejected;
+- launch/recovery infeasibility → candidate rejected;
+- missing/invalid C2 condition → candidate rejected;
+- authorization or mission restriction → candidate rejected;
+- heterogeneous fleet → capability-aware assignment rather than equal-area assignment;
+- identical inputs/configuration → reproducible assignment;
+- assignment failure → no route generation or release until replanning;
+- complete assignment → verified ZoneAssignmentSet becomes the sole input to Route-in-Zone generation.
