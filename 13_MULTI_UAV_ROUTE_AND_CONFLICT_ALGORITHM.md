@@ -1397,3 +1397,236 @@ GROUND CONFLICT RESOLUTION
 ```
 
 This prevents the verification engine from becoming an uncontrolled maneuver generator and preserves a clear assurance boundary.
+
+## 24. Ground Conflict Resolution Engine — Formal Model
+
+### Objective
+
+The Ground Conflict Resolution Engine applies bounded, pre-execution corrections to a verified conflict. Its purpose is to resolve an identified 4D conflict without replacing the spatial planning logic or introducing an uncontrolled in-flight maneuver.
+
+The engine is subordinate to zone-based prevention and route generation. It is a fallback planning mechanism, not a substitute for correct partitioning.
+
+### 24.1 Inputs
+
+- ConflictReport;
+- affected Trajectory4D objects;
+- source RouteSet and ZoneAssignmentSet;
+- temporal correction range: 0–5 s;
+- permitted vertical correction envelope;
+- altitude and airspace constraints;
+- UAV performance limits;
+- mission timing constraints;
+- separation criteria;
+- energy/reserve constraints;
+- resolution objective/configuration;
+- resolution algorithm version.
+
+### 24.2 Resolution hierarchy
+
+The engine applies corrections in the following order:
+
+```text
+1. Verify whether spatial/route regeneration can remove the conflict
+2. Temporal correction: delay 0–5 s
+3. Permitted vertical correction
+4. Re-verify complete 4D trajectory
+5. If unresolved → BLOCKED
+```
+
+Spatial correction remains preferable to temporal/vertical correction. If a route can be regenerated inside its zone without materially compromising the mission, regeneration should be selected before applying a conflict delay or altitude change.
+
+### 24.3 Temporal correction
+
+The temporal correction is an explicit planned delay applied to the affected operation or trajectory event.
+
+Allowed range:
+
+```text
+0 s ≤ delay ≤ 5 s
+```
+
+The engine should evaluate the feasible delay window rather than arbitrarily selecting the maximum delay.
+
+The selected delay should minimize operational impact while restoring required separation and preserving downstream constraints.
+
+A delay is valid only if, after application:
+- all required separation criteria pass;
+- mission timing constraints remain valid;
+- energy/reserve remains valid;
+- launch/recovery sequencing remains valid;
+- no new fleet conflict is introduced.
+
+### 24.4 Temporal candidate evaluation
+
+For a conflict involving UAV A and UAV B, evaluate candidate delays within the configured resolution of the 0–5 s interval.
+
+Conceptually:
+
+```text
+D = {d | 0 ≤ d ≤ 5 s}
+```
+
+For each candidate `d`, regenerate the affected trajectory timing and run the relevant constraint and 4D verification checks.
+
+The engine retains the feasible candidate set and selected candidate as evidence.
+
+The actual implementation may use analytical interval solving, adaptive search or another deterministic method, provided the complete configured delay range is adequately evaluated.
+
+### 24.5 Vertical correction
+
+Vertical correction is considered only when temporal correction cannot resolve the conflict within 0–5 s or when the configured planning policy explicitly allows vertical evaluation.
+
+A vertical correction is valid only when all of the following pass:
+- permitted altitude envelope;
+- restricted-airspace and operational constraints;
+- aircraft performance capability;
+- mission altitude requirements;
+- required vertical and horizontal separation;
+- climb/descent timing and energy;
+- no new conflict with another UAV;
+- applicable operational/authorization constraints.
+
+The correction must be represented as an explicit altitude-profile change and must create a new trajectory version.
+
+### 24.6 Candidate scoring
+
+Among feasible corrections, the engine may use a deterministic configurable objective based on:
+- smallest temporal deviation;
+- smallest vertical deviation;
+- energy impact;
+- mission timing impact;
+- reserve margin;
+- number of affected trajectory segments;
+- preservation of zone/route structure;
+- avoidance of secondary conflicts.
+
+Hard constraints always take precedence over scoring objectives.
+
+The selected correction and rejected feasible alternatives must remain traceable.
+
+### 24.7 Multi-conflict resolution
+
+When several conflicts exist, the engine must not resolve them independently without rechecking fleet-wide effects.
+
+Recommended sequence:
+
+```text
+CONFLICT REPORT
+      ↓
+ORDER CONFLICTS DETERMINISTICALLY
+      ↓
+SELECT CANDIDATE CORRECTION
+      ↓
+APPLY CORRECTION
+      ↓
+REGENERATE AFFECTED TRAJECTORY
+      ↓
+FLEET-WIDE 4D RE-VERIFY
+      ↓
+MORE CONFLICTS?
+  ├─ YES → repeat
+  └─ NO  → FINAL CHECK
+```
+
+Conflict ordering must be deterministic and based on configured criteria such as earliest event time, severity/separation deficit and stable conflict identifier. The configuration/version must be recorded.
+
+### 24.8 Resolution states
+
+```text
+RESOLUTION_REQUIRED
+        ↓
+CANDIDATE_GENERATION
+        ↓
+CANDIDATE_VERIFICATION
+   ├─ NO_FEASIBLE_CANDIDATE → UNRESOLVED
+   └─ FEASIBLE_CANDIDATE
+             ↓
+      CORRECTION_APPLIED
+             ↓
+       FLEET RE-VERIFY
+        ├─ RESOLVED
+        └─ UNRESOLVED
+```
+
+### 24.9 No hidden corrections
+
+The engine must never silently modify:
+- route geometry;
+- altitude;
+- speed;
+- launch time;
+- UAV assignment;
+- mission constraints.
+
+Every modification is an explicit `ConflictResolution` object with before/after values, reason, source conflict and verification result.
+
+### 24.10 Failure handling
+
+If no permitted correction resolves the conflict, return `UNRESOLVED` and block release.
+
+Typical failure reasons:
+- no feasible delay within 0–5 s;
+- delay creates another conflict;
+- vertical correction prohibited;
+- insufficient altitude margin;
+- aircraft performance limitation;
+- energy/reserve violation;
+- mission timing violation;
+- authorization/airspace restriction;
+- secondary conflict introduced;
+- fleet-wide verification remains failed.
+
+### 24.11 Output
+
+Each `ConflictResolution` contains at minimum:
+- resolution_id;
+- source conflict_id;
+- affected UAV_ID(s);
+- correction type;
+- before/after trajectory reference;
+- delay value if temporal;
+- altitude change/profile reference if vertical;
+- constraints checked;
+- candidate alternatives/evidence;
+- selected-candidate rationale metadata;
+- verification result;
+- resolution algorithm/configuration version;
+- timestamp.
+
+The engine outputs either `RESOLVED` with a newly verified TrajectorySet or `UNRESOLVED` with structured blocking evidence.
+
+### 24.12 Traceability and replay
+
+Each resolution run records:
+- planning_run_id;
+- conflict verification run/version;
+- source TrajectorySet version;
+- source ConflictReport version;
+- resolution configuration/version;
+- candidate set or immutable evidence reference;
+- applied correction;
+- post-correction verification result;
+- final state;
+- timestamp.
+
+A resolution must be reproducible from the recorded inputs and configuration.
+
+### 24.13 Assurance boundary
+
+Ground Conflict Resolution ends before execution release. It produces a corrected plan that must pass the complete Final Verification Gate.
+
+```text
+4D CONFLICT VERIFY
+       ↓
+GROUND CONFLICT RESOLUTION
+       ↓
+NEW TRAJECTORY
+       ↓
+4D RE-VERIFY
+       ↓
+FINAL CHECK
+       ↓
+RELEASE / BLOCK
+```
+
+The module does not issue ad hoc in-flight avoidance commands.
