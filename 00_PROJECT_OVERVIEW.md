@@ -246,5 +246,7 @@ Start here, then follow only the areas relevant to the specialist's role:
 10. [10_TECHNICAL_REVIEW_GUIDE.md](10_TECHNICAL_REVIEW_GUIDE.md)
 11. [11_ACCESS_CONTROL.md](11_ACCESS_CONTROL.md)
 12. [12_CERTIFICATION_READINESS.md](12_CERTIFICATION_READINESS.md)
+13. [13_MULTI_UAV_ROUTE_AND_CONFLICT_ALGORITHM.md](13_MULTI_UAV_ROUTE_AND_CONFLICT_ALGORITHM.md) — authoritative zone-based multi-UAV route generation and 4D conflict-resolution sequence.
+
 
 The detailed project knowledge base remains a separate public reference repository and should be treated as background material, not as a substitute for the controlled technical review surface.
