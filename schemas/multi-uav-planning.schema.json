@@ -1,0 +1,1443 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bluesky://schemas/multi-uav-planning/v1",
+  "title": "BlueSky PRO Multi-UAV Planning Contracts",
+  "description": "Canonical machine-readable contracts for constrained-space partitioning, assignment, routing, performance adjustment, 4D trajectories, conflict verification, conflict resolution and final technical verification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "missionId",
+    "artifacts"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "missionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "constrainedOpenSpace": {
+          "$ref": "#/$defs/ConstrainedOpenSpace"
+        },
+        "zoneSet": {
+          "$ref": "#/$defs/ZoneSet"
+        },
+        "zoneAssignmentSet": {
+          "$ref": "#/$defs/ZoneAssignmentSet"
+        },
+        "routeSet": {
+          "$ref": "#/$defs/RouteSet"
+        },
+        "performanceAdjustedRouteSet": {
+          "$ref": "#/$defs/PerformanceAdjustedRouteSet"
+        },
+        "trajectorySet": {
+          "$ref": "#/$defs/TrajectorySet"
+        },
+        "conflictReport": {
+          "$ref": "#/$defs/ConflictReport"
+        },
+        "conflictResolution": {
+          "$ref": "#/$defs/ConflictResolution"
+        },
+        "finalCheckResult": {
+          "$ref": "#/$defs/FinalCheckResult"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "ArtifactHeader": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "version",
+        "missionId",
+        "status",
+        "sourceRefs",
+        "algorithmVersion",
+        "configVersion",
+        "traceability"
+      ],
+      "properties": {
+        "artifactId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "missionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parentArtifactId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "algorithmVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "configVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "traceability": {
+          "$ref": "#/$defs/Traceability"
+        }
+      }
+    },
+    "Traceability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputVersions",
+        "evidenceRefs"
+      ],
+      "properties": {
+        "inputVersions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "invalidatedBy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "replayKey": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "Point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lat",
+        "lon"
+      ],
+      "properties": {
+        "lat": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "lon": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "alt": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "Polygon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "coordinates"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "Polygon",
+            "MultiPolygon"
+          ]
+        },
+        "coordinates": {
+          "type": "array",
+          "minItems": 1
+        }
+      }
+    },
+    "GeometryRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "geometry"
+      ],
+      "properties": {
+        "geometry": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Polygon"
+            },
+            {
+              "$ref": "#/$defs/Point"
+            }
+          ]
+        },
+        "coordinateReferenceSystem": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "verticalReference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ConstraintResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "constraintId",
+        "result"
+      ],
+      "properties": {
+        "constraintId": {
+          "type": "string"
+        },
+        "result": {
+          "type": "string",
+          "enum": [
+            "PASS",
+            "FAIL",
+            "WARNING",
+            "NOT_EVALUATED"
+          ]
+        },
+        "evidenceRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "detail": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ConstrainedOpenSpace": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/ArtifactHeader"
+        }
+      ],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "version",
+        "missionId",
+        "status",
+        "sourceRefs",
+        "algorithmVersion",
+        "configVersion",
+        "traceability",
+        "operationalGeometry",
+        "excludedGeometry",
+        "verification"
+      ],
+      "properties": {
+        "artifactId": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "missionId": {
+          "type": "string"
+        },
+        "parentArtifactId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "algorithmVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        },
+        "traceability": {
+          "$ref": "#/$defs/Traceability"
+        },
+        "operationalGeometry": {
+          "$ref": "#/$defs/GeometryRef"
+        },
+        "excludedGeometry": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GeometryRef"
+          }
+        },
+        "verification": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConstraintResult"
+          }
+        }
+      }
+    },
+    "Zone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "zoneId",
+        "geometry",
+        "assignmentCandidates",
+        "verification"
+      ],
+      "properties": {
+        "zoneId": {
+          "type": "string"
+        },
+        "geometry": {
+          "$ref": "#/$defs/GeometryRef"
+        },
+        "assignmentCandidates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "estimatedWorkload": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "estimatedRouteLengthM": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "estimatedTimeS": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "estimatedEnergyWh": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "verification": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConstraintResult"
+          }
+        }
+      }
+    },
+    "ZoneSet": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/ArtifactHeader"
+        }
+      ],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "version",
+        "missionId",
+        "status",
+        "sourceRefs",
+        "algorithmVersion",
+        "configVersion",
+        "traceability",
+        "zones",
+        "coverageStatus",
+        "verification"
+      ],
+      "properties": {
+        "artifactId": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "missionId": {
+          "type": "string"
+        },
+        "parentArtifactId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "algorithmVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        },
+        "traceability": {
+          "$ref": "#/$defs/Traceability"
+        },
+        "zones": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Zone"
+          }
+        },
+        "coverageStatus": {
+          "type": "string",
+          "enum": [
+            "COMPLETE",
+            "EXPLICITLY_UNAVAILABLE"
+          ]
+        },
+        "verification": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConstraintResult"
+          }
+        }
+      }
+    },
+    "ZoneAssignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "zoneId",
+        "uavId",
+        "feasibility",
+        "verification"
+      ],
+      "properties": {
+        "zoneId": {
+          "type": "string"
+        },
+        "uavId": {
+          "type": "string"
+        },
+        "feasibility": {
+          "type": "string",
+          "enum": [
+            "FEASIBLE",
+            "INFEASIBLE"
+          ]
+        },
+        "capabilityMargin": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "energyMargin": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "timeMargin": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "windMargin": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "launchRecoveryMargin": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "authorizationStatus": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "c2Status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "score": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "verification": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConstraintResult"
+          }
+        }
+      }
+    },
+    "ZoneAssignmentSet": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/ArtifactHeader"
+        }
+      ],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "version",
+        "missionId",
+        "status",
+        "sourceRefs",
+        "algorithmVersion",
+        "configVersion",
+        "traceability",
+        "assignments",
+        "verification"
+      ],
+      "properties": {
+        "artifactId": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "missionId": {
+          "type": "string"
+        },
+        "parentArtifactId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "algorithmVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        },
+        "traceability": {
+          "$ref": "#/$defs/Traceability"
+        },
+        "assignments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ZoneAssignment"
+          }
+        },
+        "verification": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConstraintResult"
+          }
+        }
+      }
+    },
+    "RouteSegment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "segmentId",
+        "zoneId",
+        "uavId",
+        "geometry"
+      ],
+      "properties": {
+        "segmentId": {
+          "type": "string"
+        },
+        "zoneId": {
+          "type": "string"
+        },
+        "uavId": {
+          "type": "string"
+        },
+        "geometry": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "altitudeM": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "speedMps": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mandatory": {
+          "type": "boolean"
+        }
+      }
+    },
+    "RouteSet": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/ArtifactHeader"
+        }
+      ],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "version",
+        "missionId",
+        "status",
+        "sourceRefs",
+        "algorithmVersion",
+        "configVersion",
+        "traceability",
+        "routes",
+        "verification"
+      ],
+      "properties": {
+        "artifactId": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "missionId": {
+          "type": "string"
+        },
+        "parentArtifactId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "algorithmVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        },
+        "traceability": {
+          "$ref": "#/$defs/Traceability"
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RouteSegment"
+          }
+        },
+        "verification": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConstraintResult"
+          }
+        }
+      }
+    },
+    "PerformanceSegment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "segmentId",
+        "distanceM",
+        "groundSpeedMps",
+        "timeS",
+        "energyWh"
+      ],
+      "properties": {
+        "segmentId": {
+          "type": "string"
+        },
+        "distanceM": {
+          "type": "number",
+          "minimum": 0
+        },
+        "groundSpeedMps": {
+          "type": "number",
+          "minimum": 0
+        },
+        "timeS": {
+          "type": "number",
+          "minimum": 0
+        },
+        "energyWh": {
+          "type": "number",
+          "minimum": 0
+        },
+        "wind": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "cumulativeTimeS": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cumulativeEnergyWh": {
+          "type": "number",
+          "minimum": 0
+        },
+        "reserveWh": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "PerformanceAdjustedRouteSet": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/ArtifactHeader"
+        }
+      ],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "version",
+        "missionId",
+        "status",
+        "sourceRefs",
+        "algorithmVersion",
+        "configVersion",
+        "traceability",
+        "segments",
+        "verification"
+      ],
+      "properties": {
+        "artifactId": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "missionId": {
+          "type": "string"
+        },
+        "parentArtifactId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "algorithmVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        },
+        "traceability": {
+          "$ref": "#/$defs/Traceability"
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PerformanceSegment"
+          }
+        },
+        "verification": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConstraintResult"
+          }
+        }
+      }
+    },
+    "TrajectoryPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lat",
+        "lon",
+        "alt",
+        "t",
+        "state",
+        "uavId"
+      ],
+      "properties": {
+        "lat": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "lon": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "alt": {
+          "type": "number"
+        },
+        "t": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "state": {
+          "type": "string"
+        },
+        "uavId": {
+          "type": "string"
+        }
+      }
+    },
+    "TrajectorySet": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/ArtifactHeader"
+        }
+      ],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "version",
+        "missionId",
+        "status",
+        "sourceRefs",
+        "algorithmVersion",
+        "configVersion",
+        "traceability",
+        "trajectories",
+        "verification"
+      ],
+      "properties": {
+        "artifactId": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "missionId": {
+          "type": "string"
+        },
+        "parentArtifactId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "algorithmVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        },
+        "traceability": {
+          "$ref": "#/$defs/Traceability"
+        },
+        "trajectories": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/TrajectoryPoint"
+            }
+          }
+        },
+        "verification": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConstraintResult"
+          }
+        }
+      }
+    },
+    "Conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conflictId",
+        "uavPair",
+        "classification",
+        "timeWindow",
+        "requiredHorizontalSeparationM",
+        "requiredVerticalSeparationM"
+      ],
+      "properties": {
+        "conflictId": {
+          "type": "string"
+        },
+        "uavPair": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "string"
+          }
+        },
+        "trajectoryRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "routeRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "zoneRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "segmentRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "location": {
+          "$ref": "#/$defs/Point"
+        },
+        "timeWindow": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start",
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "end": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "minHorizontalSeparationM": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "minVerticalSeparationM": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "requiredHorizontalSeparationM": {
+          "type": "number",
+          "minimum": 0
+        },
+        "requiredVerticalSeparationM": {
+          "type": "number",
+          "minimum": 0
+        },
+        "classification": {
+          "type": "string",
+          "enum": [
+            "NO_CONFLICT",
+            "WARNING",
+            "CONFLICT",
+            "UNRESOLVED"
+          ]
+        },
+        "uncertainty": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ConflictReport": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/ArtifactHeader"
+        }
+      ],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "version",
+        "missionId",
+        "status",
+        "sourceRefs",
+        "algorithmVersion",
+        "configVersion",
+        "traceability",
+        "conflicts",
+        "summary",
+        "verification"
+      ],
+      "properties": {
+        "artifactId": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "missionId": {
+          "type": "string"
+        },
+        "parentArtifactId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "algorithmVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        },
+        "traceability": {
+          "$ref": "#/$defs/Traceability"
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Conflict"
+          }
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "conflictCount",
+            "unresolvedCount"
+          ],
+          "properties": {
+            "conflictCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unresolvedCount": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "verification": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConstraintResult"
+          }
+        }
+      }
+    },
+    "ConflictResolution": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/ArtifactHeader"
+        }
+      ],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "version",
+        "missionId",
+        "status",
+        "sourceRefs",
+        "algorithmVersion",
+        "configVersion",
+        "traceability",
+        "conflictId",
+        "method",
+        "before",
+        "after",
+        "verification"
+      ],
+      "properties": {
+        "artifactId": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "missionId": {
+          "type": "string"
+        },
+        "parentArtifactId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "algorithmVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        },
+        "traceability": {
+          "$ref": "#/$defs/Traceability"
+        },
+        "conflictId": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "SPATIAL_REGENERATION",
+            "TEMPORAL_DELAY",
+            "VERTICAL_CORRECTION"
+          ]
+        },
+        "delayS": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 5
+        },
+        "verticalCorrectionM": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "before": {
+          "type": "object"
+        },
+        "after": {
+          "type": "object"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "verification": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConstraintResult"
+          }
+        },
+        "reverifiedTrajectorySetId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reverifiedConflictReportId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "FinalCheckResult": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/ArtifactHeader"
+        }
+      ],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "version",
+        "missionId",
+        "status",
+        "sourceRefs",
+        "algorithmVersion",
+        "configVersion",
+        "traceability",
+        "checks",
+        "releaseStatus"
+      ],
+      "properties": {
+        "artifactId": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "missionId": {
+          "type": "string"
+        },
+        "parentArtifactId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "algorithmVersion": {
+          "type": "string"
+        },
+        "configVersion": {
+          "type": "string"
+        },
+        "traceability": {
+          "$ref": "#/$defs/Traceability"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConstraintResult"
+          }
+        },
+        "releaseStatus": {
+          "type": "string",
+          "enum": [
+            "FINAL_CHECK_PENDING",
+            "FINAL_CHECK_PASS",
+            "FINAL_CHECK_FAIL",
+            "RELEASE_ELIGIBLE",
+            "BLOCKED"
+          ]
+        },
+        "authorizationStatus": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}
