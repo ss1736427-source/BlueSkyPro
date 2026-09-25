@@ -113,3 +113,18 @@ After Zone Partition verification, assignment testing should include at least:
 - material timing change → previous 4D verification invalidated and rerun;
 - identical inputs/model/configuration → reproducible result;
 - forecast-versus-actual flight data → approved correction candidate with source traceability.
+
+### 4D Trajectory Engine verification cases
+
+- identical PerformanceAdjustedRouteSet → reproducible trajectory;
+- timestamps remain monotonic;
+- segment timing matches performance-adjusted route;
+- altitude profile and climb/descent limits are preserved;
+- launch/recovery occupancy is represented explicitly;
+- approved temporal delay appears as an explicit temporal event;
+- vertical correction creates a new trajectory version;
+- trajectory contains UAV_ID, route and zone references;
+- insufficient trajectory resolution → validation failure;
+- missing/invalid timing or altitude → downstream conflict verification blocked;
+- timing uncertainty remains distinguishable from nominal timing;
+- conflict engine consumes the authoritative TrajectorySet without reconstructing timing independently.
