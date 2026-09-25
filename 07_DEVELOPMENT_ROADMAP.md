@@ -145,3 +145,18 @@ After Zone Partition verification, assignment testing should include at least:
 - unresolved conflict after permitted corrections → plan blocked;
 - identical inputs/configuration → reproducible ConflictReport;
 - all relevant fleet pairs and shared volumes → covered by verification evidence.
+
+### Ground Conflict Resolution verification cases
+
+- conflict resolved by delay of 0 s → valid only if separation already passes;
+- conflict resolved by minimum feasible delay within 0–5 s → selected over unnecessary larger delay;
+- no delay within 0–5 s resolves conflict → vertical evaluation only if permitted;
+- vertical correction violates altitude/airspace constraint → rejected;
+- vertical correction creates another conflict → rejected after fleet-wide re-verification;
+- correction reduces energy/reserve below limit → rejected;
+- correction violates mission timing → rejected;
+- multiple simultaneous conflicts → deterministic ordering and fleet-wide re-verification after every correction;
+- no feasible correction → UNRESOLVED and plan blocked;
+- every correction has before/after trajectory references and source conflict;
+- identical inputs/configuration → reproducible resolution result;
+- resolved conflict → new verified TrajectorySet enters Final Check.
