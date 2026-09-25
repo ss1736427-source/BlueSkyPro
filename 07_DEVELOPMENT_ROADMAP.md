@@ -160,3 +160,57 @@ After Zone Partition verification, assignment testing should include at least:
 - every correction has before/after trajectory references and source conflict;
 - identical inputs/configuration → reproducible resolution result;
 - resolved conflict → new verified TrajectorySet enters Final Check.
+
+### Final Verification Gate verification cases
+
+- complete valid planning chain → FINAL_CHECK_PASS;
+- changed zone → downstream assignment/route/performance/trajectory/conflict PASS results invalidated;
+- changed UAV configuration/readiness → affected capability/performance/downstream checks invalidated;
+- changed route → performance, trajectory and conflict results invalidated;
+- changed performance timing → trajectory and conflict results invalidated;
+- applied temporal/vertical correction → previous conflict PASS invalidated and re-verification required;
+- material environmental change → affected downstream checks rerun;
+- unresolved conflict → FINAL_CHECK_FAIL and BLOCKED;
+- incomplete traceability → FINAL_CHECK_FAIL;
+- version mismatch between linked planning objects → FINAL_CHECK_FAIL;
+- final technical PASS → RELEASE_ELIGIBLE, not automatic regulatory authorization;
+- identical linked inputs/configuration → reproducible FinalCheckResult;
+- complete evidence package → replayable planning decision.
+
+### Multi-UAV end-to-end integration gate
+
+The complete implementation is accepted only when the following dependency chain is executable and independently verifiable:
+
+```text
+MISSION / COVERAGE
+      ↓
+CONSTRAINED OPEN SPACE
+      ↓
+ZONE PARTITION
+      ↓
+ZONE VERIFICATION
+      ↓
+UAV ↔ ZONE ASSIGNMENT
+      ↓
+ASSIGNMENT VERIFICATION
+      ↓
+ROUTE-IN-ZONE
+      ↓
+ROUTE VERIFICATION
+      ↓
+WIND + PERFORMANCE
+      ↓
+4D TRAJECTORY
+      ↓
+4D CONFLICT VERIFY
+      ↓
+GROUND CONFLICT RESOLUTION (if required)
+      ↓
+4D RE-VERIFY
+      ↓
+FINAL VERIFICATION GATE
+      ↓
+RELEASE ELIGIBLE / BLOCKED
+```
+
+The integration gate must verify dependency invalidation, deterministic replay, complete traceability and blocking behavior at every mandatory gate.
