@@ -225,3 +225,16 @@ The integration gate must verify dependency invalidation, deterministic replay, 
 - exact source versions are present on every verification result;
 - final technical PASS is the only planning release gate before the separate authorization workflow;
 - end-to-end replay from recorded inputs/configuration produces the same state transitions and results.
+
+### End-to-end Multi-UAV Test Matrix
+
+The implementation test baseline is now defined by the matrix in `13_MULTI_UAV_ROUTE_AND_CONFLICT_ALGORITHM.md` section 27. It must be executed across:
+- positive baseline paths;
+- mandatory negative paths;
+- 4D conflict and correction paths;
+- dependency invalidation;
+- deterministic replay;
+- traceability/evidence generation;
+- final technical release gating.
+
+The first implementation milestone is a passing baseline scenario plus one deliberate failure test for every mandatory gate.
