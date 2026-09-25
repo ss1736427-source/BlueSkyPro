@@ -619,3 +619,200 @@ WIND + PERFORMANCE
 ```
 
 This boundary keeps aircraft selection, route generation and conflict resolution independently testable and auditable.
+
+## 20. Route-in-Zone Generator — Formal Model
+
+### Objective
+
+The Route-in-Zone Generator converts each verified UAV ↔ Zone assignment into a coverage route that remains inside the assigned operational zone wherever geometrically possible. Its primary purpose is to complete the assigned coverage workload without intentionally creating cross-zone trajectory intersections.
+
+The generator operates on verified planning inputs. It does not select UAVs, partition zones, perform final wind/performance optimization or resolve fleet conflicts.
+
+### 20.1 Inputs
+
+The generator consumes:
+- verified ZoneAssignmentSet;
+- verified ZoneSet and zone geometry;
+- mission coverage objective and required coverage density/resolution;
+- selected coverage pattern;
+- mandatory waypoints and corridors;
+- altitude and route constraints;
+- launch/recovery geometry;
+- turn-radius, speed and maneuverability limits;
+- aircraft-specific route constraints;
+- configurable route-generation parameters;
+- route algorithm/configuration version.
+
+### 20.2 Hard route constraints
+
+Every generated route must satisfy:
+1. Route geometry remains inside its assigned zone except explicitly defined launch/recovery or transition segments.
+2. Restricted/prohibited geometry is not entered.
+3. Mandatory waypoints/corridors are respected where applicable.
+4. Altitude and route-volume constraints are respected.
+5. Aircraft maneuverability, minimum turn radius and segment constraints are respected.
+6. Required coverage geometry is reachable by the assigned UAV.
+7. Launch and recovery transitions are feasible.
+8. Route does not contain invalid geometry, discontinuities or impossible segments.
+9. Mission-specific route constraints are satisfied.
+
+A route violating a hard constraint is rejected rather than repaired implicitly.
+
+### 20.3 Coverage pattern generation
+
+The generator should select or receive a coverage pattern appropriate to the mission objective, for example:
+- lawnmower/sweep coverage;
+- corridor-following coverage;
+- perimeter/contour coverage;
+- point-to-point inspection;
+- structured grid/photogrammetry coverage;
+- custom waypoint sequence.
+
+The pattern is subordinate to the assigned zone: coverage generation must not expand into another UAV's zone merely to simplify the path.
+
+### 20.4 Route construction
+
+For sweep/grid missions, the generator should:
+1. determine the usable coverage region inside the zone;
+2. select a sweep direction based on zone geometry, mission requirements and configured optimization criteria;
+3. generate parallel coverage passes;
+4. connect passes using aircraft-feasible turns;
+5. remove redundant or unreachable segments;
+6. add required entry and exit transitions;
+7. validate complete coverage;
+8. retain route evidence and configuration.
+
+For non-sweep missions, the same principle applies: generate the required task path inside the assigned zone and validate every segment against the route constraints.
+
+### 20.5 Boundary handling
+
+Zone boundaries are treated as operational planning boundaries, not merely visual map lines.
+
+The generator should use configurable boundary margins where required by mission safety or route-generation precision. A boundary margin must not silently reduce required coverage; any resulting uncovered region is explicitly reported.
+
+Shared boundary segments between zones must not become common flight corridors unless explicitly permitted and subsequently verified by the 4D conflict engine.
+
+### 20.6 Route separation principle
+
+Routes should be constructed so that separate UAVs remain spatially separated by zone design. The generator must not intentionally create route crossings and rely on the later 0–5 s conflict-resolution stage when an alternative in-zone route is feasible.
+
+If a crossing or shared operational volume is unavoidable because of mission geometry, mandatory corridors or launch/recovery transitions, it must be explicitly marked in the route data for subsequent 4D verification.
+
+### 20.7 Route optimization
+
+Among valid routes, the generator may optimize:
+- coverage completeness;
+- route length;
+- number and severity of turns;
+- transition distance;
+- boundary complexity;
+- expected energy burden;
+- expected flight time;
+- wind exposure where environmental data is available;
+- launch/recovery burden;
+- future 4D conflict exposure.
+
+Coverage and hard constraints take priority over optimization objectives.
+
+### 20.8 Route validation
+
+Before a route enters Wind + Performance, verify:
+
+```text
+ROUTE ⊂ ASSIGNED ZONE = PASS or EXPLICIT TRANSITION
+RESTRICTED GEOMETRY = CLEAR
+MANDATORY WAYPOINTS / CORRIDORS = SATISFIED
+ALTITUDE / ROUTE CONSTRAINTS = PASS
+AIRCRAFT MANEUVERABILITY = PASS
+LAUNCH / RECOVERY = PASS
+COVERAGE = COMPLETE or EXPLICITLY UNAVAILABLE
+GEOMETRY = VALID
+ROUTE EVIDENCE = COMPLETE
+```
+
+Only a verified RouteSet proceeds to environmental/performance processing.
+
+### 20.9 Route states
+
+```text
+ASSIGNMENT_VERIFIED
+        ↓
+ROUTE_GENERATING
+        ↓
+ROUTE_VALIDATING
+   ├─ ROUTE_REJECTED
+   └─ ROUTE_VALID
+          ↓
+   PERFORMANCE_PENDING
+```
+
+If route validation fails, the route returns to generation or the appropriate earlier planning stage. It must not be released as a partially valid route.
+
+### 20.10 Failure handling
+
+Typical structured failure reasons include:
+- insufficient coverage reachability;
+- route exits assigned zone;
+- restricted geometry intersection;
+- mandatory waypoint/corridor incompatibility;
+- impossible turn geometry;
+- aircraft maneuverability limitation;
+- launch/recovery transition failure;
+- incomplete coverage;
+- invalid route geometry;
+- boundary margin makes required coverage infeasible.
+
+Failure is recorded against the route and planning run. If no valid route can be generated for a required zone, the multi-UAV plan is blocked pending replanning.
+
+### 20.11 Route data model
+
+Each Route should contain at minimum:
+- route_id;
+- UAV_ID;
+- zone_id;
+- ordered route segments/waypoints;
+- altitude/profile constraints;
+- coverage pattern/reference;
+- coverage completeness result;
+- entry/exit transition references;
+- route length estimate;
+- turn count/turn metrics;
+- validation result;
+- constraint/evidence references;
+- route algorithm/configuration version.
+
+### 20.12 Determinism and traceability
+
+For identical ZoneAssignmentSet, mission geometry, coverage configuration, route constraints and algorithm version, route generation should be reproducible.
+
+Each generation run records:
+- planning_run_id;
+- route_generation_run/version;
+- source ZoneAssignmentSet version;
+- source ZoneSet/partition version;
+- coverage configuration;
+- route-generation parameters;
+- selected pattern and sweep direction where applicable;
+- generated route version;
+- validation result;
+- timestamp.
+
+### 20.13 Relationship to later stages
+
+The generator produces geometry and route intent. Environmental and aircraft performance processing subsequently converts this route into performance-adjusted timing and energy estimates.
+
+```text
+VERIFIED ZONEASSIGNMENTSET
+          ↓
+ROUTE-IN-ZONE GENERATOR
+          ↓
+VERIFIED ROUTESET
+          ↓
+WIND + PERFORMANCE
+          ↓
+4D TRAJECTORY
+          ↓
+4D CONFLICT VERIFY
+```
+
+This boundary prevents route-generation logic from being mixed with aircraft assignment or fleet conflict-resolution logic.
