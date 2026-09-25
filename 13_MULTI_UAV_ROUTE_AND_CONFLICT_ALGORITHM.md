@@ -816,3 +816,152 @@ WIND + PERFORMANCE
 ```
 
 This boundary prevents route-generation logic from being mixed with aircraft assignment or fleet conflict-resolution logic.
+
+## 21. Wind + Performance Engine — Formal Model
+
+### Objective
+
+The Wind + Performance Engine converts a verified RouteSet into performance-adjusted route estimates using environmental conditions and the configured aircraft performance model. It determines segment timing, ground-speed effects, energy consumption and reserve margins without silently changing the mission objective or violating verified zone/route constraints.
+
+The engine separates environmental/performance estimation from route generation and 4D conflict verification. Any material timing change must propagate to 4D Trajectory and trigger re-verification.
+
+### 21.1 Inputs
+
+- verified RouteSet;
+- UAV configuration and payload/equipment state;
+- aerodynamic/performance model;
+- battery state and degradation model;
+- approved historical performance corrections;
+- forecast and observed wind data;
+- atmospheric inputs where supported;
+- planned altitude;
+- speed limits and operating envelope;
+- energy reserve policy;
+- launch/recovery and transition energy model;
+- environmental/performance model versions.
+
+### 21.2 Performance model
+
+The model accounts for airspeed/ground-speed relationship, wind vector, aircraft mass and configuration, payload, characterized frontal-drag penalty, propulsion performance, battery state/degradation, altitude/atmospheric effects where supported, maneuver/turn burden, climb/descent and launch/recovery energy, and configured reserve.
+
+Where detailed aerodynamic data is unavailable, an approved averaged aircraft-class model may be used. Model version and uncertainty assumptions are retained.
+
+### 21.3 Wind treatment
+
+Wind is a primary uncertainty affecting timing and energy. Where spatial or altitude variation is available, wind is evaluated per route segment rather than as one mission-wide correction.
+
+Forecast and observed wind remain separate traceable inputs. Observed values must not silently overwrite forecast values.
+
+### 21.4 Segment calculation
+
+For every route segment calculate at minimum:
+- distance and heading/course;
+- planned airspeed;
+- wind vector;
+- resulting ground-speed estimate;
+- segment time;
+- estimated energy;
+- cumulative time and energy;
+- remaining reserve margin.
+
+Where supported, climb/descent and turn energy are explicit contributors.
+
+### 21.5 Battery degradation and approved learning
+
+A degradation coefficient or approved historical correction may represent observed battery behavior. Corrections must have a defined source, version, validity bounds and review status, and remain distinguishable from the baseline model.
+
+An observed correction does not automatically replace the baseline model.
+
+### 21.6 Energy model
+
+Energy is accumulated across transit, coverage, turns, climb/descent, launch/recovery and reserve basis. The implementation may be more detailed, but contributors remain identifiable.
+
+Predicted consumption plus required reserve must remain within the usable energy envelope. An insufficient margin produces a structured blocking result and returns the plan to the appropriate planning stage.
+
+### 21.7 Timing propagation
+
+Performance adjustment produces a time-aware route representation. Changes in ground speed, wind or performance can alter arrival times and fleet separation.
+
+```text
+ROUTESET
+   ↓
+WIND + PERFORMANCE
+   ↓
+PERFORMANCE-ADJUSTED ROUTESET
+   ↓
+4D TRAJECTORY
+   ↓
+4D CONFLICT VERIFY
+```
+
+A material timing change invalidates the previous 4D verification.
+
+### 21.8 Operational margins
+
+Retain explicit margins for energy/reserve, flight time, wind uncertainty, performance uncertainty, route transitions and launch/recovery. Margin configuration is versioned. A breach becomes a warning or blocking condition according to the configured assurance policy.
+
+### 21.9 States
+
+```text
+ROUTE_VALID
+    ↓
+PERFORMANCE_EVALUATING
+    ↓
+PERFORMANCE_VALIDATING
+    ├─ PERFORMANCE_BLOCKED
+    └─ PERFORMANCE_VALID
+            ↓
+       TRAJECTORY_PENDING
+```
+
+### 21.10 Forecast versus actual feedback
+
+After execution compare forecast versus actual wind, predicted versus actual ground speed, segment time, energy consumption and reserve at key checkpoints. This produces approved correction data for future planning and feeds the internal learning layer with traceability to the originating flight record.
+
+### 21.11 Failure handling
+
+Typical failures: insufficient energy/reserve; performance model outside validity envelope; inadequate wind data; wind outside aircraft operating envelope; payload/configuration mismatch; impossible speed/altitude requirement; launch/recovery energy failure; uncertainty margin exceeded.
+
+The engine returns structured results and does not silently relax hard constraints.
+
+### 21.12 Output
+
+Each PerformanceAdjustedRoute contains at minimum route/UAV identity, segment timing, wind source/time, performance model version, aircraft/payload configuration, segment and total energy estimates, reserve margin, uncertainty values, warnings/blocking conditions, correction references, performance run/version and timestamp.
+
+### 21.13 Verification
+
+```text
+ROUTE VALID = PASS
+PERFORMANCE MODEL VALID = PASS
+UAV CONFIGURATION = PASS
+WIND DATA VALIDITY = PASS
+SPEED / ALTITUDE ENVELOPE = PASS
+ENERGY / RESERVE = PASS
+UNCERTAINTY MARGINS = PASS
+TIMING DATA = COMPLETE
+TRACEABILITY = COMPLETE
+```
+
+Only a verified PerformanceAdjustedRouteSet enters the 4D Trajectory Engine.
+
+### 21.14 Determinism and traceability
+
+Identical RouteSet, UAV configuration, environmental dataset, performance model and configuration should produce reproducible estimates. Record planning_run_id, performance run/version, source RouteSet version, UAV/payload snapshot, environmental dataset references, performance model version, battery/degradation model version, margin configuration, results, warnings/blocking conditions and timestamp.
+
+### 21.15 Relationship to AI learning layer
+
+The Wind + Performance Engine is an operational calculation component. The AI learning layer may propose or maintain approved corrections from historical flight data, but it does not silently modify operational calculations.
+
+```text
+FLIGHT RECORD
+     ↓
+FORECAST vs ACTUAL COMPARISON
+     ↓
+APPROVED CORRECTION
+     ↓
+VERSIONED PERFORMANCE INPUT
+     ↓
+WIND + PERFORMANCE ENGINE
+```
+
+This preserves separation between operational computation and learned knowledge.
