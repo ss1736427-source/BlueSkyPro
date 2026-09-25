@@ -128,3 +128,20 @@ After Zone Partition verification, assignment testing should include at least:
 - missing/invalid timing or altitude → downstream conflict verification blocked;
 - timing uncertainty remains distinguishable from nominal timing;
 - conflict engine consumes the authoritative TrajectorySet without reconstructing timing independently.
+
+### 4D Conflict Verification Engine verification cases
+
+- geometric crossing with sufficient temporal separation → NO_CONFLICT;
+- geometric crossing with insufficient temporal separation → CONFLICT;
+- sufficient horizontal separation but insufficient vertical separation → CONFLICT;
+- sufficient vertical separation with required horizontal separation → NO_CONFLICT;
+- shared launch/recovery volume with valid sequencing → NO_CONFLICT;
+- shared volume with insufficient temporal/spatial separation → CONFLICT;
+- uncertainty margin reduces separation below requirement → appropriate WARNING/CONFLICT or UNRESOLVED according to configuration;
+- insufficient trajectory resolution → verification blocked rather than assumed safe;
+- eligible delay within 0–5 s → RESOLUTION_REQUIRED with feasible delay window;
+- correction changes trajectory → previous verification invalidated and rerun;
+- vertical correction permitted → new trajectory and full re-verification;
+- unresolved conflict after permitted corrections → plan blocked;
+- identical inputs/configuration → reproducible ConflictReport;
+- all relevant fleet pairs and shared volumes → covered by verification evidence.
