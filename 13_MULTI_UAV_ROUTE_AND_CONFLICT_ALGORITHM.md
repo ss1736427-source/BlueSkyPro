@@ -415,3 +415,207 @@ Zone partitioning is the preventive spatial planning mechanism. 4D conflict veri
 PARTITION → ROUTE GENERATION → 4D VERIFY → CORRECT IF NECESSARY → VERIFY AGAIN
 
 The conflict-resolution stage must not be used as a substitute for defective zone partitioning.
+
+## 19. UAV ↔ Zone Assignment Engine — Formal Model
+
+### Objective
+
+The UAV ↔ Zone Assignment Engine selects a specific aircraft for each verified operational zone. Assignment is performed only after Zone Partition verification and before route generation. The engine must preserve independent aircraft accountability while selecting the fleet configuration that can execute the partition within mission constraints.
+
+The engine separates **feasibility** from **optimization**: an infeasible UAV-zone pair is rejected; optimization is performed only among feasible candidates.
+
+### 19.1 Inputs
+
+The engine consumes:
+- verified ZoneSet;
+- available UAV fleet and unique UAV_ID values;
+- UAV capability profiles;
+- readiness and availability state;
+- payload and equipment configuration;
+- launch/recovery locations;
+- authorization and operational restrictions;
+- C2/communication availability and required link conditions;
+- range, endurance and reserve requirements;
+- estimated wind/performance conditions;
+- maintenance/service status;
+- mission-specific assignment constraints;
+- assignment objective and configuration version.
+
+### 19.2 Hard feasibility constraints
+
+A UAV-zone candidate is feasible only when all mandatory conditions pass:
+1. UAV is available and in the required readiness state.
+2. Aircraft capability is sufficient for the zone workload and required coverage pattern.
+3. Payload/equipment configuration is compatible with the mission.
+4. Range/endurance and required energy reserve are sufficient for the assigned workload and launch/recovery profile.
+5. Required altitude, speed and operational envelope are supported.
+6. Launch and recovery are feasible for the selected UAV and zone.
+7. Required authorization and operational restrictions permit the assignment.
+8. Required C2/communication conditions are available.
+9. No blocking maintenance or technical condition exists.
+10. The assignment does not violate a mission-specific mandatory UAV/zone relationship.
+
+A candidate failing any hard constraint is marked INFEASIBLE and is not passed to optimization.
+
+### 19.3 Candidate matrix
+
+For each UAV u and zone z, create an auditable candidate record:
+
+```text
+A[u,z] = {
+  feasibility,
+  failed_constraints[],
+  capability_margin,
+  energy_margin,
+  time_margin,
+  wind_margin,
+  launch_recovery_margin,
+  authorization_status,
+  c2_status,
+  score,
+  evidence_refs[]
+}
+```
+
+The matrix must retain both feasible and rejected candidates so that the assignment decision can be reconstructed.
+
+### 19.4 Assignment rules
+
+The default rule is one primary UAV per operational zone and one primary zone per assigned UAV.
+
+If the number of available UAVs exceeds the number of zones, unassigned aircraft remain available/reserve and are not forced into a zone.
+
+If the number of zones exceeds the number of available feasible UAVs, the mission is not silently compressed. The affected zones are reported as UNASSIGNED and the assignment stage returns ASSIGNMENT_FAILED unless the mission model explicitly supports sequential execution or another approved workload model.
+
+One UAV may not be assigned to multiple simultaneous primary zones unless the mission model explicitly defines a non-overlapping sequential workload and the resulting schedule is verified before release.
+
+### 19.5 Assignment optimization
+
+Among feasible candidates, the engine may optimize a configurable multi-criteria objective using:
+- capability fit and operational margin;
+- energy/reserve margin;
+- expected flight time;
+- route/transition burden;
+- wind exposure;
+- launch/recovery burden;
+- workload balance across the fleet;
+- preservation of future conflict-free geometry;
+- use of specialized aircraft where their capabilities materially improve mission feasibility.
+
+Exact weights are configuration parameters. The selected configuration and score evidence must be versioned with the planning run.
+
+The engine must not optimize by nominal area alone. A larger zone may be assigned to a higher-endurance UAV when this improves operational margins, while a smaller or more constrained zone may be assigned to a UAV with the required specialized capability.
+
+### 19.6 Assignment states
+
+```text
+CANDIDATE
+   ↓
+FEASIBILITY_CHECK
+   ├─ INFEASIBLE
+   └─ FEASIBLE
+          ↓
+     OPTIMIZATION
+          ↓
+       ASSIGNED
+```
+
+If no valid complete assignment exists:
+
+```text
+ASSIGNMENT_FAILED → BLOCKED
+```
+
+### 19.7 Assignment verification
+
+Before entering Route-in-Zone, verify:
+
+```text
+ALL REQUIRED ZONES = ASSIGNED or EXPLICITLY UNASSIGNED
+NO UAV = DOUBLE-ASSIGNED TO SIMULTANEOUS PRIMARY ZONES
+CAPABILITY = PASS
+READINESS = PASS
+PAYLOAD = PASS
+ENERGY / RESERVE = PASS
+LAUNCH / RECOVERY = PASS
+AUTHORIZATION = PASS
+C2 = PASS
+MISSION CONSTRAINTS = PASS
+ASSIGNMENT RECORDS = COMPLETE
+```
+
+Only a verified ZoneAssignmentSet enters route generation.
+
+### 19.8 Failure handling
+
+If assignment fails, the engine returns `ASSIGNMENT_FAILED` with structured reasons. Typical reasons include:
+- insufficient feasible UAVs;
+- UAV capability mismatch;
+- insufficient endurance or reserve;
+- payload incompatibility;
+- unavailable launch/recovery option;
+- authorization restriction;
+- C2/communication failure;
+- maintenance/readiness block;
+- mandatory UAV-zone constraint conflict;
+- partition requiring a workload model not supported by the current fleet.
+
+Failure must return the planning process to the appropriate earlier stage. The system must not silently substitute an unsuitable aircraft.
+
+### 19.9 Determinism and traceability
+
+For identical ZoneSet, fleet state, mission constraints, configuration and algorithm version, assignment results should be reproducible.
+
+Each assignment run records:
+- planning_run_id;
+- assignment_run/version;
+- ZoneSet/partition version;
+- fleet snapshot and UAV configuration references;
+- readiness/availability snapshot;
+- environmental/performance data references;
+- assignment configuration and objective weights;
+- candidate matrix or its immutable evidence reference;
+- selected assignments;
+- rejected alternatives and reasons;
+- result state;
+- timestamp.
+
+### 19.10 Assignment output
+
+Each ZoneAssignment should contain at minimum:
+- assignment_id;
+- UAV_ID;
+- zone_id;
+- assignment status;
+- capability validation result;
+- readiness/availability result;
+- energy/reserve margin;
+- expected time margin;
+- authorization/C2 status;
+- selected score/evaluation metadata;
+- constraint/evidence references;
+- assignment algorithm/configuration version.
+
+The resulting ZoneAssignmentSet is the authoritative input to Route-in-Zone generation.
+
+### 19.11 Relationship to later stages
+
+The assignment engine must not generate the final route or resolve 4D conflicts itself.
+
+```text
+VERIFIED ZONESET
+      ↓
+UAV ↔ ZONE ASSIGNMENT
+      ↓
+VERIFIED ZONEASSIGNMENTSET
+      ↓
+ROUTE-IN-ZONE
+      ↓
+WIND + PERFORMANCE
+      ↓
+4D TRAJECTORY
+      ↓
+4D CONFLICT VERIFY
+```
+
+This boundary keeps aircraft selection, route generation and conflict resolution independently testable and auditable.
