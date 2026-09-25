@@ -29,6 +29,8 @@ GROUND CONFLICT RESOLUTION
         ├─ delay 0–5 s
         └─ vertical correction
         ↓
+4D RE-VERIFY
+        ↓
 FINAL CHECK
 ```
 
@@ -71,11 +73,11 @@ The planner must not intentionally create intersecting trajectories and depend o
 Evaluate the route against current/forecast environmental conditions and aircraft performance. This stage may modify:
 
 - ground speed;
-- heading;
-- altitude;
+- heading/performance estimate;
 - segment timing;
 - energy consumption;
-- reserve requirements.
+- reserve requirements;
+- altitude only when explicitly supported by the validated performance/mission model and constraints;
 
 ### 7. 4D Trajectory
 
@@ -113,7 +115,7 @@ The term **Ground Conflict Resolution** refers to resolution performed by the pl
 
 ### 10. Final Check
 
-After every correction, rerun:
+After every correction, first regenerate the affected trajectory and rerun fleet-wide 4D conflict verification. Then rerun:
 
 - constraints;
 - route validity;
@@ -1447,7 +1449,7 @@ Allowed range:
 
 The engine should evaluate the feasible delay window rather than arbitrarily selecting the maximum delay.
 
-The selected delay should minimize operational impact while restoring required separation and preserving downstream constraints.
+The selected delay should minimize operational impact while restoring required separation and preserving downstream constraints. A 0 s candidate is valid only if the resulting trajectory independently passes the 4D separation check.
 
 A delay is valid only if, after application:
 - all required separation criteria pass;
@@ -1804,3 +1806,77 @@ At minimum, the evidence package should preserve:
 - timestamps and planning-run identifiers.
 
 This makes the planning decision traceable from mission objective through final technical release eligibility.
+
+
+## 26. Cross-Stage Consistency and Invalidation Rules
+
+This section is authoritative for interactions between stages. A downstream PASS is valid only while every referenced upstream object, configuration and environmental input remains unchanged.
+
+### 26.1 Canonical state machine
+
+```text
+DRAFT
+  ↓
+CONSTRAINED
+  ↓
+PARTITIONED
+  ↓
+ASSIGNED
+  ↓
+ROUTED
+  ↓
+PERFORMANCE_ADJUSTED
+  ↓
+TRAJECTORIZED
+  ↓
+CONFLICT_VERIFIED
+  ├─ PASS ───────────────────────┐
+  ├─ RESOLUTION_REQUIRED         │
+  │       ↓                      │
+  │   CORRECTION_APPLIED         │
+  │       ↓                      │
+  │   TRAJECTORIZED               │
+  │       ↓                      │
+  │   CONFLICT_VERIFIED ─────────┘
+  └─ UNRESOLVED → BLOCKED
+
+CONFLICT_VERIFIED / PASS
+        ↓
+FINAL_CHECK
+   ├─ PASS → RELEASE_ELIGIBLE
+   └─ FAIL → BLOCKED / RETURN TO REQUIRED STAGE
+```
+
+### 26.2 Invalidation matrix
+
+| Changed object/input | Minimum invalidated stages |
+|---|---|
+| Mission/Coverage | all downstream stages |
+| Constrained Open Space | Zone Partition and all downstream stages |
+| ZoneSet | Assignment and all downstream stages |
+| ZoneAssignmentSet | Route and all downstream stages |
+| RouteSet | Performance and all downstream stages |
+| Environmental/performance input | Performance and all downstream stages |
+| PerformanceAdjustedRouteSet | Trajectory and all downstream stages |
+| TrajectorySet | Conflict Verification and Final Check |
+| ConflictResolution | affected Trajectory, Conflict Verification and Final Check |
+| UAV readiness/configuration | affected Assignment, Performance, Trajectory, Conflict and Final Check |
+| Authorization/operational constraint | every affected planning stage and Final Check |
+
+The system must not present an obsolete PASS as current. Every verification result references the exact source-object versions it evaluated.
+
+### 26.3 Mandatory re-verification rule
+
+Any correction affecting route geometry, altitude, timing, UAV assignment, aircraft configuration or environmental/performance inputs requires regeneration of all dependent planning objects and re-execution of the relevant verification gates.
+
+No stage may reuse a downstream PASS whose source version has changed.
+
+### 26.4 Cross-stage acceptance criteria
+
+The end-to-end implementation is consistent only if:
+- every stage consumes the output of the immediately preceding verified stage;
+- every blocking state prevents downstream release;
+- every correction creates an auditable versioned object;
+- every dependent PASS can be traced to immutable source versions;
+- fleet-wide conflict verification is repeated after trajectory-affecting corrections;
+- Final Verification is the only technical release gate before authorization/operational workflow.
