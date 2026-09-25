@@ -263,11 +263,6 @@
       }
     },
     "ConstrainedOpenSpace": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/ArtifactHeader"
-        }
-      ],
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -406,11 +401,6 @@
       }
     },
     "ZoneSet": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/ArtifactHeader"
-        }
-      ],
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -576,11 +566,6 @@
       }
     },
     "ZoneAssignmentSet": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/ArtifactHeader"
-        }
-      ],
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -702,11 +687,6 @@
       }
     },
     "RouteSet": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/ArtifactHeader"
-        }
-      ],
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -831,11 +811,6 @@
       }
     },
     "PerformanceAdjustedRouteSet": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/ArtifactHeader"
-        }
-      ],
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -944,11 +919,6 @@
       }
     },
     "TrajectorySet": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/ArtifactHeader"
-        }
-      ],
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1137,11 +1107,6 @@
       }
     },
     "ConflictReport": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/ArtifactHeader"
-        }
-      ],
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1232,11 +1197,6 @@
       }
     },
     "ConflictResolution": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/ArtifactHeader"
-        }
-      ],
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1354,11 +1314,6 @@
       }
     },
     "FinalCheckResult": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/ArtifactHeader"
-        }
-      ],
       "type": "object",
       "additionalProperties": false,
       "required": [
