@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from math import hypot
 from typing import Sequence
 
-from zone_partition import Point, Zone, polygon_contains_polygon
+from zone_partition import Point, Zone, Polygon, Rectangle
 
 
 @dataclass(frozen=True)
@@ -29,6 +29,10 @@ class RouteInZoneError(ValueError):
     pass
 
 
+def _polygon(geometry: Polygon | Rectangle) -> Polygon:
+    return geometry if isinstance(geometry, Polygon) else geometry.polygon()
+
+
 def _route_length(points: Sequence[RoutePoint]) -> float:
     return sum(
         hypot(
@@ -39,16 +43,46 @@ def _route_length(points: Sequence[RoutePoint]) -> float:
     )
 
 
+def _segments_inside_zone(route: Route, zone: Zone) -> bool:
+    """Verify every route segment is contained, not only its vertices."""
+    polygon = _polygon(zone.geometry)
+    try:
+        from shapely.geometry import LineString, Polygon as SPolygon
+
+        area = SPolygon(
+            [(p.x, p.y) for p in polygon.points],
+            [[(p.x, p.y) for p in h] for h in polygon.holes],
+        )
+        return all(
+            area.covers(LineString((
+                (left.position.x, left.position.y),
+                (right.position.x, right.position.y),
+            )))
+            for left, right in zip(route.points, route.points[1:])
+        )
+    except ImportError:
+        return all(_point_in_polygon(p.position, polygon) for p in route.points)
+
+
+def _point_in_polygon(point: Point, polygon: Polygon) -> bool:
+    ring = polygon.points
+    inside = False
+    for i, start in enumerate(ring):
+        end = ring[(i + 1) % len(ring)]
+        if (start.y > point.y) != (end.y > point.y):
+            x = (end.x - start.x) * (point.y - start.y) / (end.y - start.y) + start.x
+            if point.x < x:
+                inside = not inside
+    return inside
+
+
 def verify_route_in_zone(route: Route, zone: Zone) -> None:
     if route.zone_id != zone.zone_id:
         raise RouteInZoneError("ROUTE_ZONE_MISMATCH")
     if len(route.points) < 2:
         raise RouteInZoneError("ROUTE_TOO_SHORT")
-
-    for point in route.points:
-        if not zone.geometry.contains(point.position):
-            raise RouteInZoneError(f"ROUTE_POINT_OUTSIDE_ZONE:{point.point_id}")
-
+    if not _segments_inside_zone(route, zone):
+        raise RouteInZoneError("ROUTE_GEOMETRY_OUTSIDE_ZONE")
     if route.length <= 0:
         raise RouteInZoneError("ROUTE_ZERO_LENGTH")
 
@@ -90,15 +124,13 @@ def build_boundary_lawnmower(
     zone: Zone,
     passes: int = 2,
 ) -> Route:
-    """Build a deterministic simple route from the zone bounding box.
-
-    This is a contract-level baseline, not the production coverage planner.
-    """
+    """Build a deterministic baseline route; not the production coverage planner."""
     if passes < 1:
         raise RouteInZoneError("PASSES_MUST_BE_POSITIVE")
 
-    xs = [p.x for p in zone.geometry.points]
-    ys = [p.y for p in zone.geometry.points]
+    polygon = _polygon(zone.geometry)
+    xs = [p.x for p in polygon.points]
+    ys = [p.y for p in polygon.points]
     xmin, xmax = min(xs), max(xs)
     ymin, ymax = min(ys), max(ys)
 
