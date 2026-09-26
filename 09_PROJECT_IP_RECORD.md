@@ -1,9 +1,15 @@
-# Project Record
+# Project IP / Controlled Review Record
 
-Project: BlueSky PRO
-Review package: Controlled Technical Overview
-Prepared: 2026-09-22
+Project: BlueSky PRO  
+Review surface: Controlled Technical Overview  
+Purpose: limited technical familiarization and architecture review
 
-The working repositories contain the project's development history and technical evolution. This review package is a derived, deliberately limited representation for controlled technical examination.
+## Record principle
 
-For formal IP protection, contractual confidentiality, patentability assessment or other legal protection, use counsel appropriate to the jurisdictions involved.
+The review package is a deliberately reduced representation of the working project.
+
+It documents project identity, capability families and development maturity while withholding implementation material whose combination could materially assist reproduction.
+
+Formal IP, confidentiality, patentability and contractual protection should be handled with appropriate legal counsel for the relevant jurisdictions.
+
+The controlled-review documentation should be versioned with the project history so that the disclosure boundary itself remains auditable.
