@@ -1,252 +1,178 @@
-# BlueSky PRO — Technical Review Overview
+# BlueSky PRO — Controlled Project Status & System Overview
 
-## Purpose of this package
+## 1. Purpose
 
-This branch is prepared for a professional technical review of the BlueSky PRO project by a software team working across frontend, backend, integrations and system architecture.
+This document is the controlled external-facing summary of the BlueSky PRO project.
 
-The objective is to expose enough of the existing product concept, architecture, requirements and implementation direction for specialists to understand the system as a whole, identify technical risks, and determine what is already defined versus what remains to be implemented.
+It is intended for:
 
-This is **not** a source-code handoff and is not intended to expose credentials, production access, private keys, proprietary model assets, or implementation details that are unnecessary for the review.
+- initial technical familiarization;
+- architecture review;
+- estimation and planning;
+- specialist onboarding;
+- discussion with potential engineering partners.
 
-## 1. Product in one sentence
+It is not a substitute for the protected project knowledge base and is not intended to provide a reproducible specification.
 
-**BlueSky PRO is a desktop-oriented UAS flight-planning and mission-management system in which the Flight Chart is the primary operational workspace and planning, aircraft state, communications, compliance, AI assistance, documentation and post-flight learning form one coordinated lifecycle.**
+## 2. Product definition
 
-## 2. What the system is intended to cover
+BlueSky PRO is a map-first UAS flight-planning and mission-management platform intended to unify mission planning, aircraft context, environmental information, communications, operational readiness, execution records, assurance and controlled learning within one lifecycle.
 
-- mission definition and planning;
-- aircraft and fleet representation;
-- pilot and technician readiness;
-- Flight Chart / route planning;
-- environmental and wind-aware planning;
-- energy-aware planning;
-- aircraft-specific operational history;
-- C2, telemetry and external integrations;
-- multi-UAV mission coordination;
-- operational tracking;
-- post-flight records and evidence;
-- AI-assisted prediction, correction and learning;
-- regulatory and assurance workflows;
-- aircraft-level risk and insurance data.
+## 3. Core operating idea
 
-## 3. Operational lifecycle
+The user should work primarily through the Flight Chart / map-centric workspace while the surrounding system coordinates the supporting technical information.
 
-```
-Mission
-  ↓
-Aircraft selection
-  ↓
-Readiness
-  ↓
-Environment / constraints
-  ↓
-Route generation
-  ↓
-Optimization
-  ↓
-Human correction
-  ↓
-Authorization / compliance
-  ↓
-Execution / Tracking
-  ↓
-Flight record
-  ↓
-Post-flight analysis
-  ↓
-Corrections / Experience
-  ↺
-Future planning
-```
+This includes, at review level:
 
-The important architectural principle is that the system does not treat planning, execution and post-flight learning as isolated applications.
+- mission preparation;
+- aircraft and fleet context;
+- route/planning support;
+- telemetry and communications;
+- readiness and compliance;
+- operational records;
+- verification and evidence;
+- controlled post-flight learning.
 
-## 4. Main system blocks
+## 4. System organization
 
-| Block | Purpose |
-|---|---|
-| FLIGHT | Mission definition, planning and flight lifecycle |
-| HUB | Communications, telemetry and data convergence |
-| PILOT | Operational flight workspace |
-| ADMINISTRATOR | Configuration, roles, technical conditions and maintenance context |
-| INTEGRATION | Aircraft, payload, C2 and external data interfaces |
-| AI | Prediction, correction learning, optimization support and external analysis |
-| ASSURANCE | Requirements, verification, traceability and operational evidence |
-| DOCUMENTATION | Flight records, audit trail and reusable operational knowledge |
+The system is described through cooperating areas rather than one monolithic application:
 
-## 5. Frontend concept
+- FLIGHT;
+- FLIGHT CHART;
+- PILOT;
+- HUB;
+- ADMINISTRATOR;
+- INTEGRATION;
+- AI / ANALYTICS;
+- ASSURANCE;
+- DOCUMENTATION / JOURNAL.
 
-The Flight Chart is the dominant workspace.
+The detailed service decomposition, interfaces and implementation responsibilities are intentionally omitted.
 
-The interface is designed around:
+## 5. Development stages
 
-- persistent compact top bar;
-- map-first operational view;
-- compact contextual side panels;
-- collapsible panels;
-- telemetry and aircraft-state views;
-- direct route/profile interaction;
-- configurable tools;
-- support for separate technical/monitoring/planning windows where required.
+### Stage 1 — Concept and product definition
+**State: substantially defined**
 
-The intended implementation direction is a desktop application with a modern declarative UI approach; detailed implementation choices are subject to technical review.
+The product purpose, operational philosophy, core workspaces and major capability groups are established.
 
-## 6. Backend concept
+### Stage 2 — System and domain architecture
+**State: defined / being formalized**
 
-The backend/domain model is expected to preserve separation between:
+The repository contains an architectural foundation covering mission, aircraft, integrations, planning, assurance, regulatory context and operational lifecycle.
 
-- mission;
-- aircraft;
-- fleet;
-- operator/personnel;
-- authorization;
-- environmental observations;
-- telemetry;
-- external integrations;
-- flight record;
-- AI experience/corrections;
-- assurance evidence;
-- insurance/risk records.
+### Stage 3 — Planning architecture
+**State: defined / implementation development**
 
-External systems should be connected through adapters/interfaces so that the core operational model is not coupled to one aircraft, provider or communication technology.
+Mission planning, objective profiles, environmental/energy considerations and multi-UAV planning direction are represented in the project material.
 
-## 7. AI concept
+Detailed planning mechanisms remain protected.
 
-AI is a system capability, not merely a conversational interface.
+### Stage 4 — Verification foundation
+**State: partially implemented / under development**
 
-### Internal learning layer
+The repository contains machine-readable schemas and validator/test material for substantial parts of the planning and verification model. The complete executable product integration is not yet complete.
 
-The system can compare:
+### Stage 5 — HMI / Flight Chart
+**State: development / refinement**
 
-```
-forecast wind       ↔ actual wind
-planned energy      ↔ actual energy
-planned route       ↔ operator correction
-expected behaviour  ↔ observed behaviour
-```
+The map-first desktop HMI direction and workspace model are being developed, including configurable panels and operational views.
 
-These differences can produce structured corrections and operational experience for later planning.
+### Stage 6 — Integration
+**State: defined / implementation development**
 
-### External analysis layer
+C2, telemetry, aircraft, payload, environmental and external integration boundaries are documented. Full production integrations remain a development activity.
 
-A separate analytical function can evaluate external technology, regulatory changes and the surrounding technical environment.
+### Stage 7 — Assurance / certification readiness
+**State: working engineering baseline**
 
-Operational authority remains within the defined human/operator control process.
+Requirements, traceability, verification, configuration and certification-readiness structures are documented. This does not constitute certification or regulatory approval.
 
-## 8. Flight planning concept
+### Stage 8 — End-to-end operational product
+**State: not yet complete**
 
-The planner is intended to evaluate:
+The complete chain from user mission creation through executable planning, operational integration, release and flight-record lifecycle remains under development.
 
-- aircraft capability;
-- installed equipment;
-- mission objective;
-- route geometry;
-- altitude;
-- restricted areas;
-- environmental conditions;
-- wind;
-- mandatory waypoints;
-- vertical/lateral bypass constraints;
-- energy reserve;
-- aircraft degradation history;
-- multi-UAV task decomposition.
+## 6. Multi-UAV capability — review level
 
-The goal is not simply the geometrically shortest route. The route is evaluated against mission objective, constraints, environmental conditions and energy preservation.
+The system includes a defined workstream for coordinated multi-UAV missions.
 
-## 9. Multi-UAV concept
+At a high level it addresses:
 
-A mission may be decomposed between several aircraft.
+- dividing a mission into manageable operational areas;
+- associating suitable aircraft with those areas;
+- generating and checking routes;
+- considering environmental and aircraft-performance effects;
+- checking fleet-level temporal/spatial consistency;
+- handling limited planning conflicts;
+- performing a final technical release check.
 
-Each UAV remains an independent operational entity with:
+The protected project material contains the actual algorithmic specification, data contracts, validation cases, parameters and implementation components. Those details are not reproduced here.
 
-- its own identity;
-- capability;
-- readiness;
-- authorization;
-- mission state;
-- flight record.
+## 7. AI capability — review level
 
-The mission layer coordinates the aircraft while preserving individual accountability.
+AI is intended to support analysis, prediction and controlled learning from operational experience.
 
-## 10. Assurance and traceability
+Important boundary:
 
-The project is designed around the chain:
+**AI is not the uncontrolled source of operational authority.**
+
+The system is designed so that recommendations or learned corrections remain subject to validation and defined operational/control rules.
+
+## 8. Assurance and traceability
+
+The architecture includes a traceability direction connecting:
 
 ```
 Requirement
-    ↓
-Architecture
-    ↓
-Function
-    ↓
+   ↓
+Architecture / function
+   ↓
 Implementation
-    ↓
+   ↓
 Verification
-    ↓
-Operational evidence
+   ↓
+Evidence
+   ↓
+Controlled baseline
 ```
 
-This is intended to make later engineering, verification and certification work traceable.
+This is intended to support future engineering assurance, auditability and certification preparation.
 
-## 11. Aircraft-level risk and insurance
+## 9. Certification readiness
 
-The insurance/risk concept is associated with the **specific aircraft**, not merely with the mission or operator.
+Certification-readiness is treated as an architectural concern affecting:
 
-The architecture can retain structured information about the aircraft, its operational history, readiness, relevant assessments, insurance status and pre-flight evidence.
+- requirements;
+- safety/assurance;
+- configuration management;
+- verification evidence;
+- change impact;
+- operational readiness;
+- relevant aircraft/configuration records.
 
-The detailed legal and actuarial rules remain subject to jurisdiction-specific validation and provider requirements.
+The current material is a working engineering basis. It must not be presented as an issued certification basis, certificate or authority acceptance.
 
-## 12. Current status model
+## 10. What the technical reviewer can determine
 
-For review purposes, every major capability should be understood using four states:
+The package should allow a specialist to understand:
 
-- **Implemented** — working implementation exists.
-- **Defined** — architecture/requirements are sufficiently specified but implementation is incomplete.
-- **Planned** — intentionally included in the roadmap but not yet sufficiently specified.
-- **Experimental** — under investigation or validation.
+- the product's operational purpose;
+- the major system boundaries;
+- the main engineering workstreams;
+- which areas are defined versus implemented;
+- where implementation risk remains;
+- what requires further engineering clarification.
 
-This distinction is important. The existence of a detailed architectural document does not by itself mean that a feature is production-ready.
+It intentionally does not provide enough detail to reconstruct the protected system independently.
 
-## 13. What specialists are expected to evaluate
+## 11. What requires the project owner
 
-The technical review should concentrate on:
+Reproduction, extension of protected subsystems, interpretation of unresolved design decisions and access to proprietary implementation knowledge require direct involvement of the project owner and the controlled engineering material.
 
-1. frontend architecture and UI implementation strategy;
-2. backend/domain architecture;
-3. API and integration boundaries;
-4. persistence/data model;
-5. real-time telemetry/C2 handling;
-6. offline/local operation;
-7. AI integration boundaries;
-8. testing and verification strategy;
-9. security and access boundaries;
-10. implementation sequencing and technical risks.
+## 12. Disclosure rule
 
-## 14. Certification readiness
+This document must be treated as a **controlled overview**.
 
-Certification preparation is a major part of the existing project concept, not an afterthought. The project already contains a separate certification workstream covering certification object/scope, certification basis, regulatory applicability, requirements, compliance, verification, evidence and traceability.
+It should not be expanded by copying protected algorithms, formulas, internal contracts, implementation code or sensitive configuration into the review package.
 
-For the technical team, read 12_CERTIFICATION_READINESS.md after the system overview. It explains how certification readiness affects backend, frontend, AI, configuration management, safety, insurance/risk and operational readiness.
-
-The detailed working material is maintained in the public knowledge repository and is referenced from that document.
-
-## 15. Review entry points
-
-Start here, then follow only the areas relevant to the specialist's role:
-
-1. [01_PRODUCT_CONCEPT.md](01_PRODUCT_CONCEPT.md)
-2. [02_SYSTEM_ARCHITECTURE.md](02_SYSTEM_ARCHITECTURE.md)
-3. [03_AI_CONCEPT.md](03_AI_CONCEPT.md)
-4. [04_FLIGHT_PLANNING.md](04_FLIGHT_PLANNING.md)
-5. [05_MULTI_UAV_AND_DATA.md](05_MULTI_UAV_AND_DATA.md)
-6. [06_ASSURANCE_AND_TRACEABILITY.md](06_ASSURANCE_AND_TRACEABILITY.md)
-7. [07_DEVELOPMENT_ROADMAP.md](07_DEVELOPMENT_ROADMAP.md)
-8. [08_DISCLOSURE_BOUNDARY.md](08_DISCLOSURE_BOUNDARY.md)
-9. [09_PROJECT_IP_RECORD.md](09_PROJECT_IP_RECORD.md)
-10. [10_TECHNICAL_REVIEW_GUIDE.md](10_TECHNICAL_REVIEW_GUIDE.md)
-11. [11_ACCESS_CONTROL.md](11_ACCESS_CONTROL.md)
-12. [12_CERTIFICATION_READINESS.md](12_CERTIFICATION_READINESS.md)
-13. [13_MULTI_UAV_ROUTE_AND_CONFLICT_ALGORITHM.md](13_MULTI_UAV_ROUTE_AND_CONFLICT_ALGORITHM.md) — authoritative zone-based multi-UAV route generation and 4D conflict-resolution sequence.
-
-
-The detailed project knowledge base remains a separate public reference repository and should be treated as background material, not as a substitute for the controlled technical review surface.
