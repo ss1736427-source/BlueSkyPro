@@ -2,128 +2,97 @@
 
 ## Purpose
 
-This document defines how a software team should inspect the BlueSky PRO project without turning the review into an uncontrolled redistribution of the complete development history.
+Enable a software team to assess the BlueSky PRO engineering direction without receiving the complete proprietary implementation.
 
-## Review sequence
+## Review by discipline
 
-### Frontend
+### Frontend / HMI
 
-Review:
+Assess:
 
-- application shell;
-- Flight Chart;
-- navigation and workspace model;
-- panel architecture;
+- Flight Chart / map-first shell;
+- workspace and panel architecture;
+- route interaction;
 - telemetry presentation;
-- route editing;
 - state management;
-- component boundaries;
-- desktop/multi-window strategy;
-- design-system consistency.
+- desktop and multi-window strategy;
+- role-oriented workspaces.
 
-Questions:
+Do not request internal implementation details unless required for a defined engineering task.
 
-- Which UI state belongs locally and which belongs to the domain/backend?
-- How are high-frequency telemetry updates isolated from ordinary UI state?
-- How is map-provider replacement isolated?
-- How are route/profile edits represented?
-- How is offline operation handled?
+### Backend / Domain
 
-### Backend
+Assess:
 
-Review:
-
-- domain boundaries;
-- mission model;
-- aircraft model;
-- flight record;
-- authorization/compliance state;
-- integration adapters;
+- mission and aircraft domain boundaries;
+- readiness and authorization state;
 - persistence;
-- event/telemetry processing;
-- audit/traceability;
-- AI experience storage.
+- event/telemetry handling;
+- audit and traceability;
+- integration boundaries;
+- AI experience boundary.
 
-Questions:
+### Planning
 
-- What is the authoritative source of each operational state?
-- Which entities require immutable records?
-- Which data is event-like versus current-state?
-- Which boundaries should be synchronous APIs versus asynchronous events?
-- How are aircraft-specific records isolated from mission-level records?
+Assess:
+
+- how mission objectives enter the planning process;
+- how aircraft capabilities are represented;
+- how constraints and environment are supplied;
+- how planning outputs are verified;
+- how failures are surfaced.
+
+The protected planning recipe is not part of the initial review.
+
+### Multi-UAV
+
+Assess:
+
+- task decomposition concept;
+- aircraft/task association;
+- route and fleet consistency responsibilities;
+- verification boundary;
+- release blocking behavior.
+
+Do not request the protected algorithms, numerical parameters, internal validators or reproduction-oriented contracts for the initial review.
 
 ### Integrations
 
-Review:
+Assess boundaries for:
 
-- autopilot interfaces;
+- autopilot;
 - C2;
 - telemetry;
 - weather/environment;
 - maps;
-- regulatory/ATM interfaces;
-- insurance/provider interfaces;
-- payload/data interfaces.
-
-The core model should remain independent of any one external provider where technically and legally possible.
+- regulatory/authorization;
+- payload/data.
 
 ### AI
 
-Review the interfaces around AI rather than assuming that AI should own the core domain.
-
-Expected separation:
-
-```
-Operational data
-      ↓
-Feature / evidence preparation
-      ↓
-AI / analytical function
-      ↓
-Prediction / recommendation / correction
-      ↓
-Human or deterministic operational decision
-      ↓
-Operational result
-      ↓
-Learning evidence
-```
-
-The review should determine where deterministic rules must remain authoritative and where statistical/AI methods add value.
+Assess interfaces and authority boundaries rather than model internals.
 
 ### Assurance
 
-Review whether each safety- or compliance-relevant capability can eventually be traced from requirement to verification evidence.
+Assess whether the architecture can support requirement allocation, verification, evidence, configuration control and change impact.
 
-## What should not be requested for the first technical review
+## Expected review output
 
-Unless a specific engineering task requires it, the review does not need:
+The technical team's useful deliverable is:
 
-- credentials;
-- private keys;
-- production secrets;
-- production infrastructure access;
-- model weights;
-- private training datasets;
-- proprietary calibration coefficients;
-- internal security bypasses.
+1. architectural inconsistencies;
+2. missing boundaries or interfaces;
+3. implementation risks;
+4. data-model risks;
+5. real-time processing risks;
+6. offline-operation risks;
+7. AI integration risks;
+8. security/access gaps;
+9. recommended engineering sequence;
+10. questions requiring the project owner's decision.
 
-## Expected output from the technical team
+## Protected material rule
 
-The useful result is not a general opinion. It should identify:
+Additional protected material should be disclosed only when necessary for a specific engineering task and only to the people who need it.
 
-1. confirmed architectural strengths;
-2. architectural inconsistencies;
-3. missing interfaces or contracts;
-4. backend/frontend coupling risks;
-5. data-model risks;
-6. real-time processing risks;
-7. offline-operation risks;
-8. AI integration risks;
-9. security gaps;
-10. recommended implementation sequence;
-11. items requiring clarification from the product owner.
-
-## Working rule
-
-The team may propose changes freely. Changes to the protected product baseline should be introduced through reviewed Pull Requests rather than direct modification of the protected baseline.
+The controlled overview is not a source-code handoff.
