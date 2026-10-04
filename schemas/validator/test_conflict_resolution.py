@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from conflict_4d import SeparationMinimums, resolve_conflicts
+from conflict_4d import SeparationMinimums
 from conflict_resolution import ResolutionPolicy, resolve_conflicts as resolve
 from route_in_zone import build_route_in_zone
 from trajectory_4d import build_trajectory_4d
