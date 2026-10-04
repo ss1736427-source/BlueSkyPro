@@ -105,6 +105,7 @@ Item {
     signal templateSelected(int index)
     signal manualTemplateSelectionCommitted(var indices)
     signal createMissionRequested()
+    signal taskCreationRequested()
     signal panelConfigurationChanged()
     signal missionHidden()
 
@@ -239,7 +240,7 @@ Item {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: root.createMissionRequested()
+                    onClicked: root.taskCreationRequested()
                 }
             }
 
