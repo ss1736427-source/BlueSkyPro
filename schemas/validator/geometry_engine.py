@@ -50,9 +50,35 @@ class ShapelyGeometryEngine:
         return self._to_shapely(left).intersection(self._to_shapely(right)).area>1e-9
     def subtract(self,source:Polygon,exclusions:Sequence[Polygon])->tuple[GeometryComponent,...]:
         result=self._to_shapely(source)
-        if not result.is_valid: raise ValueError("source geometry is invalid")
-        if exclusions: result=result.difference(self._unary_union([self._to_shapely(x) for x in exclusions]))
-        if result.is_empty: return ()
+        if not result.is_valid:
+            raise ValueError("source geometry is invalid")
+
+        exclusion_geometries=[]
+        for exclusion in exclusions:
+            geometry=self._to_shapely(exclusion)
+            if not geometry.is_valid:
+                raise ValueError("exclusion geometry is invalid")
+            if not result.covers(geometry):
+                raise ValueError("exclusion geometry is outside source")
+            exclusion_geometries.append(geometry)
+
+        if exclusion_geometries:
+            result=result.difference(self._unary_union(exclusion_geometries))
+
+        if result.is_empty:
+            return ()
+        if not result.is_valid:
+            raise ValueError("clipped constrained geometry is invalid")
+        if result.geom_type not in {"Polygon","MultiPolygon"}:
+            raise ValueError(f"unsupported clipped geometry: {result.geom_type}")
+
         geoms=list(result.geoms) if result.geom_type=="MultiPolygon" else [result]
         geoms.sort(key=lambda g:(-g.area,g.bounds[0],g.bounds[1],g.bounds[2],g.bounds[3]))
-        return tuple(GeometryComponent(f"COMP-{i+1:02d}",self._from_shapely(g)) for i,g in enumerate(geoms))
+
+        components=tuple(
+            GeometryComponent(f"COMP-{i+1:02d}",self._from_shapely(g))
+            for i,g in enumerate(geoms)
+        )
+        if abs(sum(c.geometry.area for c in components)-result.area)>1e-9:
+            raise ValueError("clipped component area mismatch")
+        return components
