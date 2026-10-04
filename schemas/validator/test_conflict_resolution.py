@@ -57,7 +57,7 @@ def main() -> int:
         trajectories,
         minimums,
         ResolutionPolicy(max_delay_s=0),
-        candidate_validator=lambda candidate: True,
+        candidate_validator=lambda candidate: RevalidationReport("PASS", model_ids=("MODEL-001",), input_snapshot_id="IN-001", candidate_snapshot_id="CAND-001", provenance="TEST"),
     )
     assert blocked.status == "UNRESOLVED"
     assert blocked.conflict_report.status == "CONFLICT"
@@ -70,7 +70,7 @@ def main() -> int:
             allow_vertical_correction=True,
             vertical_correction_m=20,
         ),
-        candidate_validator=lambda candidate: True,
+        candidate_validator=lambda candidate: RevalidationReport("PASS", model_ids=("MODEL-001",), input_snapshot_id="IN-001", candidate_snapshot_id="CAND-001", provenance="TEST"),
     )
     assert vertical.status == "RESOLVED"
     assert vertical.method == "VERTICAL_CORRECTION"
@@ -83,7 +83,7 @@ def main() -> int:
         ),
         minimums,
         ResolutionPolicy(),
-        candidate_validator=lambda candidate: True,
+        candidate_validator=lambda candidate: RevalidationReport("PASS", model_ids=("MODEL-001",), input_snapshot_id="IN-001", candidate_snapshot_id="CAND-001", provenance="TEST"),
     )
     assert no_action.status == "NO_ACTION"
 
