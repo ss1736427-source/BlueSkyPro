@@ -126,6 +126,12 @@ Item {
             onHideMissionRequested: root.missionState = "HIDDEN"
             onRestoreMissionRequested: root.missionState = "AUTO"
             onCreateMissionRequested: root.missionState = "MANUAL"
+            onTaskCreationRequested: {
+                root.taskCreationVisible = true
+                root.missionSplashVisible = false
+                root.missionProfileOpen = false
+                root.headerAlertsOpen = false
+            }
         }
 
         FlightChart {
