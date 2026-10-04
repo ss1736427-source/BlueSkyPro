@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import sys
 
-from geometry_engine import ContractGeometryEngine
+from geometry_engine import ContractGeometryEngine, ShapelyGeometryEngine
 from zone_partition import Point, Polygon
 
 
 def main() -> int:
     engine = ContractGeometryEngine()
+    shapely_engine = ShapelyGeometryEngine()
 
     source = Polygon((
         Point(0, 0), Point(100, 0), Point(100, 100), Point(0, 100)
@@ -31,12 +32,9 @@ def main() -> int:
     assert len(components) == 1
     assert components[0].component_id == "COMP-01"
 
-    try:
-        engine.subtract(source, (inner,))
-    except NotImplementedError:
-        pass
-    else:
-        raise AssertionError("unsupported clipping must fail explicitly")
+    components = shapely_engine.subtract(source, (inner,))
+    assert len(components) == 1
+    assert abs(components[0].geometry.area - (source.area - inner.area)) < 1e-9
 
     print("GEOMETRY ENGINE TESTS: PASS")
     return 0
