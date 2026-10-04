@@ -239,7 +239,7 @@ Item {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: root.restoreMissionRequested()
+                    onClicked: root.createMissionRequested()
                 }
             }
 
