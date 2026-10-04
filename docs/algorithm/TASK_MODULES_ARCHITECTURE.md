@@ -12,7 +12,7 @@ BlueSky PRO separates three levels that MUST NOT be conflated:
 2. **Task Module** — defines a reusable capability or task component required to solve a part of that mission.
 3. **Planning Kernel** — combines the selected template and modules into one authoritative, feasible mission.
 
-The 13 approved mission templates remain unchanged.
+The approved operator-facing 13-template catalog remains unchanged and is authoritative for UI taxonomy.
 
 Task modules do not replace templates and do not become independent planners.
 
@@ -50,21 +50,23 @@ A template answers:
 
 **What class of overall mission is being solved?**
 
-Approved templates:
+The operator-facing taxonomy is the approved 13-template catalog in `08_PLANNING/BLUESKY_MISSION_TEMPLATE_CATALOG.md`:
 
-1. LONG FLIGHT
-2. FAST FLIGHT
-3. PUNCTUAL ARRIVAL
-4. AREA MONITORING
-5. PHOTOGRAMMETRY / 3D MAPPING
-6. LiDAR / 3D LiDAR
-7. INSPECTION
-8. CORRIDOR INSPECTION
-9. MAX COVERAGE
-10. MAX PAYLOAD
-11. MULTI-UAV DISTRIBUTION
-12. SEARCH
-13. COMPLEX COMBINED MISSION
+1. Картографирование территории
+2. 3D-картография / реконструкция
+3. Инспекция объектов и инфраструктуры
+4. Мониторинг строительства
+5. Мониторинг территории и периметра
+6. Поиск и спасение
+7. Пожарный мониторинг и ЧС
+8. Экологический и природный мониторинг
+9. Сельское хозяйство
+10. Доставка грузов
+11. Ретрансляция связи
+12. Аэрофотосъёмка и медиапроизводство
+13. C-UAS — обнаружение БПЛА
+
+The older functional planning classes (LONG FLIGHT, FAST FLIGHT, PUNCTUAL ARRIVAL, MAX COVERAGE, MAX PAYLOAD, MULTI-UAV DISTRIBUTION, etc.) are **planning objective profiles / solution patterns**, not a competing operator-facing template catalog. They may remain as internal planning profiles where required.
 
 ### 3.2 Task Module
 
@@ -488,19 +490,19 @@ Such cases produce a structured infeasibility state, not a degraded hidden compr
 
 | Template | Primary modules |
 |---|---|
-| LONG FLIGHT | POINT ROUTE, MANDATORY PASSAGE, TIME/DEADLINE, ENERGY |
-| FAST FLIGHT | POINT ROUTE, TIME/DEADLINE, ENERGY |
-| PUNCTUAL ARRIVAL | POINT ROUTE, MANDATORY PASSAGE, TIME/DEADLINE |
-| AREA MONITORING | AREA COVERAGE, DATA ACQUISITION, REPEAT/MONITORING |
-| PHOTOGRAMMETRY / 3D | AREA COVERAGE, SURFACE-FOLLOWING, DATA ACQUISITION, ENERGY |
-| LiDAR / 3D LiDAR | AREA COVERAGE, SURFACE-FOLLOWING, DATA ACQUISITION, PAYLOAD |
-| INSPECTION | TARGET DETAIL, ORBIT/SURFACE, MANDATORY PASSAGE, DATA ACQUISITION |
-| CORRIDOR INSPECTION | CORRIDOR, SURFACE-FOLLOWING, TARGET DETAIL, DATA ACQUISITION |
-| MAX COVERAGE | AREA COVERAGE, SEARCH, ENERGY, MULTI-UAV where applicable |
-| MAX PAYLOAD | PAYLOAD/CAPABILITY, ENERGY, POINT/AREA/CORRIDOR as required |
-| MULTI-UAV DISTRIBUTION | MULTI-UAV DISTRIBUTION plus task-specific modules |
-| SEARCH | SEARCH, AREA COVERAGE, TARGET DETAIL, MULTI-UAV where applicable |
-| COMPLEX COMBINED | any compatible combination required by Task Model |
+| Картографирование территории | AREA COVERAGE, DATA ACQUISITION, ENERGY, RE-ACQUISITION |
+| 3D-картография / реконструкция | AREA COVERAGE, SURFACE-FOLLOWING, DATA ACQUISITION, PAYLOAD/CAPABILITY, RE-ACQUISITION |
+| Инспекция объектов и инфраструктуры | TARGET DETAIL, ORBIT/SURFACE, MANDATORY PASSAGE, DATA ACQUISITION, RE-ACQUISITION |
+| Мониторинг строительства | AREA COVERAGE, DATA ACQUISITION, REPEAT/MONITORING, TIME/DEADLINE |
+| Мониторинг территории и периметра | AREA COVERAGE, SEARCH, DATA ACQUISITION, REPEAT/MONITORING |
+| Поиск и спасение | SEARCH, AREA COVERAGE, TARGET DETAIL, TIME/DEADLINE, MULTI-UAV where applicable |
+| Пожарный мониторинг и ЧС | AREA COVERAGE, SEARCH, TARGET DETAIL, TIME/DEADLINE, PAYLOAD/CAPABILITY |
+| Экологический и природный мониторинг | AREA COVERAGE, DATA ACQUISITION, REPEAT/MONITORING, PAYLOAD/CAPABILITY |
+| Сельское хозяйство | AREA COVERAGE, DATA ACQUISITION, REPEAT/MONITORING, PAYLOAD/CAPABILITY, ENERGY |
+| Доставка грузов | POINT ROUTE, MANDATORY PASSAGE, TIME/DEADLINE, ENERGY, PAYLOAD/CAPABILITY |
+| Ретрансляция связи | POINT ROUTE, MANDATORY PASSAGE, TIME/DEADLINE, ENERGY, PAYLOAD/CAPABILITY |
+| Аэрофотосъёмка и медиапроизводство | POINT ROUTE, AREA COVERAGE, ORBIT/SURFACE, DATA ACQUISITION, PAYLOAD/CAPABILITY |
+| C-UAS — обнаружение БПЛА | AREA COVERAGE, SEARCH, TARGET DETAIL, TIME/DEADLINE, PAYLOAD/CAPABILITY, MULTI-UAV where applicable |
 
 This is a **baseline mapping**, not a restriction. Optional modules may be added when the operator task or environment requires them.
 
