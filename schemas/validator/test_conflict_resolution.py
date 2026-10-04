@@ -53,6 +53,15 @@ def main() -> int:
     assert 0 < result.delay_s <= 5
     assert result.conflict_report.status == "NO_CONFLICT"
 
+    incomplete_evidence = resolve(
+        trajectories,
+        minimums,
+        ResolutionPolicy(max_delay_s=5),
+        candidate_validator=lambda candidate: RevalidationReport("PASS"),
+    )
+    assert incomplete_evidence.status == "UNRESOLVED"
+    assert "TEMPORAL_DELAY:AUTHORITATIVE_REVALIDATION_FAILED" in incomplete_evidence.rejected_candidates
+
     blocked = resolve(
         trajectories,
         minimums,
