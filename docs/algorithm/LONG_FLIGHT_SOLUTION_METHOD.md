@@ -102,6 +102,33 @@ The base route is then segmented for energy and wind evaluation.
 
 No optimization method is allowed to bypass this stage.
 
+## 5A. Interactive mandatory passage points
+
+The map and flight profile are interactive controls for mission definition.
+
+The operator may place mandatory passage points on the map and/or directly on the flight profile. These points become hard route constraints in the LONG FLIGHT Task Model.
+
+For each point the system stores:
+
+- position;
+- required altitude or altitude band, if specified;
+- order, if specified;
+- passage tolerance/corridor;
+- optional dwell/observation requirement;
+- operator-defined reason/type.
+
+The route is therefore represented as ordered constrained legs:
+
+START → MANDATORY_1 → MANDATORY_2 → … → DESTINATION
+
+The planner may optimize each leg and the complete mission, but cannot delete, reorder, or bypass a mandatory point.
+
+A point placed by the operator is subject to the same feasibility checks as every other route element. The system validates legality, terrain/obstacle clearance, altitude, UAV performance, energy/reserve and applicable multi-UAV constraints.
+
+The map and profile are bidirectionally synchronized. Moving a point in either view updates the shared Task Model and invalidates the affected route/trajectory calculations until recalculation is complete.
+
+For an infeasible mandatory point, the planner returns a structured failure and identifies the affected point/leg. It must not silently move the point or route around it.
+
 ## 6. Wind-aware directed graph
 
 Long-flight routing uses a directed graph.
