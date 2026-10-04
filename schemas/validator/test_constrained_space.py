@@ -31,12 +31,10 @@ def main() -> int:
         reason="restricted area",
     )
 
-    try:
-        build_constrained_space(source, (exclusion,))
-    except ConstrainedSpaceError as exc:
-        assert "REQUIRES_GEOMETRY_ENGINE" in str(exc)
-    else:
-        raise AssertionError("clipped geometry must not be fabricated")
+    clipped = build_constrained_space(source, (exclusion,))
+    assert clipped.status == "VERIFIED"
+    assert len(clipped.components) == 1
+    assert abs(clipped.components[0].geometry.area - (source.area - exclusion.geometry.area)) < 1e-9
 
     outside = Exclusion(
         exclusion_id="NO-GO-02",
