@@ -82,7 +82,7 @@ def main() -> int:
         ),
         make_custom_trajectory(
             "UAV-03",
-            (Point(30, -7), Point(30, 23)),
+            (Point(30, -17.5), Point(30, 22.5)),
         ),
     )
     combination = resolve(
@@ -106,8 +106,8 @@ def main() -> int:
     assert combination.status == "RESOLVED"
     assert combination.method == "TEMPORAL_DELAY_COMBINATION"
     assert combination.delay_assignments == (
-        ("UAV-01", 0.5),
         ("UAV-02", 0.5),
+        ("UAV-03", 0.5),
     )
     assert combination.conflict_report.status == "NO_CONFLICT"
 
