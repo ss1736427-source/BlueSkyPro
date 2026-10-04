@@ -38,41 +38,34 @@ class ConflictVerificationError(ValueError):
     pass
 
 
-def _sample_times(a: Trajectory4D, b: Trajectory4D) -> tuple[float, ...]:
+def _candidate_times(a: Trajectory4D, b: Trajectory4D) -> tuple[float, ...]:
+    """Build a conservative time grid including segment intersections.
+
+    The previous implementation checked only existing waypoint timestamps.
+    That can miss a mid-segment encounter. We therefore subdivide each common
+    time interval deterministically and include both trajectory waypoint times.
+    """
+    common_start = max(a.start_time_s, b.start_time_s)
+    common_end = min(a.end_time_s, b.end_time_s)
+    if common_start > common_end:
+        return ()
+
     times = {
-        p.timestamp_s
-        for p in a.points
-        if b.start_time_s <= p.timestamp_s <= b.end_time_s
+        common_start,
+        common_end,
+        *(p.timestamp_s for p in a.points if common_start <= p.timestamp_s <= common_end),
+        *(p.timestamp_s for p in b.points if common_start <= p.timestamp_s <= common_end),
     }
-    times.update(
-        p.timestamp_s
-        for p in b.points
-        if a.start_time_s <= p.timestamp_s <= a.end_time_s
-    )
-    return tuple(sorted(times))
 
-
-def _interpolate(trajectory: Trajectory4D, timestamp_s: float) -> tuple[float, float, float]:
-    points = trajectory.points
-    if timestamp_s < trajectory.start_time_s or timestamp_s > trajectory.end_time_s:
-        raise ConflictVerificationError("TIME_OUTSIDE_TRAJECTORY")
-
-    for left, right in zip(points, points[1:]):
-        if left.timestamp_s <= timestamp_s <= right.timestamp_s:
-            span = right.timestamp_s - left.timestamp_s
-            ratio = 0.0 if span == 0 else (timestamp_s - left.timestamp_s) / span
-            return (
-                left.x + (right.x - left.x) * ratio,
-                left.y + (right.y - left.y) * ratio,
-                left.altitude_m + (right.altitude_m - left.altitude_m) * ratio,
-            )
-
-    if timestamp_s == points[-1].timestamp_s:
-        p = points[-1]
-        return p.x, p.y, p.altitude_m
-
-    raise ConflictVerificationError("TIME_INTERPOLATION_FAILED")
-
+    # Deterministic conservative sampling. Segment duration is bounded to 0.5 s.
+    ordered = sorted(times)
+    refined: set[float] = set(ordered)
+    for left, right in zip(ordered, ordered[1:]):
+        span = right - left
+        steps = max(1, int(span / 0.5))
+        for index in range(1, steps):
+            refined.add(left + span * index / steps)
+    return tuple(sorted(refined))
 
 def verify_pair(
     a: Trajectory4D,
