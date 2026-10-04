@@ -1,31 +1,41 @@
 #!/usr/bin/env python3
 
-from multi_uav_domain import ArtifactState, DependencyGraph
+from multi_uav_domain import ArtifactRef, ArtifactState, DependencyGraph
+
+
+def state(kind: str, version: int = 1) -> ArtifactState:
+    return ArtifactState(ArtifactRef(kind, kind.lower(), version))
 
 
 def main() -> int:
-    graph = DependencyGraph()
-    states = {
-        "assignment": ArtifactState("assignment", True),
-        "route": ArtifactState("route", True),
-        "performance": ArtifactState("performance", True),
-        "trajectory": ArtifactState("trajectory", True),
-        "conflict": ArtifactState("conflict", True),
-        "resolution": ArtifactState("resolution", True),
-        "final": ArtifactState("final", True),
+    states = [
+        state("MISSION"),
+        state("CONSTRAINED_OPEN_SPACE"),
+        state("ZONE_SET"),
+        state("ZONE_ASSIGNMENT_SET"),
+        state("ROUTE_SET"),
+        state("PERFORMANCE_ADJUSTED_ROUTE_SET"),
+        state("TRAJECTORY_SET"),
+        state("CONFLICT_REPORT"),
+        state("CONFLICT_RESOLUTION"),
+        state("FINAL_CHECK_RESULT"),
+    ]
+    graph = DependencyGraph(states)
+
+    invalidated = graph.invalidate_from(ArtifactRef("ZONE_ASSIGNMENT_SET", "zone_assignment_set", 1))
+    invalidated_kinds = {item.kind for item in invalidated}
+
+    assert invalidated_kinds == {
+        "ROUTE_SET",
+        "PERFORMANCE_ADJUSTED_ROUTE_SET",
+        "TRAJECTORY_SET",
+        "CONFLICT_REPORT",
+        "CONFLICT_RESOLUTION",
+        "FINAL_CHECK_RESULT",
     }
-
-    for state in states.values():
-        graph.add(state)
-
-    invalidated = graph.invalidate_from("assignment")
-
-    assert invalidated == {
-        "assignment", "route", "performance", "trajectory",
-        "conflict", "resolution", "final",
-    }
-    assert graph.get("route").active is False
-    assert graph.get("final").active is False
+    assert graph.active("ROUTE_SET") is False
+    assert graph.active("FINAL_CHECK_RESULT") is False
+    assert graph.active("ZONE_SET") is True
 
     print("ASSIGNMENT INVALIDATION TEST: PASS")
     return 0
