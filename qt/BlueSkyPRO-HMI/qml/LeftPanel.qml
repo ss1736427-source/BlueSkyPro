@@ -223,15 +223,15 @@ Item {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: root.restoreMissionRequested()
+                    onClicked: root.createMissionRequested()
                 }
             }
 
             Text {
                 visible: !root.missionCreationMode && root.missionIsAutomatic
-                width: 18
+                width: 72
                 horizontalAlignment: Text.AlignHCenter
-                text: "+"
+                text: "← BACK"
                 color: root.missionVisible ? root.cyan : root.text
                 font.family: "B612 Mono"
                 font.pixelSize: 16
