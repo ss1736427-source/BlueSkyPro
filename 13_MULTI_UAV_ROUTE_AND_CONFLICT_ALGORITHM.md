@@ -106,7 +106,12 @@ A geometric crossing is not automatically an operational conflict if the require
 If a conflict remains and cannot be eliminated by changing the zones/routes, apply bounded planned corrections:
 
 **Temporal correction**
-- delay range: **0–5 seconds**.
+- configured finite delay lattice, default **0–5 s**;
+- default resolution step: **0.5 s**;
+- all UAVs participating in the initial conflict graph are eligible temporal decision variables;
+- candidate combinations are enumerated deterministically by total added delay, then stable UAV-ID order;
+- the search is complete over the configured finite lattice unless the explicit search-state limit is reached;
+- a search-limit condition is a planning failure, not permission to release.
 
 **Vertical correction**
 - change altitude only when permitted by mission constraints, aircraft capability, restricted-airspace limits and applicable operational rules.
@@ -200,12 +205,20 @@ Each conflict records UAV pair, trajectory segment(s), location/volume, time int
 **Inputs:** ConflictReport and mutable planning parameters.
 
 **Allowed corrections:**
-- temporal delay: 0–5 s;
+- temporal delay on a configured finite lattice;
 - permitted vertical correction.
+
+Temporal resolution is a fleet-level search, not a pairwise "always delay UAV-B" rule. The initial conflict graph determines the affected UAV set. The resolver evaluates single-UAV and multi-UAV delay combinations in deterministic cost order. Every candidate is subjected to:
+
+1. continuous 4D fleet conflict verification;
+2. authoritative revalidation of the complete candidate trajectory set;
+3. rejection if any authoritative check fails.
+
+The current default temporal lattice is 0–5 s in 0.5 s increments. The implementation also exposes an explicit search-state limit. If the limit prevents exhaustive traversal of the configured lattice, the result is UNRESOLVED; the system must not treat the partial search as proof of infeasibility.
 
 **Output:** ResolvedTrajectorySet or UnresolvedConflict.
 
-Every correction is explicit and traceable to the conflict that caused it.
+Every correction records the affected UAVs, delay assignments, verification result and authoritative revalidation evidence.
 
 ### Stage J — Final Check
 Rerun all relevant gates:
