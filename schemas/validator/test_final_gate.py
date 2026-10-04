@@ -19,10 +19,12 @@ def main() -> int:
     passed = evaluate_final_gate(
         complete_checks(),
         unresolved_conflicts=0,
+        authorization_status="AUTHORIZED",
     )
     assert passed.status == "PASS"
     assert passed.release_status == "RELEASE_ELIGIBLE"
     assert passed.authorization_status == "NOT_EVALUATED"
+    assert passed.release_status == "BLOCKED"
 
     blocked_conflict = evaluate_final_gate(
         (
@@ -69,7 +71,8 @@ def main() -> int:
         unresolved_conflicts=0,
         authorization_status="PENDING",
     )
-    assert auth_not_granted.release_status == "RELEASE_ELIGIBLE"
+    assert auth_not_granted.release_status == "BLOCKED"
+    assert "AUTHORIZATION:PENDING" in auth_not_granted.failed_checks
     assert auth_not_granted.authorization_status == "PENDING"
 
     print("FINAL GATE TESTS: PASS")
