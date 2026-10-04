@@ -1,0 +1,67 @@
+name: Repository Unification Migration
+
+on:
+  push:
+    branches:
+      - repo-unification-2026-10-05
+    paths:
+      - .github/workflows/repository-unification-migration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  import-knowledge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout unified repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: repo-unification-2026-10-05
+
+      - name: Import BlueSky-PRO-Knowledge
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/BlueSky-PRO-Knowledge
+          git clone --depth 1 https://github.com/ss1736427-source/BlueSky-PRO-Knowledge.git /tmp/BlueSky-PRO-Knowledge
+
+          rsync -a --delete-excluded \
+            --exclude='.git/' \
+            --exclude='.gitattributes' \
+            /tmp/BlueSky-PRO-Knowledge/ ./
+
+          cp /tmp/BlueSky-PRO-Knowledge/.gitattributes .gitattributes.knowledge-source
+
+          cat > REPOSITORY_UNIFICATION.md <<'EOF'
+          # BlueSkyPro repository unification
+
+          The former BlueSky-PRO-Knowledge repository has been consolidated into BlueSkyPro.
+
+          Source snapshot:
+          - repository: ss1736427-source/BlueSky-PRO-Knowledge
+          - source branch: main
+          - source tree imported as repository content
+
+          Historical Git histories remain preserved in their original repositories until the consolidation is reviewed and accepted.
+          This branch is the controlled integration point.
+
+          The former source .gitattributes is retained as .gitattributes.knowledge-source for review; the target repository .gitattributes remains authoritative.
+          EOF
+
+          git status --short
+
+      - name: Commit imported repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          if git diff --cached --quiet; then
+            echo No migration changes detected.
+            exit 0
+          fi
+          git commit -m ARCH: consolidate BlueSky-PRO-Knowledge into BlueSkyPro
+          git push origin HEAD:repo-unification-2026-10-05
