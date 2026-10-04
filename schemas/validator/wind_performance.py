@@ -64,7 +64,9 @@ def _wind_component_along(
     # Wind direction is "from"; convert to direction of travel component.
     travel_x, travel_y = dx / length, dy / length
     wind_to = radians((wind_from_deg + 180.0) % 360.0)
-    wx, wy = cos(wind_to) * wind_speed, sin(wind_to) * wind_speed
+    # Bearings are aviation-style: 0° = north, 90° = east.
+    # Convert bearing to Cartesian x/east, y/north components.
+    wx, wy = sin(wind_to) * wind_speed, cos(wind_to) * wind_speed
     return wx * travel_x + wy * travel_y
 
 
