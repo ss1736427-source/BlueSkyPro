@@ -25,6 +25,14 @@ def main() -> int:
     assert result.status == "VERIFIED"
     assert len(result.assignments) == 2
     assert len({a.uav_id for a in result.assignments}) == 2
+    # Regression: greedy assignment fails here, global matching must recover it.
+    constrained = (
+        UAVCapability("UAV-01", True, True, 1500, 600, 300, True, True, 10, 0, ("ZONE-01", "ZONE-02")),
+        UAVCapability("UAV-02", True, True, 1500, 600, 300, True, True, 1, 0, ("ZONE-01",)),
+    )
+    global_result = assign_zones(zones, constrained)
+    mapping = {item.zone_id: item.uav_id for item in global_result.assignments}
+    assert mapping == {"ZONE-01": "UAV-02", "ZONE-02": "UAV-01"}
 
     blocked = (
         UAVCapability("UAV-01", True, True, 700, 600, 200, True, True),
