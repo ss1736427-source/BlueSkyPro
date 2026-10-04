@@ -311,3 +311,25 @@ The optimization layer is therefore an enhancement of the existing BlueSky PRO a
 This document is the architectural baseline for subsequent development of mission-template algorithms.
 
 Any future template algorithm that uses GA, ACO, SA, Pareto optimization, priority routing, opportunistic task insertion, or operator-defined optimization objectives MUST reference this layer rather than implementing an independent optimization architecture.
+
+
+## 12A. Mission Template vs Task Module
+
+Mission templates and task modules are separate architectural levels.
+
+- **Mission Template** defines the overall class of the operator's mission.
+- **Task Module** defines a reusable task component required to solve part of that mission.
+- **Task Model** stores the concrete requirements and parameters produced from the template, operator input and module selection.
+- **Planning Kernel** composes these requirements into one authoritative feasible mission.
+
+The approved 13 mission templates are not replaced by task modules.
+
+A single mission may activate several task modules simultaneously. For example, PHOTOGRAMMETRY / 3D MAPPING may require AREA COVERAGE, MANDATORY PASSAGE, SURFACE-FOLLOWING, DATA ACQUISITION, TIME/DEADLINE, ENERGY/ENDURANCE and MULTI-UAV DISTRIBUTION.
+
+Modules do not create independent routes or safety states. They contribute requirements to the common Task Model and use the existing linked interfaces and centralized planning services.
+
+Canonical flow:
+
+MISSION TEMPLATE → TASK MODULES → TASK MODEL → PLANNING KERNEL → OPTIMIZATION LAYER → SAFETY VERIFICATION
+
+The detailed module registry is defined in `docs/algorithm/TASK_MODULES_ARCHITECTURE.md`.
