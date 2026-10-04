@@ -1,6 +1,7 @@
-"""Deterministic UAV ↔ Zone Assignment Engine."""
+"""Deterministic global UAV ↔ Zone Assignment Engine."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -99,22 +100,88 @@ def assign_zones(
         for zone in zones
         for uav in fleet
     )
+    by_zone = {
+        zone.zone_id: tuple(
+            c for c in candidates if c.zone_id == zone.zone_id and c.feasible
+        )
+        for zone in zones
+    }
 
-    selected: list[ZoneAssignment] = []
-    used_uavs: set[str] = set()
+    # A complete deterministic search is used instead of greedy zone ordering.
+    # Zones with fewer feasible UAVs are branched first; ties remain stable by
+    # original zone order. The objective is maximum total assignment score,
+    # with lexical tie-breaking for deterministic results.
+    ordered_zones = tuple(
+        sorted(
+            zones,
+            key=lambda zone: (
+                len(by_zone[zone.zone_id]),
+                next(i for i, item in enumerate(zones) if item.zone_id == zone.zone_id),
+                zone.zone_id,
+            ),
+        )
+    )
 
-    for zone in zones:
-        feasible = [
-            c for c in candidates
-            if c.zone_id == zone.zone_id and c.feasible and c.uav_id not in used_uavs
-        ]
-        if not feasible:
-            raise AssignmentError(
-                f"ASSIGNMENT_FAILED: no feasible UAV for {zone.zone_id}"
+    if any(not by_zone[zone.zone_id] for zone in ordered_zones):
+        failed_zone = next(
+            zone for zone in ordered_zones if not by_zone[zone.zone_id]
+        )
+        raise AssignmentError(
+            f"ASSIGNMENT_FAILED: no feasible UAV for {failed_zone.zone_id}"
+        )
+
+    best_score = float("-inf")
+    best_assignment: tuple[ZoneAssignment, ...] | None = None
+
+    def search(
+        index: int,
+        used: set[str],
+        selected: list[ZoneAssignment],
+        score: float,
+    ) -> None:
+        nonlocal best_score, best_assignment
+        if index == len(ordered_zones):
+            candidate = tuple(selected)
+            signature = tuple(
+                (item.zone_id, item.uav_id)
+                for item in sorted(candidate, key=lambda item: item.zone_id)
             )
+            best_signature = (
+                tuple((item.zone_id, item.uav_id)
+                      for item in sorted(best_assignment, key=lambda item: item.zone_id))
+                if best_assignment is not None else None
+            )
+            if score > best_score or (
+                score == best_score and (best_signature is None or signature < best_signature)
+            ):
+                best_score = score
+                best_assignment = candidate
+            return
 
-        winner = max(feasible, key=lambda c: (c.score, c.uav_id))
-        selected.append(ZoneAssignment(zone.zone_id, winner.uav_id, winner.score))
-        used_uavs.add(winner.uav_id)
+        zone = ordered_zones[index]
+        options = sorted(
+            (candidate for candidate in by_zone[zone.zone_id] if candidate.uav_id not in used),
+            key=lambda candidate: (-candidate.score, candidate.uav_id),
+        )
+        for candidate in options:
+            selected.append(
+                ZoneAssignment(
+                    zone_id=zone.zone_id,
+                    uav_id=candidate.uav_id,
+                    score=candidate.score,
+                )
+            )
+            used.add(candidate.uav_id)
+            search(index + 1, used, selected, score + candidate.score)
+            used.remove(candidate.uav_id)
+            selected.pop()
 
-    return AssignmentResult(tuple(selected), candidates, "VERIFIED")
+    search(0, set(), [], 0.0)
+
+    if best_assignment is None:
+        raise AssignmentError("ASSIGNMENT_FAILED: no globally feasible assignment")
+
+    assignments = tuple(
+        sorted(best_assignment, key=lambda item: item.zone_id)
+    )
+    return AssignmentResult(assignments, candidates, "VERIFIED")
