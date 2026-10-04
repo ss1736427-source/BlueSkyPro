@@ -65,6 +65,31 @@ def main() -> int:
     )
     assert vertical.status == "NO_CONFLICT"
 
+    # Regression: endpoints remain separated, but the trajectories cross mid-segment.
+    crossing_zone = Zone(
+        "ZONE-CROSS",
+        Polygon((Point(0, 0), Point(100, 0), Point(100, 100), Point(0, 100))),
+    )
+    route_a = build_route_in_zone(
+        route_id="ROUTE-CROSS-A", uav_id="UAV-A", zone=crossing_zone,
+        points=(Point(10, 10), Point(90, 90)),
+    )
+    route_b = build_route_in_zone(
+        route_id="ROUTE-CROSS-B", uav_id="UAV-B", zone=crossing_zone,
+        points=(Point(10, 90), Point(90, 10)),
+    )
+    perf_a = adjust_route_for_wind(route_a, WindSample(0, 0), PerformanceProfile(10, 0.01, 100, 12))
+    perf_b = adjust_route_for_wind(route_b, WindSample(0, 0), PerformanceProfile(10, 0.01, 100, 12))
+    crossing = verify_fleet(
+        (
+            build_trajectory_4d("TRAJ-CROSS-A", route_a.route_id, "UAV-A", route_a.points, perf_a, 0, 80),
+            build_trajectory_4d("TRAJ-CROSS-B", route_b.route_id, "UAV-B", route_b.points, perf_b, 0, 80),
+        ),
+        minimums,
+    )
+    assert crossing.status == "CONFLICT"
+    assert any(item.minimum_horizontal_m < 1.0 for item in crossing.conflicts)
+
     conflict = verify_fleet(
         (
             make_trajectory("UAV-01", 50, 0, 80),
