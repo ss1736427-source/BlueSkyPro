@@ -25,6 +25,7 @@ class ResolutionResult:
     vertical_correction_m: float
     rejected_candidates: tuple[str, ...]
     conflict_report: ConflictReport
+    resolved_trajectories: tuple[Trajectory4D, ...] = ()
 
 
 class ResolutionError(ValueError):
@@ -98,20 +99,42 @@ def resolve_conflicts(
     policy: ResolutionPolicy,
     *,
     spatial_regenerator: Callable[[Conflict], Sequence[Trajectory4D]] | None = None,
+    candidate_validator: Callable[[Sequence[Trajectory4D]], bool] | None = None,
 ) -> ResolutionResult:
     initial = verify_fleet(trajectories, minimums)
     if initial.status == "NO_CONFLICT":
         return ResolutionResult(
-            "NO_ACTION",
-            None,
-            None,
-            0.0,
-            0.0,
-            (),
-            initial,
+            "NO_ACTION", None, None, 0.0, 0.0, (), initial, tuple(trajectories)
         )
 
     rejected: list[str] = []
+
+    def accept_candidate(
+        method: str,
+        affected_uav_id: str,
+        candidate_trajectories: tuple[Trajectory4D, ...],
+        delay_s: float = 0.0,
+        vertical_correction_m: float = 0.0,
+    ) -> ResolutionResult | None:
+        report = verify_fleet(candidate_trajectories, minimums)
+        if report.status != "NO_CONFLICT":
+            return None
+        if candidate_validator is None:
+            rejected.append(f"{method}:AUTHORITATIVE_REVALIDATION_REQUIRED")
+            return None
+        if not candidate_validator(candidate_trajectories):
+            rejected.append(f"{method}:AUTHORITATIVE_REVALIDATION_FAILED")
+            return None
+        return ResolutionResult(
+            "RESOLVED",
+            method,
+            affected_uav_id,
+            delay_s,
+            vertical_correction_m,
+            tuple(rejected),
+            report,
+            candidate_trajectories,
+        )
 
     # Priority 1: regenerate affected trajectories spatially.
     if spatial_regenerator is not None:
@@ -123,40 +146,23 @@ def resolve_conflicts(
                     if item.uav_id in {conflict.uav_a, conflict.uav_b}
                 )
                 if candidate:
-                    combined = tuple(
-                        candidate_item
-                        if any(
-                            existing.uav_id == candidate_item.uav_id
-                            for existing in trajectories
-                        )
-                        else existing
-                        for existing in trajectories
-                        for candidate_item in ()
-                    )
-                    # Explicit replacement without implicit list mutation.
                     updated = list(trajectories)
                     for replacement in candidate:
                         updated = [
                             replacement if item.uav_id == replacement.uav_id else item
                             for item in updated
                         ]
-                    report = verify_fleet(tuple(updated), minimums)
-                    if report.status == "NO_CONFLICT":
-                        return ResolutionResult(
-                            "RESOLVED",
-                            "SPATIAL_REGENERATION",
-                            conflict.uav_b,
-                            0.0,
-                            0.0,
-                            tuple(rejected),
-                            report,
-                        )
+                    result = accept_candidate(
+                        "SPATIAL_REGENERATION",
+                        conflict.uav_b,
+                        tuple(updated),
+                    )
+                    if result is not None:
+                        return result
                 rejected.append(f"SPATIAL_REGENERATION:{conflict.conflict_id}")
 
-    # Priority 2: deterministic delay candidates 0..5 s.
-    for delay in range(0, int(policy.max_delay_s) + 1):
-        if delay == 0:
-            continue
+    # Priority 2: deterministic delay candidates 1..max_delay_s.
+    for delay in range(1, int(policy.max_delay_s) + 1):
         for conflict in initial.conflicts:
             target = next(
                 (t for t in trajectories if t.uav_id == conflict.uav_b),
@@ -168,17 +174,14 @@ def resolve_conflicts(
                 trajectories,
                 _delay_trajectory(target, float(delay)),
             )
-            report = verify_fleet(candidate_trajectories, minimums)
-            if report.status == "NO_CONFLICT":
-                return ResolutionResult(
-                    "RESOLVED",
-                    "TEMPORAL_DELAY",
-                    target.uav_id,
-                    float(delay),
-                    0.0,
-                    tuple(rejected),
-                    report,
-                )
+            result = accept_candidate(
+                "TEMPORAL_DELAY",
+                target.uav_id,
+                candidate_trajectories,
+                delay_s=float(delay),
+            )
+            if result is not None:
+                return result
         rejected.append(f"TEMPORAL_DELAY:{delay}s")
 
     # Priority 3: vertical correction only when explicitly permitted.
@@ -196,17 +199,14 @@ def resolve_conflicts(
                 trajectories,
                 _vertical_trajectory(target, policy.vertical_correction_m),
             )
-            report = verify_fleet(candidate_trajectories, minimums)
-            if report.status == "NO_CONFLICT":
-                return ResolutionResult(
-                    "RESOLVED",
-                    "VERTICAL_CORRECTION",
-                    target.uav_id,
-                    0.0,
-                    policy.vertical_correction_m,
-                    tuple(rejected),
-                    report,
-                )
+            result = accept_candidate(
+                "VERTICAL_CORRECTION",
+                target.uav_id,
+                candidate_trajectories,
+                vertical_correction_m=policy.vertical_correction_m,
+            )
+            if result is not None:
+                return result
 
     return ResolutionResult(
         "UNRESOLVED",
@@ -216,4 +216,5 @@ def resolve_conflicts(
         0.0,
         tuple(rejected),
         initial,
+        (),
     )
