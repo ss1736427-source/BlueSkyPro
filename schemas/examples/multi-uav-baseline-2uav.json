@@ -1,0 +1,625 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bluesky://examples/multi-uav-baseline/v1",
+  "title": "BlueSky PRO Multi-UAV Baseline — 2 UAV / 2 Zones / No Conflict",
+  "description": "Deterministic baseline instance for the first end-to-end machine validation target.",
+  "schemaRef": "bluesky://schemas/multi-uav-planning/v1",
+  "missionRef": "MISSION-BASELINE-2UAV-001",
+  "expectedFinalState": "RELEASE_ELIGIBLE",
+  "scenario": {
+    "uavs": [
+      "UAV-01",
+      "UAV-02"
+    ],
+    "zones": [
+      "ZONE-01",
+      "ZONE-02"
+    ],
+    "assignment": [
+      {
+        "uavId": "UAV-01",
+        "zoneId": "ZONE-01"
+      },
+      {
+        "uavId": "UAV-02",
+        "zoneId": "ZONE-02"
+      }
+    ],
+    "conflictExpected": "NO_CONFLICT"
+  },
+  "artifacts": {
+    "constrainedOpenSpace": {
+      "artifactId": "COS-001",
+      "version": 1,
+      "missionId": "MISSION-BASELINE-2UAV-001",
+      "status": "VERIFIED",
+      "sourceRefs": [
+        "MISSION-BASELINE-2UAV-001"
+      ],
+      "algorithmVersion": "partition-1.0",
+      "configVersion": "baseline-1.0",
+      "traceability": {
+        "inputVersions": {
+          "mission": "MISSION-BASELINE-2UAV-001:v1"
+        },
+        "evidenceRefs": [
+          "EVID-COS-001"
+        ],
+        "invalidatedBy": [],
+        "replayKey": "BASELINE-2UAV-001"
+      },
+      "operationalGeometry": {
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.1
+              ],
+              [
+                0.1,
+                0.1
+              ],
+              [
+                0.1,
+                0
+              ],
+              [
+                0,
+                0
+              ]
+            ]
+          ]
+        },
+        "coordinateReferenceSystem": "WGS84",
+        "verticalReference": "MSL"
+      },
+      "excludedGeometry": [],
+      "verification": [
+        {
+          "constraintId": "OPEN-SPACE-VALID",
+          "result": "PASS",
+          "evidenceRef": "EVID-COS-001",
+          "detail": "Operational geometry valid."
+        }
+      ]
+    },
+    "zoneSet": {
+      "artifactId": "ZONESET-001",
+      "version": 1,
+      "missionId": "MISSION-BASELINE-2UAV-001",
+      "status": "VERIFIED",
+      "sourceRefs": [
+        "COS-001:v1"
+      ],
+      "algorithmVersion": "partition-1.0",
+      "configVersion": "baseline-1.0",
+      "traceability": {
+        "inputVersions": {
+          "constrainedOpenSpace": "COS-001:v1"
+        },
+        "evidenceRefs": [
+          "EVID-ZONE-001"
+        ],
+        "invalidatedBy": [],
+        "replayKey": "BASELINE-2UAV-001"
+      },
+      "zones": [
+        {
+          "zoneId": "ZONE-01",
+          "geometry": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0.1
+                  ],
+                  [
+                    0.05,
+                    0.1
+                  ],
+                  [
+                    0.05,
+                    0
+                  ],
+                  [
+                    0,
+                    0
+                  ]
+                ]
+              ]
+            },
+            "coordinateReferenceSystem": "WGS84",
+            "verticalReference": "MSL"
+          },
+          "assignmentCandidates": [
+            "UAV-01",
+            "UAV-02"
+          ],
+          "estimatedWorkload": 1,
+          "estimatedRouteLengthM": 11100,
+          "estimatedTimeS": 1200,
+          "estimatedEnergyWh": 100,
+          "constraints": [],
+          "verification": [
+            {
+              "constraintId": "ZONE-NO-OVERLAP",
+              "result": "PASS"
+            }
+          ]
+        },
+        {
+          "zoneId": "ZONE-02",
+          "geometry": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    0.05,
+                    0
+                  ],
+                  [
+                    0.05,
+                    0.1
+                  ],
+                  [
+                    0.1,
+                    0.1
+                  ],
+                  [
+                    0.1,
+                    0
+                  ],
+                  [
+                    0.05,
+                    0
+                  ]
+                ]
+              ]
+            },
+            "coordinateReferenceSystem": "WGS84",
+            "verticalReference": "MSL"
+          },
+          "assignmentCandidates": [
+            "UAV-01",
+            "UAV-02"
+          ],
+          "estimatedWorkload": 1,
+          "estimatedRouteLengthM": 11100,
+          "estimatedTimeS": 1200,
+          "estimatedEnergyWh": 100,
+          "constraints": [],
+          "verification": [
+            {
+              "constraintId": "ZONE-NO-OVERLAP",
+              "result": "PASS"
+            }
+          ]
+        }
+      ],
+      "coverageStatus": "COMPLETE",
+      "verification": [
+        {
+          "constraintId": "ZONE-SUBSET-OPEN-SPACE",
+          "result": "PASS"
+        },
+        {
+          "constraintId": "ZONE-OVERLAP",
+          "result": "PASS",
+          "detail": "No operational-area overlap."
+        },
+        {
+          "constraintId": "COVERAGE-COMPLETE",
+          "result": "PASS"
+        }
+      ]
+    },
+    "zoneAssignmentSet": {
+      "artifactId": "ASSIGN-001",
+      "version": 1,
+      "missionId": "MISSION-BASELINE-2UAV-001",
+      "status": "VERIFIED",
+      "sourceRefs": [
+        "ZONESET-001:v1"
+      ],
+      "algorithmVersion": "assignment-1.0",
+      "configVersion": "baseline-1.0",
+      "traceability": {
+        "inputVersions": {
+          "zoneSet": "ZONESET-001:v1"
+        },
+        "evidenceRefs": [
+          "EVID-ASSIGN-001"
+        ],
+        "invalidatedBy": [],
+        "replayKey": "BASELINE-2UAV-001"
+      },
+      "assignments": [
+        {
+          "zoneId": "ZONE-01",
+          "uavId": "UAV-01",
+          "feasibility": "FEASIBLE",
+          "capabilityMargin": 1,
+          "energyMargin": 0.4,
+          "timeMargin": 0.4,
+          "windMargin": 0.5,
+          "launchRecoveryMargin": 0.5,
+          "authorizationStatus": "VALID",
+          "c2Status": "VALID",
+          "score": 1,
+          "evidenceRefs": [
+            "EVID-ASSIGN-01"
+          ],
+          "verification": [
+            {
+              "constraintId": "ASSIGNMENT-FEASIBLE",
+              "result": "PASS"
+            }
+          ]
+        },
+        {
+          "zoneId": "ZONE-02",
+          "uavId": "UAV-02",
+          "feasibility": "FEASIBLE",
+          "capabilityMargin": 1,
+          "energyMargin": 0.4,
+          "timeMargin": 0.4,
+          "windMargin": 0.5,
+          "launchRecoveryMargin": 0.5,
+          "authorizationStatus": "VALID",
+          "c2Status": "VALID",
+          "score": 1,
+          "evidenceRefs": [
+            "EVID-ASSIGN-02"
+          ],
+          "verification": [
+            {
+              "constraintId": "ASSIGNMENT-FEASIBLE",
+              "result": "PASS"
+            }
+          ]
+        }
+      ],
+      "verification": [
+        {
+          "constraintId": "ONE-UAV-PER-ZONE",
+          "result": "PASS"
+        },
+        {
+          "constraintId": "ALL-ZONES-ASSIGNED",
+          "result": "PASS"
+        }
+      ]
+    },
+    "routeSet": {
+      "artifactId": "ROUTE-001",
+      "version": 1,
+      "missionId": "MISSION-BASELINE-2UAV-001",
+      "status": "VERIFIED",
+      "sourceRefs": [
+        "ASSIGN-001:v1"
+      ],
+      "algorithmVersion": "route-1.0",
+      "configVersion": "baseline-1.0",
+      "traceability": {
+        "inputVersions": {
+          "zoneAssignmentSet": "ASSIGN-001:v1"
+        },
+        "evidenceRefs": [
+          "EVID-ROUTE-001"
+        ],
+        "invalidatedBy": [],
+        "replayKey": "BASELINE-2UAV-001"
+      },
+      "routes": [
+        {
+          "segmentId": "R01",
+          "zoneId": "ZONE-01",
+          "uavId": "UAV-01",
+          "geometry": [
+            {
+              "lat": 0.01,
+              "lon": 0.01,
+              "alt": 80
+            },
+            {
+              "lat": 0.01,
+              "lon": 0.04,
+              "alt": 80
+            }
+          ],
+          "altitudeM": 80,
+          "speedMps": 10,
+          "state": "COVERAGE",
+          "mandatory": false
+        },
+        {
+          "segmentId": "R02",
+          "zoneId": "ZONE-02",
+          "uavId": "UAV-02",
+          "geometry": [
+            {
+              "lat": 0.01,
+              "lon": 0.06,
+              "alt": 80
+            },
+            {
+              "lat": 0.01,
+              "lon": 0.09,
+              "alt": 80
+            }
+          ],
+          "altitudeM": 80,
+          "speedMps": 10,
+          "state": "COVERAGE",
+          "mandatory": false
+        }
+      ],
+      "verification": [
+        {
+          "constraintId": "ROUTE-IN-ZONE",
+          "result": "PASS"
+        },
+        {
+          "constraintId": "ROUTE-GEOMETRY-VALID",
+          "result": "PASS"
+        }
+      ]
+    },
+    "performanceAdjustedRouteSet": {
+      "artifactId": "PERF-001",
+      "version": 1,
+      "missionId": "MISSION-BASELINE-2UAV-001",
+      "status": "VERIFIED",
+      "sourceRefs": [
+        "ROUTE-001:v1"
+      ],
+      "algorithmVersion": "performance-1.0",
+      "configVersion": "baseline-1.0",
+      "traceability": {
+        "inputVersions": {
+          "routeSet": "ROUTE-001:v1",
+          "wind": "WIND-BASELINE-v1",
+          "vehicleConfig": "UAV-CONFIG-BASELINE-v1"
+        },
+        "evidenceRefs": [
+          "EVID-PERF-001"
+        ],
+        "invalidatedBy": [],
+        "replayKey": "BASELINE-2UAV-001"
+      },
+      "segments": [
+        {
+          "segmentId": "R01",
+          "distanceM": 3330,
+          "groundSpeedMps": 10,
+          "timeS": 333,
+          "energyWh": 28,
+          "wind": {
+            "sourceRef": "WIND-BASELINE-v1",
+            "uMps": 0,
+            "vMps": 0
+          },
+          "cumulativeTimeS": 333,
+          "cumulativeEnergyWh": 28,
+          "reserveWh": 72
+        },
+        {
+          "segmentId": "R02",
+          "distanceM": 3330,
+          "groundSpeedMps": 10,
+          "timeS": 333,
+          "energyWh": 28,
+          "wind": {
+            "sourceRef": "WIND-BASELINE-v1",
+            "uMps": 0,
+            "vMps": 0
+          },
+          "cumulativeTimeS": 333,
+          "cumulativeEnergyWh": 28,
+          "reserveWh": 72
+        }
+      ],
+      "verification": [
+        {
+          "constraintId": "ENERGY-RESERVE",
+          "result": "PASS"
+        },
+        {
+          "constraintId": "PERFORMANCE-VALID",
+          "result": "PASS"
+        }
+      ]
+    },
+    "trajectorySet": {
+      "artifactId": "TRAJ-001",
+      "version": 1,
+      "missionId": "MISSION-BASELINE-2UAV-001",
+      "status": "VERIFIED",
+      "sourceRefs": [
+        "PERF-001:v1"
+      ],
+      "algorithmVersion": "trajectory-1.0",
+      "configVersion": "baseline-1.0",
+      "traceability": {
+        "inputVersions": {
+          "performanceAdjustedRouteSet": "PERF-001:v1"
+        },
+        "evidenceRefs": [
+          "EVID-TRAJ-001"
+        ],
+        "invalidatedBy": [],
+        "replayKey": "BASELINE-2UAV-001"
+      },
+      "trajectories": {
+        "UAV-01": [
+          {
+            "lat": 0.01,
+            "lon": 0.01,
+            "alt": 80,
+            "t": "2026-09-26T00:00:00Z",
+            "state": "COVERAGE",
+            "uavId": "UAV-01"
+          },
+          {
+            "lat": 0.01,
+            "lon": 0.04,
+            "alt": 80,
+            "t": "2026-09-26T00:05:33Z",
+            "state": "COVERAGE",
+            "uavId": "UAV-01"
+          }
+        ],
+        "UAV-02": [
+          {
+            "lat": 0.01,
+            "lon": 0.06,
+            "alt": 80,
+            "t": "2026-09-26T00:00:00Z",
+            "state": "COVERAGE",
+            "uavId": "UAV-02"
+          },
+          {
+            "lat": 0.01,
+            "lon": 0.09,
+            "alt": 80,
+            "t": "2026-09-26T00:05:33Z",
+            "state": "COVERAGE",
+            "uavId": "UAV-02"
+          }
+        ]
+      },
+      "verification": [
+        {
+          "constraintId": "TIME-MONOTONIC",
+          "result": "PASS"
+        },
+        {
+          "constraintId": "TRAJECTORY-VALID",
+          "result": "PASS"
+        }
+      ]
+    },
+    "conflictReport": {
+      "artifactId": "CONFLICT-001",
+      "version": 1,
+      "missionId": "MISSION-BASELINE-2UAV-001",
+      "status": "VERIFIED",
+      "sourceRefs": [
+        "TRAJ-001:v1"
+      ],
+      "algorithmVersion": "conflict-1.0",
+      "configVersion": "baseline-1.0",
+      "traceability": {
+        "inputVersions": {
+          "trajectorySet": "TRAJ-001:v1"
+        },
+        "evidenceRefs": [
+          "EVID-CONFLICT-001"
+        ],
+        "invalidatedBy": [],
+        "replayKey": "BASELINE-2UAV-001"
+      },
+      "conflicts": [],
+      "summary": {
+        "conflictCount": 0,
+        "unresolvedCount": 0
+      },
+      "verification": [
+        {
+          "constraintId": "FLEET-4D-SEPARATION",
+          "result": "PASS"
+        },
+        {
+          "constraintId": "UNRESOLVED-CONFLICTS",
+          "result": "PASS"
+        }
+      ]
+    },
+    "finalCheckResult": {
+      "artifactId": "FINAL-001",
+      "version": 1,
+      "missionId": "MISSION-BASELINE-2UAV-001",
+      "status": "FINAL_CHECK_PASS",
+      "sourceRefs": [
+        "COS-001:v1",
+        "ZONESET-001:v1",
+        "ASSIGN-001:v1",
+        "ROUTE-001:v1",
+        "PERF-001:v1",
+        "TRAJ-001:v1",
+        "CONFLICT-001:v1"
+      ],
+      "algorithmVersion": "final-check-1.0",
+      "configVersion": "baseline-1.0",
+      "traceability": {
+        "inputVersions": {
+          "constrainedOpenSpace": "COS-001:v1",
+          "zoneSet": "ZONESET-001:v1",
+          "zoneAssignmentSet": "ASSIGN-001:v1",
+          "routeSet": "ROUTE-001:v1",
+          "performanceAdjustedRouteSet": "PERF-001:v1",
+          "trajectorySet": "TRAJ-001:v1",
+          "conflictReport": "CONFLICT-001:v1"
+        },
+        "evidenceRefs": [
+          "EVID-FINAL-001"
+        ],
+        "invalidatedBy": [],
+        "replayKey": "BASELINE-2UAV-001"
+      },
+      "checks": [
+        {
+          "constraintId": "MISSION",
+          "result": "PASS"
+        },
+        {
+          "constraintId": "ZONE-PARTITION",
+          "result": "PASS"
+        },
+        {
+          "constraintId": "ASSIGNMENT",
+          "result": "PASS"
+        },
+        {
+          "constraintId": "ROUTE",
+          "result": "PASS"
+        },
+        {
+          "constraintId": "PERFORMANCE-ENERGY",
+          "result": "PASS"
+        },
+        {
+          "constraintId": "TRAJECTORY",
+          "result": "PASS"
+        },
+        {
+          "constraintId": "4D-CONFLICT",
+          "result": "PASS"
+        },
+        {
+          "constraintId": "TRACEABILITY",
+          "result": "PASS"
+        },
+        {
+          "constraintId": "VERSION-CONSISTENCY",
+          "result": "PASS"
+        }
+      ],
+      "releaseStatus": "RELEASE_ELIGIBLE",
+      "authorizationStatus": "NOT_EVALUATED"
+    }
+  }
+}
