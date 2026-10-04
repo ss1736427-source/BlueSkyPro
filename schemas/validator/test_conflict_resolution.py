@@ -35,6 +35,75 @@ def make_trajectory(uav_id: str, y: float, start: float, altitude: float):
     )
 
 
+def make_custom_trajectory(
+    uav_id: str,
+    points: tuple[Point, ...],
+    speed_mps: float = 15,
+):
+    zone = Zone(
+        f"ZONE-{uav_id}",
+        Polygon((Point(-10, -10), Point(50, -10), Point(50, 50), Point(-10, 50))),
+    )
+    route = build_route_in_zone(
+        route_id=f"ROUTE-{uav_id}",
+        uav_id=uav_id,
+        zone=zone,
+        points=points,
+    )
+    performance = adjust_route_for_wind(
+        route,
+        WindSample(0, 0),
+        PerformanceProfile(speed_mps, 0.01, 100, 12),
+    )
+    return build_trajectory_4d(
+        trajectory_id=f"TRAJ-{uav_id}",
+        route_id=route.route_id,
+        uav_id=uav_id,
+        route_points=route.points,
+        performance=performance,
+        start_time_s=0,
+        altitude_m=80,
+    )
+    # Multi-conflict case: UAV-01 crosses UAV-02 and UAV-03 at different
+    # points. A 0.5 s delay of either crossing UAV is sufficient for that
+    # pair, but resolving both conflicts requires a combination affecting
+    # UAV-02 and UAV-03. The search must not assume only conflict.uav_b moves.
+    multi = (
+        make_custom_trajectory(
+            "UAV-01",
+            (Point(0, 20), Point(20, 20), Point(40, 20)),
+        ),
+        make_custom_trajectory(
+            "UAV-02",
+            (Point(10, 0), Point(10, 40)),
+        ),
+        make_custom_trajectory(
+            "UAV-03",
+            (Point(30, 0), Point(30, 40)),
+        ),
+    )
+    combination = resolve(
+        multi,
+        minimums,
+        ResolutionPolicy(max_delay_s=0.5, delay_step_s=0.5),
+        candidate_validator=lambda candidate: RevalidationReport(
+            "PASS",
+            model_ids=("MODEL-001",),
+            input_snapshot_id="IN-001",
+            candidate_snapshot_id="CAND-001",
+            provenance="TEST",
+        ),
+    )
+    assert combination.status == "RESOLVED"
+    assert combination.method == "TEMPORAL_DELAY_COMBINATION"
+    assert combination.delay_assignments == (
+        ("UAV-02", 0.5),
+        ("UAV-03", 0.5),
+    )
+    assert combination.conflict_report.status == "NO_CONFLICT"
+
+
+
 def main() -> int:
     minimums = SeparationMinimums(10, 10)
     trajectories = (
