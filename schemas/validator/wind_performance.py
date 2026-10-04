@@ -24,6 +24,7 @@ class PerformanceProfile:
     energy_per_meter_wh: float
     reserve_wh: float
     max_wind_mps: float
+    model_authority: str = "CONTRACT"
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,7 @@ class PerformanceAdjustedRoute:
     total_energy_wh: float
     reserve_margin_wh: float
     verified: bool
+    model_authority: str
 
 
 class PerformanceError(ValueError):
@@ -73,6 +75,8 @@ def adjust_route_for_wind(
 ) -> PerformanceAdjustedRoute:
     if not route.verified:
         raise PerformanceError("ROUTE_NOT_VERIFIED")
+    if performance.model_authority not in {"CONTRACT", "AUTHORITATIVE"}:
+        raise PerformanceError("INVALID_MODEL_AUTHORITY")
     if performance.cruise_speed_mps <= 0:
         raise PerformanceError("INVALID_CRUISE_SPEED")
     if performance.energy_per_meter_wh <= 0:
@@ -122,4 +126,5 @@ def adjust_route_for_wind(
         total_energy_wh=total_energy,
         reserve_margin_wh=reserve_margin,
         verified=reserve_margin >= 0,
+        model_authority=performance.model_authority,
     )
