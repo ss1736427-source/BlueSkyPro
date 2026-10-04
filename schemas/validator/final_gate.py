@@ -42,8 +42,13 @@ def evaluate_final_gate(
     unresolved_conflicts: int,
     authorization_status: str = "NOT_EVALUATED",
 ) -> FinalGateResult:
-    by_name = {check.name: check for check in checks}
+    by_name: dict[str, GateInput] = {}
     failed: list[str] = []
+    for check in checks:
+        if check.name in by_name:
+            failed.append(f"{check.name}:DUPLICATE")
+        else:
+            by_name[check.name] = check
 
     for name, required in _REQUIRED_PASS.items():
         check = by_name.get(name)
@@ -57,11 +62,12 @@ def evaluate_final_gate(
             failed.append(f"{name}:{check.status}")
 
     resolution = by_name.get("RESOLUTION")
-    if resolution is not None:
-        if not resolution.active:
-            failed.append("RESOLUTION:INVALIDATED")
-        elif resolution.status not in {"NO_ACTION", "RESOLVED"}:
-            failed.append(f"RESOLUTION:{resolution.status}")
+    if resolution is None:
+        failed.append("RESOLUTION:MISSING")
+    elif not resolution.active:
+        failed.append("RESOLUTION:INVALIDATED")
+    elif resolution.status not in {"NO_ACTION", "RESOLVED"}:
+        failed.append(f"RESOLUTION:{resolution.status}")
 
     if unresolved_conflicts != 0:
         failed.append(f"UNRESOLVED_CONFLICTS:{unresolved_conflicts}")
