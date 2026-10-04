@@ -72,6 +72,9 @@ def evaluate_final_gate(
     if unresolved_conflicts != 0:
         failed.append(f"UNRESOLVED_CONFLICTS:{unresolved_conflicts}")
 
+    if authorization_status != "AUTHORIZED":
+        failed.append(f"AUTHORIZATION:{authorization_status}")
+
     if failed:
         return FinalGateResult(
             status="FAIL",
