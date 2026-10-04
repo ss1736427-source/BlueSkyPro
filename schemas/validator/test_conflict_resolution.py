@@ -42,7 +42,7 @@ def make_custom_trajectory(
 ):
     zone = Zone(
         f"ZONE-{uav_id}",
-        Polygon((Point(-10, -10), Point(50, -10), Point(50, 50), Point(-10, 50))),
+        Polygon((Point(-20, -20), Point(50, -20), Point(50, 50), Point(-20, 50))),
     )
     route = build_route_in_zone(
         route_id=f"ROUTE-{uav_id}",
@@ -74,15 +74,15 @@ def main() -> int:
     multi = (
         make_custom_trajectory(
             "UAV-01",
-            (Point(0, 20), Point(30, 20), Point(60, 20)),
+            (Point(0, 20), Point(20, 20), Point(40, 20)),
         ),
         make_custom_trajectory(
             "UAV-02",
-            (Point(10, 5), Point(10, 45)),
+            (Point(10, 7), Point(10, 47)),
         ),
         make_custom_trajectory(
             "UAV-03",
-            (Point(30, 35), Point(30, 5)),
+            (Point(30, -13), Point(30, 27)),
         ),
     )
     combination = resolve(
