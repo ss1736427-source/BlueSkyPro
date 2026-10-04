@@ -6,7 +6,7 @@ The orchestrator composes domain stages; it does not replace their safety checks
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Callable, Sequence
 
 from conflict_4d import ConflictReport, SeparationMinimums, verify_fleet
 from conflict_resolution import ResolutionPolicy, ResolutionResult, resolve_conflicts
@@ -41,6 +41,8 @@ def run_multi_uav_pipeline(
     inputs: PipelineInputs,
     minimums: SeparationMinimums,
     resolution_policy: ResolutionPolicy,
+    *,
+    candidate_revalidator: Callable[[Sequence[Trajectory4D]], bool],
 ) -> PipelineResult:
     if inputs.zone_status != "VERIFIED":
         raise OrchestrationError("ZONE_SET_NOT_VERIFIED")
@@ -65,10 +67,19 @@ def run_multi_uav_pipeline(
         inputs.trajectories,
         minimums,
         resolution_policy,
+        candidate_validator=candidate_revalidator,
     )
 
     final_conflict = resolution.conflict_report
     resolution_status = resolution.status
+
+    # A resolved candidate is accepted by the conflict resolver only after the
+    # injected authoritative revalidator has accepted the complete trajectory set.
+    if resolution_status == "RESOLVED":
+        if not resolution.resolved_trajectories:
+            raise OrchestrationError("RESOLVED_WITHOUT_TRAJECTORIES")
+        if not candidate_revalidator(resolution.resolved_trajectories):
+            raise OrchestrationError("RESOLVED_TRAJECTORIES_NOT_REVALIDATED")
 
     final_gate = evaluate_final_gate(
         (
