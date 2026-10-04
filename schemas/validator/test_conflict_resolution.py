@@ -51,6 +51,7 @@ def main() -> int:
         trajectories,
         minimums,
         ResolutionPolicy(max_delay_s=5),
+        candidate_validator=lambda candidate: True,
     )
     assert result.status == "RESOLVED"
     assert result.method == "TEMPORAL_DELAY"
@@ -61,6 +62,7 @@ def main() -> int:
         trajectories,
         minimums,
         ResolutionPolicy(max_delay_s=0),
+        candidate_validator=lambda candidate: True,
     )
     assert blocked.status == "UNRESOLVED"
     assert blocked.conflict_report.status == "CONFLICT"
@@ -73,6 +75,7 @@ def main() -> int:
             allow_vertical_correction=True,
             vertical_correction_m=20,
         ),
+        candidate_validator=lambda candidate: True,
     )
     assert vertical.status == "RESOLVED"
     assert vertical.method == "VERTICAL_CORRECTION"
@@ -85,6 +88,7 @@ def main() -> int:
         ),
         minimums,
         ResolutionPolicy(),
+        candidate_validator=lambda candidate: True,
     )
     assert no_action.status == "NO_ACTION"
 
