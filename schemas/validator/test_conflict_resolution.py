@@ -78,11 +78,11 @@ def main() -> int:
         ),
         make_custom_trajectory(
             "UAV-02",
-            (Point(10, 0), Point(10, 40)),
+            (Point(10, 5), Point(10, 45)),
         ),
         make_custom_trajectory(
             "UAV-03",
-            (Point(30, 0), Point(30, 40)),
+            (Point(30, -5), Point(30, 35)),
         ),
     )
     combination = resolve(
