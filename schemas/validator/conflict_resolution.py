@@ -27,7 +27,14 @@ class RevalidationReport:
 
     @property
     def accepted(self) -> bool:
-        return self.status == "PASS" and not self.failed_checks
+        return (
+            self.status == "PASS"
+            and not self.failed_checks
+            and bool(self.model_ids)
+            and bool(self.input_snapshot_id)
+            and bool(self.candidate_snapshot_id)
+            and bool(self.provenance)
+        )
 
 
 @dataclass(frozen=True)
