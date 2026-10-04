@@ -82,8 +82,8 @@ def main() -> int:
     perf_b = adjust_route_for_wind(route_b, WindSample(0, 0), PerformanceProfile(10, 0.01, 100, 12))
     crossing = verify_fleet(
         (
-            build_trajectory_4d("TRAJ-CROSS-A", route_a.route_id, "UAV-A", route_a.points, perf_a, 0, 80),
-            build_trajectory_4d("TRAJ-CROSS-B", route_b.route_id, "UAV-B", route_b.points, perf_b, 0, 80),
+            build_trajectory_4d(trajectory_id="TRAJ-CROSS-A", route_id=route_a.route_id, uav_id="UAV-A", route_points=route_a.points, performance=perf_a, start_time_s=0, altitude_m=80),
+            build_trajectory_4d(trajectory_id="TRAJ-CROSS-B", route_id=route_b.route_id, uav_id="UAV-B", route_points=route_b.points, performance=perf_b, start_time_s=0, altitude_m=80),
         ),
         minimums,
     )
