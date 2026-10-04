@@ -29,6 +29,7 @@ class ResolutionPolicy:
 class RevalidationReport:
     status: str
     failed_checks: tuple[str, ...] = ()
+    passed_checks: tuple[str, ...] = ()
     model_ids: tuple[str, ...] = ()
     input_snapshot_id: str = ""
     candidate_snapshot_id: str = ""
@@ -36,9 +37,23 @@ class RevalidationReport:
 
     @property
     def accepted(self) -> bool:
+        required = {
+            "ALTITUDE_LIMITS",
+            "AIRSPACE_RESTRICTIONS",
+            "TERRAIN_CLEARANCE",
+            "OBSTACLE_CLEARANCE",
+            "UAV_CAPABILITY",
+            "CLIMB_DESCENT_RATE",
+            "PERFORMANCE_ENERGY",
+            "MANDATORY_POINTS",
+            "GEOFENCE",
+            "MISSION_GEOMETRY",
+            "MULTI_UAV_CONFLICT",
+        }
         return (
             self.status == "PASS"
             and not self.failed_checks
+            and required.issubset(self.passed_checks)
             and bool(self.model_ids)
             and bool(self.input_snapshot_id)
             and bool(self.candidate_snapshot_id)
