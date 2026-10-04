@@ -54,7 +54,12 @@ def main() -> int:
             ),
             SeparationMinimums(10, 10),
             ResolutionPolicy(max_delay_s=5),
-            candidate_revalidator=lambda candidate: RevalidationReport("PASS", model_ids=("MODEL-001",), input_snapshot_id="IN-001", candidate_snapshot_id="CAND-001", provenance="TEST"),
+            candidate_revalidator=lambda candidate: RevalidationReport("PASS", passed_checks=(
+                "ALTITUDE_LIMITS","AIRSPACE_RESTRICTIONS","TERRAIN_CLEARANCE",
+                "OBSTACLE_CLEARANCE","UAV_CAPABILITY","CLIMB_DESCENT_RATE",
+                "PERFORMANCE_ENERGY","MANDATORY_POINTS","GEOFENCE",
+                "MISSION_GEOMETRY","MULTI_UAV_CONFLICT"
+            ), model_ids=("MODEL-001",), input_snapshot_id="IN-001", candidate_snapshot_id="CAND-001", provenance="TEST"),
         )
     except OrchestrationError as exc:
         assert str(exc) == "PERFORMANCE_MODEL_NOT_AUTHORITATIVE"
