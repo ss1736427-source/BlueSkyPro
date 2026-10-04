@@ -67,6 +67,25 @@ def _candidate_times(a: Trajectory4D, b: Trajectory4D) -> tuple[float, ...]:
             refined.add(left + span * index / steps)
     return tuple(sorted(refined))
 
+def _interpolate(trajectory: Trajectory4D, timestamp_s: float) -> tuple[float, float, float]:
+    points = trajectory.points
+    if timestamp_s < trajectory.start_time_s or timestamp_s > trajectory.end_time_s:
+        raise ConflictVerificationError("TIME_OUTSIDE_TRAJECTORY")
+    for left, right in zip(points, points[1:]):
+        if left.timestamp_s <= timestamp_s <= right.timestamp_s:
+            span = right.timestamp_s - left.timestamp_s
+            ratio = 0.0 if span == 0 else (timestamp_s - left.timestamp_s) / span
+            return (
+                left.x + (right.x - left.x) * ratio,
+                left.y + (right.y - left.y) * ratio,
+                left.altitude_m + (right.altitude_m - left.altitude_m) * ratio,
+            )
+    if timestamp_s == points[-1].timestamp_s:
+        p = points[-1]
+        return p.x, p.y, p.altitude_m
+    raise ConflictVerificationError("TIME_INTERPOLATION_FAILED")
+
+
 def verify_pair(
     a: Trajectory4D,
     b: Trajectory4D,
@@ -77,7 +96,7 @@ def verify_pair(
     if a.uav_id == b.uav_id:
         raise ConflictVerificationError("SELF_CONFLICT_PAIR")
 
-    samples = _sample_times(a, b)
+    samples = _candidate_times(a, b)
     if not samples:
         return ()
 
