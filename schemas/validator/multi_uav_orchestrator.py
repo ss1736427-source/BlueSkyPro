@@ -75,13 +75,12 @@ def run_multi_uav_pipeline(
     final_conflict = resolution.conflict_report
     resolution_status = resolution.status
 
-    # A resolved candidate is accepted by the conflict resolver only after the
-    # injected authoritative revalidator has accepted the complete trajectory set.
+    # Conflict resolution already performs authoritative revalidation and
+    # preserves the resulting evidence in ResolutionResult.
     if resolution_status == "RESOLVED":
         if not resolution.resolved_trajectories:
             raise OrchestrationError("RESOLVED_WITHOUT_TRAJECTORIES")
-        revalidation = candidate_revalidator(resolution.resolved_trajectories)
-        if not revalidation.accepted:
+        if resolution.revalidation is None or not resolution.revalidation.accepted:
             raise OrchestrationError("RESOLVED_TRAJECTORIES_NOT_REVALIDATED")
 
     final_gate = evaluate_final_gate(
