@@ -64,6 +64,9 @@ def make_custom_trajectory(
         start_time_s=0,
         altitude_m=80,
     )
+
+def main() -> int:
+    minimums = SeparationMinimums(10, 10)
     # Multi-conflict case: UAV-01 crosses UAV-02 and UAV-03 at different
     # points. A 0.5 s delay of either crossing UAV is sufficient for that
     # pair, but resolving both conflicts requires a combination affecting
@@ -88,6 +91,12 @@ def make_custom_trajectory(
         ResolutionPolicy(max_delay_s=0.5, delay_step_s=0.5),
         candidate_validator=lambda candidate: RevalidationReport(
             "PASS",
+            passed_checks=(
+                "ALTITUDE_LIMITS","AIRSPACE_RESTRICTIONS","TERRAIN_CLEARANCE",
+                "OBSTACLE_CLEARANCE","UAV_CAPABILITY","CLIMB_DESCENT_RATE",
+                "PERFORMANCE_ENERGY","MANDATORY_POINTS","GEOFENCE",
+                "MISSION_GEOMETRY","MULTI_UAV_CONFLICT"
+            ),
             model_ids=("MODEL-001",),
             input_snapshot_id="IN-001",
             candidate_snapshot_id="CAND-001",
@@ -103,9 +112,6 @@ def make_custom_trajectory(
     assert combination.conflict_report.status == "NO_CONFLICT"
 
 
-
-def main() -> int:
-    minimums = SeparationMinimums(10, 10)
     trajectories = (
         make_trajectory("UAV-01", 50, 0, 80),
         make_trajectory("UAV-02", 50, 0, 80),
