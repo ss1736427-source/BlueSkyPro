@@ -477,19 +477,133 @@ These values are starting recommendations, not universal constants:
 
 BlueSky PRO MUST derive or validate them against the selected camera, UAV, terrain, required product accuracy, lighting and mission objective.
 
-## 21. Final solution principle
+## 21. Special-case acquisition classes
+
+The planner MUST NOT treat every imaging mission as the same generic grid.
+
+External photogrammetry guidance identifies materially different acquisition strategies for:
+
+- general terrain;
+- dense vegetation/forest;
+- homogeneous agricultural fields;
+- buildings;
+- city/facade reconstruction;
+- large vertical objects;
+- corridors such as roads, railways and rivers;
+- snow and sand;
+- water;
+- multiple flights;
+- mixed aerial/terrestrial or nadir/oblique datasets;
+- multispectral surveys. citeturn0search1turn0search4
+
+### 21.1 Dense vegetation / forest
+
+Use higher overlap, typically at least 85% in both directions, and consider higher altitude to reduce perspective variation. Avoid periods when vegetation is moving strongly between exposures. citeturn0search4
+
+### 21.2 Homogeneous agriculture
+
+Increase overlap to at least 80% in both directions, maintain accurate image geolocation and consider higher altitude while preserving required GSD. citeturn0search4
+
+### 21.3 Buildings / urban facades
+
+Use dedicated orbit/double-grid/oblique acquisition rather than a single nadir grid. Multiple heights and camera attitudes may be required. For city reconstruction, facade visibility must be explicitly planned. citeturn0search1
+
+### 21.4 Corridors
+
+Treat corridor mapping as a separate geometry. External guidance recommends at least two flight lines and preferably three; approximately 85% front and 60% side overlap is recommended for a two-line corridor case. citeturn0search1
+
+### 21.5 Snow / sand
+
+These surfaces have weak visual texture. Increase overlap, control exposure for maximum useful contrast, and expect higher reconstruction difficulty. citeturn0search4
+
+### 21.6 Water
+
+Open water is generally unsuitable for ordinary image-based reconstruction because it lacks stable visual features and is reflective/dynamic. Where water must be included, the planner should ensure that identifiable land/shore features occupy a substantial part of the images and treat the water surface as a special data-quality class. citeturn0search4
+
+### 21.7 Multiple flights / datasets
+
+If a project spans multiple flights, datasets MUST have compatible acquisition geometry and sufficient overlap. Differences in sun, weather, scene state, GSD or acquisition method can weaken matching. If datasets differ materially, require additional common observations, GCPs or manual tie points. citeturn0search1turn0search10
+
+For terrain with large elevation differences, when multiple constant-altitude flights are used, adjacent flights should overlap and their GSDs in the overlap should remain within approximately a factor of two. citeturn0search0turn0search12
+
+### 21.8 Multispectral
+
+Multispectral missions require a separate radiometric acquisition workflow, not just a modified RGB grid.
+
+The planner MUST support, where applicable:
+
+- calibrated reflectance panel;
+- downwelling light/sun sensor;
+- band-specific calibration metadata;
+- exposure/irradiance metadata;
+- radiometric correction;
+- consistent illumination;
+- spectral-band registration;
+- native resolution/aspect ratio;
+- flight overlap suitable for the sensor.
+
+Current MicaSense/Pix4D guidance calls for panel captures immediately before and after each flight, unobstructed light-sensor view, and consistent illumination. Pix4D also recommends at least 75% front and side overlap for multispectral capture. citeturn1search0turn1search4
+
+### 21.9 Low-altitude mapping
+
+Very low flight can create processing problems even when nominal GSD is excellent. For such missions the planner should treat low altitude as a special risk class and, where appropriate, add a second acquisition layer at a higher altitude to strengthen matching. MicaSense currently recommends this approach for low-altitude multispectral acquisition. citeturn1search10
+
+## 22. Field quality assurance
+
+The mission is NOT considered successful solely because all waypoints were flown.
+
+The field workflow SHOULD include:
+
+1. immediate image count/storage check;
+2. representative sharpness and exposure check;
+3. coverage check;
+4. geolocation/RTK status check;
+5. rapid/low-resolution reconstruction where available;
+6. detection of holes or weakly connected blocks;
+7. decision whether to re-fly before leaving the site.
+
+Pix4D explicitly notes that inadequate acquisition can require reacquisition and that rapid/low-resolution processing can be used as a field indicator, although a rapid failure does not necessarily prove that full processing will fail. citeturn0search2
+
+## 23. Control-point design
+
+When GCPs are used, the planner MUST treat their placement as part of mission design.
+
+GCPs SHOULD be distributed across the area rather than clustered, placed near important objects/areas, and kept sufficiently inside the project boundary. Independent checkpoints SHOULD be reserved for validation rather than used as control. citeturn0search1turn0search10
+
+The system should also calculate whether a planned GCP is large enough to be reliably identifiable at the target GSD.
+
+## 24. Environmental and operational state
+
+The mission record MUST retain:
+
+- weather state;
+- illumination state;
+- wind;
+- sensor configuration;
+- acquisition time;
+- GNSS/RTK/PPK state;
+- camera/lens identity;
+- calibration identity;
+- processing-relevant metadata.
+
+This is required for traceability and for deciding whether two datasets are legitimately combinable.
+
+## 25. Final solution principle
 
 USER REQUIREMENTS
 → PRODUCT REQUIREMENTS
 → EQUIPMENT CONFIGURATION
 → SURFACE MODEL
+→ TASK-SPECIFIC ACQUISITION CLASS
 → GSD / CAMERA-SURFACE DISTANCE
-→ ILLUMINATION
+→ ILLUMINATION / WEATHER
 → FLIGHT-LINE / VIEWPOINT GENERATION
 → OVERLAP / TRIGGER
 → MULTI-UAV ALLOCATION
+→ CONTROL / GEOREFERENCING
+→ FIELD QA
 → ENERGY / TIME
 → OPTIMIZATION
 → DATA FUSION
-→ QUALITY VALIDATION
+→ COMPLETENESS / QUALITY VALIDATION
 → FINAL PRODUCT
