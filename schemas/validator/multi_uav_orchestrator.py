@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Callable, Sequence
 
 from conflict_4d import ConflictReport, SeparationMinimums, verify_fleet
-from conflict_resolution import ResolutionPolicy, ResolutionResult, resolve_conflicts
+from conflict_resolution import RevalidationReport, ResolutionPolicy, ResolutionResult, resolve_conflicts
 from final_gate import FinalGateResult, GateInput, evaluate_final_gate
 from route_in_zone import Route
 from trajectory_4d import Trajectory4D
@@ -42,7 +42,7 @@ def run_multi_uav_pipeline(
     minimums: SeparationMinimums,
     resolution_policy: ResolutionPolicy,
     *,
-    candidate_revalidator: Callable[[Sequence[Trajectory4D]], bool],
+    candidate_revalidator: Callable[[Sequence[Trajectory4D]], RevalidationReport],
 ) -> PipelineResult:
     if inputs.zone_status != "VERIFIED":
         raise OrchestrationError("ZONE_SET_NOT_VERIFIED")
@@ -80,7 +80,8 @@ def run_multi_uav_pipeline(
     if resolution_status == "RESOLVED":
         if not resolution.resolved_trajectories:
             raise OrchestrationError("RESOLVED_WITHOUT_TRAJECTORIES")
-        if not candidate_revalidator(resolution.resolved_trajectories):
+        revalidation = candidate_revalidator(resolution.resolved_trajectories)
+        if not revalidation.accepted:
             raise OrchestrationError("RESOLVED_TRAJECTORIES_NOT_REVALIDATED")
 
     final_gate = evaluate_final_gate(
