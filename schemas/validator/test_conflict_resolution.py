@@ -74,7 +74,7 @@ def main() -> int:
     multi = (
         make_custom_trajectory(
             "UAV-01",
-            (Point(0, 20), Point(20, 20), Point(40, 20)),
+            (Point(0, 20), Point(30, 20), Point(60, 20)),
         ),
         make_custom_trajectory(
             "UAV-02",
@@ -82,7 +82,7 @@ def main() -> int:
         ),
         make_custom_trajectory(
             "UAV-03",
-            (Point(30, -5), Point(30, 35)),
+            (Point(30, 35), Point(30, 5)),
         ),
     )
     combination = resolve(
@@ -106,8 +106,8 @@ def main() -> int:
     assert combination.status == "RESOLVED"
     assert combination.method == "TEMPORAL_DELAY_COMBINATION"
     assert combination.delay_assignments == (
+        ("UAV-01", 0.5),
         ("UAV-02", 0.5),
-        ("UAV-03", 0.5),
     )
     assert combination.conflict_report.status == "NO_CONFLICT"
 
