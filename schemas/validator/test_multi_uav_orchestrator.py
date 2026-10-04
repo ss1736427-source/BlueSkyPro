@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from conflict_4d import SeparationMinimums
-from conflict_resolution import ResolutionPolicy
+from conflict_resolution import RevalidationReport, ResolutionPolicy
 from multi_uav_orchestrator import OrchestrationError, PipelineInputs, run_multi_uav_pipeline
 from route_in_zone import build_route_in_zone
 from trajectory_4d import build_trajectory_4d
@@ -54,7 +54,7 @@ def main() -> int:
             ),
             SeparationMinimums(10, 10),
             ResolutionPolicy(max_delay_s=5),
-            candidate_revalidator=lambda candidate: True,
+            candidate_revalidator=lambda candidate: RevalidationReport("PASS", model_ids=("MODEL-001",), input_snapshot_id="IN-001", candidate_snapshot_id="CAND-001", provenance="TEST"),
         )
     except OrchestrationError as exc:
         assert str(exc) == "PERFORMANCE_MODEL_NOT_AUTHORITATIVE"
