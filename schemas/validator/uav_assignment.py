@@ -20,6 +20,7 @@ class UAVCapability:
     authorized: bool
     capability_score: float = 0.0
     wind_margin: float = 0.0
+    compatible_zone_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,8 @@ def evaluate_candidate(uav: UAVCapability, zone: Zone) -> AssignmentCandidate:
         failures.append("C2_UNAVAILABLE")
     if not uav.authorized:
         failures.append("NOT_AUTHORIZED")
+    if uav.compatible_zone_ids and zone.zone_id not in uav.compatible_zone_ids:
+        failures.append("ZONE_INCOMPATIBLE")
 
     feasible = not failures
     score = (
