@@ -68,6 +68,37 @@ Vehicle state:
 
 The planner must not replace operator requirements with defaults when the operator supplied an explicit value.
 
+
+
+## 3A. Task modules used by LONG FLIGHT
+
+LONG FLIGHT remains the mission template. It does not become a task module.
+
+The baseline module composition is:
+
+- POINT ROUTE — start, destination and ordered legs;
+- MANDATORY PASSAGE — operator-defined mandatory points;
+- TIME / DEADLINE — ETD, ETA/deadline and temporal requirements;
+- ENERGY / ENDURANCE — energy and reserve requirements.
+
+The following modules may be added when required by the operator task or environment:
+
+- MULTI-UAV DISTRIBUTION;
+- PAYLOAD / CAPABILITY MATCHING;
+- SEARCH / ADAPTIVE SEARCH;
+- TARGET DETAIL ACQUISITION;
+- CORRIDOR COVERAGE;
+- AREA COVERAGE;
+- RE-ACQUISITION / QUALITY RECOVERY.
+
+Module requirements are written into the common Task Model. They do not create separate route states and do not bypass the Planning Kernel.
+
+Canonical structure:
+
+LONG FLIGHT TEMPLATE → REQUIRED TASK MODULES → TASK MODEL → PLANNING KERNEL → OPTIMIZATION → SAFETY RE-VERIFICATION
+
+The authoritative module definitions are maintained in `docs/algorithm/TASK_MODULES_ARCHITECTURE.md`.
+
 ## 4. Feasibility first
 
 The Planning Kernel creates the feasible search space before optimization.
