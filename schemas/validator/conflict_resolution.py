@@ -17,6 +17,20 @@ class ResolutionPolicy:
 
 
 @dataclass(frozen=True)
+class RevalidationReport:
+    status: str
+    failed_checks: tuple[str, ...] = ()
+    model_ids: tuple[str, ...] = ()
+    input_snapshot_id: str = ""
+    candidate_snapshot_id: str = ""
+    provenance: str = ""
+
+    @property
+    def accepted(self) -> bool:
+        return self.status == "PASS" and not self.failed_checks
+
+
+@dataclass(frozen=True)
 class ResolutionResult:
     status: str
     method: str | None
@@ -25,6 +39,7 @@ class ResolutionResult:
     vertical_correction_m: float
     rejected_candidates: tuple[str, ...]
     conflict_report: ConflictReport
+    revalidation: RevalidationReport | None
     resolved_trajectories: tuple[Trajectory4D, ...] = ()
 
 
@@ -99,12 +114,12 @@ def resolve_conflicts(
     policy: ResolutionPolicy,
     *,
     spatial_regenerator: Callable[[Conflict], Sequence[Trajectory4D]] | None = None,
-    candidate_validator: Callable[[Sequence[Trajectory4D]], bool] | None = None,
+    candidate_validator: Callable[[Sequence[Trajectory4D]], RevalidationReport] | None = None,
 ) -> ResolutionResult:
     initial = verify_fleet(trajectories, minimums)
     if initial.status == "NO_CONFLICT":
         return ResolutionResult(
-            "NO_ACTION", None, None, 0.0, 0.0, (), initial, tuple(trajectories)
+            "NO_ACTION", None, None, 0.0, 0.0, (), initial, None, tuple(trajectories)
         )
 
     rejected: list[str] = []
@@ -122,7 +137,8 @@ def resolve_conflicts(
         if candidate_validator is None:
             rejected.append(f"{method}:AUTHORITATIVE_REVALIDATION_REQUIRED")
             return None
-        if not candidate_validator(candidate_trajectories):
+        revalidation = candidate_validator(candidate_trajectories)
+        if not revalidation.accepted:
             rejected.append(f"{method}:AUTHORITATIVE_REVALIDATION_FAILED")
             return None
         return ResolutionResult(
@@ -133,6 +149,7 @@ def resolve_conflicts(
             vertical_correction_m,
             tuple(rejected),
             report,
+            revalidation,
             candidate_trajectories,
         )
 
@@ -216,5 +233,6 @@ def resolve_conflicts(
         0.0,
         tuple(rejected),
         initial,
+        None,
         (),
     )
