@@ -6,12 +6,17 @@ on:
       - repo-unification-2026-10-05
     paths:
       - .github/workflows/repository-unification-migration.yml
+  pull_request:
+    branches:
+      - main
+    types: [opened]
 
 permissions:
   contents: write
 
 jobs:
   import-knowledge:
+    if: github.event_name == 'push' || github.event.pull_request.head.ref == 'repo-unification-2026-10-05'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout unified repository
@@ -26,14 +31,11 @@ jobs:
           set -euo pipefail
           rm -rf /tmp/BlueSky-PRO-Knowledge
           git clone --depth 1 https://github.com/ss1736427-source/BlueSky-PRO-Knowledge.git /tmp/BlueSky-PRO-Knowledge
-
           rsync -a --delete-excluded \
             --exclude='.git/' \
             --exclude='.gitattributes' \
             /tmp/BlueSky-PRO-Knowledge/ ./
-
           cp /tmp/BlueSky-PRO-Knowledge/.gitattributes .gitattributes.knowledge-source
-
           cat > REPOSITORY_UNIFICATION.md <<'EOF'
           # BlueSkyPro repository unification
 
@@ -50,8 +52,6 @@ jobs:
           The former source .gitattributes is retained as .gitattributes.knowledge-source for review; the target repository .gitattributes remains authoritative.
           EOF
 
-          git status --short
-
       - name: Commit imported repository
         shell: bash
         run: |
@@ -63,5 +63,5 @@ jobs:
             echo No migration changes detected.
             exit 0
           fi
-          git commit -m ARCH: consolidate BlueSky-PRO-Knowledge into BlueSkyPro
+          git commit -m "ARCH: consolidate BlueSky-PRO-Knowledge into BlueSkyPro"
           git push origin HEAD:repo-unification-2026-10-05
