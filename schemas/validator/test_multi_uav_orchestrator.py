@@ -2,7 +2,7 @@
 
 from conflict_4d import SeparationMinimums
 from conflict_resolution import ResolutionPolicy
-from multi_uav_orchestrator import PipelineInputs, run_multi_uav_pipeline
+from multi_uav_orchestrator import OrchestrationError, PipelineInputs, run_multi_uav_pipeline
 from route_in_zone import build_route_in_zone
 from trajectory_4d import build_trajectory_4d
 from wind_performance import PerformanceProfile, WindSample, adjust_route_for_wind
@@ -41,53 +41,25 @@ def main() -> int:
     first = make_plan("UAV-01", 20)
     second = make_plan("UAV-02", 80)
 
-    success = run_multi_uav_pipeline(
-        PipelineInputs(
-            "VERIFIED",
-            "VERIFIED",
-            (first[0], second[0]),
-            (first[1], second[1]),
-            (first[2], second[2]),
-        ),
-        SeparationMinimums(10, 10),
-        ResolutionPolicy(max_delay_s=5),
-    )
-    assert success.status == "RELEASE_ELIGIBLE"
-    assert success.final_gate.status == "PASS"
-    assert success.conflict.status == "NO_CONFLICT"
-
-    conflict_first = make_plan("UAV-01", 50)
-    conflict_second = make_plan("UAV-02", 50)
-
-    resolved = run_multi_uav_pipeline(
-        PipelineInputs(
-            "VERIFIED",
-            "VERIFIED",
-            (conflict_first[0], conflict_second[0]),
-            (conflict_first[1], conflict_second[1]),
-            (conflict_first[2], conflict_second[2]),
-        ),
-        SeparationMinimums(10, 10),
-        ResolutionPolicy(max_delay_s=5),
-    )
-    assert resolved.status == "RELEASE_ELIGIBLE"
-    assert resolved.resolution.status == "RESOLVED"
-    assert resolved.resolution.delay_s <= 5
-    assert resolved.final_gate.status == "PASS"
-
-    blocked = run_multi_uav_pipeline(
-        PipelineInputs(
-            "VERIFIED",
-            "VERIFIED",
-            (conflict_first[0], conflict_second[0]),
-            (conflict_first[1], conflict_second[1]),
-            (conflict_first[2], conflict_second[2]),
-        ),
-        SeparationMinimums(10, 10),
-        ResolutionPolicy(max_delay_s=0),
-    )
-    assert blocked.status == "BLOCKED"
-    assert blocked.final_gate.status == "FAIL"
+    # The current wind/performance implementation is explicitly contract-level.
+    # The orchestrator must refuse release until an authoritative model is supplied.
+    try:
+        run_multi_uav_pipeline(
+            PipelineInputs(
+                "VERIFIED",
+                "VERIFIED",
+                (first[0], second[0]),
+                (first[1], second[1]),
+                (first[2], second[2]),
+            ),
+            SeparationMinimums(10, 10),
+            ResolutionPolicy(max_delay_s=5),
+            candidate_revalidator=lambda candidate: True,
+        )
+    except OrchestrationError as exc:
+        assert str(exc) == "PERFORMANCE_MODEL_NOT_AUTHORITATIVE"
+    else:
+        raise AssertionError("contract-only performance model must block release")
 
     print("MULTI-UAV ORCHESTRATOR TESTS: PASS")
     return 0
