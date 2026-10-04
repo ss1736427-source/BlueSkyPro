@@ -7,7 +7,7 @@ No fixed sampling interval is used for the safety decision.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import hypot, isfinite, sqrt
+from math import hypot, sqrt
 from typing import Sequence
 
 from trajectory_4d import Trajectory4D
@@ -50,8 +50,9 @@ def _validate_minimums(minimums: SeparationMinimums) -> None:
 def _segment_state(trajectory: Trajectory4D, timestamp_s: float) -> tuple[float, float, float, float, float, float]:
     """Return position and velocity at the start of the containing segment."""
     points = trajectory.points
-    for left, right in zip(points, points[1:]):
-        if left.timestamp_s <= timestamp_s <= right.timestamp_s:
+    for index, (left, right) in enumerate(zip(points, points[1:])):
+        is_last = index == len(points) - 2
+        if left.timestamp_s <= timestamp_s < right.timestamp_s or (is_last and timestamp_s == right.timestamp_s):
             span = right.timestamp_s - left.timestamp_s
             if span <= 0:
                 raise ConflictVerificationError("NON_POSITIVE_SEGMENT_TIME")
@@ -64,11 +65,6 @@ def _segment_state(trajectory: Trajectory4D, timestamp_s: float) -> tuple[float,
                 (right.altitude_m - left.altitude_m) / span,
             )
     raise ConflictVerificationError("TIME_SEGMENT_NOT_FOUND")
-
-
-def _append_unique(values: list[float], value: float, lo: float, hi: float) -> None:
-    if lo <= value <= hi and isfinite(value):
-        values.append(value)
 
 
 def _vertical_valid_interval(
