@@ -59,6 +59,8 @@ def run_multi_uav_pipeline(
         raise OrchestrationError("ROUTE_NOT_VERIFIED")
     if not all(item.verified for item in inputs.performance):
         raise OrchestrationError("PERFORMANCE_NOT_VERIFIED")
+    if not all(item.model_authority == "AUTHORITATIVE" for item in inputs.performance):
+        raise OrchestrationError("PERFORMANCE_MODEL_NOT_AUTHORITATIVE")
     if not all(item.verified for item in inputs.trajectories):
         raise OrchestrationError("TRAJECTORY_NOT_VERIFIED")
 
