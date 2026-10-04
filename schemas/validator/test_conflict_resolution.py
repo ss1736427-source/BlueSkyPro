@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from conflict_4d import SeparationMinimums
-from conflict_resolution import ResolutionPolicy, resolve_conflicts as resolve
+from conflict_resolution import RevalidationReport, ResolutionPolicy, resolve_conflicts as resolve
 from route_in_zone import build_route_in_zone
 from trajectory_4d import build_trajectory_4d
 from wind_performance import PerformanceProfile, WindSample, adjust_route_for_wind
@@ -46,7 +46,7 @@ def main() -> int:
         trajectories,
         minimums,
         ResolutionPolicy(max_delay_s=5),
-        candidate_validator=lambda candidate: True,
+        candidate_validator=lambda candidate: RevalidationReport("PASS", model_ids=("MODEL-001",), input_snapshot_id="IN-001", candidate_snapshot_id="CAND-001", provenance="TEST"),
     )
     assert result.status == "RESOLVED"
     assert result.method == "TEMPORAL_DELAY"
