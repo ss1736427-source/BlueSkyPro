@@ -49,6 +49,21 @@ def main() -> int:
     assert invalidated_route.release_status == "BLOCKED"
     assert "ROUTE:INVALIDATED" in invalidated_route.failed_checks
 
+
+    missing_resolution = evaluate_final_gate(
+        complete_checks()[:-1],
+        unresolved_conflicts=0,
+    )
+    assert missing_resolution.release_status == "BLOCKED"
+    assert "RESOLUTION:MISSING" in missing_resolution.failed_checks
+
+    duplicate_check = evaluate_final_gate(
+        (*complete_checks(), GateInput("ROUTE", "VERIFIED")),
+        unresolved_conflicts=0,
+    )
+    assert duplicate_check.release_status == "BLOCKED"
+    assert "ROUTE:DUPLICATE" in duplicate_check.failed_checks
+
     auth_not_granted = evaluate_final_gate(
         complete_checks(),
         unresolved_conflicts=0,
