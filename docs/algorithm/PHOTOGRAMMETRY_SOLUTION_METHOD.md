@@ -44,21 +44,21 @@ Equipment capability MUST constrain the mission planner. The planner MUST NOT se
 
 ### 3.1 Lens
 
-Prefer a stable fixed focal length for mapping when compatible with the mission. Variable zoom MUST be treated as a controlled parameter because changing focal length changes the camera geometry and acquisition footprint. Pix4D recommends fixed focal length for stable mapping and notes that longer focal length can improve spatial resolution at a given altitude while requiring a higher image rate to preserve overlap.
+Prefer a stable fixed focal length for mapping when compatible with the camera. Variable zoom MUST be treated as a controlled parameter because changing focal length changes camera geometry and acquisition footprint.
 
 ### 3.2 Focus
 
-For aerial mapping, use locked/manual focus at infinity when supported by the camera and validated for the payload. Do not allow autofocus changes during a mapping block.
+For aerial mapping, use locked/manual focus at infinity when supported and validated for the payload. Do not allow autofocus changes during a mapping block.
 
 ### 3.3 Stabilization
 
-Electronic/mechanical image stabilization used by the camera itself SHOULD be disabled when it interferes with photogrammetric camera modelling. The gimbal may still stabilize the payload orientation.
+Electronic/mechanical image stabilization used by the camera itself SHOULD be disabled when it interferes with photogrammetric camera modelling. The gimbal may still stabilize payload orientation.
 
 ### 3.4 Shutter
 
 The planner MUST maintain a shutter speed sufficient to prevent motion blur at the planned ground speed, altitude and focal length.
 
-As an initial photogrammetry rule, Pix4D gives 1/300–1/800 s as an indicative range and recommends increasing shutter speed if directional blur becomes significant. DJI mapping guidance may require faster settings; therefore the final value MUST be derived from the specific camera, speed and lighting rather than hard-coded globally.
+As an initial photogrammetry rule, 1/300–1/800 s may be used as an indicative range; the final value MUST be derived from the specific camera, speed and lighting rather than hard-coded globally.
 
 ### 3.5 ISO
 
@@ -66,7 +66,7 @@ Prefer the lowest ISO that provides adequate exposure. High ISO increases noise 
 
 ### 3.6 Aperture
 
-Aperture MUST be selected to maintain sufficient sharpness/depth of field while avoiding under/overexposure. Automatic aperture can be acceptable when the exposure strategy is controlled; fully manual exposure may be preferable where lighting is stable and repeatability is required. The mission template MUST permit both modes.
+Aperture MUST be selected to maintain sufficient sharpness/depth of field while avoiding under/overexposure. Automatic aperture can be acceptable when the exposure strategy is controlled; fully manual exposure may be preferable where lighting is stable and repeatability is required.
 
 ### 3.7 Exposure
 
@@ -80,7 +80,7 @@ The payload profile MUST define the supported format and preserve the highest-qu
 
 The equipment model MUST record whether the sensor uses rolling shutter.
 
-For rolling-shutter cameras, the planning and processing chain MUST preserve the camera timing and motion information needed for rolling-shutter compensation. Rolling shutter can introduce geometric distortion because different image rows are exposed at different times while the UAV is moving.
+For rolling-shutter cameras, the planning and processing chain MUST preserve the camera timing and motion information needed for rolling-shutter compensation.
 
 Camera calibration metadata MUST include, where available:
 
@@ -97,7 +97,7 @@ The calibration model MUST be tied to the actual camera/lens configuration used 
 
 GSD is a mission requirement, not merely an output statistic.
 
-The planner MUST derive the permissible camera-to-surface distance from:
+The planner MUST derive permissible camera-to-surface distance from:
 
 - target GSD;
 - sensor dimensions/resolution;
@@ -105,7 +105,7 @@ The planner MUST derive the permissible camera-to-surface distance from:
 - camera orientation;
 - surface geometry.
 
-GSD depends on distance to the terrain/object and camera parameters.
+GSD depends on distance to terrain/object and camera parameters.
 
 ## 6. Surface-relative flight
 
@@ -114,17 +114,11 @@ For inclined or irregular surfaces:
 - generate or use a terrain/3D surface model;
 - calculate local surface elevation;
 - calculate surface normal/slope/aspect;
-- maintain the required camera-to-surface distance;
+- maintain required camera-to-surface distance;
 - maintain safety clearance from terrain;
 - adapt speed and flight-line spacing where geometry changes.
 
-The planner MUST distinguish:
-
-ALTITUDE_ABOVE_REFERENCE
-
-from:
-
-DISTANCE_TO_SURVEY_SURFACE.
+The planner MUST distinguish ALTITUDE_ABOVE_REFERENCE from DISTANCE_TO_SURVEY_SURFACE.
 
 The second is the controlling variable for photogrammetric quality.
 
@@ -149,22 +143,133 @@ Candidate orientation scoring SHOULD include:
 
 The longest surface direction is a valid candidate heuristic, but MUST NOT be an unconditional rule.
 
-## 8. Image overlap and trigger rate
+## 8. Image overlap / заступ
+
+Image overlap is a core planning parameter because common features must appear in multiple images and, for a multi-flight or multi-UAV project, in adjacent datasets as well.
+
+BlueSky PRO MUST distinguish at least four overlap types:
+
+1. Forward overlap (frontlap) — overlap of consecutive images along one flight line.
+2. Side overlap (sidelap) — overlap between adjacent parallel flight lines.
+3. Block/strip overlap — overlap between neighboring survey blocks, strips, UAV sectors or repeated flights.
+4. Surface/3D overlap — overlap between observations of the same physical surface from different viewpoints.
+
+### 8.1 Baseline values
+
+For ordinary nadir mapping, use as a planning baseline:
+
+- front overlap: ≥75%;
+- side overlap: ≥60%.
+
+Pix4D explicitly recommends these minimums for general cases. citeturn0search1turn0search4
+
+For more demanding acquisition, use higher starting targets:
+
+- general high-quality mapping: 80–85% front / 70% side;
+- complex terrain, structures or 3D reconstruction: 80–85% front / 70–80% side;
+- difficult low-texture vegetation/snow/sand: ≥85% front / ≥70% side;
+- vertical/tall structures: approximately 90% same-level overlap and 60% overlap between levels where that acquisition geometry is used. citeturn0search0turn0search7
+
+These are planning baselines, not universal constants.
+
+### 8.2 Why the заступ must be calculated
+
+The system MUST NOT store “80% overlap” as an isolated parameter.
+
+Given camera footprint dimensions L and W on the surface:
+
+image_step_along = L × (1 - front_overlap)
+
+flight_line_spacing = W × (1 - side_overlap)
+
+For example, at 80% front overlap the UAV advances approximately 20% of the along-track image footprint between exposures. At 70% side overlap adjacent tracks are separated by approximately 30% of the cross-track footprint.
+
+The actual step MUST be recalculated when GSD, surface distance, focal length, camera orientation or surface geometry changes.
+
+### 8.3 Coverage margin
+
+The planner MUST add a coverage margin / perimeter overrun so that the required survey boundary is fully covered by the usable image footprint.
+
+The margin MUST be calculated from camera footprint and acquisition geometry, not as an arbitrary fixed number.
+
+The system MUST distinguish TASK_BOUNDARY from IMAGE_COVERAGE_BOUNDARY.
+
+The latter must extend beyond the task boundary enough that the required edge area is reconstructed without holes.
+
+### 8.4 Edge and corner coverage
+
+The first and last flight lines and the first/last exposures MUST be checked for:
+
+- complete coverage of the required area;
+- sufficient overlap with neighboring line/image;
+- sufficient observations for bundle adjustment;
+- no unobserved corners;
+- no loss of coverage caused by turns or acceleration/deceleration.
+
+The planner SHOULD extend acquisition lines beyond the nominal polygon where necessary, while keeping the UAV itself within all applicable safety and airspace constraints.
+
+### 8.5 Multi-UAV and multi-block stitching
+
+For UAV-1 / UAV-2 / UAV-3 working on one common object, partitions MUST NOT be treated as independent islands.
+
+Adjacent sectors MUST have a deliberate stitching overlap zone containing common surface observations.
+
+The overlap between neighboring sectors MUST be large enough to provide common tie features and geometric connection. The exact width MUST be derived from camera footprint, GSD, scene texture, viewing geometry and the processing method; it MUST NOT be hard-coded as one universal percentage.
+
+Where datasets have different acquisition geometries or are captured in separate sessions, BlueSky PRO SHOULD require additional common observations and, where appropriate, GCPs or manual tie points. Pix4D recommends sufficient overlap within and between datasets and recommends GCPs/manual tie points when combining different capture methods. citeturn0search0turn0search4
+
+### 8.6 3D surface overlap
+
+For steep slopes, cliffs, buildings and complex objects, a point should ideally be observed from multiple camera positions and, where required, multiple directions.
+
+Therefore the planner MUST evaluate:
+
+- number of observations per surface patch;
+- viewing-angle diversity;
+- parallax;
+- visibility;
+- distance to surface;
+- overlap between oblique and nadir datasets.
+
+A nadir grid alone MUST NOT be considered sufficient for a complex 3D object.
+
+### 8.7 Overlap quality gate
+
+Before mission release, the planner MUST simulate image footprints and verify:
+
+COVERAGE >= REQUIRED_COVERAGE
+
+and
+
+OVERLAP >= REQUIRED_OVERLAP
+
+for all required surface patches.
+
+After acquisition, the system MUST verify actual image coverage and identify:
+
+- holes;
+- weakly observed areas;
+- missing image sequences;
+- insufficient inter-strip overlap;
+- insufficient inter-UAV overlap;
+- insufficient viewpoint diversity.
+
+If a required area fails the quality gate, the system creates a re-acquisition task instead of declaring the mission complete.
+
+## 9. Image trigger rate
 
 The planner MUST calculate image spacing from:
 
 - desired front overlap;
-- desired side overlap;
+- side overlap;
 - camera footprint;
 - GSD;
 - UAV speed;
 - sensor orientation.
 
-General photogrammetry guidance commonly starts at approximately 75% front and 60% side overlap; DJI mapping guidance commonly uses 80% front and 70% side. More difficult terrain and 3D reconstruction can require higher overlap.
+The trigger interval MUST be calculated rather than entered as an unrelated fixed number.
 
-The trigger interval MUST be calculated rather than entered as an unrelated fixed number. Pix4D provides the relationship between image footprint, overlap and UAV speed for this calculation.
-
-## 9. 3D / oblique acquisition
+## 10. 3D / oblique acquisition
 
 A nadir grid alone MUST NOT be assumed sufficient for complex 3D objects.
 
@@ -177,9 +282,9 @@ Where the product requires surfaces/facades/steep slopes:
 - ensure visibility of required surfaces;
 - preserve geometric diversity/parallax.
 
-For building reconstruction, Pix4D describes circular/oblique acquisition as a separate strategy from a standard nadir grid.
+Pix4D recommends oblique/circular acquisition for building and vertical-object reconstruction, with high overlap for difficult 3D geometry. citeturn0search0turn0search4
 
-## 10. Illumination and sun geometry
+## 11. Illumination and sun geometry
 
 The mission planner MUST calculate solar position for the mission time window:
 
@@ -198,7 +303,7 @@ As a conservative planning parameter, optical survey missions SHOULD flag solar 
 
 For long or multi-UAV missions, the system MUST evaluate illumination across the entire acquisition window, not only at mission start.
 
-## 11. Weather
+## 12. Weather
 
 Before execution, evaluate:
 
@@ -213,7 +318,7 @@ Before execution, evaluate:
 
 Strong wind can reduce image sharpness through UAV motion; rain can contaminate the lens and change surface appearance.
 
-## 12. Positioning and georeferencing
+## 13. Positioning and georeferencing
 
 The mission profile MUST select an accuracy strategy:
 
@@ -228,7 +333,7 @@ RTK/PPK improves direct georeferencing, while GCPs and independent checkpoints p
 
 The planner MUST store the coordinate reference system, geoid/vertical reference and all positioning metadata required by the processing chain.
 
-## 13. Multi-UAV acquisition
+## 14. Multi-UAV acquisition
 
 For a shared 3D mapping task:
 
@@ -253,7 +358,7 @@ Allocation MUST consider:
 
 The optimization objective SHOULD primarily minimize mission makespan while preserving complete coverage and required product quality.
 
-## 14. Data and storage
+## 15. Data and storage
 
 The mission plan MUST estimate:
 
@@ -265,9 +370,9 @@ The mission plan MUST estimate:
 - required metadata;
 - per-UAV dataset identity.
 
-Each image MUST remain associated with its acquisition timestamp, position/orientation metadata and camera configuration.
+Each image MUST remain associated with acquisition timestamp, position/orientation metadata and camera configuration.
 
-## 15. Preflight quality gates
+## 16. Preflight quality gates
 
 Before launch, verify:
 
@@ -291,7 +396,7 @@ Before launch, verify:
 
 If a required condition cannot be met, the mission MUST be marked NOT READY or require explicit operator resolution.
 
-## 16. In-flight quality monitoring
+## 17. In-flight quality monitoring
 
 The system SHOULD monitor:
 
@@ -312,7 +417,7 @@ The system SHOULD monitor:
 
 If quality falls below configured thresholds, the system MUST either adapt the mission when safe or create a re-acquisition task.
 
-## 17. Post-flight validation
+## 18. Post-flight validation
 
 Mission completion MUST require more than successful landing.
 
@@ -336,7 +441,7 @@ Validate:
 
 The result is MISSION COMPLETE only when the required product quality gates pass.
 
-## 18. Optimization variables
+## 19. Optimization variables
 
 The Optimization Layer MAY optimize:
 
@@ -355,12 +460,13 @@ The Optimization Layer MAY optimize:
 
 Hard safety and equipment constraints remain authoritative.
 
-## 19. Important distinction
+## 20. Important distinction
 
 These values are starting recommendations, not universal constants:
 
 - front overlap;
 - side overlap;
+- inter-block/inter-UAV stitching overlap;
 - shutter speed;
 - ISO;
 - aperture;
@@ -371,7 +477,7 @@ These values are starting recommendations, not universal constants:
 
 BlueSky PRO MUST derive or validate them against the selected camera, UAV, terrain, required product accuracy, lighting and mission objective.
 
-## 20. Final solution principle
+## 21. Final solution principle
 
 USER REQUIREMENTS
 → PRODUCT REQUIREMENTS
