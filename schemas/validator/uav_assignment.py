@@ -97,6 +97,11 @@ def assign_zones(
         raise AssignmentError("ASSIGNMENT_FAILED: no zones")
     if not fleet:
         raise AssignmentError("ASSIGNMENT_FAILED: empty fleet")
+    if len(zones) > len(fleet):
+        raise AssignmentError("ASSIGNMENT_FAILED: insufficient fleet size")
+    zone_ids = [zone.zone_id for zone in zones]
+    if len(zone_ids) != len(set(zone_ids)):
+        raise AssignmentError("ASSIGNMENT_FAILED: duplicate zone id")
 
     candidates = tuple(
         evaluate_candidate(uav, zone)
@@ -159,6 +164,21 @@ def assign_zones(
             ):
                 best_score = score
                 best_assignment = candidate
+            return
+
+        remaining = ordered_zones[index:]
+        upper_bound = score + sum(
+            max(
+                (
+                    candidate.score
+                    for candidate in by_zone[item.zone_id]
+                    if candidate.uav_id not in used
+                ),
+                default=float("-inf"),
+            )
+            for item in remaining
+        )
+        if upper_bound <= best_score:
             return
 
         zone = ordered_zones[index]
