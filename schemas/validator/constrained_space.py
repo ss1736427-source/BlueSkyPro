@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 from zone_partition import EPSILON, Polygon
-from geometry_engine import GeometryEngine, ContractGeometryEngine
+from geometry_engine import GeometryEngine, ShapelyGeometryEngine
 
 @dataclass(frozen=True)
 class Exclusion:
@@ -29,7 +29,7 @@ class ConstrainedSpaceError(ValueError):
 
 def build_constrained_space(source: Polygon, exclusions: Sequence[Exclusion],
                             engine: GeometryEngine | None = None) -> ConstrainedOpenSpace:
-    engine=engine or ContractGeometryEngine()
+    engine=engine or ShapelyGeometryEngine()
     for exclusion in exclusions:
         if exclusion.geometry.area<=EPSILON:
             raise ConstrainedSpaceError(f"CONSTRAINED_SPACE_INVALID: zero-area exclusion {exclusion.exclusion_id}")
