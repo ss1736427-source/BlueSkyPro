@@ -93,6 +93,42 @@ MISSION / OPERATOR TASK
 
 The Optimization Layer is an extension of the Planning Kernel, not a second independent planner.
 
+## 3A. Interactive operator-defined mandatory flight points
+
+The map and flight profile are interactive planning surfaces and form part of the operator input, not merely visualization.
+
+The operator may place **mandatory passage points** directly on:
+
+- the interactive map;
+- the altitude/flight profile;
+- the 3D trajectory view, when available.
+
+These points are stored in the Task Model as explicit route constraints.
+
+Each mandatory point shall retain at minimum:
+
+- unique point ID;
+- geographic position;
+- required altitude or altitude band, when specified;
+- required passage order, when specified;
+- point type/reason (mandatory passage, observation, inspection, target, etc.);
+- tolerance/corridor, when defined by the mission method;
+- operator-defined dwell/observation requirement, when applicable.
+
+The Planning Kernel MUST preserve mandatory points during route generation and optimization. Optimization may change the geometry between mandatory points, but MUST NOT remove, reorder, or violate a mandatory point constraint unless the operator explicitly changes the task.
+
+The map and profile are bidirectionally linked:
+
+MAP POINT ↔ 3D TRAJECTORY POINT ↔ PROFILE POINT ↔ TASK MODEL CONSTRAINT
+
+Selecting or moving a point in one view updates the corresponding representation in the other views and triggers the required recalculation.
+
+A mandatory point is not automatically considered feasible merely because the operator placed it. The Planning Kernel must verify airspace, terrain/obstacle clearance, altitude limits, UAV performance, energy and other applicable constraints at and between mandatory points.
+
+If a mandatory point cannot be legally or safely incorporated, the mission is NOT FEASIBLE / REQUIRES OPERATOR ACTION; the optimizer must not silently bypass it.
+
+This rule applies to all mission templates. Template-specific methods may add additional semantics to the point, but the authoritative constraint representation remains common to the Planning Kernel.
+
 ## 4. Hard constraints vs optimization criteria
 
 ### Hard constraints
