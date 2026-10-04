@@ -103,6 +103,7 @@ def main() -> int:
             provenance="TEST",
         ),
     )
+    print("MULTI DEBUG", combination.status, combination.method, combination.delay_assignments, combination.rejected_candidates, [(x.uav_a, x.uav_b, x.time_start_s, x.time_end_s, x.minimum_horizontal_m) for x in combination.conflict_report.conflicts])
     assert combination.status == "RESOLVED"
     assert combination.method == "TEMPORAL_DELAY_COMBINATION"
     assert combination.delay_assignments == (
