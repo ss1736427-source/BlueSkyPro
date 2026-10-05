@@ -16,6 +16,8 @@ set_source_files_properties(qml/Theme.qml
 
 qt_add_executable(appBlueSkyPRO
     src/main.cpp
+    src/PlanningBridge.cpp
+    src/PlanningBridge.h
 )
 
 qt_add_qml_module(appBlueSkyPRO

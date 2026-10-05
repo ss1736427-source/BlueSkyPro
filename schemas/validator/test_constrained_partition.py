@@ -42,12 +42,12 @@ def main() -> int:
     assert result.status == "VERIFIED"
     assert result.coverage_area == component_a.area + component_b.area
 
-    try:
-        partition_components(constrained, zones_per_component=2)
-    except PartitionExecutionError as exc:
-        assert "COMPONENT_SPLITTER" in str(exc)
-    else:
-        raise AssertionError("multi-zone component split must be explicit")
+    split_result = partition_components(constrained, zones_per_component=2)
+    assert len(split_result) == 2
+    assert all(len(partition.zones) == 2 for partition in split_result)
+    split_flat = flatten_component_partitions(constrained, split_result)
+    assert split_flat.status == "VERIFIED"
+    assert split_flat.coverage_area == component_a.area + component_b.area
 
     print("CONSTRAINED PARTITION TESTS: PASS")
     return 0

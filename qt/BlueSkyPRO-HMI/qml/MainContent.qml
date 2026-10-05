@@ -50,8 +50,12 @@ Item {
         { uavId: "BS-004", templateIndex: 7, task: "Экомониторинг", sector: "Периметр" }
     ]
     property bool missionProfileOpen: false
+    // Planning-core result injected by the application/planning bridge; QML never calculates it.
+    property var planningResult: null
+    readonly property bool is3DMappingProfile: root.missionTemplateIds.indexOf("3D_MAPPING") >= 0
     // Example current automatic mission composition; supplied by mission/task aggregation in production.
     property var missionTemplateIndices: [0, 1, 7]
+    property var missionTemplateIds: ["MAPPING", "3D_MAPPING", "ENVIRONMENTAL_MONITORING"]
     property string journalStatus: "READY"
     property string activeTool: bottomToolbar.activeTool
     // Entry flow: role authorization -> pilot task setup -> brief transition -> workspace.
@@ -162,7 +166,7 @@ Item {
         // Expanded mission profile: route table and flight profile use the available workspace.
         MissionProfileWindow {
             id: missionProfileWindow
-            visible: root.missionProfileOpen
+            visible: root.missionProfileOpen && !root.is3DMappingProfile
             missionId: root.missionId
             missionSummary: root.missionSummary
             missionReviewState: root.missionReviewState
@@ -177,6 +181,18 @@ Item {
                 root.missionSplashVisible = false
                 root.headerAlertsOpen = false
             }
+            onApplyRequested: root.missionProfileOpen = false
+        }
+
+        ThreeDMappingProfile {
+            id: threeDMappingProfile
+            visible: root.missionProfileOpen && root.is3DMappingProfile
+            missionId: root.missionId
+            missionSummary: root.missionSummary
+            uavModel: uavStatus.uavModel
+            selectedUavIndex: root.selectedUavIndex
+            planningResult: root.planningResult
+            onCloseRequested: root.missionProfileOpen = false
             onApplyRequested: root.missionProfileOpen = false
         }
 
@@ -567,8 +583,9 @@ Item {
         anchors.fill: parent
         z: 1001
         visible: root.taskCreationVisible
-        onMissionSetRequested: function(templateIndices, taskText) {
+        onMissionSetRequested: function(templateIndices, taskText, templateIds) {
             root.missionTemplateIndices = templateIndices
+            root.missionTemplateIds = templateIds
             root.missionSummary = taskText.trim().length > 0
                                   ? taskText.trim()
                                   : "Выбрано шаблонов: " + templateIndices.length

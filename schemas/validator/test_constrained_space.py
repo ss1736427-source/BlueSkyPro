@@ -34,7 +34,7 @@ def main() -> int:
     try:
         build_constrained_space(source, (exclusion,))
     except ConstrainedSpaceError as exc:
-        assert "REQUIRES_GEOMETRY_ENGINE" in str(exc)
+        assert "polygon subtraction requires a vetted clipping backend" in str(exc)
     else:
         raise AssertionError("clipped geometry must not be fabricated")
 

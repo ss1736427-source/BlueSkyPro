@@ -10,7 +10,7 @@ Item {
     property string keyboardLanguage: "RU"
     property bool keyboardVisible: true
 
-    signal missionSetRequested(var templateIndices, string taskText)
+    signal missionSetRequested(var templateIndices, string taskText, var templateIds)
 
     readonly property color bg: "#06111F"
     readonly property color panel: "#0A1B2D"
@@ -29,6 +29,15 @@ Item {
         else
             next.push(index)
         selectedTemplateIndices = next
+    }
+
+    function templateId(index) {
+        return [
+            "MAPPING", "3D_MAPPING", "INSPECTION", "CONSTRUCTION_MONITORING",
+            "PERIMETER_MONITORING", "SEARCH_AND_RESCUE", "FIRE_EMERGENCY",
+            "ENVIRONMENTAL_MONITORING", "AGRICULTURE", "DELIVERY",
+            "COMMUNICATION_RELAY", "AERIAL_MEDIA", "C_UAS"
+        ][index] || ""
     }
 
     function insertKey(value) {
@@ -194,19 +203,19 @@ Item {
 
         Repeater {
             model: [
-                { shortName: "КАРТОГРАФИЯ", fullName: "Картографирование территории" },
-                { shortName: "3D-МОДЕЛЬ", fullName: "3D-картография и реконструкция" },
-                { shortName: "ИНСПЕКЦИЯ", fullName: "Инспекция объектов и инфраструктуры" },
-                { shortName: "СТРОЙКА", fullName: "Мониторинг строительства" },
-                { shortName: "ПЕРИМЕТР", fullName: "Мониторинг территории и периметра" },
-                { shortName: "ПОИСК / SAR", fullName: "Поиск и спасение" },
-                { shortName: "ПОЖАР / ЧС", fullName: "Пожарный мониторинг и ЧС" },
-                { shortName: "ЭКОЛОГИЯ", fullName: "Экологический и природный мониторинг" },
-                { shortName: "АГРО", fullName: "Сельское хозяйство" },
-                { shortName: "ДОСТАВКА", fullName: "Доставка грузов" },
-                { shortName: "РЕТРАНСЛЯЦИЯ", fullName: "Ретрансляция связи" },
-                { shortName: "АЭРОСЪЁМКА", fullName: "Аэрофотосъёмка и медиапроизводство" },
-                { shortName: "C-UAS", fullName: "Обнаружение и наблюдение за БПЛА" }
+                { id: "MAPPING", shortName: "КАРТОГРАФИЯ", fullName: "Картографирование территории" },
+                { id: "3D_MAPPING", shortName: "3D-МОДЕЛЬ", fullName: "3D-картография и реконструкция" },
+                { id: "INSPECTION", shortName: "ИНСПЕКЦИЯ", fullName: "Инспекция объектов и инфраструктуры" },
+                { id: "CONSTRUCTION_MONITORING", shortName: "СТРОЙКА", fullName: "Мониторинг строительства" },
+                { id: "PERIMETER_MONITORING", shortName: "ПЕРИМЕТР", fullName: "Мониторинг территории и периметра" },
+                { id: "SEARCH_AND_RESCUE", shortName: "ПОИСК / SAR", fullName: "Поиск и спасение" },
+                { id: "FIRE_EMERGENCY", shortName: "ПОЖАР / ЧС", fullName: "Пожарный мониторинг и ЧС" },
+                { id: "ENVIRONMENTAL_MONITORING", shortName: "ЭКОЛОГИЯ", fullName: "Экологический и природный мониторинг" },
+                { id: "AGRICULTURE", shortName: "АГРО", fullName: "Сельское хозяйство" },
+                { id: "DELIVERY", shortName: "ДОСТАВКА", fullName: "Доставка грузов" },
+                { id: "COMMUNICATION_RELAY", shortName: "РЕТРАНСЛЯЦИЯ", fullName: "Ретрансляция связи" },
+                { id: "AERIAL_MEDIA", shortName: "АЭРОСЪЁМКА", fullName: "Аэрофотосъёмка и медиапроизводство" },
+                { id: "C_UAS", shortName: "C-UAS", fullName: "Обнаружение и наблюдение за БПЛА" }
             ]
 
             delegate: Rectangle {
@@ -302,7 +311,7 @@ Item {
         MouseArea {
             anchors.fill: parent
             enabled: root.selectedTemplateIndices.length > 0
-            onClicked: root.missionSetRequested(root.selectedTemplateIndices, root.taskText)
+            onClicked: root.missionSetRequested(root.selectedTemplateIndices, root.taskText, root.selectedTemplateIndices.map(function(i) { return root.templateId(i) }))
         }
     }
 

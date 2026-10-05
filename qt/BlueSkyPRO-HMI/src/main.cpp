@@ -1,5 +1,8 @@
 #include <QCoreApplication>
 #include <QGuiApplication>
+#include <QQmlContext>
+
+#include "PlanningBridge.h"
 #include <QQmlApplicationEngine>
 #include <QUrl>
 
@@ -13,6 +16,8 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationName(QStringLiteral("BlueSky PRO"));
 
     QQmlApplicationEngine engine;
+    PlanningBridge planningBridge;
+    engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
     const QUrl url(QStringLiteral("qrc:/qt/qml/BlueSky/PRO/qml/App.qml"));
 
     QObject::connect(
