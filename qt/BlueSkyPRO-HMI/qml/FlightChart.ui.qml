@@ -1,6 +1,4 @@
 import QtQuick
-import QtLocation
-import QtPositioning
 
 Item {
     id: root
@@ -62,88 +60,18 @@ Item {
         color: root.bg
     }
 
-    // Geographic map foundation. Planning Core remains authoritative for route data.
-    Plugin {
-        id: mapPlugin
-        name: "osm"
-        PluginParameter { name: "osm.useragent"; value: "BlueSkyPRO/0.1 (UAV flight planning)" }
-    }
-
-    Map {
-        id: geographicMap
+    // Google Maps Platform Map Tiles API is the authoritative basemap.
+    GoogleMapView {
+        id: googleMap
         anchors.fill: parent
-        plugin: mapPlugin
-        center: QtPositioning.coordinate(55.7558, 37.6176)
-        zoomLevel: 10
-        copyrightsVisible: true
         z: 1
-
-        MapPolyline {
-            line.width: 4
-            line.color: root.cyan
-            path: [
-                QtPositioning.coordinate(55.7600, 37.6000),
-                QtPositioning.coordinate(55.7350, 37.6250),
-                QtPositioning.coordinate(55.7550, 37.6550),
-                QtPositioning.coordinate(55.7800, 37.6400),
-                QtPositioning.coordinate(55.7700, 37.5900)
-            ]
-        }
-
-        MapQuickItem {
-            coordinate: QtPositioning.coordinate(55.7600, 37.6000)
-            anchorPoint.x: 6
-            anchorPoint.y: 6
-            sourceItem: Rectangle {
-                width: 12; height: 12; radius: 6
-                color: "#64FF00"; border.width: 2; border.color: "#FFFFFF"
-            }
-        }
-
-        MapQuickItem {
-            coordinate: QtPositioning.coordinate(55.7700, 37.5900)
-            anchorPoint.x: 6
-            anchorPoint.y: 6
-            sourceItem: Rectangle {
-                width: 12; height: 12; radius: 6
-                color: "#FFD43B"; border.width: 2; border.color: "#FFFFFF"
-            }
-        }
-    }
-
-    // Interactive geographic map controls.
-    // Handlers live on FlightChart itself so side overlays cannot disable map input.
-    PinchHandler {
-        id: mapPinch
-        target: null
-        grabPermissions: PointerHandler.CanTakeOverFromItems | PointerHandler.CanTakeOverFromHandlersOfDifferentType
-        onActiveChanged: {
-            if (active)
-                geographicMap.startCentroid = geographicMap.toCoordinate(centroid.position, false)
-        }
-        onScaleChanged: (delta) => {
-            geographicMap.zoomLevel = Math.max(
-                geographicMap.minimumZoomLevel,
-                Math.min(geographicMap.maximumZoomLevel, geographicMap.zoomLevel + Math.log2(delta))
-            )
-            geographicMap.alignCoordinateToPoint(geographicMap.startCentroid, centroid.position)
-        }
-    }
-
-    WheelHandler {
-        id: mapWheel
-        acceptedDevices: PointerDevice.Mouse
-        acceptedModifiers: Qt.NoModifier
-        rotationScale: 1 / 120
-        property: "zoomLevel"
-    }
-
-    DragHandler {
-        id: mapDrag
-        target: null
-        acceptedButtons: Qt.LeftButton
-        grabPermissions: PointerHandler.CanTakeOverFromItems | PointerHandler.CanTakeOverFromHandlersOfDifferentType
-        onTranslationChanged: (delta) => geographicMap.pan(-delta.x, -delta.y)
+        routeCoordinates: [
+            { lat: 55.7600, lon: 37.6000 },
+            { lat: 55.7350, lon: 37.6250 },
+            { lat: 55.7550, lon: 37.6550 },
+            { lat: 55.7800, lon: 37.6400 },
+            { lat: 55.7700, lon: 37.5900 }
+        ]
     }
 
     Canvas {
