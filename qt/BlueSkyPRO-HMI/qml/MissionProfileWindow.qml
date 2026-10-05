@@ -1144,7 +1144,7 @@ Item {
                     id: parameterPanel
                     z: 40
                     width: root.parameterPanelOpen
-                           ? Math.min(360, Math.max(270, contentRow.width * 0.22))
+                           ? Math.min(300, Math.max(220, contentRow.width * 0.18))
                            : 0
                     height: parent.height
                     color: root.bg
