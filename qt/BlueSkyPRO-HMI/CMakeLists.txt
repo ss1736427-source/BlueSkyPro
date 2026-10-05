@@ -33,6 +33,9 @@ qt_add_qml_module(appBlueSkyPRO
         qml/FlightChart.ui.qml
         qml/RightPanel.ui.qml
         qml/RoleSelection.ui.qml
+        qml/TaskCreation.ui.qml
+        qml/MissionProfileWindow.qml
+        qml/ThreeDMappingProfile.qml
         qml/UAVFleetPanel.qml
         qml/UAVFleetPanelForm.ui.qml
         qml/BottomToolbar.qml
