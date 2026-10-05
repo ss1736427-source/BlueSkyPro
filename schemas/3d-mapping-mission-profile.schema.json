@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bluesky://schemas/3d-mapping-mission-profile/v1",
+  "title": "BlueSky PRO 3D Mapping Mission Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "missionId",
+    "areaOfInterest",
+    "payload",
+    "requirements"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "missionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "areaOfInterest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "geometry"
+      ],
+      "properties": {
+        "geometry": {
+          "type": "object"
+        },
+        "coordinateReferenceSystem": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "uavId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payloadId",
+        "sensorType"
+      ],
+      "properties": {
+        "payloadId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sensorType": {
+          "type": "string",
+          "enum": [
+            "CAMERA",
+            "LIDAR",
+            "CAMERA_LIDAR",
+            "OTHER"
+          ]
+        },
+        "configurationVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rtk": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "ppk": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "deliverables": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "POINT_CLOUD",
+              "ORTHOMOSAIC",
+              "DSM",
+              "DTM",
+              "MESH",
+              "GIS_VECTOR",
+              "WEB_3D",
+              "OTHER"
+            ]
+          }
+        },
+        "targetResolution": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "altitudeM": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "forwardOverlapPercent": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "sideOverlapPercent": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "flightLineDirectionDeg": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 360
+        },
+        "terrainFollowing": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "viewingGeometry": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "triggerMode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "controlPointsRequired": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "qualityCriteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "plannedAcquisition": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "expectedCoveragePercent": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "expectedFrames": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "expectedDurationS": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "expectedEnergyWh": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "requiredReserveWh": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "sourceRefs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "configVersion": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
