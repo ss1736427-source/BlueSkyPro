@@ -40,7 +40,13 @@ Item {
     signal closeRequested()
     signal applyRequested()
 
-    function derivedValue(key) {\n        if (!root.planningResult) return "—"\n        var v = root.planningResult[key]\n        return v === undefined || v === null || v === "" ? "—" : String(v)\n    }\n\n    function fieldValue(key) {
+    function derivedValue(key) {
+        if (!root.planningResult) return "—"
+        var v = root.planningResult[key]
+        return v === undefined || v === null || v === "" ? "—" : String(v)
+    }
+
+    function fieldValue(key) {
         return ({
             area: root.areaOfInterest,
             deliverables: root.deliverables,
