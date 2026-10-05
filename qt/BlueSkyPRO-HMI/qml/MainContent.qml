@@ -50,6 +50,7 @@ Item {
         { uavId: "BS-004", templateIndex: 7, task: "Экомониторинг", sector: "Периметр" }
     ]
     property bool missionProfileOpen: false
+    readonly property bool is3DMappingProfile: root.missionTemplateIndices.indexOf(1) >= 0
     // Example current automatic mission composition; supplied by mission/task aggregation in production.
     property var missionTemplateIndices: [0, 1, 7]
     property string journalStatus: "READY"
@@ -162,7 +163,7 @@ Item {
         // Expanded mission profile: route table and flight profile use the available workspace.
         MissionProfileWindow {
             id: missionProfileWindow
-            visible: root.missionProfileOpen
+            visible: root.missionProfileOpen && !root.is3DMappingProfile
             missionId: root.missionId
             missionSummary: root.missionSummary
             missionReviewState: root.missionReviewState
@@ -177,6 +178,17 @@ Item {
                 root.missionSplashVisible = false
                 root.headerAlertsOpen = false
             }
+            onApplyRequested: root.missionProfileOpen = false
+        }
+
+        ThreeDMappingProfile {
+            id: threeDMappingProfile
+            visible: root.missionProfileOpen && root.is3DMappingProfile
+            missionId: root.missionId
+            missionSummary: root.missionSummary
+            uavModel: uavStatus.uavModel
+            selectedUavIndex: root.selectedUavIndex
+            onCloseRequested: root.missionProfileOpen = false
             onApplyRequested: root.missionProfileOpen = false
         }
 
