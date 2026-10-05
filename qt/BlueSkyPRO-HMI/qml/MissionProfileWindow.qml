@@ -1228,9 +1228,10 @@ Item {
                                     wrapMode: Text.Wrap
                                 }
 
-                                TapHandler {
-                                    acceptedButtons: Qt.LeftButton
-                                    onTapped: root.toggleParameter(parameterRow.parameterKey)
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.toggleParameter(parameterRow.parameterKey)
                                 }
                             }
                         }
