@@ -45,7 +45,8 @@ def main() -> int:
     try:
         partition_components(constrained, zones_per_component=2)
     except PartitionExecutionError as exc:
-        assert "COMPONENT_SPLITTER" in str(exc)
+        assert "PARTITION_FAILED" in str(exc)
+        assert "COMP-01" in str(exc)
     else:
         raise AssertionError("multi-zone component split must be explicit")
 
