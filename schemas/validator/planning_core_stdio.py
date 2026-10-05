@@ -104,10 +104,13 @@ def _trajectory(raw: dict[str, Any]) -> Trajectory4D:
     )
 
 
-def _candidate_revalidator(trajectories: tuple[Trajectory4D, ...]) -> bool:
+def _candidate_revalidator(
+    trajectories: tuple[Trajectory4D, ...],
+    minimums: SeparationMinimums,
+) -> bool:
     if not trajectories or not all(item.verified for item in trajectories):
         return False
-    report = verify_fleet(trajectories, SeparationMinimums(1.0, 1.0))
+    report = verify_fleet(trajectories, minimums)
     return report.status == "NO_CONFLICT"
 
 
@@ -149,7 +152,7 @@ def process_request(request: dict[str, Any]) -> dict[str, Any]:
         inputs,
         minimums,
         policy,
-        candidate_revalidator=_candidate_revalidator,
+        candidate_revalidator=lambda candidate: _candidate_revalidator(candidate, minimums),
     )
 
     mapping = None
