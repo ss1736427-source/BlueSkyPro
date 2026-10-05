@@ -36,7 +36,7 @@ Item {
     Settings {
         id: panelOrderSettings
         category: "BlueSkyPRO/RightPanel"
-        property string orderCsv: "Checklist,Flight Conditions,Alerting,ATC"
+        property string orderCsv: "Information,Checklist,Flight Conditions,Alerting,ATC"
     }
 
     property var panelOrder: panelOrderSettings.orderCsv.split(",")
@@ -44,6 +44,12 @@ Item {
     property real dragOffsetY: 0
 
     Component.onCompleted: {
+        if (panelOrder.indexOf("Information") < 0) {
+            var migratedOrder = panelOrder.slice()
+            migratedOrder.unshift("Information")
+            panelOrder = migratedOrder
+            panelOrderSettings.orderCsv = migratedOrder.join(",")
+        }
         if (panelOrder.indexOf("ATC") < 0) {
             var migratedOrder = panelOrder.slice()
             migratedOrder.push("ATC")
@@ -53,6 +59,8 @@ Item {
     }
 
     function panelVisible(key) {
+        if (key === "Information")
+            return true
         if (key === "Checklist")
             return panelSettingsPopup.enabledTools.indexOf("Checklist") >= 0
         if (key === "Flight Conditions")
@@ -69,6 +77,8 @@ Item {
     }
 
     function panelHeight(key) {
+        if (key === "Information")
+            return informationTitleCard.height
         if (key === "Checklist")
             return checklistCard.height
         if (key === "Flight Conditions")
@@ -228,27 +238,64 @@ Item {
         antialiasing: false
     }
 
-    // Overall right-panel title: plain text, with the menu on the same row.
-    Item {
-        id: rightPanelTitleBar
-        x: 10
-        y: 8
-        width: parent.width - 20
+    // INFORMATION is a real reorderable panel. The panel settings button remains fixed.
+    Rectangle {
+        id: informationTitleCard
+        x: 16
+        y: root.panelBaseY("Information") + (root.draggingPanel === "Information" ? root.dragOffsetY : 0)
+        width: parent.width - 32
         height: 38
-        z: 10
+        radius: 8
+        color: "transparent"
+        border.color: "#236078"
+        border.width: 1
+        antialiasing: true
+        z: root.draggingPanel === "Information" ? 200 : 1
 
-        Text {
-            anchors.left: parent.left
-            anchors.leftMargin: 12
-            anchors.right: panelSettings.left
-            anchors.rightMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            text: "INFORMATION"
-            color: root.text
-            font.family: "B612"
-            font.pixelSize: 13
-            font.bold: true
-            elide: Text.ElideRight
+        Rectangle {
+            x: 1; y: 1; width: parent.width - 2; height: 32
+            radius: 7; color: "#0B1B2B"
+            Rectangle { x: 0; y: height / 2; width: parent.width; height: parent.height / 2; color: parent.color }
+
+            Text {
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 32
+                anchors.verticalCenter: parent.verticalCenter
+                text: "INFORMATION"
+                color: root.text
+                font.family: "B612"
+                font.pixelSize: 13
+                font.bold: true
+                elide: Text.ElideRight
+            }
+
+            Text {
+                anchors.right: parent.right
+                anchors.rightMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+                text: "⋮⋮"
+                color: root.cyan
+                font.pixelSize: 12
+                opacity: 0.8
+            }
+
+            DragHandler {
+                target: null
+                onActiveChanged: {
+                    if (active) {
+                        root.draggingPanel = "Information"
+                        root.dragOffsetY = 0
+                    } else {
+                        root.finishPanelDrag("Information")
+                    }
+                }
+                onTranslationChanged: {
+                    if (active && root.draggingPanel === "Information")
+                        root.dragOffsetY = translation.y
+                }
+            }
         }
     }
 
