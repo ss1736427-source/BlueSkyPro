@@ -16,7 +16,7 @@ Item {
         font.family: "Noto Sans"
         font.pixelSize: 13
         font.bold: true
-        text: "Миссии"
+        text: "Миссии • TEST"
     }
 
     // Keep the established compact panel width; long template names are elided.
