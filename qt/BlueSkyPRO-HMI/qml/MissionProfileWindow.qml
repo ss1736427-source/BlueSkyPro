@@ -48,7 +48,7 @@ Item {
     property var columns: [
         { label: "#", w: 0.035, key: "number" },
         { label: "ТИП", w: 0.075, key: "type" },
-        { label: "ТОЧКА / ШИРОТА, ДОЛГОТА", w: 0.17, key: "point" },
+        { label: "WP", w: 0.17, key: "point" },
         { label: "КУРС\n°", w: 0.065, key: "course" },
         { label: "ДИСТАНЦИЯ\nкм", w: 0.075, key: "distance" },
         { label: "ВЫСОТА\nм", w: 0.075, key: "altitude" },
@@ -1222,11 +1222,11 @@ Item {
 
     ListModel {
         id: routeModel
-        ListElement { pointType: "Старт"; pointName: "WP0 (База)"; coordinates: "55.7522, 37.6156"; course: "—"; distance: "0.0"; altitude: "120"; airspeed: "—"; groundspeed: "—"; time: "00:00"; deltaHeight: "—"; energy: "100"; note: "Взлёт (VTOL)" }
-        ListElement { pointType: "Участок"; pointName: "WP1"; coordinates: "55.7801, 37.6923"; course: "087"; distance: "12.4"; altitude: "150"; airspeed: "28.0"; groundspeed: "25.4"; time: "04:52"; deltaHeight: "+30"; energy: "92"; note: "Набор высоты" }
-        ListElement { pointType: "Участок"; pointName: "WP2"; coordinates: "55.8065, 37.8041"; course: "095"; distance: "18.7"; altitude: "150"; airspeed: "30.0"; groundspeed: "27.1"; time: "06:54"; deltaHeight: "0"; energy: "81"; note: "Патрулирование" }
-        ListElement { pointType: "Участок"; pointName: "WP3"; coordinates: "55.8410, 37.9124"; course: "110"; distance: "15.6"; altitude: "180"; airspeed: "28.5"; groundspeed: "26.0"; time: "05:47"; deltaHeight: "+30"; energy: "68"; note: "Обход зоны" }
-        ListElement { pointType: "Участок"; pointName: "WP4"; coordinates: "55.8702, 38.0231"; course: "132"; distance: "16.8"; altitude: "150"; airspeed: "29.0"; groundspeed: "24.8"; time: "06:46"; deltaHeight: "-30"; energy: "54"; note: "Съёмка" }
-        ListElement { pointType: "Финиш"; pointName: "WP5 (Цель)"; coordinates: "55.9001, 38.1156"; course: "142"; distance: "14.9"; altitude: "120"; airspeed: "28.0"; groundspeed: "25.6"; time: "05:59"; deltaHeight: "-30"; energy: "42"; note: "Снижение, посадка" }
+        ListElement { pointType: "Старт"; pointName: "WP Base"; coordinates: "55.7522, 37.6156"; course: "—"; distance: "0.0"; altitude: "120"; airspeed: "—"; groundspeed: "—"; time: "00:00"; deltaHeight: "—"; energy: "100"; note: "Взлёт (VTOL)" }
+        ListElement { pointType: "Участок"; pointName: "WP 1"; coordinates: "55.7801, 37.6923"; course: "087"; distance: "12.4"; altitude: "150"; airspeed: "28.0"; groundspeed: "25.4"; time: "04:52"; deltaHeight: "+30"; energy: "92"; note: "Набор высоты" }
+        ListElement { pointType: "Участок"; pointName: "WP 2"; coordinates: "55.8065, 37.8041"; course: "095"; distance: "18.7"; altitude: "150"; airspeed: "30.0"; groundspeed: "27.1"; time: "06:54"; deltaHeight: "0"; energy: "81"; note: "Патрулирование" }
+        ListElement { pointType: "Участок"; pointName: "WP 3"; coordinates: "55.8410, 37.9124"; course: "110"; distance: "15.6"; altitude: "180"; airspeed: "28.5"; groundspeed: "26.0"; time: "05:47"; deltaHeight: "+30"; energy: "68"; note: "Обход зоны" }
+        ListElement { pointType: "Участок"; pointName: "WP 4"; coordinates: "55.8702, 38.0231"; course: "132"; distance: "16.8"; altitude: "150"; airspeed: "29.0"; groundspeed: "24.8"; time: "06:46"; deltaHeight: "-30"; energy: "54"; note: "Съёмка" }
+        ListElement { pointType: "Финиш"; pointName: "WP 5"; coordinates: "55.9001, 38.1156"; course: "142"; distance: "14.9"; altitude: "120"; airspeed: "28.0"; groundspeed: "25.6"; time: "05:59"; deltaHeight: "-30"; energy: "42"; note: "Снижение, посадка" }
     }
 }
