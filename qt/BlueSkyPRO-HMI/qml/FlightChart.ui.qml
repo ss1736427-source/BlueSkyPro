@@ -78,6 +78,42 @@ Item {
         copyrightsVisible: true
         z: 1
 
+        property geoCoordinate startCentroid
+
+        PinchHandler {
+            id: mapPinch
+            target: null
+            onActiveChanged: {
+                if (active)
+                    geographicMap.startCentroid = geographicMap.toCoordinate(centroid.position, false)
+            }
+            onScaleChanged: (delta) => {
+                geographicMap.zoomLevel = Math.max(
+                    geographicMap.minimumZoomLevel,
+                    Math.min(geographicMap.maximumZoomLevel, geographicMap.zoomLevel + Math.log2(delta))
+                )
+                geographicMap.alignCoordinateToPoint(geographicMap.startCentroid, centroid.position)
+            }
+            onRotationChanged: (delta) => {
+                geographicMap.bearing -= delta
+                geographicMap.alignCoordinateToPoint(geographicMap.startCentroid, centroid.position)
+            }
+            grabPermissions: PointerHandler.TakeOverForbidden
+        }
+
+        WheelHandler {
+            id: mapWheel
+            acceptedDevices: PointerDevice.Mouse
+            rotationScale: 1 / 120
+            property: "zoomLevel"
+        }
+
+        DragHandler {
+            id: mapDrag
+            target: null
+            onTranslationChanged: (delta) => geographicMap.pan(-delta.x, -delta.y)
+        }
+
         MapPolyline {
             line.width: 4
             line.color: root.cyan
@@ -352,53 +388,6 @@ Item {
         }
 
         onDoubleClicked: root.mapDoubleClicked()
-    }
-
-    // Mouse wheel zoom, anchored at the pointer location.
-    WheelHandler {
-        target: geographicMap
-        onWheel: function(event) {
-            var factor = event.angleDelta.y > 0 ? 1.12 : (event.angleDelta.y < 0 ? 1 / 1.12 : 1.0)
-            if (factor !== 1.0) {
-                root.zoomAt(factor, event.x, event.y)
-                event.accepted = true
-            }
-        }
-    }
-
-    // Pinch-to-zoom for touchscreens/tablets; pan follows the gesture centroid.
-    PinchHandler {
-        target: null
-        onActiveChanged: {
-            if (active) {
-                root.pinchStartZoom = root.mapZoom
-                root.pinchStartPanX = root.mapPanX
-                root.pinchStartPanY = root.mapPanY
-                root.pinchStartX = centroid.position.x
-                root.pinchStartY = centroid.position.y
-            }
-        }
-        onScaleChanged: {
-            if (active) {
-                var nextZoom = Math.max(0.5, Math.min(4.0, root.pinchStartZoom * scale))
-                var ratio = nextZoom / root.pinchStartZoom
-                root.setMapView(
-                    centroid.position.x - (root.pinchStartX - root.pinchStartPanX) * ratio,
-                    centroid.position.y - (root.pinchStartY - root.pinchStartPanY) * ratio,
-                    nextZoom
-                )
-            }
-        }
-        onCentroidChanged: {
-            if (active) {
-                var ratio = root.mapZoom / root.pinchStartZoom
-                root.setMapView(
-                    centroid.position.x - (root.pinchStartX - root.pinchStartPanX) * ratio,
-                    centroid.position.y - (root.pinchStartY - root.pinchStartPanY) * ratio,
-                    root.mapZoom
-                )
-            }
-        }
     }
 
     Text {
