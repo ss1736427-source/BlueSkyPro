@@ -55,3 +55,19 @@ The current regression runner verifies the declared behavior of the fixture cont
 - technical release vs authorization separation.
 
 The next implementation layer can replace fixture-level assertions with executable domain objects and a real validator while preserving these contracts.
+
+
+## Planning Core → HMI bridge
+
+The Planning Core → HMI boundary uses `schemas/planning-core-bridge.schema.json`.
+
+- Python serializes verified `PipelineResult` data through `planning_bridge_contract.py`.
+- Qt `PlanningBridge::publishJson()` validates schema version, message type, mission/result identity and final verification status before exposing the result to QML.
+- The bridge is transport-independent; no second planning engine is introduced.
+- Transport/process integration is a separate runtime task and must consume this contract unchanged.
+
+Validation command:
+
+```text
+python schemas/validator/test_planning_bridge_contract.py
+```
