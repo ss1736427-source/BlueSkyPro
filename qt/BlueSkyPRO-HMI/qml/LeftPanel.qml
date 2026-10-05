@@ -16,7 +16,7 @@ Item {
         font.family: "Noto Sans"
         font.pixelSize: 13
         font.bold: true
-        text: "Миссии"
+        text: "Миссии • TEST"
     }
 
     // Keep the established compact panel width; long template names are elided.
@@ -105,6 +105,7 @@ Item {
     signal templateSelected(int index)
     signal manualTemplateSelectionCommitted(var indices)
     signal createMissionRequested()
+    signal returnToAutoRequested()
     signal taskCreationRequested()
     signal panelConfigurationChanged()
     signal missionHidden()
@@ -183,12 +184,18 @@ Item {
         Text {
             x: 10
             anchors.verticalCenter: parent.verticalCenter
-            rightPadding: 70
+            width: 90
             text: "Миссии"
-            color: root.text
+            color: root.cyan
             font.family: "B612"
             font.pixelSize: 13
             font.bold: true
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: root.taskCreationRequested()
+                cursorShape: Qt.PointingHandCursor
+            }
         }
 
         Row {
@@ -224,23 +231,7 @@ Item {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: root.createMissionRequested()
-                }
-            }
-
-            Text {
-                visible: !root.missionCreationMode && root.missionIsAutomatic
-                width: 72
-                horizontalAlignment: Text.AlignHCenter
-                text: "← BACK"
-                color: root.missionVisible ? root.cyan : root.text
-                font.family: "B612 Mono"
-                font.pixelSize: 16
-                font.bold: true
-
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: root.taskCreationRequested()
+                    onClicked: root.returnToAutoRequested()
                 }
             }
 
