@@ -184,12 +184,18 @@ Item {
         Text {
             x: 10
             anchors.verticalCenter: parent.verticalCenter
-            rightPadding: 70
+            width: 90
             text: "Миссии"
-            color: root.text
+            color: root.taskCreationVisible ? root.cyan : root.text
             font.family: "B612"
             font.pixelSize: 13
             font.bold: true
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: root.taskCreationRequested()
+                cursorShape: Qt.PointingHandCursor
+            }
         }
 
         Row {
