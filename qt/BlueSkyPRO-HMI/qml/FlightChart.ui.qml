@@ -78,42 +78,6 @@ Item {
         copyrightsVisible: true
         z: 1
 
-        property geoCoordinate startCentroid
-
-        PinchHandler {
-            id: mapPinch
-            target: null
-            onActiveChanged: {
-                if (active)
-                    geographicMap.startCentroid = geographicMap.toCoordinate(centroid.position, false)
-            }
-            onScaleChanged: (delta) => {
-                geographicMap.zoomLevel = Math.max(
-                    geographicMap.minimumZoomLevel,
-                    Math.min(geographicMap.maximumZoomLevel, geographicMap.zoomLevel + Math.log2(delta))
-                )
-                geographicMap.alignCoordinateToPoint(geographicMap.startCentroid, centroid.position)
-            }
-            onRotationChanged: (delta) => {
-                geographicMap.bearing -= delta
-                geographicMap.alignCoordinateToPoint(geographicMap.startCentroid, centroid.position)
-            }
-            grabPermissions: PointerHandler.TakeOverForbidden
-        }
-
-        WheelHandler {
-            id: mapWheel
-            acceptedDevices: PointerDevice.Mouse
-            rotationScale: 1 / 120
-            property: "zoomLevel"
-        }
-
-        DragHandler {
-            id: mapDrag
-            target: null
-            onTranslationChanged: (delta) => geographicMap.pan(-delta.x, -delta.y)
-        }
-
         MapPolyline {
             line.width: 4
             line.color: root.cyan
@@ -145,6 +109,41 @@ Item {
                 color: "#FFD43B"; border.width: 2; border.color: "#FFFFFF"
             }
         }
+    }
+
+    // Interactive geographic map controls.
+    // Handlers live on FlightChart itself so side overlays cannot disable map input.
+    PinchHandler {
+        id: mapPinch
+        target: null
+        grabPermissions: PointerHandler.CanTakeOverFromItems | PointerHandler.CanTakeOverFromHandlersOfDifferentType
+        onActiveChanged: {
+            if (active)
+                geographicMap.startCentroid = geographicMap.toCoordinate(centroid.position, false)
+        }
+        onScaleChanged: (delta) => {
+            geographicMap.zoomLevel = Math.max(
+                geographicMap.minimumZoomLevel,
+                Math.min(geographicMap.maximumZoomLevel, geographicMap.zoomLevel + Math.log2(delta))
+            )
+            geographicMap.alignCoordinateToPoint(geographicMap.startCentroid, centroid.position)
+        }
+    }
+
+    WheelHandler {
+        id: mapWheel
+        acceptedDevices: PointerDevice.Mouse
+        acceptedModifiers: Qt.NoModifier
+        rotationScale: 1 / 120
+        property: "zoomLevel"
+    }
+
+    DragHandler {
+        id: mapDrag
+        target: null
+        acceptedButtons: Qt.LeftButton
+        grabPermissions: PointerHandler.CanTakeOverFromItems | PointerHandler.CanTakeOverFromHandlersOfDifferentType
+        onTranslationChanged: (delta) => geographicMap.pan(-delta.x, -delta.y)
     }
 
     Canvas {
