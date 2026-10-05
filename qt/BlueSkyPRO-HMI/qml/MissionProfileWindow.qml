@@ -616,7 +616,7 @@ Item {
                                     Repeater {
                                         model: root.orderedColumns()
                                         delegate: Rectangle {
-                                            width: routeTable.width * modelData.w
+                                            width: root.columnWidth(modelData)
                                             height: parent.height
                                             visible: root.parameterVisibility[modelData.key] !== false
                                             color: routeTable.currentIndex === routeRowDelegate.rowIndex ? "#102B3A" : (rowIndex % 2 ? "#091725" : "#0C1D2C")
