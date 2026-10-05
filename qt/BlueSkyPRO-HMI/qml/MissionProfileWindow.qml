@@ -68,16 +68,28 @@ Item {
                 if (root.columns[j].key === root.columnOrder[i]) result.push(root.columns[j])
         return result
     }
+    function visibleColumnWeight() {
+        var all = root.orderedColumns()
+        var total = 0
+        for (var i = 0; i < all.length; ++i)
+            if (root.parameterVisibility[all[i].key] !== false) total += all[i].w
+        return Math.max(0.001, total)
+    }
+
+    function columnWidth(column) {
+        if (root.parameterVisibility[column.key] === false) return 0
+        return tableHeader.width * column.w / root.visibleColumnWeight()
+    }
+
     function columnAtX(x) {
         var all = root.orderedColumns()
         var cursor = 0
         var candidates = []
         for (var i = 0; i < all.length; ++i) {
-            var left = cursor
-            cursor += all[i].w * tableHeader.width
-            if (root.parameterVisibility[all[i].key] !== false) {
-                candidates.push({ key: all[i].key, center: (left + cursor) / 2 })
-            }
+            if (root.parameterVisibility[all[i].key] === false) continue
+            var width = root.columnWidth(all[i])
+            candidates.push({ key: all[i].key, center: cursor + width / 2 })
+            cursor += width
         }
         if (candidates.length === 0) return ""
         for (var j = 0; j < candidates.length; ++j)
