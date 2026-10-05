@@ -34,12 +34,12 @@ def main() -> int:
 
     headwind = adjust_route_for_wind(
         route,
-        WindSample(wind_speed_mps=5, wind_from_deg=90),
+        WindSample(wind_speed_mps=5, wind_from_deg=0),
         profile,
     )
     tailwind = adjust_route_for_wind(
         route,
-        WindSample(wind_speed_mps=5, wind_from_deg=270),
+        WindSample(wind_speed_mps=5, wind_from_deg=180),
         profile,
     )
 
