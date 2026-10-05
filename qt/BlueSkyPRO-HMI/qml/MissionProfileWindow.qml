@@ -78,7 +78,10 @@ Item {
 
     function columnWidth(column) {
         if (root.parameterVisibility[column.key] === false) return 0
-        return tableHeader.width * column.w / root.visibleColumnWeight()
+        // Rebalance only the columns that are currently visible.
+        // This keeps the table flush to both edges after any filter combination.
+        var total = root.visibleColumnWeight()
+        return tableHeader.width * (column.w / total)
     }
 
     function columnAtX(x) {
