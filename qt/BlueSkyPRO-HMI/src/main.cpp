@@ -5,6 +5,7 @@
 #include "PlanningBridge.h"
 #include <QQmlApplicationEngine>
 #include <QUrl>
+#include <QString>
 
 int main(int argc, char *argv[])
 {
@@ -18,6 +19,8 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     PlanningBridge planningBridge;
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
+    const QString googleMapsApiKey = qEnvironmentVariable("BLUESKY_GOOGLE_MAPS_API_KEY");
+    engine.rootContext()->setContextProperty(QStringLiteral("googleMapsApiKey"), googleMapsApiKey);
     const QUrl url(QStringLiteral("qrc:/qt/qml/BlueSky/PRO/qml/App.qml"));
 
     QObject::connect(
