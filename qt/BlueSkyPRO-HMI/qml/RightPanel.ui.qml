@@ -43,6 +43,15 @@ Item {
     property string draggingPanel: ""
     property real dragOffsetY: 0
 
+    Component.onCompleted: {
+        if (panelOrder.indexOf("ATC") < 0) {
+            var migratedOrder = panelOrder.slice()
+            migratedOrder.push("ATC")
+            panelOrder = migratedOrder
+            panelOrderSettings.orderCsv = migratedOrder.join(",")
+        }
+    }
+
     function panelVisible(key) {
         if (key === "Checklist")
             return panelSettingsPopup.enabledTools.indexOf("Checklist") >= 0
@@ -536,8 +545,8 @@ Item {
         interventionMode = false
     }
 
-    // The message card grows with its content but stops before the ATC work area.
-    // Long content remains readable by wrapping; the card never covers ATC.
+    // The message card grows with its content and remains bounded by the right panel.
+    // ATC is an independently reorderable panel and is no longer a fixed bottom anchor.
     readonly property real informationAvailableHeight:
         Math.max(72, parent.height - informationCard.y - 20)
 
