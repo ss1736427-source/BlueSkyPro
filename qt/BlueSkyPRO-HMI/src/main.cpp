@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     PlanningBridge planningBridge;
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
-    const QUrl url(QStringLiteral("qrc:/qt/qml/BlueSky/PRO/App.qml"));
+    const QUrl url(QStringLiteral("qrc:/qt/qml/BlueSky/PRO/qml/App.qml"));
 
     QObject::connect(
         &engine,
