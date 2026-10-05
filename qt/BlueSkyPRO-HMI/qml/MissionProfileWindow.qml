@@ -127,7 +127,7 @@ Item {
                 pointName: source.pointName,
                 coordinates: source.coordinates,
                 course: source.course,
-                distance: source.distance,
+                distance: bound ? distanceAtProgress(bound.progress).toFixed(1) : source.distance,
                 altitude: bound ? Math.round(Number(bound.altitude)) : source.altitude,
                 airspeed: source.airspeed,
                 groundspeed: source.groundspeed,
