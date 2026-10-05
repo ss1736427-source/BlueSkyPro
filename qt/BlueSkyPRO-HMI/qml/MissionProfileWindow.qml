@@ -1220,21 +1220,22 @@ Item {
                                  "Δh (набор/снижение)", "Энергия", "Примечание"
                              ]
 
-                            delegate: Row {
+                            delegate: Item {
                                 id: parameterRow
                                 width: parameterListView.width
-                                height: 30
-                                spacing: 10
+                                height: 34
+
                                 property string parameterKey: ["number", "type", "point", "course", "distance", "altitude",
                                                                "airspeed", "groundspeed", "time", "deltaHeight", "energy", "note"][index]
                                 property bool parameterChecked: root.parameterVisibility[parameterKey] !== false
 
                                 Rectangle {
                                     id: parameterSwitch
+                                    x: 0
+                                    y: (parameterRow.height - height) / 2
                                     width: 38
                                     height: 21
                                     radius: 11
-                                    y: (parent.height - height) / 2
                                     color: parameterRow.parameterChecked ? root.switchGreen : "#263847"
                                     border.width: 1
                                     border.color: parameterRow.parameterChecked ? root.switchGreen : "#547084"
@@ -1246,18 +1247,22 @@ Item {
                                         y: (parameterSwitch.height - height) / 2
                                         x: parameterRow.parameterChecked ? parameterSwitch.width - width - 3 : 3
                                         color: parameterRow.parameterChecked ? "#07111E" : "#B7C7D3"
-                                        Behavior on x { NumberAnimation { duration: 120 } }
                                     }
                                 }
 
                                 Text {
-                                    width: parent.width - parameterSwitch.width - parent.spacing
+                                    id: parameterLabel
+                                    x: 48
+                                    y: (parameterRow.height - height) / 2
+                                    width: Math.max(0, parameterRow.width - 48)
                                     text: modelData
                                     color: root.textColor
                                     font.family: "B612"
-                                    font.pixelSize: 18
-                                    y: (parent.height - height) / 2
-                                    wrapMode: Text.Wrap
+                                    font.pixelSize: 16
+                                    verticalAlignment: Text.AlignVCenter
+                                    horizontalAlignment: Text.AlignLeft
+                                    wrapMode: Text.NoWrap
+                                    elide: Text.ElideRight
                                 }
 
                                 MouseArea {
@@ -1265,6 +1270,8 @@ Item {
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: root.toggleParameter(parameterRow.parameterKey)
                                 }
+                            }
+
                             }
                         }
                     }
