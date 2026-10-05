@@ -49,8 +49,8 @@ Item {
     })
     property var columns: [
         { label: "#", w: 0.035, key: "number" },
-        { label: "ТИП", w: 0.075, key: "type" },
-        { label: "ТОЧКА / ШИРОТА, ДОЛГОТА", w: 0.17, key: "point" },
+        { label: "WAYPOINT", w: 0.12, key: "type" },
+        { label: "ШИРОТА, ДОЛГОТА", w: 0.17, key: "point" },
         { label: "КУРС\n°", w: 0.065, key: "course" },
         { label: "ДИСТАНЦИЯ\nкм", w: 0.075, key: "distance" },
         { label: "ВЫСОТА\nм", w: 0.075, key: "altitude" },
@@ -222,8 +222,15 @@ Item {
     function columnValue(rowIndex, key) {
         var row = root.tableRows[rowIndex]
         if (!row) return ""
-        var values = { number: String(rowIndex + 1), type: row.pointType,
-            point: row.pointName + "\n" + row.coordinates, course: row.course,
+        var waypointLabel = row.pointName || ("WP" + rowIndex)
+        if (waypointLabel.indexOf("WP0") === 0)
+            waypointLabel = "Waypoint База"
+        else if (waypointLabel.indexOf("WP") === 0)
+            waypointLabel = "Waypoint " + waypointLabel.substring(2).replace(" (Цель)", "")
+        else
+            waypointLabel = "Waypoint " + waypointLabel
+        var values = { number: String(rowIndex + 1), type: waypointLabel,
+            point: row.coordinates, course: row.course,
             distance: row.distance, altitude: row.altitude, airspeed: row.airspeed,
             groundspeed: row.groundspeed, time: row.time, deltaHeight: row.deltaHeight,
             energy: row.energy, note: row.note }
