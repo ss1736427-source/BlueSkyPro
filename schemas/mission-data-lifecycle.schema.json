@@ -1,0 +1,470 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bluesky://schemas/mission-data-lifecycle/v1",
+  "title": "BlueSky PRO Mission Data Lifecycle Contract",
+  "description": "Machine-readable contract for flight/sensor data ingestion, integrity, completeness, quality, processing provenance and export.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "missionId",
+    "dataPackage"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "missionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dataPackage": {
+      "$ref": "#/$defs/DataPackage"
+    }
+  },
+  "$defs": {
+    "DataPackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageId",
+        "version",
+        "status",
+        "manifest",
+        "verification",
+        "products",
+        "traceability"
+      ],
+      "properties": {
+        "packageId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "RECEIVED",
+            "INTEGRITY_CHECK",
+            "COMPLETENESS_CHECK",
+            "QUALITY_CHECK",
+            "PROCESSING",
+            "PRODUCT_VERIFICATION",
+            "VERIFIED",
+            "EXPORTED",
+            "ARCHIVED",
+            "BLOCKED"
+          ]
+        },
+        "flightId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "uavId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "payloadId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "missionDefinitionRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "planningArtifactRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "coordinateReferenceSystem": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "startedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "endedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "softwareVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "configVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "manifest": {
+          "$ref": "#/$defs/Manifest"
+        },
+        "verification": {
+          "$ref": "#/$defs/Verification"
+        },
+        "products": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Product"
+          }
+        },
+        "traceability": {
+          "$ref": "#/$defs/Traceability"
+        }
+      }
+    },
+    "Manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifestVersion",
+        "files"
+      ],
+      "properties": {
+        "manifestVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileRecord"
+          }
+        }
+      }
+    },
+    "FileRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fileId",
+        "path",
+        "sizeBytes",
+        "sha256",
+        "status"
+      ],
+      "properties": {
+        "fileId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mediaType": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "acquiredAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "sourceDevice": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ingestedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "EXPECTED",
+            "RECEIVED",
+            "VERIFIED",
+            "MISSING",
+            "CORRUPT",
+            "REJECTED"
+          ]
+        },
+        "sequenceIndex": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "Verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "integrity",
+        "completeness",
+        "quality"
+      ],
+      "properties": {
+        "integrity": {
+          "$ref": "#/$defs/CheckResult"
+        },
+        "completeness": {
+          "$ref": "#/$defs/CompletenessResult"
+        },
+        "quality": {
+          "$ref": "#/$defs/CheckResult"
+        }
+      }
+    },
+    "CheckResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "PASS",
+            "FAIL",
+            "WARNING",
+            "NOT_EVALUATED",
+            "BLOCKED"
+          ]
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "details": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "CompletenessResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "COMPLETE",
+            "INCOMPLETE",
+            "UNKNOWN",
+            "BLOCKED"
+          ]
+        },
+        "expectedCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "receivedCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "missingFileRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missingIntervalRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "coveragePercent": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "productId",
+        "productType",
+        "version",
+        "sourceRefs",
+        "status"
+      ],
+      "properties": {
+        "productId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "productType": {
+          "type": "string",
+          "enum": [
+            "POINT_CLOUD",
+            "MESH",
+            "ORTHOMOSAIC",
+            "DSM",
+            "DTM",
+            "GIS_VECTOR",
+            "WEB_3D",
+            "OTHER"
+          ]
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "format": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "processingSoftwareVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "processingAlgorithmVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "processingConfigVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "coordinateReferenceSystem": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PROCESSING",
+            "VERIFIED",
+            "REJECTED",
+            "ARCHIVED"
+          ]
+        },
+        "verificationRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "Traceability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceVersions",
+        "evidenceRefs"
+      ],
+      "properties": {
+        "sourceVersions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "invalidatedBy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "replayKey": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}
