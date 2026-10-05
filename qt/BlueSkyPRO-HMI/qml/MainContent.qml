@@ -119,19 +119,11 @@ Item {
             missionVisible: root.missionVisible
             missionCreationMode: root.missionCreationMode
             missionId: root.missionId
-            missionReviewState: root.missionReviewState
             missionSummary: root.missionSummary
             missionTemplateIndices: root.missionTemplateIndices
-            onMissionProfileRequested: root.missionProfileOpen = !root.missionProfileOpen
             onHideMissionRequested: root.missionState = "HIDDEN"
             onRestoreMissionRequested: root.missionState = "AUTO"
             onCreateMissionRequested: root.missionState = "MANUAL"
-            onTaskCreationRequested: {
-                root.taskCreationVisible = true
-                root.missionSplashVisible = false
-                root.missionProfileOpen = false
-                root.headerAlertsOpen = false
-            }
         }
 
         FlightChart {
@@ -164,13 +156,17 @@ Item {
             visible: root.missionProfileOpen
             missionId: root.missionId
             missionSummary: root.missionSummary
-            missionReviewState: root.missionReviewState
             missionTemplateIndices: root.missionTemplateIndices
             uavModel: uavStatus.uavModel
             missionAssignments: root.missionAssignments
             selectedUavIndex: root.selectedUavIndex
             onUavSelectionRequested: function(index) { root.selectedUavIndex = index }
-            onCloseRequested: root.missionProfileOpen = false
+            onCloseRequested: {
+                root.missionProfileOpen = false
+                root.taskCreationVisible = true
+                root.missionSplashVisible = false
+                root.headerAlertsOpen = false
+            }
             onApplyRequested: root.missionProfileOpen = false
         }
 
