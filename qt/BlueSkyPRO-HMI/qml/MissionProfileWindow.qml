@@ -1236,6 +1236,9 @@ Item {
                         }
                     }
                 }
+            }
+        }
+
     ListModel {
         id: routeModel
         ListElement { pointType: "Старт"; pointName: "WP0 (База)"; coordinates: "55.7522, 37.6156"; course: "—"; distance: "0.0"; altitude: "120"; airspeed: "—"; groundspeed: "—"; time: "00:00"; deltaHeight: "—"; energy: "100"; note: "Взлёт (VTOL)" }
