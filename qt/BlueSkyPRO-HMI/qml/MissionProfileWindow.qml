@@ -26,6 +26,7 @@ Item {
     readonly property color muted: "#91A8BA"
     readonly property color switchGreen: "#39D353"
     property bool parameterPanelOpen: false
+    property int columnLayoutRevision: 0
     property real tableSplitRatio: 0.47
     // Live telemetry inputs; connect these to the flight-data source when available.
     property bool liveFlightActive: false
@@ -81,6 +82,7 @@ Item {
         // Rebalance only the columns that are currently visible.
         // This keeps the table flush to both edges after any filter combination.
         var total = root.visibleColumnWeight()
+        var revision = root.columnLayoutRevision
         return tablePanel.width * (column.w / total)
     }
 
@@ -255,6 +257,7 @@ Item {
         var next = Object.assign({}, root.parameterVisibility)
         next[key] = !next[key]
         root.parameterVisibility = next
+        root.columnLayoutRevision += 1
     }
 
     Settings {
