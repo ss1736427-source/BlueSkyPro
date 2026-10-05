@@ -26,6 +26,8 @@ Item {
     readonly property color muted: "#91A8BA"
     readonly property color switchGreen: "#39D353"
     property bool parameterPanelOpen: false
+    property int columnLayoutRevision: 0
+    property real visibleColumnWeightValue: 1.0
     property real tableSplitRatio: 0.47
     // Live telemetry inputs; connect these to the flight-data source when available.
     property bool liveFlightActive: false
@@ -42,13 +44,13 @@ Item {
     readonly property real plannedDistanceKm: 78.4
     readonly property real plannedDurationSeconds: 78 * 60
     property var parameterVisibility: ({
-        course: true, distance: true, altitude: true, airspeed: true,
-        groundspeed: true, time: true, deltaHeight: true, energy: true, note: true
+        number: true, type: true, point: true, course: true, distance: true, altitude: true,
+        airspeed: true, groundspeed: true, time: true, deltaHeight: true, energy: true, note: true
     })
     property var columns: [
         { label: "#", w: 0.035, key: "number" },
-        { label: "ТИП", w: 0.075, key: "type" },
-        { label: "WP", w: 0.17, key: "point" },
+        { label: "WP", w: 0.12, key: "type" },
+        { label: "ШИРОТА, ДОЛГОТА", w: 0.17, key: "point" },
         { label: "КУРС\n°", w: 0.065, key: "course" },
         { label: "ДИСТАНЦИЯ\nкм", w: 0.075, key: "distance" },
         { label: "ВЫСОТА\nм", w: 0.075, key: "altitude" },
@@ -68,16 +70,32 @@ Item {
                 if (root.columns[j].key === root.columnOrder[i]) result.push(root.columns[j])
         return result
     }
+    function recalculateColumnLayout() {
+        var all = root.orderedColumns()
+        var total = 0
+        for (var i = 0; i < all.length; ++i) {
+            if (root.parameterVisibility[all[i].key] !== false)
+                total += all[i].w
+        }
+        root.visibleColumnWeightValue = Math.max(0.001, total)
+        root.columnLayoutRevision += 1
+    }
+
+    function columnWidth(column) {
+        if (root.parameterVisibility[column.key] === false) return 0
+        var revision = root.columnLayoutRevision
+        return tablePanel.width * column.w / root.visibleColumnWeightValue
+    }
+
     function columnAtX(x) {
         var all = root.orderedColumns()
         var cursor = 0
         var candidates = []
         for (var i = 0; i < all.length; ++i) {
-            var left = cursor
-            cursor += all[i].w * tableHeader.width
-            if (root.parameterVisibility[all[i].key] !== false) {
-                candidates.push({ key: all[i].key, center: (left + cursor) / 2 })
-            }
+            if (root.parameterVisibility[all[i].key] === false) continue
+            var width = root.columnWidth(all[i])
+            candidates.push({ key: all[i].key, center: cursor + width / 2 })
+            cursor += width
         }
         if (candidates.length === 0) return ""
         for (var j = 0; j < candidates.length; ++j)
@@ -127,7 +145,7 @@ Item {
                 pointName: source.pointName,
                 coordinates: source.coordinates,
                 course: source.course,
-                distance: source.distance,
+                distance: bound ? distanceAtProgress(bound.progress).toFixed(1) : source.distance,
                 altitude: bound ? Math.round(Number(bound.altitude)) : source.altitude,
                 airspeed: source.airspeed,
                 groundspeed: source.groundspeed,
@@ -167,7 +185,7 @@ Item {
                 pointName: "Обязательная точка",
                 coordinates: coords,
                 course: "—",
-                distance: "—",
+                distance: distanceAtProgress(mp).toFixed(1),
                 altitude: Math.round(Number(point.altitude)),
                 airspeed: "—",
                 groundspeed: "—",
@@ -188,11 +206,31 @@ Item {
         root.tableRows = rows
     }
 
+    function distanceAtProgress(progress) {
+        if (routeModel.count < 2) return 0
+        var p = Math.max(0, Math.min(1, Number(progress)))
+        var scaled = p * (routeModel.count - 1)
+        var index = Math.min(routeModel.count - 2, Math.floor(scaled))
+        var fraction = scaled - index
+        var d1 = Number(routeModel.get(index).distance)
+        var d2 = Number(routeModel.get(index + 1).distance)
+        if (!isFinite(d1)) d1 = 0
+        if (!isFinite(d2)) d2 = d1
+        return Math.max(0, d1 + (d2 - d1) * fraction)
+    }
+
     function columnValue(rowIndex, key) {
         var row = root.tableRows[rowIndex]
         if (!row) return ""
-        var values = { number: String(rowIndex + 1), type: row.pointType,
-            point: row.pointName + "\n" + row.coordinates, course: row.course,
+        var waypointLabel = row.pointName || ("WP" + rowIndex)
+        if (waypointLabel.indexOf("WP0") === 0)
+            waypointLabel = "WP Base"
+        else if (waypointLabel.indexOf("WP") === 0)
+            waypointLabel = "WP " + waypointLabel.substring(2).replace(" (Цель)", "")
+        else
+            waypointLabel = "WP " + waypointLabel
+        var values = { number: String(rowIndex + 1), type: waypointLabel,
+            point: row.coordinates, course: row.course,
             distance: row.distance, altitude: row.altitude, airspeed: row.airspeed,
             groundspeed: row.groundspeed, time: row.time, deltaHeight: row.deltaHeight,
             energy: row.energy, note: row.note }
@@ -227,6 +265,7 @@ Item {
         var next = Object.assign({}, root.parameterVisibility)
         next[key] = !next[key]
         root.parameterVisibility = next
+        root.recalculateColumnLayout()
     }
 
     Settings {
@@ -302,6 +341,7 @@ Item {
     onSelectedUavIndexChanged: root.loadAircraftData(root.selectedUavIndex)
 
     Component.onCompleted: {
+        root.recalculateColumnLayout()
         root.tableSplitRatio = Math.max(0.25, Math.min(0.75, profileSettings.tableSplitRatio))
         try { root.routeDataByUav = JSON.parse(profileSettings.routeDataByUavJson) || ({}) }
         catch (e) { root.routeDataByUav = ({}) }
@@ -491,8 +531,11 @@ Item {
 
                 Column {
                     id: mainColumn
-                    width: parent.width - parameterPanel.width - parent.spacing
+                    width: root.parameterPanelOpen
+                           ? parent.width - parameterPanel.width - parent.spacing
+                           : parent.width
                     height: parent.height
+                    Behavior on width { NumberAnimation { duration: 160 } }
                     spacing: 0
 
                     Rectangle {
@@ -516,7 +559,7 @@ Item {
                                     model: root.orderedColumns()
                                     delegate: Rectangle {
                                         id: headerCell
-                                        width: tableHeader.width * modelData.w
+                                        width: root.columnWidth(modelData)
                                         height: tableHeader.height
                                         visible: root.parameterVisibility[modelData.key] !== false
                                         color: headerDragArea.pressed ? "#12394A" : "#0B1B2B"
@@ -580,7 +623,7 @@ Item {
                                     Repeater {
                                         model: root.orderedColumns()
                                         delegate: Rectangle {
-                                            width: routeTable.width * modelData.w
+                                            width: root.columnWidth(modelData)
                                             height: parent.height
                                             visible: root.parameterVisibility[modelData.key] !== false
                                             color: routeTable.currentIndex === routeRowDelegate.rowIndex ? "#102B3A" : (rowIndex % 2 ? "#091725" : "#0C1D2C")
@@ -998,7 +1041,8 @@ Item {
                                         next[index] = {
                                             id: selected.id,
                                             progress: nextProgress,
-                                            altitude: nextAltitude,
+                                             altitude: nextAltitude,
+                                             distance: Number(distanceAtProgress(nextProgress).toFixed(1)),
                                             routeIndex: selected.routeIndex === undefined ? -1 : Number(selected.routeIndex)
                                         }
                                         var boundIndex = Number(selected.routeIndex)
@@ -1105,10 +1149,13 @@ Item {
 
                 Rectangle {
                     id: parameterPanel
-                    // Keep the settings panel above the profile drag MouseArea.
                     z: 40
-                    width: root.parameterPanelOpen ? 270 : 0
-                    height: parent.height
+                    width: root.parameterPanelOpen
+                           ? Math.min(300, Math.max(220, contentRow.width * 0.18))
+                           : 0
+                    height: root.parameterPanelOpen
+                           ? Math.min(parent.height, 62 + 12 * 32 + 11 * 4)
+                           : 0
                     color: root.bg
                     border.color: root.line
                     radius: 3
@@ -1166,23 +1213,36 @@ Item {
                             color: root.line
                         }
 
-                        Repeater {
-                            model: ["Курс", "Дистанция", "Высота", "V_возд", "V_пут", "Время", "Δh (набор/снижение)", "Энергия", "Примечание"]
-                            delegate: Row {
+                        ListView {
+                            id: parameterListView
+                            visible: root.parameterPanelOpen
+                            width: parent.width
+                            height: Math.max(0, parent.height - 55)
+                            clip: true
+                            boundsBehavior: Flickable.StopAtBounds
+                            spacing: 4
+                            model: [
+                                 "№", "Тип", "Точка / координаты", "Курс", "Дистанция",
+                                 "Высота", "V_возд", "V_пут", "Время",
+                                 "Δh (набор/снижение)", "Энергия", "Примечание"
+                             ]
+
+                            delegate: Item {
                                 id: parameterRow
-                                visible: root.parameterPanelOpen
-                                width: parent.width
-                                height: 30
-                                spacing: 10
-                                property string parameterKey: ["course", "distance", "altitude", "airspeed", "groundspeed", "time", "deltaHeight", "energy", "note"][index]
+                                width: parameterListView.width
+                                height: 34
+
+                                property string parameterKey: ["number", "type", "point", "course", "distance", "altitude",
+                                                               "airspeed", "groundspeed", "time", "deltaHeight", "energy", "note"][index]
                                 property bool parameterChecked: root.parameterVisibility[parameterKey] !== false
 
                                 Rectangle {
                                     id: parameterSwitch
+                                    x: 0
+                                    y: (parameterRow.height - height) / 2
                                     width: 38
                                     height: 21
                                     radius: 11
-                                    y: (parent.height - height) / 2
                                     color: parameterRow.parameterChecked ? root.switchGreen : "#263847"
                                     border.width: 1
                                     border.color: parameterRow.parameterChecked ? root.switchGreen : "#547084"
@@ -1194,31 +1254,36 @@ Item {
                                         y: (parameterSwitch.height - height) / 2
                                         x: parameterRow.parameterChecked ? parameterSwitch.width - width - 3 : 3
                                         color: parameterRow.parameterChecked ? "#07111E" : "#B7C7D3"
-                                        Behavior on x { NumberAnimation { duration: 120 } }
                                     }
                                 }
 
                                 Text {
-                                    width: parent.width - parameterSwitch.width - parent.spacing
+                                    id: parameterLabel
+                                    x: 48
+                                    y: (parameterRow.height - height) / 2
+                                    width: Math.max(0, parameterRow.width - 48)
                                     text: modelData
                                     color: root.textColor
                                     font.family: "B612"
-                                    font.pixelSize: 18
-                                    y: (parent.height - height) / 2
-                                    wrapMode: Text.Wrap
+                                    font.pixelSize: 16
+                                    verticalAlignment: Text.AlignVCenter
+                                    horizontalAlignment: Text.AlignLeft
+                                    wrapMode: Text.NoWrap
+                                    elide: Text.ElideRight
                                 }
 
-                                TapHandler {
-                                    acceptedButtons: Qt.LeftButton
-                                    onTapped: root.toggleParameter(parameterRow.parameterKey)
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.toggleParameter(parameterRow.parameterKey)
                                 }
                             }
+
                         }
                     }
-                }            }
-
+                }
+            }
         }
-    }
 
     ListModel {
         id: routeModel
@@ -1229,4 +1294,5 @@ Item {
         ListElement { pointType: "Участок"; pointName: "WP 4"; coordinates: "55.8702, 38.0231"; course: "132"; distance: "16.8"; altitude: "150"; airspeed: "29.0"; groundspeed: "24.8"; time: "06:46"; deltaHeight: "-30"; energy: "54"; note: "Съёмка" }
         ListElement { pointType: "Финиш"; pointName: "WP 5"; coordinates: "55.9001, 38.1156"; course: "142"; distance: "14.9"; altitude: "120"; airspeed: "28.0"; groundspeed: "25.6"; time: "05:59"; deltaHeight: "-30"; energy: "42"; note: "Снижение, посадка" }
     }
+}
 }
