@@ -25,6 +25,8 @@ Item {
     property string lineDirection: "AUTO"
     property string controlPoints: "OPTIONAL"
     property string qualityProfile: "STANDARD"
+    // Planning-core outputs; null means calculation is not available yet.
+    property var planningResult: null
 
     readonly property color bg: "#07111E"
     readonly property color panel: "#0B1B2B"
@@ -38,7 +40,7 @@ Item {
     signal closeRequested()
     signal applyRequested()
 
-    function fieldValue(key) {
+    function derivedValue(key) {\n        if (!root.planningResult) return "—"\n        var v = root.planningResult[key]\n        return v === undefined || v === null || v === "" ? "—" : String(v)\n    }\n\n    function fieldValue(key) {
         return ({
             area: root.areaOfInterest,
             deliverables: root.deliverables,
@@ -312,7 +314,7 @@ Item {
 
                             Text {
                                 anchors.fill: parent
-                                text: "WAITING FOR PLANNING CORE"
+                                text: root.planningResult ? "PLANNING RESULT RECEIVED" : "WAITING FOR PLANNING CORE"
                                 color: root.green
                                 font.family: "B612"
                                 font.pixelSize: 10
