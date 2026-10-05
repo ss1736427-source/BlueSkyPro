@@ -504,8 +504,11 @@ Item {
 
                 Column {
                     id: mainColumn
-                    width: parent.width - parameterPanel.width - parent.spacing
+                    width: root.parameterPanelOpen
+                           ? parent.width - parameterPanel.width - parent.spacing
+                           : parent.width
                     height: parent.height
+                    Behavior on width { NumberAnimation { duration: 160 } }
                     spacing: 0
 
                     Rectangle {
