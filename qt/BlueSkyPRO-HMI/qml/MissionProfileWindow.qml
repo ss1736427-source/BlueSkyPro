@@ -544,7 +544,7 @@ Item {
                                     model: root.orderedColumns()
                                     delegate: Rectangle {
                                         id: headerCell
-                                        width: tableHeader.width * modelData.w
+                                        width: root.columnWidth(modelData)
                                         height: tableHeader.height
                                         visible: root.parameterVisibility[modelData.key] !== false
                                         color: headerDragArea.pressed ? "#12394A" : "#0B1B2B"
