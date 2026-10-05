@@ -13,6 +13,7 @@ public:
 
     QVariantMap result() const;
 
+    Q_INVOKABLE bool publishJson(const QString &json);
     Q_INVOKABLE void clear();
 
 public slots:
@@ -20,6 +21,7 @@ public slots:
 
 signals:
     void resultChanged();
+    void bridgeError(const QString &code);
 
 private:
     QVariantMap m_result;
