@@ -1119,7 +1119,6 @@ Item {
 
                 Rectangle {
                     id: parameterPanel
-                    // Keep the settings panel above the profile drag MouseArea.
                     z: 40
                     width: root.parameterPanelOpen ? 270 : 0
                     height: parent.height
@@ -1180,77 +1179,63 @@ Item {
                             color: root.line
                         }
 
-                        Flickable {
-                            id: parameterScroll
+                        ListView {
+                            id: parameterListView
+                            visible: root.parameterPanelOpen
                             width: parent.width
-                            height: Math.max(0, parent.height - 71)
+                            height: Math.max(0, parent.height - 55)
                             clip: true
-                            contentWidth: width
-                            contentHeight: parameterList.height
                             boundsBehavior: Flickable.StopAtBounds
+                            spacing: 4
+                            model: ["Курс", "Дистанция", "Высота", "V_возд", "V_пут", "Время", "Δh (набор/снижение)", "Энергия", "Примечание"]
 
-                            Column {
-                                id: parameterList
-                                width: parameterScroll.width
-                                spacing: 4
+                            delegate: Row {
+                                id: parameterRow
+                                width: parameterListView.width
+                                height: 30
+                                spacing: 10
+                                property string parameterKey: ["course", "distance", "altitude", "airspeed", "groundspeed", "time", "deltaHeight", "energy", "note"][index]
+                                property bool parameterChecked: root.parameterVisibility[parameterKey] !== false
 
-                                Repeater {
-                                    model: ["Курс", "Дистанция", "Высота", "V_возд", "V_пут", "Время", "Δh (набор/снижение)", "Энергия", "Примечание"]
-                                    delegate: Row {
-                                        id: parameterRow
-                                        visible: root.parameterPanelOpen
-                                        width: parent.width
-                                        height: 30
-                                        spacing: 10
-                                        property string parameterKey: ["course", "distance", "altitude", "airspeed", "groundspeed", "time", "deltaHeight", "energy", "note"][index]
-                                        property bool parameterChecked: root.parameterVisibility[parameterKey] !== false
+                                Rectangle {
+                                    id: parameterSwitch
+                                    width: 38
+                                    height: 21
+                                    radius: 11
+                                    y: (parent.height - height) / 2
+                                    color: parameterRow.parameterChecked ? root.switchGreen : "#263847"
+                                    border.width: 1
+                                    border.color: parameterRow.parameterChecked ? root.switchGreen : "#547084"
 
-                                        Rectangle {
-                                            id: parameterSwitch
-                                            width: 38
-                                            height: 21
-                                            radius: 11
-                                            y: (parent.height - height) / 2
-                                            color: parameterRow.parameterChecked ? root.switchGreen : "#263847"
-                                            border.width: 1
-                                            border.color: parameterRow.parameterChecked ? root.switchGreen : "#547084"
-
-                                            Rectangle {
-                                                width: 15
-                                                height: 15
-                                                radius: 8
-                                                y: (parameterSwitch.height - height) / 2
-                                                x: parameterRow.parameterChecked ? parameterSwitch.width - width - 3 : 3
-                                                color: parameterRow.parameterChecked ? "#07111E" : "#B7C7D3"
-                                                Behavior on x { NumberAnimation { duration: 120 } }
-                                            }
-                                        }
-
-                                        Text {
-                                            width: parent.width - parameterSwitch.width - parent.spacing
-                                            text: modelData
-                                            color: root.textColor
-                                            font.family: "B612"
-                                            font.pixelSize: 18
-                                            y: (parent.height - height) / 2
-                                            wrapMode: Text.Wrap
-                                        }
-
-                                        TapHandler {
-                                            acceptedButtons: Qt.LeftButton
-                                            onTapped: root.toggleParameter(parameterRow.parameterKey)
-                                        }
+                                    Rectangle {
+                                        width: 15
+                                        height: 15
+                                        radius: 8
+                                        y: (parameterSwitch.height - height) / 2
+                                        x: parameterRow.parameterChecked ? parameterSwitch.width - width - 3 : 3
+                                        color: parameterRow.parameterChecked ? "#07111E" : "#B7C7D3"
+                                        Behavior on x { NumberAnimation { duration: 120 } }
                                     }
+                                }
+
+                                Text {
+                                    width: parent.width - parameterSwitch.width - parent.spacing
+                                    text: modelData
+                                    color: root.textColor
+                                    font.family: "B612"
+                                    font.pixelSize: 18
+                                    y: (parent.height - height) / 2
+                                    wrapMode: Text.Wrap
+                                }
+
+                                TapHandler {
+                                    acceptedButtons: Qt.LeftButton
+                                    onTapped: root.toggleParameter(parameterRow.parameterKey)
                                 }
                             }
                         }
-                        }
                     }
-                }            }
-
-        }
-    }
-
+                }
     ListModel {
         id: routeModel
         ListElement { pointType: "Старт"; pointName: "WP0 (База)"; coordinates: "55.7522, 37.6156"; course: "—"; distance: "0.0"; altitude: "120"; airspeed: "—"; groundspeed: "—"; time: "00:00"; deltaHeight: "—"; energy: "100"; note: "Взлёт (VTOL)" }
