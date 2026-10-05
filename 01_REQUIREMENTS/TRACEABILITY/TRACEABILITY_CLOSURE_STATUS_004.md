@@ -34,3 +34,12 @@ Do not mark a requirement `FULL/CLOSED/BASELINED` merely because a verification 
 Process the remaining requirement population in this order:
 
 `Master Register population → source/clause → safety/hazard → architecture → design/interface → verification → result → evidence → configuration → final audit`.
+
+## Verification evidence update — 2026-09-27
+
+A controlled CI result record has been added at `09_VERIFICATION/RESULTS/CI_RUN_RECORD_2026-09-27.md`.
+
+- `SYS-REQ-110 / TEST-072`, `SYS-REQ-111 / TEST-073`, and `SYS-REQ-112 / TEST-074`: the AI runtime continuity automated test has executed successfully in GitHub Actions.
+- NOTAM route-segment regression tests: Planning Benchmark configure, build, and full CTest passed for the tested source revision.
+
+This closes the execution-result gap only for these specific automated checks and their recorded source revisions. It does not close source wording, applicability, direct design allocation, full evidence review, configuration binding for the merged baseline, physical/flight verification, or the end-to-end traceability audit. Overall traceability remains **NOT FULL**.

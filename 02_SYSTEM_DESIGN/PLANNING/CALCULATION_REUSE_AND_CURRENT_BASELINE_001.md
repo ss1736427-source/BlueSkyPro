@@ -68,6 +68,16 @@ A reusable material result should contain:
 
 A result is reusable only while the dependencies relevant to its output remain valid.
 
+## 6. Universal route scope
+
+The constrained-open-space rule is universal across route purposes. It applies to mission, reconnaissance, survey, inspection, transit/repositioning, return, return-to-home, alternate-return, emergency/contingency and recovery routes, including individual routes within multi-UAV operations.
+
+The route purpose may change objectives and generation parameters, but it does not create a separate spatial-planning architecture.
+
+Before route search, BlueSky resolves the current environment into a versioned constrained-open-space model. NOTAM, airspace restrictions, terrain, obstacles, altitude limits and other applicable hard spatial constraints are therefore inputs to route construction rather than a duplicated post-route screening step.
+
+If the environment snapshot changes, dependency-driven invalidation affects only the route results and downstream calculations that depend on the changed input.
+
 ## 6. Planning pipeline
 
 ```text

@@ -1,15 +1,15 @@
 # ARCH-OPS-052 — Safety Reconciliation Boundary
 
-**Status:** CONTROLLED IMPLEMENTATION PREPARATION
+**Status:** IMPLEMENTED — CI VERIFIED (SIL CONTRACT SCOPE)  
 **Evidence boundary:** `SIL_BOUNDARY_ONLY`
 
 ## Purpose
 
-Close the next unresolved P0 integration gap identified by the operational lifecycle register: reconciliation of BlueSky safety constraints with the connected autopilot safety state/configuration before operational release.
+Close the G0-08 P0 integration boundary: reconcile BlueSky safety constraints with the connected autopilot safety state/configuration before operational release.
 
-## Existing contract
+## Contract
 
-The boundary is already defined by `IF-AUTOPILOT`:
+The boundary is defined by `IF-AUTOPILOT` and covers these safety domains:
 
 - geofence;
 - rally/return points;
@@ -19,49 +19,48 @@ The boundary is already defined by `IF-AUTOPILOT`:
 - navigation-loss behavior;
 - C2-loss behavior.
 
-The reconciliation layer shall compare applicable BlueSky constraints against the normalized autopilot representation. It shall not silently override onboard safety behaviour.
+The current implementation is a **minimal normalized contract**, not complete vehicle-specific semantic reconciliation across all seven domains.
 
 ## Deterministic result model
 
-For each applicable safety item:
+For each evaluated item:
 
 `MATCHED | MISMATCH | UNKNOWN | UNSUPPORTED`
 
 Release consequence:
 
 - `MATCHED` — item may proceed to the next readiness gate;
-- `MISMATCH` — safety reconciliation fails and release is blocked;
-- `UNKNOWN` — release is blocked unless an applicable controlled rule explicitly permits the unknown state;
-- `UNSUPPORTED` — release is blocked when the item is mandatory for the mission/configuration.
+- `MISMATCH` — reconciliation fails and release is blocked;
+- `UNKNOWN` — release is blocked;
+- `UNSUPPORTED` — release is blocked for mandatory items;
+- an empty reconciliation set blocks release.
 
-No vehicle-specific numeric threshold is introduced by this slice.
+No vehicle-specific numeric threshold is introduced.
 
 ## Authority boundary
 
 The reconciliation layer:
 
-- observes normalized autopilot safety state/configuration;
-- compares it with BlueSky's already-approved mission safety constraints;
-- produces a deterministic reconciliation result;
+- compares expected safety actions with normalized autopilot state;
+- blocks release on mismatch, unknown state, unsupported mandatory state, or an empty item set;
 - does not issue flight-control commands;
-- does not replace onboard failsafe authority;
+- does not silently override onboard safety behavior;
 - does not infer regulatory approval.
 
-## Verification preparation
+## Implementation and verification
 
-A controlled SIL contract fixture shall cover at minimum:
+Implementation is registered in the Autopilot Adapter CMake/CTest suite. The controlled SIL test covers the implemented matched, mismatch, and unknown-state paths.
 
-1. all applicable items match;
-2. one mismatch blocks release;
-3. unknown mandatory state blocks release;
-4. unsupported mandatory capability blocks release;
-5. non-applicable items do not create a false mismatch;
-6. reconciliation result remains attributable to the controlled configuration.
+**CI evidence:** GitHub Actions workflow **BlueSky Autopilot Adapter #753**, manually dispatched on branch `main`, commit `5310fd9683b6b198917b4cb65253aabc9607b812`; job `build-and-test` completed successfully. The run reports the build-and-test job green.
 
-## Evidence boundary
+This confirms the repository's configured build and test suite for that commit. It does **not** establish full semantic coverage of all seven safety domains, SITL/HIL, physical-UAV, operational, or certification evidence.
 
-This record is a controlled implementation preparation artifact. It is not flight-test, HIL, physical-UAV, operational or certification evidence.
+## Remaining limitations
+
+- Complete domain-specific comparison semantics remain to be implemented.
+- The current SIL fixture does not establish every scenario listed in the original verification preparation.
+- Vehicle-specific configuration mapping and real-aircraft evidence remain out of scope.
 
 ## Next deterministic step
 
-Implement the minimal normalized reconciliation contract and its deterministic SIL test using the existing safety/autopilot interfaces, without introducing new vehicle-specific semantics.
+Proceed to ARCH-OPS-053 Manual / Override Authority implementation, preserving the existing onboard-autopilot authority boundary. Keep all claims limited to the implemented contract and available SIL/CI evidence.

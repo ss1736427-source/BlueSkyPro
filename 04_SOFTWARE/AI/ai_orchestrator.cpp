@@ -33,7 +33,8 @@ void AiOrchestrator::recompute_task_state(OrchestrationTask& t) {
  t.state=(t.results.size()==t.assigned_agent_ids.size())?TaskState::Completed:TaskState::Running;
 }
 bool AiOrchestrator::advance_time(std::uint64_t tick) {
- if(tick<current_tick_) return false; current_tick_=tick;
+ if (tick < current_tick_) return false;
+ current_tick_ = tick;
  for(auto& [id,t]:tasks_) if(t.state!=TaskState::Completed&&t.state!=TaskState::Conflicted&&t.state!=TaskState::Failed&&t.state!=TaskState::TimedOut&&current_tick_>t.deadline_tick)t.state=TaskState::TimedOut;
  return true;
 }

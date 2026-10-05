@@ -1,12 +1,12 @@
 {
-  "last_main_sha": "4ce6706d2482c4090d7f8578ae52680c52e08d30",
-  "verified_sha": "051828211b3efcb470311573f9707de9ef96b233",
+  "last_main_sha": "e4f19e98276afe378de85eb48df3361779d5c215",
+  "verified_sha": "5310fd9683b6b198917b4cb65253aabc9607b812",
   "decision_required": false,
   "ci_required": true,
-  "current_work_package": "Phase 5 Universal Autopilot Integration — safety reconciliation boundary",
-  "checkpoint": "PH4-INT-027 CLOSED; G0-08 SAFETY RECONCILIATION OPEN",
+  "current_work_package": "Phase 5 Universal Autopilot Integration — ARCH-OPS-053 manual / override authority gate",
+  "checkpoint": "G0-08 SAFETY RECONCILIATION IMPLEMENTED; CI PASS AT 5310fd9683b6b198917b4cb65253aabc9607b812; ARCH-OPS-053 GATE IMPLEMENTED AND REGISTERED; CI PENDING FOR CURRENT CODE",
   "real_execution": "DEFERRED",
   "quantitative_c2_basis": "DEFERRED",
-  "current_ci_status": "UNVERIFIED",
-  "next_deterministic_action": "Verify ARCH-OPS-052 at exact HEAD; if CI becomes available and passes, close G0-08. ARCH-OPS-053 is frozen as the next P0 implementation boundary; do not claim implementation/verification until the G0-08 gate is satisfied."
+  "current_ci_status": "PENDING_FOR_CURRENT_CODE",
+  "next_deterministic_action": "Run the Autopilot Adapter workflow on main at current HEAD and inspect the result. If it passes, close ARCH-OPS-053 implementation slice at that exact SHA; if it fails, fix the failing checks. Keep HIL and real-UAV verification deferred."
 }

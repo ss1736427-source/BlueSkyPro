@@ -100,3 +100,64 @@ No requirement from this audit is promoted to VERIFIED.
 The authoritative closure remains: SOURCE → REQUIREMENT → SAFETY → ARCHITECTURE → DESIGN/INTERFACE → VERIFICATION → RESULT → EVIDENCE → CONFIGURATION
 
 Status: WORKING — VERIFICATION LINKAGE AUDIT COMPLETED; EXECUTION/EVIDENCE REMAINS OPEN.
+
+## 9. Evidence-scope reconciliation — 2026-09-28
+
+A later repository check found the controlled CI record
+`09_VERIFICATION/RESULTS/CI_RUN_RECORD_2026-09-27.md`.
+
+It records a PASS for:
+
+- test source: `04_SOFTWARE/AI/ai_runtime_continuity_test.cpp`;
+- CI change: `2f2699a673a446333d928dc063f05b0d314e8589`;
+- workflow run: `36306898860`;
+- strict C++20 compilation with `-Wall -Wextra -Werror -pedantic`, followed by execution of the test binary.
+
+The design declares trace links from this automated test to SYS-REQ-110/TEST-072, SYS-REQ-111/TEST-073 and SYS-REQ-112/TEST-074.
+
+### Corrected disposition
+
+The CI result is **supporting automated software-verification evidence for the exact tested source revision**. It is not evidence that every procedure step and evidence item defined in TEST-072, TEST-073 and TEST-074 was executed.
+
+The controlled case files still state `status: draft`, `result: not_run`, and `Actual Result: Not executed`. Those states remain unchanged by this addendum.
+
+| Requirement / case | Automated CI support | Full case execution | Evidence/configuration closure |
+|---|---|---|---|
+| SYS-REQ-110 / TEST-072 | Shared AI runtime continuity test; scope-limited | OPEN | OPEN |
+| SYS-REQ-111 / TEST-073 | Shared AI runtime continuity test; scope-limited | OPEN | OPEN |
+| SYS-REQ-112 / TEST-074 | Shared AI runtime continuity test; scope-limited | OPEN | OPEN |
+| SAF-REQ-002 / C2-V02/V04/V06 | No execution; C2 result remains stub | NOT EXECUTED | OPEN |
+| SAF-REQ-004 / C2-V04/V06 | No execution; C2 result remains stub | NOT EXECUTED | OPEN |
+| SAF-REQ-010 / V-RET-002 / EVD-018 | Evidence remains PLANNED | NOT EXECUTED | OPEN |
+
+### Configuration and evidence boundary
+
+The CI record identifies a pre-change `main` configuration baseline and the exact test/CI change commit. It does not by itself establish that the same verification was rerun against the current merged `main` baseline, nor does it close the full test-case evidence fields (procedure, scenario inputs, actual observations, anomalies, review and configuration binding).
+
+No status is upgraded to `VERIFIED`. No new requirement or test case is created.
+
+### Next controlled action
+
+1. Preserve the existing CI result as scope-limited supporting evidence.
+2. Map the assertions and scenarios actually exercised by `ai_runtime_continuity_test.cpp` to the specific objectives in TEST-072/073/074.
+3. Mark only demonstrably exercised objectives as supported; retain uncovered objectives as open.
+4. Re-run or extend tests where required, then record exact source revision, configuration, actual result, artifacts and review.
+5. Separately prepare real C2 and Dynamic Return verification execution; do not replace their stubs or planned evidence with software CI results.
+
+**Status: LINKAGE AUDIT RECONCILED — PARTIAL AUTOMATED SUPPORT RECORDED; FULL CASE EXECUTION AND EVIDENCE CLOSURE OPEN.**
+
+
+## 10. Source-level objective mapping for the recorded CI fixture
+
+Inspection of the exact tested source `04_SOFTWARE/AI/ai_runtime_continuity_test.cpp` at
+`2f2699a673a446333d928dc063f05b0d314e8589` confirms the following exercised assertions:
+
+| Test case | Directly exercised by this fixture | Not demonstrated by this fixture |
+|---|---|---|
+| TEST-072 | Offline baseline setup; register one Mission agent; create and assign one task; record one result; submit one proposal; append one trace event; retained task/proposal/trace counts and authority-model flag | Multi-agent assignment/aggregation; conflicting agent results; timeout/unavailable-agent handling; complete event-history reconstruction |
+| TEST-073 | Proposal transition succeeds when validation, safety and authorization are Allowed; transition is rejected when authorization is not Allowed; external result is rejected | Explicit Mission Validation bypass attempt; Safety Gate denial path; operator approval; conflicting proposals; rejected-proposal audit; before/after authoritative C++ Core state evidence |
+| TEST-074 | Establish baseline; enter offline mode; retain task/proposal/trace; reject external results; controlled recovery to Degraded and Online; authority-model preservation | Internet/cloud disconnection mechanics; approved model/knowledge selection; unauthorized model substitution; resource utilization limits; synchronization conflict detection; full environment/configuration capture |
+
+This mapping is limited to assertions visible in the cited source. It does not infer coverage from test names or trace labels.
+
+**Disposition:** the CI run is valid supporting evidence for the listed assertions only. The uncovered objectives remain open and require targeted tests or an approved rationale for alternative verification. The individual case files remain `draft / not_run` until their own execution records and evidence are completed.

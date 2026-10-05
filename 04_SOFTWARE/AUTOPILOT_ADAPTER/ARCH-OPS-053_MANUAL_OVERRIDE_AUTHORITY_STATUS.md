@@ -1,62 +1,46 @@
 # ARCH-OPS-053 — Manual / Override Authority Boundary
 
-**Status:** CONTROLLED IMPLEMENTATION PREPARATION
+**Status:** IMPLEMENTED — CI PENDING FOR IMPLEMENTATION COMMITS  
 **Evidence boundary:** `SIL_BOUNDARY_ONLY`
 
-## Purpose
+## Approved policy basis
 
-Prepare the next unresolved P0 integration boundary after G0-08 without changing the existing safety-reconciliation semantics.
+The user approved the authority-state × command-class matrix as the implementation basis.
 
-## Existing authority contract
+## Deterministic command-admission matrix
 
-The Universal Autopilot API already defines the normalized authority states:
+| Authority state | Admission rule |
+|---|---|
+| `AUTONOMOUS_MISSION` | Admit `MissionManagement` only |
+| `GUIDED_MANUAL_SUPERVISED` | Admit `Supervisory` only when explicitly approved |
+| `FAILSAFE` | Reject external commands; onboard failsafe retains authority |
+| `RETURN_RECOVERY` | Admit `RecoveryNonInterfering` only when explicitly approved |
+| `EMERGENCY_ABORT` | Admit `EmergencyAbort` only when explicitly approved |
+| `COMMUNICATION_LOST` | Reject all commands |
+| Unknown state | Reject all commands |
 
-- `AUTONOMOUS_MISSION`
-- `GUIDED_MANUAL_SUPERVISED`
-- `FAILSAFE`
-- `RETURN_RECOVERY`
-- `EMERGENCY_ABORT`
-- `COMMUNICATION_LOST`
+All command classes not explicitly admitted by the current state are rejected. Low-level actuation and manual-control commands are not admitted by this gate.
 
-The autopilot integration baseline states that the onboard flight controller remains authoritative for real-time stabilization and onboard failsafe execution. BlueSky is the mission-planning and supervisory layer.
+## Implementation
 
-## Controlled boundary
+- `core/manual_override_authority_gate.hpp`
+- `core/manual_override_authority_gate.cpp`
+- `core/manual_override_authority_gate_test.cpp`
+- Registered as `manual_override_authority_gate_test` in CMake/CTest.
 
-The implementation shall:
+The gate returns a deterministic admit/reject result with a reason. This is an admission boundary only; it does not dispatch commands or implement vendor-specific RC/autopilot behavior.
 
-1. represent the current normalized authority state explicitly;
-2. accept only commands permitted by the current authority state and applicable capabilities;
-3. distinguish BlueSky supervisory commands from RC/manual control and onboard failsafe behavior;
-4. produce deterministic rejection when authority is unavailable or conflicting;
-5. preserve an auditable authority transition/result record;
-6. never infer that loss of BlueSky connectivity transfers flight-control authority to the ground system.
+## Safety invariants
 
-## Non-goals
+- Loss of BlueSky communication does not transfer flight-control authority.
+- Onboard stabilization and failsafe behavior remain authoritative.
+- Unknown authority state never authorizes a command.
+- Failsafe state rejects external commands.
+- Explicit approval is required for supervisory, recovery, and emergency-abort command classes.
+- No low-level actuator commands or vendor-specific RC semantics are introduced.
 
-This slice shall not:
+## Verification status
 
-- reimplement autopilot stabilization or flight-control logic;
-- define vendor-specific RC switch semantics;
-- invent regulatory authority precedence;
-- issue direct low-level actuator commands;
-- replace onboard failsafe behavior;
-- claim HIL, real-UAV, or certification evidence.
+SIL-oriented deterministic unit tests are registered. CI has not yet been observed for the implementation commits; do not mark this slice CI-verified until a workflow run succeeds on the resulting code commit.
 
-## Verification preparation
-
-The controlled SIL fixture shall cover, at minimum:
-
-1. autonomous mission authority permits applicable mission execution;
-2. manual-supervised authority is represented explicitly;
-3. failsafe authority blocks conflicting supervisory execution;
-4. emergency-abort authority blocks non-abort operational commands;
-5. communication-lost state does not imply transfer of flight-control authority;
-6. unsupported authority state is handled deterministically.
-
-## Dependency
-
-G0-08 / ARCH-OPS-052 remains an earlier verification gate. This document does not close or bypass that gate; it only freezes the next implementation boundary already defined by the existing architecture.
-
-## Evidence boundary
-
-No SIL, SITL, HIL, physical-UAV, operational, or certification evidence is claimed by this record.
+This implementation does not establish HIL, real-UAV, operational, or certification verification.

@@ -28,7 +28,8 @@ This layer integrates deterministic orchestration, proposal aggregation, trace r
 - Direct execution remains blocked unless the complete existing authority chain is satisfied.
 - Recovery rejection and acceptance are deterministic.
 - Verification fixture: ai_runtime_continuity_test.
-- Execution status: not run.
+- Execution status: PASS (GitHub Actions, 2026-09-27).
+- Controlled run record: `09_VERIFICATION/RESULTS/CI_RUN_RECORD_2026-09-27.md`.
 
 ## Traceability
 - SYS-REQ-112 / TEST-074

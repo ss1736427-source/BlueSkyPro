@@ -123,6 +123,37 @@ authority:
     - RETURN_RECOVERY
     - EMERGENCY_ABORT
     - COMMUNICATION_LOST
+  command_admission:
+    AUTONOMOUS_MISSION:
+      allow:
+        - MissionManagement
+    GUIDED_MANUAL_SUPERVISED:
+      allow:
+        - Supervisory
+      requires_explicit_approval: true
+    FAILSAFE:
+      allow: []
+      rejection: ONBOARD_FAILSAFE_OWNS_AUTHORITY
+    RETURN_RECOVERY:
+      allow:
+        - RecoveryNonInterfering
+      requires_explicit_approval: true
+    EMERGENCY_ABORT:
+      allow:
+        - EmergencyAbort
+      requires_explicit_approval: true
+    COMMUNICATION_LOST:
+      allow: []
+      rejection: COMMUNICATION_UNAVAILABLE
+    UNKNOWN:
+      allow: []
+      rejection: UNKNOWN_AUTHORITY
+  default: REJECT
+  invariants:
+    - communication_loss_does_not_transfer_flight_control_authority
+    - onboard_stabilization_and_failsafe_remain_authoritative
+    - low_level_actuation_is_not_admitted_by_the_core_gate
+    - vendor_specific_rc_semantics_remain_inside_adapter_boundary
 
 authentication:
   rule: command execution requires applicable authority and safety validation

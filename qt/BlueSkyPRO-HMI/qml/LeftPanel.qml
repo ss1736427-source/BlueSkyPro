@@ -1,4 +1,4 @@
-import QtQuick
+﻿import QtQuick
 
 Item {
     id: root
@@ -8,7 +8,7 @@ Item {
         font.family: "Noto Sans"
         font.pixelSize: 12
         font.bold: true
-        text: "Обнаружение и наблюдение за БПЛА (C-UAS)"
+        text: "Картографирование территории"
     }
 
     TextMetrics {
@@ -19,8 +19,9 @@ Item {
         text: "Миссии"
     }
 
-    // Keep the established compact panel width; long template names are elided.
-    implicitWidth: 270
+    // Width is driven by the widest visible content and the fixed right-side header controls.
+    implicitWidth: Math.max(270, Math.min(420,
+        Math.max(widestTemplateText.width + 44, headerTitleText.width + 84)))
     implicitHeight: 520
     // When hosted by MainContent the panel height is supplied by top/bottom anchors,
     // so it follows the workspace height automatically.
@@ -43,15 +44,6 @@ Item {
     property bool missionCreationMode: false
     readonly property string newMissionType: "M"
     property string missionId: "BS-260920-A-001"
-    // Automatic missions use the A-### identifier segment.
-    readonly property bool missionIsAutomatic: missionId.indexOf("-A-") >= 0
-    property color automaticMissionAccent: "#64FF00"
-    property color missionReworkAccent: "#FF00FF"
-    // Set to VERIFIED only after mission assembly and checks pass; otherwise REWORK.
-    property string missionReviewState: "REWORK"
-    readonly property color missionIdStatusColor: missionReviewState === "VERIFIED"
-        ? automaticMissionAccent
-        : missionReviewState === "REWORK" ? missionReworkAccent : text
     property string missionSummary: "3D картография территории"
     property bool missionIdExpanded: false
     readonly property string missionShortId: {
@@ -60,9 +52,9 @@ Item {
     }
     property bool templatesExpanded: true
     property bool panelConfigOpen: false
-    property int selectedTemplate: 1
+    property int selectedTemplate: 2
     // Indices assigned to the current automatic mission; manual mode starts with no template selected.
-    property var missionTemplateIndices: [1]
+    property var missionTemplateIndices: [2]
     property var manualTemplateSelection: []
 
     onMissionCreationModeChanged: {
@@ -70,12 +62,8 @@ Item {
             manualTemplateSelection = []
     }
 
-    // Automatic mission: show only templates used to assemble this mission.
-    // Manual creation: keep the full approved catalogue available.
     function templateIsVisible(index) {
-        if (missionIsAutomatic && !missionCreationMode)
-            return missionTemplateIndices.indexOf(index) >= 0
-        return true
+        return missionCreationMode || missionTemplateIndices.indexOf(index) >= 0
     }
 
     function templateIsSelected(index) {
@@ -97,34 +85,35 @@ Item {
         manualTemplateSelectionCommitted(manualTemplateSelection)
     }
     property bool analysisVisible: true
+    property bool instrumentsVisible: false
+    property bool atcVisible: false
+    property bool diagnosticsVisible: false
 
     signal hideMissionRequested()
     signal restoreMissionRequested()
     signal missionTemplateMenuRequested()
-    signal missionProfileRequested()
     signal templateSelected(int index)
     signal manualTemplateSelectionCommitted(var indices)
     signal createMissionRequested()
-    signal taskCreationRequested()
     signal panelConfigurationChanged()
     signal missionHidden()
 
-    // Approved baseline: 13 mission templates (2026-10-01).
     ListModel {
         id: templateModel
         ListElement { title: "Картографирование территории"; subtitle: ""; accent: "#BFBFBF" }
-        ListElement { title: "3D-картография и реконструкция"; subtitle: ""; accent: "#32FFFF" }
-        ListElement { title: "Инспекция объектов и инфраструктуры"; subtitle: ""; accent: "#BFBFBF" }
-        ListElement { title: "Мониторинг строительства"; subtitle: ""; accent: "#BFBFBF" }
-        ListElement { title: "Мониторинг территории и периметра"; subtitle: ""; accent: "#BFBFBF" }
-        ListElement { title: "Поиск и спасение"; subtitle: ""; accent: "#BFBFBF" }
-        ListElement { title: "Пожарный мониторинг и ЧС"; subtitle: ""; accent: "#BFBFBF" }
-        ListElement { title: "Экологический и природный мониторинг"; subtitle: ""; accent: "#BFBFBF" }
-        ListElement { title: "Сельское хозяйство"; subtitle: ""; accent: "#BFBFBF" }
-        ListElement { title: "Доставка грузов"; subtitle: ""; accent: "#BFBFBF" }
+        ListElement { title: "Инспекция объектов (здания, ЛЭП, трубопроводы)"; subtitle: ""; accent: "#BFBFBF" }
+        ListElement { title: "3D-картография / реконструкция"; subtitle: ""; accent: "#32FFFF" }
+        ListElement { title: "Мониторинг территории"; subtitle: ""; accent: "#BFBFBF" }
+        ListElement { title: "Поиск человека"; subtitle: ""; accent: "#BFBFBF" }
+        ListElement { title: "Пожарный мониторинг"; subtitle: ""; accent: "#BFBFBF" }
+        ListElement { title: "Доставка"; subtitle: ""; accent: "#BFBFBF" }
+        ListElement { title: "Drone-in-a-Box"; subtitle: ""; accent: "#BFBFBF" }
+        ListElement { title: "BVLOS-мониторинг"; subtitle: ""; accent: "#BFBFBF" }
+        ListElement { title: "Экологический мониторинг"; subtitle: ""; accent: "#BFBFBF" }
         ListElement { title: "Ретрансляция связи"; subtitle: ""; accent: "#BFBFBF" }
-        ListElement { title: "Аэрофотосъёмка и медиапроизводство"; subtitle: ""; accent: "#BFBFBF" }
-        ListElement { title: "Обнаружение и наблюдение за БПЛА (C-UAS)"; subtitle: ""; accent: "#BFBFBF" }
+        ListElement { title: "C-UAS — обнаружение БПЛА"; subtitle: ""; accent: "#BFBFBF" }
+        ListElement { title: "Автоматическое обнаружение объектов"; subtitle: ""; accent: "#BFBFBF" }
+        ListElement { title: "Групповая / роёвая миссия"; subtitle: ""; accent: "#BFBFBF" }
     }
     Rectangle {
         anchors.fill: parent
@@ -177,17 +166,18 @@ Item {
         y: 8
         width: parent.width - 20
         height: 38
-        color: "transparent"
-        border.width: 0
+        color: root.selectedSurface
+        border.color: root.cyan
+        border.width: 1
 
         Text {
-            x: 10
+            x: 12
             anchors.verticalCenter: parent.verticalCenter
             rightPadding: 70
             text: "Миссии"
             color: root.text
             font.family: "B612"
-            font.pixelSize: 13
+            font.pixelSize: 14
             font.bold: true
         }
 
@@ -195,52 +185,23 @@ Item {
             anchors.right: parent.right
             anchors.rightMargin: 10
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
-
-            Rectangle {
-                visible: root.missionCreationMode
-                width: 88
-                height: 22
-                radius: 2
-                color: root.card
-                border.color: root.cyan
-                border.width: 1
-
-                Text {
-                    anchors.fill: parent
-                    anchors.leftMargin: 3
-                    anchors.rightMargin: 3
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    text: "return to auto"
-                    color: root.cyan
-                    font.family: "B612"
-                    font.pixelSize: 10
-                    fontSizeMode: Text.Fit
-                    minimumPixelSize: 8
-                    wrapMode: Text.NoWrap
-                    font.bold: true
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: root.createMissionRequested()
-                }
-            }
+            spacing: 10
 
             Text {
-                visible: !root.missionCreationMode && root.missionIsAutomatic
-                width: 72
+                width: 18
                 horizontalAlignment: Text.AlignHCenter
-                text: "← BACK"
-                color: root.missionVisible ? root.cyan : root.text
+                text: "+"
+                color: root.missionVisible ? root.muted : root.cyan
                 font.family: "B612 Mono"
-                font.pixelSize: 16
+                font.pixelSize: 18
                 font.bold: true
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: root.taskCreationRequested()
+                    onClicked: {
+                        if (!root.missionVisible)
+                            root.restoreMissionRequested()
+                    }
                 }
             }
 
@@ -248,7 +209,7 @@ Item {
                 width: 18
                 horizontalAlignment: Text.AlignHCenter
                 text: "≡"
-                color: root.panelConfigOpen ? root.text : root.cyan
+                color: root.panelConfigOpen ? root.cyan : root.secondary
                 font.family: "B612 Mono"
                 font.pixelSize: 16
 
@@ -272,24 +233,25 @@ Item {
         height: 40
         radius: 3
         color: root.card
-        border.color: root.missionIsAutomatic ? root.automaticMissionAccent : root.divider
+        border.color: root.divider
         border.width: 1
 
         Text {
             id: missionIdLabel
             x: 10
-            width: Math.min(implicitWidth, Math.max(0, parent.width - x - 110))
+            width: root.missionIdExpanded ? 142 : 48
             anchors.verticalCenter: parent.verticalCenter
-            elide: Text.ElideNone
-            text: root.missionId
-            fontSizeMode: Text.Fit
-            minimumPixelSize: 8
-            wrapMode: Text.NoWrap
-            color: root.missionIdStatusColor
+            elide: Text.ElideRight
+            text: root.missionIdExpanded ? root.missionId : root.missionShortId
+            color: root.text
             font.family: "B612 Mono"
             font.pixelSize: 11
             font.bold: true
 
+            MouseArea {
+                anchors.fill: parent
+                onClicked: root.missionIdExpanded = !root.missionIdExpanded
+            }
         }
 
         Rectangle {
@@ -303,7 +265,7 @@ Item {
         Text {
             id: missionSummaryLabel
             x: missionIdLabel.x + missionIdLabel.width + 17
-            width: Math.max(0, parent.width - x - 12)
+            width: Math.max(0, parent.width - x - 98)
             anchors.verticalCenter: parent.verticalCenter
             elide: Text.ElideRight
             text: root.missionSummary
@@ -312,6 +274,41 @@ Item {
             font.pixelSize: 10
         }
 
+        Rectangle {
+            x: parent.width - 91
+            y: 8
+            width: 1
+            height: parent.height - 16
+            color: root.divider
+        }
+
+        Rectangle {
+            id: hideMissionButton
+            x: parent.width - 82
+            width: 72
+            height: 26
+            anchors.verticalCenter: parent.verticalCenter
+            radius: 2
+            color: root.selectedSurface
+            border.color: root.divider
+            border.width: 1
+
+            Text {
+                anchors.fill: parent
+                text: "⊘  СКРЫТЬ"
+                color: root.secondary
+                font.family: "B612 Mono"
+                font.pixelSize: 9
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: root.hideMissionRequested()
+            }
+        }
     }
 
     // Panel configuration is presentation-only and independent of Bottom Toolbar configuration.
@@ -320,7 +317,7 @@ Item {
         x: 10
         y: 90
         width: parent.width - 20
-        height: 104
+        height: 154
         color: root.selectedSurface
         border.color: root.cyan
         border.width: 1
@@ -344,58 +341,27 @@ Item {
 
             Repeater {
                 model: [
-                    { "label": "Профиль миссии", "key": "analysis", "enabled": root.analysisVisible },
-                    { "label": "Шаблоны миссий", "key": "templates", "enabled": root.templatesExpanded }
+                    { "label": "Анализ миссии", "key": "analysis", "enabled": root.analysisVisible },
+                    { "label": "Приборы", "key": "instruments", "enabled": root.instrumentsVisible },
+                    { "label": "УВД / Связь", "key": "atc", "enabled": root.atcVisible },
+                    { "label": "Расширенная диагностика", "key": "diagnostics", "enabled": root.diagnosticsVisible }
                 ]
 
-                delegate: Item {
+                delegate: Text {
                     required property var modelData
                     width: parent.width
-                    height: 22
-
-                    Text {
-                        anchors.left: parent.left
-                        anchors.right: toggleTrack.left
-                        anchors.rightMargin: 10
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: modelData.label
-                        color: modelData.enabled ? root.text : root.secondary
-                        font.family: "B612"
-                        font.pixelSize: 12
-                        elide: Text.ElideRight
-                    }
-
-                    Rectangle {
-                        id: toggleTrack
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 34
-                        height: 18
-                        radius: 9
-                        color: modelData.enabled ? "#64FF00" : "#263747"
-                        border.color: modelData.enabled ? "#64FF00" : "#536575"
-                        border.width: 1
-
-                        Rectangle {
-                            x: modelData.enabled ? parent.width - width - 2 : 2
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 14
-                            height: 14
-                            radius: 7
-                            color: modelData.enabled ? "#082014" : "#BFBFBF"
-                        }
-                    }
+                    text: (modelData.enabled ? "✓ " : "○ ") + modelData.label
+                    color: modelData.enabled ? root.cyan : root.secondary
+                    font.family: "Noto Sans"
+                    font.pixelSize: 10
 
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
-                            if (modelData.key === "analysis") {
-                                root.analysisVisible = !root.analysisVisible
-                            } else if (modelData.key === "templates") {
-                                // Show/hide the mission templates assigned to the current mission.
-                                // Keep settings open so the operator can see and reverse the toggle.
-                                root.templatesExpanded = !root.templatesExpanded
-                            }
+                            if (modelData.key === "analysis") root.analysisVisible = !root.analysisVisible
+                            else if (modelData.key === "instruments") root.instrumentsVisible = !root.instrumentsVisible
+                            else if (modelData.key === "atc") root.atcVisible = !root.atcVisible
+                            else if (modelData.key === "diagnostics") root.diagnosticsVisible = !root.diagnosticsVisible
                             root.panelConfigurationChanged()
                         }
                     }
@@ -412,7 +378,7 @@ Item {
         x: 10
         y: root.missionVisible ? 110 : 50
         width: parent.width - 20
-        height: Math.max(0, Math.min(templateColumn.implicitHeight, parent.height - y - createMissionButton.height - 20 - (root.analysisVisible && !root.panelConfigOpen ? missionProfileButton.height + 12 : 0)))
+        height: Math.max(0, parent.height - y - createMissionButton.height - 20)
         contentWidth: width
         contentHeight: templateColumn.implicitHeight
         clip: true
@@ -428,14 +394,12 @@ Item {
                 delegate: Rectangle {
                     required property int index
                     required property string title
-                    visible: root.templateIsVisible(index)
                     required property string subtitle
                     required property string accent
                     width: templateColumn.width
                     height: 56
                     radius: 3
                     color: root.templateIsSelected(index) ? root.selectedSurface : root.card
-                    opacity: root.missionCreationMode || root.templateIsSelected(index) ? 1.0 : 0.58
                     border.color: root.templateIsSelected(index) ? root.cyan : root.divider
                     border.width: 1
 
@@ -448,21 +412,28 @@ Item {
                         color: root.templateIsSelected(index) ? root.cyan : "transparent"
                     }
                     Text {
-                        anchors.fill: parent
-                        anchors.leftMargin: 8
-                        anchors.rightMargin: 8
+                        x: 16
+                        width: parent.width - 52
+                        anchors.verticalCenter: parent.verticalCenter
                         elide: Text.ElideRight
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                         text: title
                         color: root.text
-                        font.family: "B612"
+                        font.family: "Noto Sans"
                         font.pixelSize: 12
+                        font.bold: true
+                    }
+                    Text {
+                        visible: root.templateIsSelected(index)
+                        x: parent.width - 30
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "✓"
+                        color: root.cyan
+                        font.family: "B612 Mono"
+                        font.pixelSize: 15
                         font.bold: true
                     }
                     MouseArea {
                         anchors.fill: parent
-                        enabled: root.missionCreationMode || root.templateIsSelected(index)
                         onClicked: {
                             if (root.missionCreationMode)
                                 root.toggleManualTemplate(index)
@@ -477,37 +448,90 @@ Item {
         }
     }
 
-    // Mission profile button is fixed above Create Mission, independent of template-list length.
-    Rectangle {
-        id: missionProfileButton
-        visible: root.analysisVisible && !root.panelConfigOpen
-        x: 10
-        // Fixed to the bottom control zone, directly above Create Mission.
-        y: createMissionButton.y - height - 12
-        width: parent.width - 20
-        height: 44
-        radius: 2
-        color: root.selectedSurface
-        border.color: root.cyan
-        border.width: 1
-        z: 30
+    // Expanded mission context remains available when templates are collapsed.
+    Column {
+        visible: root.missionVisible && !root.templatesExpanded && !root.panelConfigOpen
+        x: 16
+        y: 98
+        width: parent.width - 32
+        spacing: 10
 
         Text {
-            anchors.fill: parent
-            text: String.fromCharCode(1055, 1056, 1054, 1060, 1048, 1051, 1068, 32, 1052, 1048, 1057, 1057, 1048, 1048)
+            text: root.missionIdExpanded ? root.missionId : root.missionShortId
             color: root.text
-            font.family: 'B612'
-            font.pixelSize: 12
+            font.family: "B612 Mono"
+            font.pixelSize: 16
             font.bold: true
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
         }
 
-        MouseArea {
-            anchors.fill: parent
-            onClicked: root.missionProfileRequested()
+        Text {
+            text: "Обследование территории"
+            color: root.text
+            font.family: "Noto Sans"
+            font.pixelSize: 13
+        }
+
+        Text {
+            text: "4 БПЛА  |  BVLOS  |  учёт ветра"
+            color: root.secondary
+            font.family: "Noto Sans"
+            font.pixelSize: 11
         }
     }
+
+    Text {
+        visible: root.missionVisible && !root.templatesExpanded && !root.panelConfigOpen
+        x: 16
+        y: 162
+        text: "ID МИССИИ  |  неизменяемый"
+        color: root.secondary
+        font.family: "Noto Sans"
+        font.pixelSize: 11
+        font.bold: true
+    }
+
+    Text {
+        visible: root.missionVisible && !root.templatesExpanded && !root.panelConfigOpen
+        x: 16
+        y: 184
+        text: root.missionId
+        color: root.text
+        font.family: "B612 Mono"
+        font.pixelSize: 11
+    }
+
+    Text {
+        visible: root.missionVisible && !root.templatesExpanded
+        x: 16
+        y: 226
+        text: "ИНСТРУМЕНТЫ ПАНЕЛИ"
+        color: root.secondary
+        font.family: "Noto Sans"
+        font.pixelSize: 11
+        font.bold: true
+    }
+
+    Text {
+        visible: root.missionVisible && !root.templatesExpanded
+        x: 16
+        y: 250
+        text: "Анализ  |  Приборы  |  УВД  |  Диагностика"
+        color: root.secondary
+        font.family: "Noto Sans"
+        font.pixelSize: 10
+    }
+
+    Text {
+        visible: root.missionVisible && !root.templatesExpanded
+        x: 16
+        y: 270
+        text: "Weather  |  Obstacles  |  Airspace"
+        color: root.secondary
+        font.family: "Noto Sans"
+        font.pixelSize: 10
+    }
+
+    // Fixed primary action: remains at the bottom in every mission-panel state.
     Rectangle {
         id: createMissionButton
         x: 10
@@ -515,15 +539,15 @@ Item {
         width: parent.width - 20
         height: 44
         radius: 2
-        color: root.card
-        border.color: root.divider
+        color: "#64FF00"
+        border.color: "#64FF00"
         border.width: 1
         z: 30
 
         Text {
             anchors.fill: parent
             text: "СОЗДАТЬ МИССИЮ"
-            color: root.automaticMissionAccent
+            color: "#050A12"
             font.family: "B612"
             font.pixelSize: 12
             font.bold: true
