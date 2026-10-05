@@ -172,8 +172,8 @@ Item {
             selectedUavIndex: root.selectedUavIndex
             onUavSelectionRequested: function(index) { root.selectedUavIndex = index }
             onCloseRequested: {
+                // Close the profile only. Do not navigate to Task Creation.
                 root.missionProfileOpen = false
-                root.taskCreationVisible = true
                 root.missionSplashVisible = false
                 root.headerAlertsOpen = false
             }
