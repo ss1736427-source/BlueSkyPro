@@ -80,7 +80,8 @@ Item {
     }
 
     readonly property real contentWidth: Math.max(toolLabelMetrics.width + 64, 260)
-    readonly property real contentHeight: 64 + visibleRowCount() * 34
+    readonly property bool directToolsMode: toolGroups.length === 0 && tools.length > 0
+    readonly property real contentHeight: 64 + (directToolsMode ? tools.length * 34 : visibleRowCount() * 34)
 
     visible: root.open
     clip: true
@@ -132,6 +133,57 @@ Item {
             id: settingsColumn
             width: settingsScroller.width
             spacing: 4
+
+            // Header Settings uses the direct tool list when no groups are supplied.
+            // This preserves the original ETD/TOT/TRIP/ETA/READY/WARNING settings workflow.
+            Repeater {
+                model: root.directToolsMode ? root.tools : []
+                delegate: Item {
+                    width: settingsColumn.width
+                    height: root.rowHeight
+                    property string toolKey: modelData
+                    property bool toolEnabled: root.enabledTools.indexOf(toolKey) >= 0
+
+                    Rectangle {
+                        x: 0
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 32
+                        height: 18
+                        radius: 9
+                        color: toolEnabled ? "#64FF00" : "#263748"
+                        border.color: toolEnabled ? "#64FF00" : "#536273"
+                        border.width: 1
+
+                        Rectangle {
+                            width: 12
+                            height: 12
+                            radius: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            x: toolEnabled ? parent.width - width - 2 : 2
+                            color: toolEnabled ? "#08111D" : "#BFBFBF"
+                        }
+                    }
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 50
+                        anchors.right: parent.right
+                        anchors.rightMargin: 4
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: toolKey
+                        color: "#BFBFBF"
+                        font.family: "B612"
+                        font.pixelSize: 12
+                        elide: Text.ElideRight
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: root.toggleTool(toolKey)
+                        cursorShape: Qt.PointingHandCursor
+                    }
+                }
+            }
 
             Repeater {
                 model: root.toolGroups
