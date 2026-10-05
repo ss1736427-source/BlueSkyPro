@@ -167,7 +167,7 @@ Item {
                 pointName: "Обязательная точка",
                 coordinates: coords,
                 course: "—",
-                distance: "—",
+                distance: distanceAtProgress(mp).toFixed(1),
                 altitude: Math.round(Number(point.altitude)),
                 airspeed: "—",
                 groundspeed: "—",
@@ -186,6 +186,19 @@ Item {
             return a.order - b.order
         })
         root.tableRows = rows
+    }
+
+    function distanceAtProgress(progress) {
+        if (routeModel.count < 2) return 0
+        var p = Math.max(0, Math.min(1, Number(progress)))
+        var scaled = p * (routeModel.count - 1)
+        var index = Math.min(routeModel.count - 2, Math.floor(scaled))
+        var fraction = scaled - index
+        var d1 = Number(routeModel.get(index).distance)
+        var d2 = Number(routeModel.get(index + 1).distance)
+        if (!isFinite(d1)) d1 = 0
+        if (!isFinite(d2)) d2 = d1
+        return Math.max(0, d1 + (d2 - d1) * fraction)
     }
 
     function columnValue(rowIndex, key) {
@@ -998,7 +1011,8 @@ Item {
                                         next[index] = {
                                             id: selected.id,
                                             progress: nextProgress,
-                                            altitude: nextAltitude,
+                                             altitude: nextAltitude,
+                                             distance: Number(distanceAtProgress(nextProgress).toFixed(1)),
                                             routeIndex: selected.routeIndex === undefined ? -1 : Number(selected.routeIndex)
                                         }
                                         var boundIndex = Number(selected.routeIndex)
