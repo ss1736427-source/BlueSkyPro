@@ -186,7 +186,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             width: 90
             text: "Миссии"
-            color: root.taskCreationVisible ? root.cyan : root.text
+            color: root.cyan
             font.family: "B612"
             font.pixelSize: 13
             font.bold: true
