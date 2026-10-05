@@ -50,6 +50,8 @@ Item {
         { uavId: "BS-004", templateIndex: 7, task: "Экомониторинг", sector: "Периметр" }
     ]
     property bool missionProfileOpen: false
+    // Planning-core result injected by the application/planning bridge; QML never calculates it.
+    property var planningResult: null
     readonly property bool is3DMappingProfile: root.missionTemplateIndices.indexOf(1) >= 0
     // Example current automatic mission composition; supplied by mission/task aggregation in production.
     property var missionTemplateIndices: [0, 1, 7]
@@ -188,6 +190,7 @@ Item {
             missionSummary: root.missionSummary
             uavModel: uavStatus.uavModel
             selectedUavIndex: root.selectedUavIndex
+            planningResult: root.planningResult
             onCloseRequested: root.missionProfileOpen = false
             onApplyRequested: root.missionProfileOpen = false
         }
