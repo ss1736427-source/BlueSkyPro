@@ -126,6 +126,7 @@ Item {
             onHideMissionRequested: root.missionState = "HIDDEN"
             onRestoreMissionRequested: root.missionState = "AUTO"
             onCreateMissionRequested: root.missionState = "MANUAL"
+            onReturnToAutoRequested: root.missionState = "AUTO"
             onTaskCreationRequested: {
                 root.taskCreationVisible = true
                 root.missionSplashVisible = false
@@ -171,8 +172,8 @@ Item {
             selectedUavIndex: root.selectedUavIndex
             onUavSelectionRequested: function(index) { root.selectedUavIndex = index }
             onCloseRequested: {
+                // Close the profile only. Do not navigate to Task Creation.
                 root.missionProfileOpen = false
-                root.taskCreationVisible = true
                 root.missionSplashVisible = false
                 root.headerAlertsOpen = false
             }
