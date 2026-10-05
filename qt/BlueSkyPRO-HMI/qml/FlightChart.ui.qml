@@ -76,7 +76,6 @@ Item {
         center: QtPositioning.coordinate(55.7558, 37.6176)
         zoomLevel: 10
         copyrightsVisible: true
-        gesture.enabled: true
         z: 1
 
         MapPolyline {
