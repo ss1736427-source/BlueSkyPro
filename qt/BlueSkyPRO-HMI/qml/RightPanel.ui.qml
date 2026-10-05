@@ -36,7 +36,7 @@ Item {
     Settings {
         id: panelOrderSettings
         category: "BlueSkyPRO/RightPanel"
-        property string orderCsv: "Checklist,Flight Conditions,Alerting"
+        property string orderCsv: "Checklist,Flight Conditions,Alerting,ATC"
     }
 
     property var panelOrder: panelOrderSettings.orderCsv.split(",")
@@ -54,6 +54,8 @@ Item {
         if (key === "Alerting")
             return panelSettingsPopup.enabledTools.indexOf("Information") >= 0
                    || root.hasUnacknowledgedCriticalMessage()
+        if (key === "ATC")
+            return root.atcHeaderVisible || root.atcVisibleButtonCount > 0
         return false
     }
 
@@ -64,6 +66,8 @@ Item {
             return operationalCard.height
         if (key === "Alerting")
             return informationCard.height
+        if (key === "ATC")
+            return atcWorkArea.height
         return 0
     }
 
@@ -535,9 +539,7 @@ Item {
     // The message card grows with its content but stops before the ATC work area.
     // Long content remains readable by wrapping; the card never covers ATC.
     readonly property real informationAvailableHeight:
-        Math.max(72, atcWorkArea.visible
-            ? atcWorkArea.y - informationCard.y - 10
-            : parent.height - informationCard.y - 20)
+        Math.max(72, parent.height - informationCard.y - 20)
 
     Rectangle {
         id: informationCard
@@ -822,7 +824,7 @@ Item {
         id: atcWorkArea
         visible: root.atcHeaderVisible || root.atcVisibleButtonCount > 0
         x: 16
-        y: parent.height - root.atcWorkAreaHeight - 20
+        y: root.panelBaseY("ATC") + (root.draggingPanel === "ATC" ? root.dragOffsetY : 0)
         width: parent.width - 32
         height: root.atcWorkAreaHeight
         radius: 8
@@ -830,7 +832,7 @@ Item {
         border.color: "#236078"
         border.width: 1
         antialiasing: true
-        z: 0
+        z: root.draggingPanel === "ATC" ? 200 : 1
     }
 
     // Header is a filled band, not a separate bordered card.
@@ -857,7 +859,7 @@ Item {
             anchors.left: parent.left
             anchors.leftMargin: 12
             anchors.right: parent.right
-            anchors.rightMargin: 8
+            anchors.rightMargin: 32
             anchors.verticalCenter: parent.verticalCenter
             text: "ATC"
             color: root.text
@@ -865,6 +867,32 @@ Item {
             font.pixelSize: 13
             font.bold: true
             verticalAlignment: Text.AlignVCenter
+        }
+
+        Text {
+            anchors.right: parent.right
+            anchors.rightMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
+            text: "⋮⋮"
+            color: root.cyan
+            font.pixelSize: 12
+            opacity: 0.8
+        }
+
+        DragHandler {
+            target: null
+            onActiveChanged: {
+                if (active) {
+                    root.draggingPanel = "ATC"
+                    root.dragOffsetY = 0
+                } else {
+                    root.finishPanelDrag("ATC")
+                }
+            }
+            onTranslationChanged: {
+                if (active && root.draggingPanel === "ATC")
+                    root.dragOffsetY = translation.y
+            }
         }
     }
 
