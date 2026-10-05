@@ -27,6 +27,7 @@ Item {
     readonly property color switchGreen: "#39D353"
     property bool parameterPanelOpen: false
     property int columnLayoutRevision: 0
+    property real visibleColumnWeightValue: 1.0
     property real tableSplitRatio: 0.47
     // Live telemetry inputs; connect these to the flight-data source when available.
     property bool liveFlightActive: false
@@ -69,21 +70,21 @@ Item {
                 if (root.columns[j].key === root.columnOrder[i]) result.push(root.columns[j])
         return result
     }
-    function visibleColumnWeight() {
+    function recalculateColumnLayout() {
         var all = root.orderedColumns()
         var total = 0
-        for (var i = 0; i < all.length; ++i)
-            if (root.parameterVisibility[all[i].key] !== false) total += all[i].w
-        return Math.max(0.001, total)
+        for (var i = 0; i < all.length; ++i) {
+            if (root.parameterVisibility[all[i].key] !== false)
+                total += all[i].w
+        }
+        root.visibleColumnWeightValue = Math.max(0.001, total)
+        root.columnLayoutRevision += 1
     }
 
     function columnWidth(column) {
         if (root.parameterVisibility[column.key] === false) return 0
-        // Rebalance only the columns that are currently visible.
-        // This keeps the table flush to both edges after any filter combination.
-        var total = root.visibleColumnWeight()
         var revision = root.columnLayoutRevision
-        return tablePanel.width * (column.w / total)
+        return tablePanel.width * column.w / root.visibleColumnWeightValue
     }
 
     function columnAtX(x) {
@@ -257,7 +258,7 @@ Item {
         var next = Object.assign({}, root.parameterVisibility)
         next[key] = !next[key]
         root.parameterVisibility = next
-        root.columnLayoutRevision += 1
+        root.recalculateColumnLayout()
     }
 
     Settings {
@@ -333,6 +334,7 @@ Item {
     onSelectedUavIndexChanged: root.loadAircraftData(root.selectedUavIndex)
 
     Component.onCompleted: {
+        root.recalculateColumnLayout()
         root.tableSplitRatio = Math.max(0.25, Math.min(0.75, profileSettings.tableSplitRatio))
         try { root.routeDataByUav = JSON.parse(profileSettings.routeDataByUavJson) || ({}) }
         catch (e) { root.routeDataByUav = ({}) }
