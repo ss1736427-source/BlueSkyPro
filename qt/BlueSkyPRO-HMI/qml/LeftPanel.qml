@@ -230,22 +230,6 @@ Item {
             }
 
             Text {
-                visible: !root.missionCreationMode && root.missionIsAutomatic
-                width: 72
-                horizontalAlignment: Text.AlignHCenter
-                text: "← BACK"
-                color: root.missionVisible ? root.cyan : root.text
-                font.family: "B612 Mono"
-                font.pixelSize: 16
-                font.bold: true
-
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: root.taskCreationRequested()
-                }
-            }
-
-            Text {
                 width: 18
                 horizontalAlignment: Text.AlignHCenter
                 text: "≡"
