@@ -81,7 +81,7 @@ Item {
         // Rebalance only the columns that are currently visible.
         // This keeps the table flush to both edges after any filter combination.
         var total = root.visibleColumnWeight()
-        return tableHeader.width * (column.w / total)
+        return tablePanel.width * (column.w / total)
     }
 
     function columnAtX(x) {
