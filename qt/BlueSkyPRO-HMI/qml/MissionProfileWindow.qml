@@ -42,8 +42,8 @@ Item {
     readonly property real plannedDistanceKm: 78.4
     readonly property real plannedDurationSeconds: 78 * 60
     property var parameterVisibility: ({
-        course: true, distance: true, altitude: true, airspeed: true,
-        groundspeed: true, time: true, deltaHeight: true, energy: true, note: true
+        number: true, type: true, point: true, course: true, distance: true, altitude: true,
+        airspeed: true, groundspeed: true, time: true, deltaHeight: true, energy: true, note: true
     })
     property var columns: [
         { label: "#", w: 0.035, key: "number" },
@@ -1120,7 +1120,9 @@ Item {
                 Rectangle {
                     id: parameterPanel
                     z: 40
-                    width: root.parameterPanelOpen ? 270 : 0
+                    width: root.parameterPanelOpen
+                           ? Math.min(360, Math.max(270, contentRow.width * 0.22))
+                           : 0
                     height: parent.height
                     color: root.bg
                     border.color: root.line
@@ -1187,14 +1189,19 @@ Item {
                             clip: true
                             boundsBehavior: Flickable.StopAtBounds
                             spacing: 4
-                            model: ["Курс", "Дистанция", "Высота", "V_возд", "V_пут", "Время", "Δh (набор/снижение)", "Энергия", "Примечание"]
+                            model: [
+                                 "№", "Тип", "Точка / координаты", "Курс", "Дистанция",
+                                 "Высота", "V_возд", "V_пут", "Время",
+                                 "Δh (набор/снижение)", "Энергия", "Примечание"
+                             ]
 
                             delegate: Row {
                                 id: parameterRow
                                 width: parameterListView.width
                                 height: 30
                                 spacing: 10
-                                property string parameterKey: ["course", "distance", "altitude", "airspeed", "groundspeed", "time", "deltaHeight", "energy", "note"][index]
+                                property string parameterKey: ["number", "type", "point", "course", "distance", "altitude",
+                                                               "airspeed", "groundspeed", "time", "deltaHeight", "energy", "note"][index]
                                 property bool parameterChecked: root.parameterVisibility[parameterKey] !== false
 
                                 Rectangle {
