@@ -31,6 +31,7 @@ qt_add_qml_module(appBlueSkyPRO
         qml/HeaderSector.ui.qml
         qml/LeftPanel.qml
         qml/FlightChart.ui.qml
+        qml/GoogleMapView.qml
         qml/RightPanel.ui.qml
         qml/RoleSelection.ui.qml
         qml/TaskCreation.ui.qml
