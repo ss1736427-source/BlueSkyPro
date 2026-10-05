@@ -490,7 +490,7 @@ Item {
                     id: collapsedToolsToggle
                     visible: !root.parameterPanelOpen
                     anchors.right: parent.right
-                    anchors.rightMargin: 42
+                    anchors.rightMargin: 10
                     anchors.verticalCenter: parent.verticalCenter
                     text: "☰"
                     color: root.cyan
@@ -504,16 +504,30 @@ Item {
                         onClicked: root.parameterPanelOpen = true
                     }
                 }
-                Text {
+                Rectangle {
+                    id: closeButton
                     anchors.right: parent.right
-                    anchors.rightMargin: 10
+                    anchors.rightMargin: 58
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "×"
-                    color: root.cyan
-                    font.pixelSize: 22
+                    width: 84
+                    height: 32
+                    radius: 3
+                    color: "transparent"
+                    border.color: root.cyan
+                    border.width: 1.5
+
+                    Text {
+                        anchors.fill: parent
+                        text: "CLOSE"
+                        color: root.cyan
+                        font.pixelSize: 13
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
                     MouseArea {
                         anchors.fill: parent
-                        anchors.margins: -7
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             root.saveCurrentAircraftData()
