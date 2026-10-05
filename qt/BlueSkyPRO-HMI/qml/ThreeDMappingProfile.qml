@@ -238,14 +238,14 @@ Item {
 
                         Repeater {
                             model: [
-                                ["FLIGHT-LINE SPACING", "—"],
-                                ["NUMBER OF LINES", "—"],
-                                ["EXPECTED FRAMES", "—"],
-                                ["EXPECTED COVERAGE", "—"],
-                                ["ROUTE LENGTH", "—"],
-                                ["ESTIMATED DURATION", "—"],
-                                ["ENERGY / RESERVE", "—"],
-                                ["DATA VOLUME", "—"]
+                                ["FLIGHT-LINE SPACING", "lineSpacingM"],
+                                ["NUMBER OF LINES", "lineCount"],
+                                ["EXPECTED FRAMES", "expectedFrames"],
+                                ["EXPECTED COVERAGE", "expectedCoveragePercent"],
+                                ["ROUTE LENGTH", "routeLengthM"],
+                                ["ESTIMATED DURATION", "expectedDurationS"],
+                                ["ENERGY / RESERVE", "expectedEnergyWh"],
+                                ["DATA VOLUME", "dataVolumeMB"]
                             ]
 
                             delegate: Rectangle {
@@ -272,7 +272,7 @@ Item {
                                     anchors.right: parent.right
                                     anchors.rightMargin: 8
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: modelData[1]
+                                    text: root.derivedValue(modelData[1])
                                     color: root.textColor
                                     font.family: "B612 Mono"
                                     font.pixelSize: 11
