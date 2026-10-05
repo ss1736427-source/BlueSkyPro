@@ -31,6 +31,15 @@ Item {
         selectedTemplateIndices = next
     }
 
+    function templateId(index) {
+        return [
+            "MAPPING", "3D_MAPPING", "INSPECTION", "CONSTRUCTION_MONITORING",
+            "PERIMETER_MONITORING", "SEARCH_AND_RESCUE", "FIRE_EMERGENCY",
+            "ENVIRONMENTAL_MONITORING", "AGRICULTURE", "DELIVERY",
+            "COMMUNICATION_RELAY", "AERIAL_MEDIA", "C_UAS"
+        ][index] || ""
+    }
+
     function insertKey(value) {
         taskInput.forceActiveFocus()
         if (value === "BACKSPACE") {
@@ -302,7 +311,7 @@ Item {
         MouseArea {
             anchors.fill: parent
             enabled: root.selectedTemplateIndices.length > 0
-            onClicked: root.missionSetRequested(root.selectedTemplateIndices, root.taskText, root.selectedTemplateIndices.map(function(i) { return templates.children[0].model[i].id }))
+            onClicked: root.missionSetRequested(root.selectedTemplateIndices, root.taskText, root.selectedTemplateIndices.map(function(i) { return root.templateId(i) }))
         }
     }
 
