@@ -170,7 +170,12 @@ Item {
             missionAssignments: root.missionAssignments
             selectedUavIndex: root.selectedUavIndex
             onUavSelectionRequested: function(index) { root.selectedUavIndex = index }
-            onCloseRequested: root.missionProfileOpen = false
+            onCloseRequested: {
+                root.missionProfileOpen = false
+                root.taskCreationVisible = true
+                root.missionSplashVisible = false
+                root.headerAlertsOpen = false
+            }
             onApplyRequested: root.missionProfileOpen = false
         }
 
