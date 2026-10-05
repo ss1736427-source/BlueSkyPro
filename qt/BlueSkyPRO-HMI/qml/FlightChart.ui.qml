@@ -1,4 +1,6 @@
 import QtQuick
+import QtLocation
+import QtPositioning
 
 Item {
     id: root
@@ -60,11 +62,60 @@ Item {
         color: root.bg
     }
 
-    // Grid, restricted airspace and route are schematic design-preview elements.
+    // Geographic map foundation. Planning Core remains authoritative for route data.
+    Plugin {
+        id: mapPlugin
+        name: "osm"
+        PluginParameter { name: "osm.useragent"; value: "BlueSkyPRO/0.1 (UAV flight planning)" }
+    }
+
+    Map {
+        id: geographicMap
+        anchors.fill: parent
+        plugin: mapPlugin
+        center: QtPositioning.coordinate(55.7558, 37.6176)
+        zoomLevel: 10
+        copyrightsVisible: true
+        gesture.enabled: true
+        z: 1
+
+        MapPolyline {
+            line.width: 4
+            line.color: root.cyan
+            path: [
+                QtPositioning.coordinate(55.7600, 37.6000),
+                QtPositioning.coordinate(55.7350, 37.6250),
+                QtPositioning.coordinate(55.7550, 37.6550),
+                QtPositioning.coordinate(55.7800, 37.6400),
+                QtPositioning.coordinate(55.7700, 37.5900)
+            ]
+        }
+
+        MapQuickItem {
+            coordinate: QtPositioning.coordinate(55.7600, 37.6000)
+            anchorPoint.x: 6
+            anchorPoint.y: 6
+            sourceItem: Rectangle {
+                width: 12; height: 12; radius: 6
+                color: "#64FF00"; border.width: 2; border.color: "#FFFFFF"
+            }
+        }
+
+        MapQuickItem {
+            coordinate: QtPositioning.coordinate(55.7700, 37.5900)
+            anchorPoint.x: 6
+            anchorPoint.y: 6
+            sourceItem: Rectangle {
+                width: 12; height: 12; radius: 6
+                color: "#FFD43B"; border.width: 2; border.color: "#FFFFFF"
+            }
+        }
+    }
+
     Canvas {
         id: chartCanvas
         anchors.fill: parent
-        visible: true
+        visible: false
         renderTarget: Canvas.Image
         onWidthChanged: requestPaint()
         onHeightChanged: requestPaint()
@@ -278,6 +329,7 @@ Item {
     }
 
     MouseArea {
+        visible: false
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton
         hoverEnabled: true
@@ -305,7 +357,7 @@ Item {
 
     // Mouse wheel zoom, anchored at the pointer location.
     WheelHandler {
-        target: null
+        target: geographicMap
         onWheel: function(event) {
             var factor = event.angleDelta.y > 0 ? 1.12 : (event.angleDelta.y < 0 ? 1 / 1.12 : 1.0)
             if (factor !== 1.0) {
