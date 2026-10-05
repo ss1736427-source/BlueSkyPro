@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blueskypro.local/schemas/planning-core-bridge.schema.json",
+  "title": "BlueSky PRO Planning Core Bridge Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "messageType", "missionId", "resultId", "source", "verification", "result"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "messageType": { "const": "planning.result" },
+    "missionId": { "type": "string", "minLength": 1 },
+    "resultId": { "type": "string", "minLength": 1 },
+    "generatedAt": { "type": "string", "minLength": 1 },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime", "contractVersion"],
+      "properties": {
+        "runtime": { "type": "string", "enum": ["python-planning-core"] },
+        "plannerVersion": { "type": "string" },
+        "contractVersion": { "type": "string", "minLength": 1 },
+        "configurationVersion": { "type": "string" },
+        "runId": { "type": "string" }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finalGateStatus", "releaseStatus", "verified", "authorizationStatus"],
+      "properties": {
+        "finalGateStatus": { "type": "string", "enum": ["PASS", "FAIL"] },
+        "releaseStatus": { "type": "string", "enum": ["RELEASE_ELIGIBLE", "BLOCKED"] },
+        "verified": { "type": "boolean" },
+        "failedChecks": { "type": "array", "items": { "type": "string" } },
+        "upstreamChecks": { "type": "array", "items": { "type": "string" } },
+        "authorizationStatus": { "type": "string", "minLength": 1 }
+      }
+    },
+    "traceability": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputRefs": { "type": "array", "items": { "type": "string" } },
+        "artifactRefs": { "type": "array", "items": { "type": "string" } },
+        "evidenceRefs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "threeDMapping": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "lineSpacingM": { "type": ["number", "null"] },
+            "lineCount": { "type": ["integer", "null"] },
+            "expectedFrames": { "type": ["integer", "null"] },
+            "expectedCoveragePercent": { "type": ["number", "null"] },
+            "routeLengthM": { "type": "number" },
+            "expectedDurationS": { "type": "number" },
+            "expectedEnergyWh": { "type": "number" },
+            "requiredReserveWh": { "type": ["number", "null"] },
+            "dataVolumeMb": { "type": ["number", "null"] },
+            "releaseStatus": { "type": "string", "enum": ["RELEASE_ELIGIBLE", "BLOCKED"] },
+            "verified": { "type": "boolean" }
+          },
+          "required": ["lineSpacingM", "lineCount", "expectedFrames", "expectedCoveragePercent", "routeLengthM", "expectedDurationS", "expectedEnergyWh", "requiredReserveWh", "dataVolumeMb", "releaseStatus", "verified"]
+        }
+      }
+    }
+  }
+}
