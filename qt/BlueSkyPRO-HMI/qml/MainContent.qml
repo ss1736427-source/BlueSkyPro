@@ -52,9 +52,10 @@ Item {
     property bool missionProfileOpen: false
     // Planning-core result injected by the application/planning bridge; QML never calculates it.
     property var planningResult: null
-    readonly property bool is3DMappingProfile: root.missionTemplateIndices.indexOf(1) >= 0
+    readonly property bool is3DMappingProfile: root.missionTemplateIds.indexOf("3D_MAPPING") >= 0
     // Example current automatic mission composition; supplied by mission/task aggregation in production.
     property var missionTemplateIndices: [0, 1, 7]
+    property var missionTemplateIds: ["MAPPING", "3D_MAPPING", "ENVIRONMENTAL_MONITORING"]
     property string journalStatus: "READY"
     property string activeTool: bottomToolbar.activeTool
     // Entry flow: role authorization -> pilot task setup -> brief transition -> workspace.
@@ -582,8 +583,9 @@ Item {
         anchors.fill: parent
         z: 1001
         visible: root.taskCreationVisible
-        onMissionSetRequested: function(templateIndices, taskText) {
+        onMissionSetRequested: function(templateIndices, taskText, templateIds) {
             root.missionTemplateIndices = templateIndices
+            root.missionTemplateIds = templateIds
             root.missionSummary = taskText.trim().length > 0
                                   ? taskText.trim()
                                   : "Выбрано шаблонов: " + templateIndices.length
