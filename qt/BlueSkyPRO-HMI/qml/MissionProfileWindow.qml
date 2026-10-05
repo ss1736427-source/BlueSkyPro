@@ -1180,53 +1180,70 @@ Item {
                             color: root.line
                         }
 
-                        Repeater {
-                            model: ["Курс", "Дистанция", "Высота", "V_возд", "V_пут", "Время", "Δh (набор/снижение)", "Энергия", "Примечание"]
-                            delegate: Row {
-                                id: parameterRow
-                                visible: root.parameterPanelOpen
-                                width: parent.width
-                                height: 30
-                                spacing: 10
-                                property string parameterKey: ["course", "distance", "altitude", "airspeed", "groundspeed", "time", "deltaHeight", "energy", "note"][index]
-                                property bool parameterChecked: root.parameterVisibility[parameterKey] !== false
+                        Flickable {
+                            id: parameterScroll
+                            width: parent.width
+                            height: Math.max(0, parent.height - 71)
+                            clip: true
+                            contentWidth: width
+                            contentHeight: parameterList.height
+                            boundsBehavior: Flickable.StopAtBounds
 
-                                Rectangle {
-                                    id: parameterSwitch
-                                    width: 38
-                                    height: 21
-                                    radius: 11
-                                    y: (parent.height - height) / 2
-                                    color: parameterRow.parameterChecked ? root.switchGreen : "#263847"
-                                    border.width: 1
-                                    border.color: parameterRow.parameterChecked ? root.switchGreen : "#547084"
+                            Column {
+                                id: parameterList
+                                width: parameterScroll.width
+                                spacing: 4
 
-                                    Rectangle {
-                                        width: 15
-                                        height: 15
-                                        radius: 8
-                                        y: (parameterSwitch.height - height) / 2
-                                        x: parameterRow.parameterChecked ? parameterSwitch.width - width - 3 : 3
-                                        color: parameterRow.parameterChecked ? "#07111E" : "#B7C7D3"
-                                        Behavior on x { NumberAnimation { duration: 120 } }
+                                Repeater {
+                                    model: ["Курс", "Дистанция", "Высота", "V_возд", "V_пут", "Время", "Δh (набор/снижение)", "Энергия", "Примечание"]
+                                    delegate: Row {
+                                        id: parameterRow
+                                        visible: root.parameterPanelOpen
+                                        width: parent.width
+                                        height: 30
+                                        spacing: 10
+                                        property string parameterKey: ["course", "distance", "altitude", "airspeed", "groundspeed", "time", "deltaHeight", "energy", "note"][index]
+                                        property bool parameterChecked: root.parameterVisibility[parameterKey] !== false
+
+                                        Rectangle {
+                                            id: parameterSwitch
+                                            width: 38
+                                            height: 21
+                                            radius: 11
+                                            y: (parent.height - height) / 2
+                                            color: parameterRow.parameterChecked ? root.switchGreen : "#263847"
+                                            border.width: 1
+                                            border.color: parameterRow.parameterChecked ? root.switchGreen : "#547084"
+
+                                            Rectangle {
+                                                width: 15
+                                                height: 15
+                                                radius: 8
+                                                y: (parameterSwitch.height - height) / 2
+                                                x: parameterRow.parameterChecked ? parameterSwitch.width - width - 3 : 3
+                                                color: parameterRow.parameterChecked ? "#07111E" : "#B7C7D3"
+                                                Behavior on x { NumberAnimation { duration: 120 } }
+                                            }
+                                        }
+
+                                        Text {
+                                            width: parent.width - parameterSwitch.width - parent.spacing
+                                            text: modelData
+                                            color: root.textColor
+                                            font.family: "B612"
+                                            font.pixelSize: 18
+                                            y: (parent.height - height) / 2
+                                            wrapMode: Text.Wrap
+                                        }
+
+                                        TapHandler {
+                                            acceptedButtons: Qt.LeftButton
+                                            onTapped: root.toggleParameter(parameterRow.parameterKey)
+                                        }
                                     }
                                 }
-
-                                Text {
-                                    width: parent.width - parameterSwitch.width - parent.spacing
-                                    text: modelData
-                                    color: root.textColor
-                                    font.family: "B612"
-                                    font.pixelSize: 18
-                                    y: (parent.height - height) / 2
-                                    wrapMode: Text.Wrap
-                                }
-
-                                TapHandler {
-                                    acceptedButtons: Qt.LeftButton
-                                    onTapped: root.toggleParameter(parameterRow.parameterKey)
-                                }
                             }
+                        }
                         }
                     }
                 }            }
