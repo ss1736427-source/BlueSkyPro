@@ -107,6 +107,23 @@ def _contains(outer: Polygon, inner: Polygon) -> bool:
         for hole_polygon in (Polygon(hole),)
     )
 
+def _strict_ring_contains(point: Point, ring: tuple[Point,...]) -> bool:
+    if any(_on_segment(ring[i],ring[(i+1)%len(ring)],point) for i in range(len(ring))):
+        return False
+    inside=False
+    for i,start in enumerate(ring):
+        end=ring[(i+1)%len(ring)]
+        if (start.y>point.y)!=(end.y>point.y):
+            x=(end.x-start.x)*(point.y-start.y)/(end.y-start.y)+start.x
+            if point.x<x:
+                inside=not inside
+    return inside
+
+def _strict_point_in_polygon(point: Point, polygon: Polygon) -> bool:
+    if not _strict_ring_contains(point,polygon.points):
+        return False
+    return not any(_strict_ring_contains(point,hole) for hole in polygon.holes)
+
 def _interior_overlap(a: Polygon,b: Polygon) -> bool:
     rings_a=(a.points,)+a.holes
     rings_b=(b.points,)+b.holes
@@ -120,7 +137,7 @@ def _interior_overlap(a: Polygon,b: Polygon) -> bool:
                     if (((c1>EPSILON and c2<-EPSILON) or (c1<-EPSILON and c2>EPSILON)) and
                         ((c3>EPSILON and c4<-EPSILON) or (c3<-EPSILON and c4>EPSILON))):
                         return True
-    return _point_in_polygon(a.points[0],b) or _point_in_polygon(b.points[0],a)
+    return _strict_point_in_polygon(a.points[0],b) or _strict_point_in_polygon(b.points[0],a)
 
 def verify_zone_set(source: Polygon|Rectangle,zones: Sequence[Zone],tolerance: float=EPSILON)->ZoneSet:
     outer=_polygon(source)
