@@ -1,4 +1,5 @@
 import QtQuick
+import QtCore
 
 Item {
     id: root
@@ -31,6 +32,85 @@ Item {
     property bool manualValidationStarted: false
     property bool missionReady: false
     property bool warningActive: true
+
+    Settings {
+        id: panelOrderSettings
+        category: "BlueSkyPRO/RightPanel"
+        property string orderCsv: "Checklist,Flight Conditions,Alerting"
+    }
+
+    property var panelOrder: panelOrderSettings.orderCsv.split(",")
+    property string draggingPanel: ""
+    property real dragOffsetY: 0
+
+    function panelVisible(key) {
+        if (key === "Checklist")
+            return panelSettingsPopup.enabledTools.indexOf("Checklist") >= 0
+        if (key === "Flight Conditions")
+            return ((panelSettingsPopup.enabledTools.indexOf("Weather") >= 0
+                     || root.weatherPilotAttentionRequired)
+                    || (panelSettingsPopup.enabledTools.indexOf("NOTAM") >= 0
+                        || root.notamPilotAttentionRequired))
+        if (key === "Alerting")
+            return panelSettingsPopup.enabledTools.indexOf("Information") >= 0
+                   || root.hasUnacknowledgedCriticalMessage()
+        return false
+    }
+
+    function panelHeight(key) {
+        if (key === "Checklist")
+            return checklistCard.height
+        if (key === "Flight Conditions")
+            return operationalCard.height
+        if (key === "Alerting")
+            return informationCard.height
+        return 0
+    }
+
+    function panelBaseY(key) {
+        var y = 54
+        for (var i = 0; i < panelOrder.length; ++i) {
+            var current = panelOrder[i]
+            if (current === key)
+                return y
+            if (panelVisible(current))
+                y += panelHeight(current) + 10
+        }
+        return y
+    }
+
+    function reorderPanel(key) {
+        var order = panelOrder.slice()
+        var from = order.indexOf(key)
+        if (from < 0)
+            return
+
+        var center = panelBaseY(key) + dragOffsetY + panelHeight(key) / 2
+        var target = 0
+        for (var i = 0; i < order.length; ++i) {
+            var other = order[i]
+            if (other === key || !panelVisible(other))
+                continue
+            if (center > panelBaseY(other) + panelHeight(other) / 2)
+                target = i + 1
+        }
+
+        order.splice(from, 1)
+        if (target > from)
+            target--
+        target = Math.max(0, Math.min(order.length, target))
+        order.splice(target, 0, key)
+        panelOrder = order
+        panelOrderSettings.orderCsv = order.join(",")
+        dragOffsetY = 0
+    }
+
+    function finishPanelDrag(key) {
+        if (draggingPanel !== key)
+            return
+        reorderPanel(key)
+        draggingPanel = ""
+    }
     // Preview state only. Live weather/NOTAM providers must supply authoritative data.
     property string selectedOperationalTool: ""
     // Set only by the authoritative route-planning/revalidation result.
@@ -162,9 +242,9 @@ Item {
     // Checklist card — same rounded, outlined visual language as ATC.
     Rectangle {
         id: checklistCard
-        visible: panelSettingsPopup.enabledTools.indexOf("Checklist") >= 0
+        visible: root.panelVisible("Checklist")
         x: 16
-        y: 54
+        y: root.panelBaseY("Checklist") + (root.draggingPanel === "Checklist" ? root.dragOffsetY : 0)
         width: parent.width - 32
         height: Math.min(42 + root.visibleChecklistItems().length * 18, Math.max(90, parent.height * 0.34))
         radius: 8
@@ -172,6 +252,7 @@ Item {
         border.color: "#236078"
         border.width: 1
         antialiasing: true
+        z: root.draggingPanel === "Checklist" ? 200 : 1
     }
 
     Rectangle {
@@ -205,6 +286,32 @@ Item {
             font.bold: true
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
+        }
+
+        Text {
+            anchors.right: checklistCounts.left
+            anchors.rightMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
+            text: "⋮⋮"
+            color: root.cyan
+            font.pixelSize: 12
+            opacity: 0.8
+        }
+
+        DragHandler {
+            target: null
+            onActiveChanged: {
+                if (active) {
+                    root.draggingPanel = "Checklist"
+                    root.dragOffsetY = 0
+                } else {
+                    root.finishPanelDrag("Checklist")
+                }
+            }
+            onTranslationChanged: {
+                if (active && root.draggingPanel === "Checklist")
+                    root.dragOffsetY = translation.y
+            }
         }
 
         Row {
@@ -280,12 +387,9 @@ Item {
     // report missing data rather than implying a successful operational check.
     Rectangle {
         id: operationalCard
-        visible: (panelSettingsPopup.enabledTools.indexOf("Weather") >= 0
-                  || root.weatherPilotAttentionRequired)
-                 || (panelSettingsPopup.enabledTools.indexOf("NOTAM") >= 0
-                     || root.notamPilotAttentionRequired)
+        visible: root.panelVisible("Flight Conditions")
         x: 16
-        y: (checklistCard.visible ? checklistCard.y + checklistCard.height : 54) + 10
+        y: root.panelBaseY("Flight Conditions") + (root.draggingPanel === "Flight Conditions" ? root.dragOffsetY : 0)
         width: parent.width - 32
         height: root.selectedOperationalTool === "" ? 94 : Math.min(parent.height * 0.25, Math.max(94, operationalDetailColumn.implicitHeight + 50))
         radius: 8
@@ -293,6 +397,7 @@ Item {
         border.color: "#236078"
         border.width: 1
         antialiasing: true
+        z: root.draggingPanel === "Flight Conditions" ? 200 : 1
 
         Rectangle {
             x: 1; y: 1; width: parent.width - 2; height: 32
@@ -300,9 +405,36 @@ Item {
             Rectangle { x: 0; y: height / 2; width: parent.width; height: parent.height / 2; color: parent.color }
             Text {
                 anchors.left: parent.left; anchors.leftMargin: 12
+                anchors.right: parent.right; anchors.rightMargin: 32
                 anchors.verticalCenter: parent.verticalCenter
                 text: "FLIGHT CONDITIONS"
                 color: root.text; font.family: "B612"; font.pixelSize: 12; font.bold: true
+            }
+
+            Text {
+                anchors.right: parent.right
+                anchors.rightMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+                text: "⋮⋮"
+                color: root.cyan
+                font.pixelSize: 12
+                opacity: 0.8
+            }
+
+            DragHandler {
+                target: null
+                onActiveChanged: {
+                    if (active) {
+                        root.draggingPanel = "Flight Conditions"
+                        root.dragOffsetY = 0
+                    } else {
+                        root.finishPanelDrag("Flight Conditions")
+                    }
+                }
+                onTranslationChanged: {
+                    if (active && root.draggingPanel === "Flight Conditions")
+                        root.dragOffsetY = translation.y
+                }
             }
         }
 
@@ -409,10 +541,9 @@ Item {
 
     Rectangle {
         id: informationCard
-        visible: panelSettingsPopup.enabledTools.indexOf("Information") >= 0
-                 || root.hasUnacknowledgedCriticalMessage()
+        visible: root.panelVisible("Alerting")
         x: 16
-        y: (operationalCard.visible ? operationalCard.y + operationalCard.height : (checklistCard.visible ? checklistCard.y + checklistCard.height : 54)) + 10
+        y: root.panelBaseY("Alerting") + (root.draggingPanel === "Alerting" ? root.dragOffsetY : 0)
         width: parent.width - 32
         height: Math.max(72, Math.min(root.informationAvailableHeight, (root.selectedInformationMessage ? informationDetailsColumn.implicitHeight : informationList.implicitHeight) + 48))
         radius: 8
@@ -420,6 +551,7 @@ Item {
         border.color: "#236078"
         border.width: 1
         antialiasing: true
+        z: root.draggingPanel === "Alerting" ? 200 : 1
     }
 
     Rectangle {
@@ -444,7 +576,7 @@ Item {
             anchors.left: parent.left
             anchors.leftMargin: 12
             anchors.right: parent.right
-            anchors.rightMargin: 8
+            anchors.rightMargin: 32
             anchors.verticalCenter: parent.verticalCenter
             text: "ALERTING"
             color: root.text
@@ -453,6 +585,32 @@ Item {
             font.bold: true
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
+        }
+
+        Text {
+            anchors.right: parent.right
+            anchors.rightMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
+            text: "⋮⋮"
+            color: root.cyan
+            font.pixelSize: 12
+            opacity: 0.8
+        }
+
+        DragHandler {
+            target: null
+            onActiveChanged: {
+                if (active) {
+                    root.draggingPanel = "Alerting"
+                    root.dragOffsetY = 0
+                } else {
+                    root.finishPanelDrag("Alerting")
+                }
+            }
+            onTranslationChanged: {
+                if (active && root.draggingPanel === "Alerting")
+                    root.dragOffsetY = translation.y
+            }
         }
     }
 
