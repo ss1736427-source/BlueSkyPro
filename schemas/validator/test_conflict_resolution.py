@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from conflict_4d import SeparationMinimums, verify_fleet
+from conflict_4d import SeparationMinimums
 from conflict_resolution import ResolutionPolicy, resolve_conflicts
 from route_in_zone import build_route_in_zone
 from trajectory_4d import build_trajectory_4d
@@ -11,18 +11,13 @@ from zone_partition import Point, Polygon, Zone
 def make_trajectory(uav_id: str, y: float, start: float, altitude: float):
     zone = Zone(
         f"ZONE-{uav_id}",
-        Polygon((Point(0, 0), Point(100, 0), Point(100, 0), Point(0, 100))),
-    )
-    # Use a valid rectangle after constructing the test geometry.
-    zone = Zone(
-        f"ZONE-{uav_id}",
         Polygon((Point(0, 0), Point(100, 0), Point(100, 100), Point(0, 100))),
     )
     route = build_route_in_zone(
         route_id=f"ROUTE-{uav_id}",
         uav_id=uav_id,
         zone=zone,
-        points=(Point(10, y), Point(90, y)),
+        points=(Point(10, y), Point(30, y)),
     )
     performance = adjust_route_for_wind(
         route,
