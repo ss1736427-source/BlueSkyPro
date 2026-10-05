@@ -1146,7 +1146,9 @@ Item {
                     width: root.parameterPanelOpen
                            ? Math.min(300, Math.max(220, contentRow.width * 0.18))
                            : 0
-                    height: parent.height
+                    height: root.parameterPanelOpen
+                           ? Math.min(parent.height, 62 + 12 * 32 + 11 * 4)
+                           : 0
                     color: root.bg
                     border.color: root.line
                     radius: 3
