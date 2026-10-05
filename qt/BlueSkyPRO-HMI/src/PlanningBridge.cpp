@@ -12,11 +12,86 @@ constexpr auto kMessageType = "planning.result";
 PlanningBridge::PlanningBridge(QObject *parent)
     : QObject(parent)
 {
+    connect(&m_process, &QProcess::readyReadStandardOutput,
+            this, &PlanningBridge::consumeStdout);
+
+    connect(&m_process, &QProcess::errorOccurred, this,
+            [this](QProcess::ProcessError) {
+                emit bridgeError(QStringLiteral("PLANNING_PROCESS_ERROR"));
+            });
+
+    connect(&m_process, &QProcess::started, this, [this]() {
+        emit runningChanged();
+    });
+
+    connect(&m_process, &QProcess::finished, this,
+            [this](int, QProcess::ExitStatus) {
+                emit runningChanged();
+                consumeStdout();
+            });
 }
 
 QVariantMap PlanningBridge::result() const
 {
     return m_result;
+}
+
+bool PlanningBridge::running() const
+{
+    return m_process.state() != QProcess::NotRunning;
+}
+
+bool PlanningBridge::startProcess(const QString &program, const QStringList &arguments)
+{
+    if (program.isEmpty()) {
+        emit bridgeError(QStringLiteral("PLANNING_PROCESS_PROGRAM_REQUIRED"));
+        return false;
+    }
+
+    if (running()) {
+        emit bridgeError(QStringLiteral("PLANNING_PROCESS_ALREADY_RUNNING"));
+        return false;
+    }
+
+    m_stdoutBuffer.clear();
+    m_process.start(program, arguments);
+    if (!m_process.waitForStarted(3000)) {
+        emit bridgeError(QStringLiteral("PLANNING_PROCESS_START_FAILED"));
+        return false;
+    }
+
+    return true;
+}
+
+void PlanningBridge::stopProcess()
+{
+    if (!running())
+        return;
+
+    m_process.terminate();
+    if (!m_process.waitForFinished(1000))
+        m_process.kill();
+}
+
+bool PlanningBridge::sendRequest(const QString &json)
+{
+    if (!running()) {
+        emit bridgeError(QStringLiteral("PLANNING_PROCESS_NOT_RUNNING"));
+        return false;
+    }
+
+    if (json.trimmed().isEmpty()) {
+        emit bridgeError(QStringLiteral("EMPTY_PLANNING_REQUEST"));
+        return false;
+    }
+
+    const QByteArray payload = json.toUtf8();
+    if (!payload.endsWith('\n'))
+        m_process.write(payload + '\n');
+    else
+        m_process.write(payload);
+
+    return m_process.waitForBytesWritten(1000);
 }
 
 bool PlanningBridge::publishJson(const QString &json)
@@ -64,6 +139,25 @@ bool PlanningBridge::publishJson(const QString &json)
 
     publishResult(object.toVariantMap());
     return true;
+}
+
+void PlanningBridge::consumeStdout()
+{
+    m_stdoutBuffer.append(m_process.readAllStandardOutput());
+
+    while (true) {
+        const qsizetype newline = m_stdoutBuffer.indexOf('\n');
+        if (newline < 0)
+            return;
+
+        const QByteArray line = m_stdoutBuffer.left(newline).trimmed();
+        m_stdoutBuffer.remove(0, newline + 1);
+
+        if (line.isEmpty())
+            continue;
+
+        publishJson(QString::fromUtf8(line));
+    }
 }
 
 void PlanningBridge::publishResult(const QVariantMap &result)
