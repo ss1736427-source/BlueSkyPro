@@ -1,0 +1,14 @@
+{
+  "configuration_baseline_id": "BS-PRO-SWCFG-P0-001",
+  "product": "BlueSky PRO",
+  "repository": "ss1736427-source/BlueSky-PRO-Knowledge",
+  "branch": "main",
+  "baseline_revision": "65a1567b",
+  "software_release_state": "UNRELEASED-P0",
+  "build_system": "CMake",
+  "cxx_standard": "C++20",
+  "primary_build_configuration": "Release",
+  "verification_domain": "EC-18",
+  "evidence_class": "DEVELOPMENT",
+  "status": "IMPLEMENTATION_BASELINE"
+}

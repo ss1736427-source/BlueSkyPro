@@ -1,0 +1,42 @@
+name: BlueSky Planning Benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '04_SOFTWARE/PLANNING/**'
+      - '03_FLEET/BLUESKY_*ADAPTER*'
+      - '.github/workflows/planning-benchmark.yml'
+      - '.gitignore'
+      - '**/build/**'
+      - '**/build_clean/**'
+  pull_request:
+    paths:
+      - '04_SOFTWARE/PLANNING/**'
+      - '03_FLEET/BLUESKY_*ADAPTER*'
+      - '.github/workflows/planning-benchmark.yml'
+      - '.gitignore'
+      - '**/build/**'
+      - '**/build_clean/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate adapter repository consistency
+        run: python 04_SOFTWARE/AUTOPILOT_ADAPTER/contract/validate_adapter_chain.py
+
+      - name: Configure
+        run: cmake -S 04_SOFTWARE/PLANNING -B build/planning -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build/planning --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build/planning --output-on-failure
+
+# CI trigger verification for the current main baseline.

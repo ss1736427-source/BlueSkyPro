@@ -1,0 +1,22 @@
+name: BlueSky Operational Orchestrator Authority Resolution
+
+on:
+  push:
+    branches: [main, 'arch-ops-006-*']
+  pull_request:
+    paths:
+      - '04_SOFTWARE/OPERATIONS/**'
+      - '.github/workflows/operational-orchestrator-authority.yml'
+
+jobs:
+  contract-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S 04_SOFTWARE/OPERATIONS -B build/operations -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build/operations --config Release --parallel
+      - name: Test
+        run: ctest --test-dir build/operations --output-on-failure

@@ -1,0 +1,39 @@
+name: journal-service-ci
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main, 'feat/journal-*']
+    paths:
+      - '04_SOFTWARE/COMMON/journal/**'
+      - '04_SOFTWARE/PLANNING/CMakeLists.txt'
+      - '.github/workflows/journal-service-ci.yml'
+  pull_request:
+    paths:
+      - '04_SOFTWARE/COMMON/journal/**'
+      - '04_SOFTWARE/PLANNING/CMakeLists.txt'
+      - '.github/workflows/journal-service-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Verify CMake
+        run: cmake --version
+
+      - name: Configure
+        run: cmake -S 04_SOFTWARE/PLANNING -B 04_SOFTWARE/PLANNING/build-ci -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build JournalService test
+        run: cmake --build 04_SOFTWARE/PLANNING/build-ci --target journal_service_test --parallel
+
+      - name: Run JournalService test
+        working-directory: 04_SOFTWARE/PLANNING/build-ci
+        run: ctest --output-on-failure -R journal_service_test

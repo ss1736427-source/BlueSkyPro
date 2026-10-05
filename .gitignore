@@ -1,0 +1,27 @@
+# Generated build output
+**/build/
+**/build_clean/
+**/CMakeFiles/
+**/CMakeCache.txt
+**/Testing/Temporary/
+**/.vs/
+**/*.pdb
+**/*.ilk
+**/*.tlog/
+**/*.lastbuildstate
+**/*.FileListAbsolute.txt
+
+# Installed dependencies
+**/node_modules/
+
+# Local IDE / OS state
+**/*.user
+**/*.suo
+**/.DS_Store
+**/Thumbs.db
+**/desktop.ini
+
+# Temporary files and editor backups
+**/*.tmp
+**/*.swp
+**/*~

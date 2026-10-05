@@ -1,0 +1,27 @@
+name: BlueSky C2 Channel Manager
+
+on:
+  pull_request:
+    paths:
+      - '04_SOFTWARE/AUTOPILOT_ADAPTER/core/c2_channel_manager.hpp'
+      - '04_SOFTWARE/AUTOPILOT_ADAPTER/core/c2_channel_manager_test.cpp'
+      - '.github/workflows/c2-channel-manager.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - '04_SOFTWARE/AUTOPILOT_ADAPTER/core/c2_channel_manager.hpp'
+      - '04_SOFTWARE/AUTOPILOT_ADAPTER/core/c2_channel_manager_test.cpp'
+      - '.github/workflows/c2-channel-manager.yml'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure compiler
+        run: g++ --version
+      - name: Build
+        run: g++ -std=c++20 -Wall -Wextra -Werror -pedantic 04_SOFTWARE/AUTOPILOT_ADAPTER/core/c2_channel_manager_test.cpp -I04_SOFTWARE/AUTOPILOT_ADAPTER/core -o /tmp/c2_channel_manager_test
+      - name: Test
+        run: /tmp/c2_channel_manager_test

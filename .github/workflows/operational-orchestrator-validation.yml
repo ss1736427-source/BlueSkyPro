@@ -1,0 +1,77 @@
+name: BlueSky Operational Orchestrator Validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '04_SOFTWARE/OPERATIONS/BLUESKY_OPERATIONAL_ORCHESTRATOR_INTEGRATION_CONTRACT_001.md'
+      - '.github/workflows/operational-orchestrator-validation.yml'
+  push:
+    paths:
+      - '04_SOFTWARE/OPERATIONS/BLUESKY_OPERATIONAL_ORCHESTRATOR_INTEGRATION_CONTRACT_001.md'
+      - '.github/workflows/operational-orchestrator-validation.yml'
+
+jobs:
+  operational-orchestrator-contract-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Operational Orchestrator integration contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("04_SOFTWARE/OPERATIONS/BLUESKY_OPERATIONAL_ORCHESTRATOR_INTEGRATION_CONTRACT_001.md")
+          if not path.is_file():
+              raise SystemExit(f"Missing Operational Orchestrator integration contract: {path}")
+
+          text = path.read_text(encoding="utf-8")
+          if not text.strip():
+              raise SystemExit(f"Empty Operational Orchestrator integration contract: {path}")
+          if not text.startswith("# "):
+              raise SystemExit("Missing top-level heading")
+          if not re.search(r"(?im)^\*\*Status:\*\*", text):
+              raise SystemExit("Missing Status metadata")
+
+          required_sections = [
+              "## 4. Normalized operational state",
+              "## 5. Action model",
+              "## 6. Next-action selection",
+              "## 7. Human authority boundary",
+              "## 8. Resource and mission adaptation",
+              "## 9. Runtime coordination",
+              "## 11. Multi-UAV failure interface",
+              "## 12. Mission completion",
+              "## 13. Evidence and traceability",
+              "## 17. Acceptance criteria",
+              "## 18. Implementation sequence / anti-rework rule",
+          ]
+
+          missing = [section for section in required_sections if section not in text]
+          if missing:
+              raise SystemExit(
+                  "Missing required contract sections: " + ", ".join(missing)
+              )
+
+          required_invariants = [
+              "Existing authoritative subsystem contracts remain authoritative.",
+              "The orchestrator coordinates; it does not duplicate subsystem ownership.",
+              "Hard safety/regulatory/validated energy constraints are feasibility gates.",
+              "AI/optimization cannot override mandatory gates.",
+              "Human authority is explicit and auditable.",
+              "FCS performs immediate flight control; BlueSky performs operational orchestration.",
+              "Mission completion requires verified mission result, not landing alone.",
+          ]
+
+          missing_invariants = [item for item in required_invariants if item not in text]
+          if missing_invariants:
+              raise SystemExit(
+                  "Missing required interface invariants: " + ", ".join(missing_invariants)
+              )
+
+          print("Operational Orchestrator integration contract: PASS")
+          PY
