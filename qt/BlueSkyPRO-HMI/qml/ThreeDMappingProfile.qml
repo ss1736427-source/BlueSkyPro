@@ -42,8 +42,20 @@ Item {
 
     function derivedValue(key) {
         if (!root.planningResult) return "—"
-        var v = root.planningResult[key]
+        var result = root.planningResult.result
+        var mapping = result ? result.threeDMapping : null
+        if (!mapping) return "—"
+        var v = mapping[key]
         return v === undefined || v === null || v === "" ? "—" : String(v)
+    }
+
+    function planningStatusText() {
+        if (!root.planningResult) return "WAITING FOR PLANNING CORE"
+        var verification = root.planningResult.verification
+        if (!verification) return "INVALID PLANNING RESULT"
+        return verification.releaseStatus === "RELEASE_ELIGIBLE"
+                ? "PLANNING RESULT VERIFIED"
+                : "PLANNING RESULT BLOCKED"
     }
 
     function fieldValue(key) {
@@ -320,7 +332,7 @@ Item {
 
                             Text {
                                 anchors.fill: parent
-                                text: root.planningResult ? "PLANNING RESULT RECEIVED" : "WAITING FOR PLANNING CORE"
+                                text: root.planningStatusText()
                                 color: root.green
                                 font.family: "B612"
                                 font.pixelSize: 10
