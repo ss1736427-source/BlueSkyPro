@@ -1,3 +1,125 @@
+import QtQuick
+import QtCore
+
+Item {
+    id: root
+
+    // Prevent child controls from painting outside the panel when its
+    // width is collapsed to zero by MainContent.
+    clip: true
+    implicitWidth: 270
+
+    property color bg: "#08111D"
+    property color text: "#FFFFFF"
+    property color secondary: "#BFBFBF"
+    property color muted: "#7F7F7F"
+    property color green: "#64FF00"
+    property color amber: "#FFD339"
+    property color red: "#FF1E14"
+    property color cyan: "#32FFFF"
+    property color divider: "#7F7F7F"
+
+    // Match LeftPanel outline; shared top/bottom seams are owned by header/toolbar.
+    property bool showTopBorder: true
+    property bool showRightBorder: true
+    property bool showBottomBorder: true
+    property bool showLeftBorder: true
+
+    // Contextual validation is not shown until automatic revalidation succeeds.
+    property bool validationConfirmationRequired: false
+    property bool manualCreationMode: false
+    property bool manualCompositionComplete: false
+    property bool manualValidationStarted: false
+    property bool missionReady: false
+    property bool warningActive: true
+
+    Settings {
+        id: panelOrderSettings
+        category: "BlueSkyPRO/RightPanel"
+        property string orderCsv: "Checklist,Flight Conditions,Alerting,ATC"
+    }
+
+    property var panelOrder: panelOrderSettings.orderCsv.split(",")
+    property string draggingPanel: ""
+    property real dragOffsetY: 0
+    property real dragPressRootY: 0
+    property real dragVisualY: 0
+    property real dragGrabOffsetY: 0
+
+    function beginPanelDrag(key, pressRootY) {
+        if (!panelVisible(key))
+            return
+        draggingPanel = key
+        dragOffsetY = 0
+        dragPressRootY = pressRootY
+        dragVisualY = panelBaseY(key)
+        dragGrabOffsetY = pressRootY - dragVisualY
+    }
+
+    function updatePanelDrag(key, currentRootY) {
+        if (draggingPanel !== key)
+            return
+        dragVisualY = currentRootY - dragGrabOffsetY
+        dragOffsetY = dragVisualY - panelBaseY(key)
+    }
+
+    Component.onCompleted: {
+        var migratedOrder = panelOrder.filter(function(key) {
+            return key !== "Information"
+        })
+        var requiredOrder = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
+        for (var i = 0; i < requiredOrder.length; ++i) {
+            if (migratedOrder.indexOf(requiredOrder[i]) < 0)
+                migratedOrder.push(requiredOrder[i])
+        }
+        panelOrder = migratedOrder
+        panelOrderSettings.orderCsv = migratedOrder.join(",")
+    }
+
+    function panelVisible(key) {
+        if (key === "Information")
+            return true
+        if (key === "Checklist")
+            return panelSettingsPopup.enabledTools.indexOf("Checklist") >= 0
+        if (key === "Flight Conditions")
+            return ((panelSettingsPopup.enabledTools.indexOf("Weather") >= 0
+                     || root.weatherPilotAttentionRequired)
+                    || (panelSettingsPopup.enabledTools.indexOf("NOTAM") >= 0
+                        || root.notamPilotAttentionRequired))
+        if (key === "Alerting")
+            return panelSettingsPopup.enabledTools.indexOf("Information") >= 0
+                   || root.hasUnacknowledgedCriticalMessage()
+        if (key === "ATC")
+            return root.atcHeaderVisible || root.atcVisibleButtonCount > 0
+        return false
+    }
+
+    function panelHeight(key) {
+        if (key === "Information")
+            return informationTitleCard.height
+        if (key === "Checklist")
+            return checklistCard.height
+        if (key === "Flight Conditions")
+            return operationalCard.height
+        if (key === "Alerting")
+            return informationCard.height
+        if (key === "ATC")
+            return atcWorkArea.height
+        return 0
+    }
+
+    function panelBaseY(key) {
+        var y = 54
+        for (var i = 0; i < panelOrder.length; ++i) {
+            var current = panelOrder[i]
+            if (current === key)
+                return y
+            if (panelVisible(current))
+                y += panelHeight(current) + 10
+        }
+        return y
+    }
+
     function dropPanelAtPosition(key, currentRootY) {
         if (draggingPanel !== key)
             return
@@ -34,8 +156,6 @@
 
         visibleOrder.splice(target, 0, key)
 
-        // Persist the exact visual order. Information is fixed and is never
-        // included in this reorderable sequence.
         var newOrder = visibleOrder.concat(hiddenOrder)
         panelOrder = newOrder
         panelOrderSettings.orderCsv = newOrder.join(",")
@@ -55,8 +175,6 @@
         dragGrabOffsetY = 0
         draggingPanel = ""
     }
-
-
     // Preview state only. Live weather/NOTAM providers must supply authoritative data.
     property string selectedOperationalTool: ""
     // Set only by the authoritative route-planning/revalidation result.
