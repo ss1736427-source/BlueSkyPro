@@ -1,10 +1,10 @@
 import QtQuick
+import QtWebEngine
 
 Item {
     id: root
 
-    // BlueSky PRO — schematic Flight Chart workspace.
-    // Visual preview only: not a geographic map or flight-authoritative data.
+    // BlueSky PRO — live Yandex geographic map workspace.
     property color bg: "#050A12"
     property color text: "#FFFFFF"
     property color secondary: "#BFBFBF"
@@ -13,156 +13,88 @@ Item {
     property color cyan: "#32FFFF"
     property bool missionVisible: true
     property bool manualCreationMode: false
-    // The map/mission editor sets this only when the composed mission is complete.
     property bool manualCompositionComplete: false
-    // Pan offset for mouse-driven map dragging (visual preview interaction).
-    // View state can be owned by MainContent so it survives template/tool changes.
+
+    // Retained for MainContent state compatibility. Geographic pan/zoom is owned
+    // by Yandex Maps once the live map is loaded.
     property bool useExternalMapState: false
     property real mapPanX: 0
     property real mapPanY: 0
     property real mapZoom: 1.0
     signal mapViewChangeRequested(real panX, real panY, real zoom)
-
-    function setMapView(panX, panY, zoom) {
-        if (useExternalMapState) {
-            mapViewChangeRequested(panX, panY, zoom)
-        } else {
-            mapPanX = panX
-            mapPanY = panY
-            mapZoom = zoom
-        }
-        chartCanvas.requestPaint()
-    }
-
-    property real dragStartMouseX: 0
-    property real dragStartMouseY: 0
-    property real dragStartPanX: 0
-    property real dragStartPanY: 0
-    property real pinchStartZoom: 1.0
-    property real pinchStartPanX: 0
-    property real pinchStartPanY: 0
-    property real pinchStartX: 0
-    property real pinchStartY: 0
-
-    function zoomAt(factor, x, y) {
-        var nextZoom = Math.max(0.5, Math.min(4.0, mapZoom * factor))
-        var appliedFactor = nextZoom / mapZoom
-        var nextPanX = x - (x - mapPanX) * appliedFactor
-        var nextPanY = y - (y - mapPanY) * appliedFactor
-        setMapView(nextPanX, nextPanY, nextZoom)
-    }
-
     signal manualCompositionCompleted()
     signal mapDoubleClicked()
+
+    property string yandexApiKey: yandexMapsApiKey
+
+    function loadYandexMap() {
+        if (!root.yandexApiKey) {
+            mapView.loadHtml(noKeyHtml(), "https://yandex.com/")
+            return
+        }
+        mapView.loadHtml(yandexMapHtml(), "https://yandex.com/")
+    }
+
+    function noKeyHtml() {
+        return "<!doctype html><html><head><meta charset='utf-8'>" +
+               "<style>html,body{margin:0;width:100%;height:100%;background:#050A12;color:#BFBFBF;" +
+               "font-family:Arial,sans-serif}main{height:100%;display:flex;align-items:center;" +
+               "justify-content:center;text-align:center}strong{color:#64FF00}</style></head>" +
+               "<body><main><div><strong>YANDEX MAPS</strong><br><br>" +
+               "API key is not configured.<br>" +
+               "Set BLUESKY_YANDEX_MAPS_API_KEY and restart BlueSky PRO.</div></main></body></html>"
+    }
+
+    function yandexMapHtml() {
+        var key = encodeURIComponent(root.yandexApiKey)
+        return "<!doctype html><html><head><meta charset='utf-8'>" +
+               "<meta name='viewport' content='width=device-width,initial-scale=1'>" +
+               "<style>html,body,#map{width:100%;height:100%;margin:0;padding:0;overflow:hidden}" +
+               "body{background:#050A12}</style>" +
+               "<script src='https://api-maps.yandex.ru/2.1/?apikey=" + key +
+               "&lang=en_RU' type='text/javascript'></script></head><body>" +
+               "<div id='map'></div><script>" +
+               "ymaps.ready(function(){" +
+               "var map=new ymaps.Map('map',{center:[37.6176,55.7558],zoom:10,type:'yandex#map'," +
+               "controls:['zoomControl','typeSelector','fullscreenControl']},{searchControlProvider:'yandex#search'});" +
+               "var demoRoute=[[37.540,55.690],[37.585,55.735],[37.650,55.775],[37.715,55.735]];" +
+               "var line=new ymaps.Polyline(demoRoute,{},{" +
+               "strokeColor:'#32FFFF',strokeWidth:3,strokeOpacity:0.9,geodesic:true});" +
+               "map.geoObjects.add(line);" +
+               "map.geoObjects.add(new ymaps.Placemark(demoRoute[0],{balloonContent:'DEMO START'},{" +
+               "preset:'islands#greenCircleDotIcon'}));" +
+               "map.geoObjects.add(new ymaps.Placemark(demoRoute[demoRoute.length-1],{balloonContent:'DEMO FINISH'},{" +
+               "preset:'islands#yellowCircleDotIcon'}));" +
+               "});</script></body></html>"
+    }
 
     Rectangle {
         anchors.fill: parent
         color: root.bg
     }
 
-    // Grid, restricted airspace and route are schematic design-preview elements.
-    Canvas {
-        id: chartCanvas
+    WebEngineView {
+        id: mapView
         anchors.fill: parent
-        visible: true
-        renderTarget: Canvas.Image
-        onWidthChanged: requestPaint()
-        onHeightChanged: requestPaint()
-        onPaint: {
-            var ctx = getContext("2d")
-            var w = width
-            var h = height
-            ctx.clearRect(0, 0, w, h)
-            ctx.fillStyle = root.bg
-            ctx.fillRect(0, 0, w, h)
+        z: 0
+        backgroundColor: root.bg
+        settings.javascriptEnabled: true
+        settings.localContentCanAccessRemoteUrls: true
+        settings.errorPageEnabled: true
 
-            // Pan map content while keeping the surrounding UI overlays fixed.
-            ctx.save()
-            ctx.translate(root.mapPanX, root.mapPanY)
-            ctx.scale(root.mapZoom, root.mapZoom)
+        Component.onCompleted: root.loadYandexMap()
 
-            var step = 66
-            ctx.lineWidth = 1
-            for (var x = 0; x <= w; x += step) {
-                ctx.beginPath()
-                ctx.strokeStyle = (Math.round(x / step) % 5 === 0) ? "#1B2A3A" : "#111E2C"
-                ctx.moveTo(x, 0)
-                ctx.lineTo(x, h)
-                ctx.stroke()
-            }
-            for (var y = 0; y <= h; y += step) {
-                ctx.beginPath()
-                ctx.strokeStyle = (Math.round(y / step) % 5 === 0) ? "#1B2A3A" : "#111E2C"
-                ctx.moveTo(0, y)
-                ctx.lineTo(w, y)
-                ctx.stroke()
-            }
+        onLoadingChanged: function(loadRequest) {
+            if (loadRequest.status === WebEngineView.LoadFailedStatus)
+                console.log("Yandex Maps load failed:", loadRequest.errorString)
+        }
 
-            // Restricted area (illustrative only).
-            var rx = w * 0.57
-            var ry = h * 0.22
-            var rw = Math.min(194, w * 0.23)
-            var rh = Math.min(154, h * 0.24)
-            ctx.fillStyle = "#30121B"
-            ctx.strokeStyle = "#8B2637"
-            ctx.lineWidth = 1
-            ctx.fillRect(rx, ry, rw, rh)
-            ctx.strokeRect(rx, ry, rw, rh)
-            ctx.strokeStyle = "#5A202D"
-            for (var sy = ry + 14; sy < ry + rh; sy += 24) {
-                ctx.beginPath()
-                ctx.moveTo(rx + 8, sy)
-                ctx.lineTo(rx + rw - 8, sy)
-                ctx.stroke()
-            }
-
-            // Schematic route. Center the complete route geometry in the
-            // currently available map viewport, so opening/closing side panels
-            // does not leave the mission area visually off-center.
-            var pts = [
-                {x: w * 0.16, y: h * 0.73},
-                {x: w * 0.30, y: h * 0.54},
-                {x: w * 0.42, y: h * 0.62},
-                {x: w * 0.52, y: h * 0.42},
-                {x: w * 0.73, y: h * 0.69}
-            ]
-            var minX = pts[0].x
-            var maxX = pts[0].x
-            var minY = pts[0].y
-            var maxY = pts[0].y
-            for (var b = 1; b < pts.length; ++b) {
-                minX = Math.min(minX, pts[b].x)
-                maxX = Math.max(maxX, pts[b].x)
-                minY = Math.min(minY, pts[b].y)
-                maxY = Math.max(maxY, pts[b].y)
-            }
-            var offsetX = w / 2 - (minX + maxX) / 2
-            var offsetY = h / 2 - (minY + maxY) / 2
-            for (var p = 0; p < pts.length; ++p) {
-                pts[p].x += offsetX
-                pts[p].y += offsetY
-            }
-
-            ctx.beginPath()
-            ctx.moveTo(pts[0].x, pts[0].y)
-            for (var i = 1; i < pts.length; ++i)
-                ctx.lineTo(pts[i].x, pts[i].y)
-            ctx.strokeStyle = root.cyan
-            ctx.lineWidth = 2
-            ctx.lineJoin = "round"
-            ctx.stroke()
-
-            for (var j = 0; j < pts.length; ++j) {
-                ctx.beginPath()
-                ctx.arc(pts[j].x, pts[j].y, j === 0 || j === pts.length - 1 ? 4.5 : 3.5, 0, Math.PI * 2)
-                ctx.fillStyle = j === 0 ? "#64FF00" : (j === pts.length - 1 ? "#FFD43B" : root.cyan)
-                ctx.fill()
-            }
-
-            ctx.restore()
+        onJavaScriptConsoleMessage: function(level, message, lineNumber, sourceID) {
+            console.log("Yandex Maps:", message, "line", lineNumber, sourceID)
         }
     }
 
+    // Mission state overlay remains native QML and sits above the geographic map.
     Text {
         visible: true
         x: 18
@@ -172,6 +104,7 @@ Item {
         font.family: "B612"
         font.pixelSize: 14
         font.bold: true
+        z: 20
     }
 
     Rectangle {
@@ -183,10 +116,12 @@ Item {
         color: "#0C1725"
         border.color: "#24384B"
         border.width: 1
+        z: 20
+
         Text {
             anchors.centerIn: parent
-            text: "SCHEMATIC VIEW"
-            color: "#FFD43B"
+            text: "YANDEX MAP"
+            color: "#64FF00"
             font.family: "B612 Mono"
             font.pixelSize: 9
         }
@@ -203,9 +138,13 @@ Item {
         color: "#08111D"
         border.color: "#24384B"
         border.width: 1
+        opacity: 0.92
+        z: 20
+
         Column {
             anchors.centerIn: parent
             spacing: 3
+
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "WIND"
@@ -213,6 +152,7 @@ Item {
                 font.family: "B612 Mono"
                 font.pixelSize: 9
             }
+
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "↗  — m/s"
@@ -233,10 +173,13 @@ Item {
         height: 26
         color: "#050A12"
         opacity: 0.94
+        z: 20
+
         Row {
             anchors.fill: parent
             spacing: 14
             anchors.leftMargin: 2
+
             Repeater {
                 model: [
                     { label: "START", color: "#64FF00" },
@@ -244,9 +187,11 @@ Item {
                     { label: "FINISH", color: "#FFD43B" },
                     { label: "RESTRICTED", color: "#FF4D5A" }
                 ]
+
                 delegate: Row {
                     spacing: 5
                     anchors.verticalCenter: parent.verticalCenter
+
                     Rectangle {
                         width: 7
                         height: 7
@@ -254,6 +199,7 @@ Item {
                         color: modelData.color
                         anchors.verticalCenter: parent.verticalCenter
                     }
+
                     Text {
                         text: modelData.label
                         color: root.secondary
@@ -267,96 +213,13 @@ Item {
     }
 
     Text {
-        visible: true
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 14
-        text: "SCHEMATIC ROUTE • NOT FOR FLIGHT EXECUTION"
-        color: root.muted
-        font.family: "B612 Mono"
-        font.pixelSize: 9
-    }
-
-    MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.LeftButton
-        hoverEnabled: true
-        cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-
-        onPressed: function(mouse) {
-            root.dragStartMouseX = mouse.x
-            root.dragStartMouseY = mouse.y
-            root.dragStartPanX = root.mapPanX
-            root.dragStartPanY = root.mapPanY
-        }
-
-        onPositionChanged: function(mouse) {
-            if (pressed) {
-                root.setMapView(
-                    root.dragStartPanX + mouse.x - root.dragStartMouseX,
-                    root.dragStartPanY + mouse.y - root.dragStartMouseY,
-                    root.mapZoom
-                )
-            }
-        }
-
-        onDoubleClicked: root.mapDoubleClicked()
-    }
-
-    // Mouse wheel zoom, anchored at the pointer location.
-    WheelHandler {
-        target: null
-        onWheel: function(event) {
-            var factor = event.angleDelta.y > 0 ? 1.12 : (event.angleDelta.y < 0 ? 1 / 1.12 : 1.0)
-            if (factor !== 1.0) {
-                root.zoomAt(factor, event.x, event.y)
-                event.accepted = true
-            }
-        }
-    }
-
-    // Pinch-to-zoom for touchscreens/tablets; pan follows the gesture centroid.
-    PinchHandler {
-        target: null
-        onActiveChanged: {
-            if (active) {
-                root.pinchStartZoom = root.mapZoom
-                root.pinchStartPanX = root.mapPanX
-                root.pinchStartPanY = root.mapPanY
-                root.pinchStartX = centroid.position.x
-                root.pinchStartY = centroid.position.y
-            }
-        }
-        onScaleChanged: {
-            if (active) {
-                var nextZoom = Math.max(0.5, Math.min(4.0, root.pinchStartZoom * scale))
-                var ratio = nextZoom / root.pinchStartZoom
-                root.setMapView(
-                    centroid.position.x - (root.pinchStartX - root.pinchStartPanX) * ratio,
-                    centroid.position.y - (root.pinchStartY - root.pinchStartPanY) * ratio,
-                    nextZoom
-                )
-            }
-        }
-        onCentroidChanged: {
-            if (active) {
-                var ratio = root.mapZoom / root.pinchStartZoom
-                root.setMapView(
-                    centroid.position.x - (root.pinchStartX - root.pinchStartPanX) * ratio,
-                    centroid.position.y - (root.pinchStartY - root.pinchStartPanY) * ratio,
-                    root.mapZoom
-                )
-            }
-        }
-    }
-
-    Text {
         visible: !root.missionVisible && !root.manualCreationMode
         anchors.centerIn: parent
         text: "НЕТ АКТИВНОЙ МИССИИ"
         color: root.muted
         font.family: "B612 Mono"
         font.pixelSize: 12
+        z: 30
     }
 
     Text {
@@ -368,6 +231,7 @@ Item {
         font.family: "B612 Mono"
         font.pixelSize: 12
         font.bold: true
+        z: 30
     }
 
     PanelSettingsButton {
