@@ -43,7 +43,8 @@ Item {
     property string draggingPanel: ""
     property real dragOffsetY: 0
     property real dragPressRootY: 0
-    property real dragStartY: 0
+    property real dragVisualY: 0
+    property real dragGrabOffsetY: 0
 
     function beginPanelDrag(key, pressRootY) {
         if (!panelVisible(key))
@@ -51,14 +52,19 @@ Item {
         draggingPanel = key
         dragOffsetY = 0
         dragPressRootY = pressRootY
-        dragStartY = panelBaseY(key)
+        dragVisualY = panelBaseY(key)
+        dragGrabOffsetY = pressRootY - dragVisualY
     }
 
     function updatePanelDrag(key, currentRootY) {
         if (draggingPanel !== key)
             return
-        dragOffsetY = currentRootY - dragPressRootY
+
+        dragVisualY = currentRootY - dragGrabOffsetY
+        dragOffsetY = dragVisualY - panelBaseY(key)
+        reorderPanelAtPosition(key)
     }
+
 
     Component.onCompleted: {
         var migratedOrder = panelOrder.filter(function(key) {
@@ -117,64 +123,56 @@ Item {
         return y
     }
 
-    function reorderPanel(key) {
-        var currentOrder = panelOrder.slice()
-        var from = currentOrder.indexOf(key)
+    function reorderPanelAtPosition(key) {
+        var order = panelOrder.slice()
+        var from = order.indexOf(key)
         if (from < 0)
             return
 
-        // Build the layout exactly as it will look after the dragged panel
-        // is removed. The final mouse position is then mapped to that layout.
-        var visibleOrder = []
-        for (var i = 0; i < currentOrder.length; ++i) {
-            var item = currentOrder[i]
-            if (item !== key && panelVisible(item))
-                visibleOrder.push(item)
-        }
-
-        var dropCenter = dragStartY + dragOffsetY + panelHeight(key) / 2
-        var targetVisibleIndex = visibleOrder.length
+        var center = dragVisualY + panelHeight(key) / 2
+        var target = from
         var y = 54
 
-        for (var j = 0; j < visibleOrder.length; ++j) {
-            var candidate = visibleOrder[j]
-            var candidateHeight = panelHeight(candidate)
-            if (dropCenter < y + candidateHeight / 2) {
-                targetVisibleIndex = j
+        for (var i = 0; i < order.length; ++i) {
+            var other = order[i]
+            if (other === key || !panelVisible(other))
+                continue
+
+            var h = panelHeight(other)
+            if (center < y + h / 2) {
+                target = i
                 break
             }
-            y += candidateHeight + 10
+            y += h + 10
+            target = i + 1
         }
 
-        // Rebuild the persistent order from visible panels. Hidden panels are
-        // retained after the visible sequence so their settings are not lost.
-        var newVisibleOrder = visibleOrder.slice()
-        newVisibleOrder.splice(targetVisibleIndex, 0, key)
+        if (target > from)
+            target--
 
-        var newOrder = []
-        var visibleCursor = 0
-        for (var k = 0; k < currentOrder.length; ++k) {
-            var existing = currentOrder[k]
-            if (panelVisible(existing)) {
-                if (visibleCursor < newVisibleOrder.length)
-                    visibleCursor++
-            }
-        }
+        target = Math.max(0, Math.min(order.length - 1, target))
+        if (target === from)
+            return
 
-        // Keep the four reorderable panels in the exact dropped sequence.
-        // INFORMATION is never part of this sequence.
-        newOrder = newVisibleOrder.slice()
+        order.splice(from, 1)
+        order.splice(target, 0, key)
 
-        for (var m = 0; m < currentOrder.length; ++m) {
-            var hidden = currentOrder[m]
-            if (!panelVisible(hidden) && hidden !== "Information")
-                newOrder.push(hidden)
-        }
-
-        panelOrder = newOrder
-        panelOrderSettings.orderCsv = newOrder.join(",")
+        panelOrder = order
+        panelOrderSettings.orderCsv = order.join(",")
         panelOrderSettings.sync()
+    }
+
+    function finishPanelDrag(key) {
+        if (draggingPanel !== key)
+            return
+
+        // The order has already been updated continuously while dragging.
+        // Release only commits the final visual position and clears drag state.
+        reorderPanelAtPosition(key)
         dragOffsetY = 0
+        dragVisualY = 0
+        dragGrabOffsetY = 0
+        draggingPanel = ""
     }
 
     function finishPanelDrag(key) {
@@ -314,7 +312,7 @@ Item {
         id: checklistCard
         visible: root.panelVisible("Checklist")
         x: 16
-        y: root.panelBaseY("Checklist") + (root.draggingPanel === "Checklist" ? root.dragOffsetY : 0)
+        y: root.draggingPanel === "Checklist" ? root.dragVisualY : root.panelBaseY("Checklist")
         width: parent.width - 32
         height: Math.min(42 + root.visibleChecklistItems().length * 18, Math.max(90, parent.height * 0.34))
         radius: 8
@@ -445,7 +443,7 @@ Item {
         id: operationalCard
         visible: root.panelVisible("Flight Conditions")
         x: 16
-        y: root.panelBaseY("Flight Conditions") + (root.draggingPanel === "Flight Conditions" ? root.dragOffsetY : 0)
+        y: root.draggingPanel === "Flight Conditions" ? root.dragVisualY : root.panelBaseY("Flight Conditions")
         width: parent.width - 32
         height: root.selectedOperationalTool === "" ? 94 : Math.min(parent.height * 0.25, Math.max(94, operationalDetailColumn.implicitHeight + 50))
         radius: 8
@@ -583,7 +581,7 @@ Item {
         id: informationCard
         visible: root.panelVisible("Alerting")
         x: 16
-        y: root.panelBaseY("Alerting") + (root.draggingPanel === "Alerting" ? root.dragOffsetY : 0)
+        y: root.draggingPanel === "Alerting" ? root.dragVisualY : root.panelBaseY("Alerting")
         width: parent.width - 32
         height: Math.max(72, Math.min(root.informationAvailableHeight, (root.selectedInformationMessage ? informationDetailsColumn.implicitHeight : informationList.implicitHeight) + 48))
         radius: 8
@@ -848,7 +846,7 @@ Item {
         id: atcWorkArea
         visible: root.atcHeaderVisible || root.atcVisibleButtonCount > 0
         x: 16
-        y: root.panelBaseY("ATC") + (root.draggingPanel === "ATC" ? root.dragOffsetY : 0)
+        y: root.draggingPanel === "ATC" ? root.dragVisualY : root.panelBaseY("ATC")
         width: parent.width - 32
         height: root.atcWorkAreaHeight
         radius: 8
