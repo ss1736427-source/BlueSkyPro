@@ -66,3 +66,27 @@ jobs:
         working-directory: qt/BlueSkyPRO-HMI
         shell: pwsh
         run: cmake --build build-windows --config Release --parallel
+
+      - name: Deploy Windows runtime
+        working-directory: qt/BlueSkyPRO-HMI
+        shell: pwsh
+        run: |
+          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --qmldir qml --webengine build-windows\Release\appBlueSkyPRO.exe
+
+      - name: Windows startup smoke test
+        working-directory: qt/BlueSkyPRO-HMI
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath ".\build-windows\Release\appBlueSkyPRO.exe" -PassThru
+          Start-Sleep -Seconds 12
+          if ($p.HasExited) {
+            throw "BlueSky PRO exited during startup smoke test with code $($p.ExitCode)."
+          }
+          Stop-Process -Id $p.Id -Force
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v5
+        with:
+          name: BlueSkyPRO-Windows-x64
+          path: qt/BlueSkyPRO-HMI/build-windows/Release/
+          if-no-files-found: error
