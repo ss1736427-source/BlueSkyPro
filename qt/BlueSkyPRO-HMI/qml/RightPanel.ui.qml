@@ -363,7 +363,10 @@ Item {
             preventStealing: true
             onPressed: root.beginPanelDrag("Checklist", mapToItem(root, mouse.x, mouse.y).y)
             onPositionChanged: root.updatePanelDrag("Checklist", mapToItem(root, mouse.x, mouse.y).y)
-            onReleased: root.finishPanelDrag("Checklist")
+            onReleased: {
+                root.updatePanelDrag("Checklist", mapToItem(root, mouse.x, mouse.y).y)
+                root.finishPanelDrag("Checklist")
+            }
             onCanceled: root.finishPanelDrag("Checklist")
         }
 
@@ -469,7 +472,10 @@ Item {
             preventStealing: true
             onPressed: root.beginPanelDrag("Flight Conditions", mapToItem(root, mouse.x, mouse.y).y)
             onPositionChanged: root.updatePanelDrag("Flight Conditions", mapToItem(root, mouse.x, mouse.y).y)
-            onReleased: root.finishPanelDrag("Flight Conditions")
+            onReleased: {
+                root.updatePanelDrag("Flight Conditions", mapToItem(root, mouse.x, mouse.y).y)
+                root.finishPanelDrag("Flight Conditions")
+            }
             onCanceled: root.finishPanelDrag("Flight Conditions")
         }
         }
@@ -626,7 +632,10 @@ Item {
             preventStealing: true
             onPressed: root.beginPanelDrag("Alerting", mapToItem(root, mouse.x, mouse.y).y)
             onPositionChanged: root.updatePanelDrag("Alerting", mapToItem(root, mouse.x, mouse.y).y)
-            onReleased: root.finishPanelDrag("Alerting")
+            onReleased: {
+                root.updatePanelDrag("Alerting", mapToItem(root, mouse.x, mouse.y).y)
+                root.finishPanelDrag("Alerting")
+            }
             onCanceled: root.finishPanelDrag("Alerting")
         }
     }
@@ -889,7 +898,10 @@ Item {
             preventStealing: true
             onPressed: root.beginPanelDrag("ATC", mapToItem(root, mouse.x, mouse.y).y)
             onPositionChanged: root.updatePanelDrag("ATC", mapToItem(root, mouse.x, mouse.y).y)
-            onReleased: root.finishPanelDrag("ATC")
+            onReleased: {
+                root.updatePanelDrag("ATC", mapToItem(root, mouse.x, mouse.y).y)
+                root.finishPanelDrag("ATC")
+            }
             onCanceled: root.finishPanelDrag("ATC")
         }
     }
