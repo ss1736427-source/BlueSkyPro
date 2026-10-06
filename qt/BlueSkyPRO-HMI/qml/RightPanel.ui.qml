@@ -175,12 +175,6 @@ Item {
         draggingPanel = ""
     }
 
-    function finishPanelDrag(key) {
-        if (draggingPanel !== key)
-            return
-        reorderPanel(key)
-        draggingPanel = ""
-    }
     // Preview state only. Live weather/NOTAM providers must supply authoritative data.
     property string selectedOperationalTool: ""
     // Set only by the authoritative route-planning/revalidation result.
