@@ -1,7 +1,7 @@
 import QmlProject 1.1
 
 Project {
-    mainFile: "qml/BlueSkyPRO-Interface-Preview.ui.qml"
+    mainFile: "qml/App.qml"
 
     QmlFiles {
         directory: "qml"
