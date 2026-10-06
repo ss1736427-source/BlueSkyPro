@@ -121,7 +121,7 @@ Item {
                "map=new ymaps.Map('map',{center:[55.7558,37.6176],zoom:10,type:'yandex#map'," +
                "controls:['zoomControl','typeSelector','fullscreenControl']},{searchControlProvider:'yandex#search'});" +
                "window.blueskyMapReady=true;" +
-               "});</script></body></html>
+               "});</script></body></html>"
     }
 
     Rectangle {
@@ -141,21 +141,40 @@ Item {
         Component.onCompleted: root.loadYandexMap()
 
         onLoadingChanged: function(loadRequest) {
-            if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
-                root.mapReady = true
-                root.mapStatus = "ONLINE"
-                root.setRoute(root.routeCoordinates)
-                root.setRestrictions(root.restrictionZones)
-                root.setNotams(root.notamItems)
+            if (loadRequest.status === WebEngineView.LoadStartedStatus) {
+                root.mapReady = false
+                root.mapStatus = "LOADING"
+            } else if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
+                root.mapStatus = "LOADING"
+                mapReadyProbe.start()
             } else if (loadRequest.status === WebEngineView.LoadFailedStatus) {
                 root.mapReady = false
                 root.mapStatus = "ERROR"
+                mapReadyProbe.stop()
                 console.log("Yandex Maps load failed:", loadRequest.errorString)
             }
         }
 
         onJavaScriptConsoleMessage: function(level, message, lineNumber, sourceID) {
             console.log("Yandex Maps:", message, "line", lineNumber, sourceID)
+        }
+    }
+
+    Timer {
+        id: mapReadyProbe
+        interval: 250
+        repeat: true
+        onTriggered: {
+            mapView.runJavaScript("window.blueskyMapReady === true", function(result) {
+                if (result === true) {
+                    stop()
+                    root.mapReady = true
+                    root.mapStatus = "ONLINE"
+                    root.setRoute(root.routeCoordinates)
+                    root.setRestrictions(root.restrictionZones)
+                    root.setNotams(root.notamItems)
+                }
+            })
         }
     }
 
