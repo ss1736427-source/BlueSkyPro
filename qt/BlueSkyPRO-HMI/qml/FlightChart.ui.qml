@@ -43,7 +43,7 @@ Item {
     function runMapScript(script) {
         if (!mapReady)
             return
-        mapView.runJavaScript(script)
+        if (mapLoader.item) mapLoader.item.runJavaScript(script)
     }
 
     function setMapType(type) {
@@ -67,21 +67,9 @@ Item {
     }
 
     function loadYandexMap() {
-        if (!root.yandexApiKey) {
-            mapView.loadHtml(noKeyHtml(), "https://yandex.com/")
+        if (!root.yandexApiKey || !mapLoader.item)
             return
-        }
-        mapView.loadHtml(yandexMapHtml(), "https://yandex.com/")
-    }
-
-    function noKeyHtml() {
-        return "<!doctype html><html><head><meta charset='utf-8'>" +
-               "<style>html,body{margin:0;width:100%;height:100%;background:#050A12;color:#BFBFBF;" +
-               "font-family:Arial,sans-serif}main{height:100%;display:flex;align-items:center;" +
-               "justify-content:center;text-align:center}strong{color:#64FF00}</style></head>" +
-               "<body><main><div><strong>YANDEX MAPS</strong><br><br>" +
-               "API key is not configured.<br>" +
-               "Set BLUESKY_YANDEX_MAPS_API_KEY and restart BlueSky PRO.</div></main></body></html>"
+        mapLoader.item.loadHtml(yandexMapHtml(), "https://yandex.com/")
     }
 
     function yandexMapHtml() {
@@ -134,34 +122,41 @@ Item {
         color: root.bg
     }
 
-    WebEngineView {
-        id: mapView
+    Loader {
+        id: mapLoader
         anchors.fill: parent
+        active: root.yandexApiKey.length > 0
         z: 0
-        backgroundColor: root.bg
-        settings.javascriptEnabled: true
-        settings.localContentCanAccessRemoteUrls: true
-        settings.errorPageEnabled: true
 
-        Component.onCompleted: root.loadYandexMap()
+        sourceComponent: Component {
+            WebEngineView {
+                anchors.fill: parent
+                backgroundColor: root.bg
+                settings.javascriptEnabled: true
+                settings.localContentCanAccessRemoteUrls: true
+                settings.errorPageEnabled: true
 
-        onLoadingChanged: function(loadRequest) {
-            if (loadRequest.status === WebEngineView.LoadStartedStatus) {
-                root.mapReady = false
-                root.mapStatus = "LOADING"
-            } else if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
-                root.mapStatus = "LOADING"
-                mapReadyProbe.start()
-            } else if (loadRequest.status === WebEngineView.LoadFailedStatus) {
-                root.mapReady = false
-                root.mapStatus = "ERROR"
-                mapReadyProbe.stop()
-                console.log("Yandex Maps load failed:", loadRequest.errorString)
+                Component.onCompleted: root.loadYandexMap()
+
+                onLoadingChanged: function(loadRequest) {
+                    if (loadRequest.status === WebEngineView.LoadStartedStatus) {
+                        root.mapReady = false
+                        root.mapStatus = "LOADING"
+                    } else if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
+                        root.mapStatus = "LOADING"
+                        mapReadyProbe.start()
+                    } else if (loadRequest.status === WebEngineView.LoadFailedStatus) {
+                        root.mapReady = false
+                        root.mapStatus = "ERROR"
+                        mapReadyProbe.stop()
+                        console.log("Yandex Maps load failed:", loadRequest.errorString)
+                    }
+                }
+
+                onJavaScriptConsoleMessage: function(level, message, lineNumber, sourceID) {
+                    console.log("Yandex Maps:", message, "line", lineNumber, sourceID)
+                }
             }
-        }
-
-        onJavaScriptConsoleMessage: function(level, message, lineNumber, sourceID) {
-            console.log("Yandex Maps:", message, "line", lineNumber, sourceID)
         }
     }
 
@@ -170,7 +165,8 @@ Item {
         interval: 250
         repeat: true
         onTriggered: {
-            mapView.runJavaScript("window.blueskyMapReady === true", function(result) {
+            if (!mapLoader.item) return
+            mapLoader.item.runJavaScript("window.blueskyMapReady === true", function(result) {
                 if (result === true) {
                     stop()
                     root.mapReady = true
