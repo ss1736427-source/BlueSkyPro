@@ -37,6 +37,9 @@ qt_add_qml_module(appBlueSkyPRO
         qml/ToolContext.ui.qml
         qml/PanelSettingsButton.ui.qml
         qml/PanelSettingsPopup.qml
+        qml/TaskCreation.ui.qml
+        qml/MissionProfileWindow.qml
+        qml/RoleSelection.ui.qml
         qml/Theme.qml
     RESOURCES
         qml/icons8-menu-24.svg
@@ -44,6 +47,7 @@ qt_add_qml_module(appBlueSkyPRO
         qml/assets/uav_fixed_wing.svg
         qml/assets/uav_heavy_multirotor.svg
         qml/assets/uav_vtol.svg
+        qml/assets/bluesky_pro_logo.svg
 )
 
 target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Quick Qt6::WebEngineQuick)
