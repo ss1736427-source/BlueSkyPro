@@ -76,9 +76,12 @@ jobs:
       - name: Windows startup smoke test
         working-directory: qt/BlueSkyPRO-HMI
         shell: pwsh
+        env:
+          QTWEBENGINE_DISABLE_SANDBOX: "1"
+          QTWEBENGINE_CHROMIUM_FLAGS: "--disable-gpu --disable-gpu-compositing --no-sandbox"
         run: |
           $p = Start-Process -FilePath ".\build-windows\Release\appBlueSkyPRO.exe" -PassThru
-          Start-Sleep -Seconds 12
+          Start-Sleep -Seconds 20
           if ($p.HasExited) {
             throw "BlueSky PRO exited during startup smoke test with code $($p.ExitCode)."
           }
