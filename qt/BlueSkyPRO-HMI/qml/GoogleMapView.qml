@@ -7,8 +7,7 @@ Item {
     property real centerLatitude: 55.7558
     property real centerLongitude: 37.6176
     property int zoomLevel: 10
-    property string sessionToken: ""
-    property string attribution: "Google Maps"
+    property string attribution: "Yandex Maps"
     property string mapStatus: "INITIALIZING"
     property var routeCoordinates: [
         { lat: 55.7600, lon: 37.6000 },
@@ -56,12 +55,12 @@ Item {
     }
 
     function rebuildTiles() {
-        if (width <= 0 || height <= 0 || sessionToken.length === 0)
+        if (width <= 0 || height <= 0 || yandexMapsApiKey.length === 0)
             return
 
-        var size = worldSize()
         var cx = longitudeToWorld(centerLongitude)
         var cy = latitudeToWorld(centerLatitude)
+        var tileCount = Math.pow(2, zoomLevel)
         var firstX = Math.floor((cx - width / 2 - tileSize) / tileSize)
         var lastX = Math.floor((cx + width / 2 + tileSize) / tileSize)
         var firstY = Math.floor((cy - height / 2 - tileSize) / tileSize)
@@ -69,70 +68,28 @@ Item {
         var result = []
 
         for (var ty = firstY; ty <= lastY; ++ty) {
-            if (ty < 0 || ty >= Math.pow(2, zoomLevel))
+            if (ty < 0 || ty >= tileCount)
                 continue
+
             for (var tx = firstX; tx <= lastX; ++tx) {
-                var wrappedX = ((tx % Math.pow(2, zoomLevel)) + Math.pow(2, zoomLevel)) % Math.pow(2, zoomLevel)
+                var wrappedX = ((tx % tileCount) + tileCount) % tileCount
                 result.push({
                     tx: tx,
                     ty: ty,
                     x: tx * tileSize - cx + width / 2 + panOffsetX,
                     y: ty * tileSize - cy + height / 2 + panOffsetY,
-                    url: "https://tile.googleapis.com/v1/2dtiles/" + zoomLevel + "/" +
-                         wrappedX + "/" + ty + "?session=" +
-                         encodeURIComponent(sessionToken) + "&key=" +
-                         encodeURIComponent(googleMapsApiKey)
+                    url: "https://tiles.api-maps.yandex.ru/v1/tiles/?x=" +
+                         wrappedX + "&y=" + ty + "&z=" + zoomLevel +
+                         "&lang=en_US&l=map&apikey=" +
+                         encodeURIComponent(yandexMapsApiKey)
                 })
             }
         }
+
         tiles = result
     }
 
-    function requestSession() {
-        if (googleMapsApiKey.length === 0) {
-            mapStatus = "API KEY REQUIRED"
-            return
-        }
-
-        mapStatus = "CONNECTING"
-        var request = new XMLHttpRequest()
-        request.onreadystatechange = function() {
-            if (request.readyState !== XMLHttpRequest.DONE)
-                return
-
-            if (request.status >= 200 && request.status < 300) {
-                try {
-                    var response = JSON.parse(request.responseText)
-                    sessionToken = response.session || ""
-                    if (sessionToken.length > 0) {
-                        mapStatus = "READY"
-                        rebuildTiles()
-                    } else {
-                        mapStatus = "SESSION ERROR"
-                    }
-                } catch (error) {
-                    mapStatus = "SESSION ERROR"
-                }
-            } else {
-                mapStatus = "HTTP " + request.status
-            }
-        }
-
-        request.open(
-            "POST",
-            "https://tile.googleapis.com/v1/createSession?key=" +
-            encodeURIComponent(googleMapsApiKey)
-        )
-        request.setRequestHeader("Content-Type", "application/json")
-        request.send(JSON.stringify({
-            mapType: "roadmap",
-            language: "en-US",
-            region: "DE"
-        }))
-    }
-
     function commitPan() {
-        var size = worldSize()
         var centerX = longitudeToWorld(centerLongitude) - panOffsetX
         var centerY = latitudeToWorld(centerLatitude) - panOffsetY
         centerLongitude = worldToLongitude(centerX)
@@ -149,7 +106,6 @@ Item {
     onCenterLatitudeChanged: { rebuildTiles(); routeCanvas.requestPaint() }
     onCenterLongitudeChanged: { rebuildTiles(); routeCanvas.requestPaint() }
     onZoomLevelChanged: { rebuildTiles(); routeCanvas.requestPaint() }
-    onSessionTokenChanged: rebuildTiles()
     onPanOffsetXChanged: routeCanvas.requestPaint()
     onPanOffsetYChanged: routeCanvas.requestPaint()
 
@@ -184,8 +140,8 @@ Item {
             var centerY = root.latitudeToWorld(root.centerLatitude)
             var x = root.longitudeToWorld(coordinate.lon) - centerX + width / 2 + root.panOffsetX
             var y = root.latitudeToWorld(coordinate.lat) - centerY + height / 2 + root.panOffsetY
-
             var size = root.worldSize()
+
             if (x < -size / 2)
                 x += size
             else if (x > size / 2 + width)
@@ -218,7 +174,9 @@ Item {
             for (var j = 0; j < root.routeCoordinates.length; ++j) {
                 var marker = pointForCoordinate(root.routeCoordinates[j])
                 ctx.beginPath()
-                ctx.arc(marker.x, marker.y, j === 0 || j === root.routeCoordinates.length - 1 ? 6 : 4, 0, Math.PI * 2)
+                ctx.arc(marker.x, marker.y,
+                        j === 0 || j === root.routeCoordinates.length - 1 ? 6 : 4,
+                        0, Math.PI * 2)
                 ctx.fillStyle = j === 0 ? "#64FF00" :
                                 j === root.routeCoordinates.length - 1 ? "#FFD43B" : "#00D9FF"
                 ctx.fill()
@@ -233,8 +191,6 @@ Item {
         id: mapDrag
         target: null
         acceptedButtons: Qt.LeftButton
-        grabPermissions: PointerHandler.CanTakeOverFromItems |
-                         PointerHandler.CanTakeOverFromHandlersOfDifferentType
 
         onTranslationChanged: {
             root.panOffsetX = translation.x
@@ -295,14 +251,21 @@ Item {
         Text {
             id: statusText
             anchors.centerIn: parent
-            text: root.mapStatus === "API KEY REQUIRED"
-                  ? "GOOGLE MAPS API KEY REQUIRED"
-                  : "GOOGLE MAPS: " + root.mapStatus
-            color: root.mapStatus === "API KEY REQUIRED" ? "#FFD43B" : "#FFFFFF"
+            text: yandexMapsApiKey.length === 0
+                  ? "YANDEX MAPS API KEY REQUIRED"
+                  : "YANDEX MAPS: " + root.mapStatus
+            color: "#FFD43B"
             font.family: "B612 Mono"
             font.pixelSize: 11
         }
     }
 
-    Component.onCompleted: requestSession()
+    Component.onCompleted: {
+        if (yandexMapsApiKey.length > 0) {
+            mapStatus = "READY"
+            rebuildTiles()
+        } else {
+            mapStatus = "API KEY REQUIRED"
+        }
+    }
 }
