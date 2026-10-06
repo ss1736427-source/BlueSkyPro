@@ -41,3 +41,28 @@ jobs:
       - name: Build
         working-directory: qt/BlueSkyPRO-HMI
         run: cmake --build build --parallel
+
+  build-hmi-windows:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          modules: 'qtshadertools qtwebengine qtwebchannel qtpositioning'
+
+      - name: Configure
+        working-directory: qt/BlueSkyPRO-HMI
+        shell: pwsh
+        run: cmake -S . -B build-windows -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+
+      - name: Build
+        working-directory: qt/BlueSkyPRO-HMI
+        shell: pwsh
+        run: cmake --build build-windows --parallel
