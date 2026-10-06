@@ -270,27 +270,26 @@ Item {
                 font.bold: true
                 elide: Text.ElideRight
             }
-
-            DragHandler {
-                // Only the grip area is draggable; the header remains a title area.
-                x: parent.width - 6
-                y: 0
-                width: 6
-                height: parent.height
-                target: null
-                onActiveChanged: {
-                    if (active) {
-                        root.draggingPanel = "Information"
-                        root.dragOffsetY = 0
-                    } else {
-                        root.finishPanelDrag("Information")
-                    }
-                }
-                onTranslationChanged: {
-                    if (active && root.draggingPanel === "Information")
-                        root.dragOffsetY = translation.y
-                }
+        MouseArea {
+            // Only the narrow right-edge grip is draggable.
+            x: parent.width - 6
+            y: 0
+            width: 6
+            height: parent.height
+            preventStealing: true
+            property real pressY: 0
+            onPressed: {
+                root.draggingPanel = "Information"
+                root.dragOffsetY = 0
+                pressY = mouse.y
             }
+            onPositionChanged: {
+                if (pressed && root.draggingPanel === "Information")
+                    root.dragOffsetY = mouse.y - pressY
+            }
+            onReleased: root.finishPanelDrag("Information")
+            onCanceled: root.finishPanelDrag("Information")
+        }
         }
     }
 
@@ -342,26 +341,25 @@ Item {
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
         }
-
-        DragHandler {
-            // Only the grip area is draggable; the header remains a title area.
+        MouseArea {
+            // Only the narrow right-edge grip is draggable.
             x: parent.width - 6
             y: 0
             width: 6
             height: parent.height
-            target: null
-            onActiveChanged: {
-                if (active) {
-                    root.draggingPanel = "Checklist"
-                    root.dragOffsetY = 0
-                } else {
-                    root.finishPanelDrag("Checklist")
-                }
+            preventStealing: true
+            property real pressY: 0
+            onPressed: {
+                root.draggingPanel = "Checklist"
+                root.dragOffsetY = 0
+                pressY = mouse.y
             }
-            onTranslationChanged: {
-                if (active && root.draggingPanel === "Checklist")
-                    root.dragOffsetY = translation.y
+            onPositionChanged: {
+                if (pressed && root.draggingPanel === "Checklist")
+                    root.dragOffsetY = mouse.y - pressY
             }
+            onReleased: root.finishPanelDrag("Checklist")
+            onCanceled: root.finishPanelDrag("Checklist")
         }
 
         Row {
@@ -460,27 +458,26 @@ Item {
                 text: "FLIGHT CONDITIONS"
                 color: root.text; font.family: "B612"; font.pixelSize: 12; font.bold: true
             }
-
-            DragHandler {
-                // Only the grip area is draggable; the header remains a title area.
-                x: parent.width - 6
-                y: 0
-                width: 6
-                height: parent.height
-                target: null
-                onActiveChanged: {
-                    if (active) {
-                        root.draggingPanel = "Flight Conditions"
-                        root.dragOffsetY = 0
-                    } else {
-                        root.finishPanelDrag("Flight Conditions")
-                    }
-                }
-                onTranslationChanged: {
-                    if (active && root.draggingPanel === "Flight Conditions")
-                        root.dragOffsetY = translation.y
-                }
+        MouseArea {
+            // Only the narrow right-edge grip is draggable.
+            x: parent.width - 6
+            y: 0
+            width: 6
+            height: parent.height
+            preventStealing: true
+            property real pressY: 0
+            onPressed: {
+                root.draggingPanel = "Flight Conditions"
+                root.dragOffsetY = 0
+                pressY = mouse.y
             }
+            onPositionChanged: {
+                if (pressed && root.draggingPanel === "Flight Conditions")
+                    root.dragOffsetY = mouse.y - pressY
+            }
+            onReleased: root.finishPanelDrag("Flight Conditions")
+            onCanceled: root.finishPanelDrag("Flight Conditions")
+        }
         }
 
         Column {
@@ -629,26 +626,25 @@ Item {
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
         }
-
-        DragHandler {
-            // Only the grip area is draggable; the header remains a title area.
+        MouseArea {
+            // Only the narrow right-edge grip is draggable.
             x: parent.width - 6
             y: 0
             width: 6
             height: parent.height
-            target: null
-            onActiveChanged: {
-                if (active) {
-                    root.draggingPanel = "Alerting"
-                    root.dragOffsetY = 0
-                } else {
-                    root.finishPanelDrag("Alerting")
-                }
+            preventStealing: true
+            property real pressY: 0
+            onPressed: {
+                root.draggingPanel = "Alerting"
+                root.dragOffsetY = 0
+                pressY = mouse.y
             }
-            onTranslationChanged: {
-                if (active && root.draggingPanel === "Alerting")
-                    root.dragOffsetY = translation.y
+            onPositionChanged: {
+                if (pressed && root.draggingPanel === "Alerting")
+                    root.dragOffsetY = mouse.y - pressY
             }
+            onReleased: root.finishPanelDrag("Alerting")
+            onCanceled: root.finishPanelDrag("Alerting")
         }
     }
 
@@ -904,26 +900,25 @@ Item {
             font.bold: true
             verticalAlignment: Text.AlignVCenter
         }
-
-        DragHandler {
-            // Only the grip area is draggable; the header remains a title area.
+        MouseArea {
+            // Only the narrow right-edge grip is draggable.
             x: parent.width - 6
             y: 0
             width: 6
             height: parent.height
-            target: null
-            onActiveChanged: {
-                if (active) {
-                    root.draggingPanel = "ATC"
-                    root.dragOffsetY = 0
-                } else {
-                    root.finishPanelDrag("ATC")
-                }
+            preventStealing: true
+            property real pressY: 0
+            onPressed: {
+                root.draggingPanel = "ATC"
+                root.dragOffsetY = 0
+                pressY = mouse.y
             }
-            onTranslationChanged: {
-                if (active && root.draggingPanel === "ATC")
-                    root.dragOffsetY = translation.y
+            onPositionChanged: {
+                if (pressed && root.draggingPanel === "ATC")
+                    root.dragOffsetY = mouse.y - pressY
             }
+            onReleased: root.finishPanelDrag("ATC")
+            onCanceled: root.finishPanelDrag("ATC")
         }
     }
 
