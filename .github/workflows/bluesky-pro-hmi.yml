@@ -71,7 +71,7 @@ jobs:
         working-directory: qt/BlueSkyPRO-HMI
         shell: pwsh
         run: |
-          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --qmldir qml --webengine build-windows\Release\appBlueSkyPRO.exe
+          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --qmldir qml build-windows\Release\appBlueSkyPRO.exe
 
       - name: Windows startup smoke test
         working-directory: qt/BlueSkyPRO-HMI
