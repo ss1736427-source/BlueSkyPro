@@ -271,21 +271,11 @@ Item {
                 elide: Text.ElideRight
             }
 
-            Text {
-                anchors.right: parent.right
-                anchors.rightMargin: 10
-                anchors.verticalCenter: parent.verticalCenter
-                text: "⋮⋮"
-                color: root.cyan
-                font.pixelSize: 12
-                opacity: 0.8
-            }
-
             DragHandler {
                 // Only the grip area is draggable; the header remains a title area.
-                x: parent.width - 34
+                x: parent.width - 6
                 y: 0
-                width: 34
+                width: 6
                 height: parent.height
                 target: null
                 onActiveChanged: {
@@ -353,21 +343,11 @@ Item {
             elide: Text.ElideRight
         }
 
-        Text {
-            anchors.right: checklistCounts.left
-            anchors.rightMargin: 10
-            anchors.verticalCenter: parent.verticalCenter
-            text: "⋮⋮"
-            color: root.cyan
-            font.pixelSize: 12
-            opacity: 0.8
-        }
-
         DragHandler {
             // Only the grip area is draggable; the header remains a title area.
-            x: parent.width - 34
+            x: parent.width - 6
             y: 0
-            width: 34
+            width: 6
             height: parent.height
             target: null
             onActiveChanged: {
@@ -481,21 +461,11 @@ Item {
                 color: root.text; font.family: "B612"; font.pixelSize: 12; font.bold: true
             }
 
-            Text {
-                anchors.right: parent.right
-                anchors.rightMargin: 10
-                anchors.verticalCenter: parent.verticalCenter
-                text: "⋮⋮"
-                color: root.cyan
-                font.pixelSize: 12
-                opacity: 0.8
-            }
-
             DragHandler {
                 // Only the grip area is draggable; the header remains a title area.
-                x: parent.width - 34
+                x: parent.width - 6
                 y: 0
-                width: 34
+                width: 6
                 height: parent.height
                 target: null
                 onActiveChanged: {
@@ -660,21 +630,11 @@ Item {
             elide: Text.ElideRight
         }
 
-        Text {
-            anchors.right: parent.right
-            anchors.rightMargin: 10
-            anchors.verticalCenter: parent.verticalCenter
-            text: "⋮⋮"
-            color: root.cyan
-            font.pixelSize: 12
-            opacity: 0.8
-        }
-
         DragHandler {
             // Only the grip area is draggable; the header remains a title area.
-            x: parent.width - 34
+            x: parent.width - 6
             y: 0
-            width: 34
+            width: 6
             height: parent.height
             target: null
             onActiveChanged: {
@@ -945,21 +905,11 @@ Item {
             verticalAlignment: Text.AlignVCenter
         }
 
-        Text {
-            anchors.right: parent.right
-            anchors.rightMargin: 10
-            anchors.verticalCenter: parent.verticalCenter
-            text: "⋮⋮"
-            color: root.cyan
-            font.pixelSize: 12
-            opacity: 0.8
-        }
-
         DragHandler {
             // Only the grip area is draggable; the header remains a title area.
-            x: parent.width - 34
+            x: parent.width - 6
             y: 0
-            width: 34
+            width: 6
             height: parent.height
             target: null
             onActiveChanged: {
