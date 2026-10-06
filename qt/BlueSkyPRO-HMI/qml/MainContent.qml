@@ -66,6 +66,34 @@ Item {
     signal workspaceContextRequested(string context)
     property string workspaceContext: bottomToolbar.activeTool
 
+    // Map receives the canonical route geometry maintained by MissionProfileWindow.
+    // The HMI only converts its coordinate strings to [latitude, longitude].
+    function mapRouteCoordinates() {
+        var routes = missionProfileWindow.routeDataByUav
+        if (!routes || typeof routes !== "object")
+            return []
+
+        var route = selectedUavId !== "NO UAV SELECTED" ? routes[selectedUavId] : null
+        if (!Array.isArray(route)) {
+            var keys = Object.keys(routes)
+            route = keys.length > 0 ? routes[keys[0]] : null
+        }
+        if (!Array.isArray(route))
+            return []
+
+        var result = []
+        for (var i = 0; i < route.length; ++i) {
+            var pair = String(route[i].coordinates || "").split(",")
+            if (pair.length !== 2)
+                continue
+            var lat = Number(pair[0].trim())
+            var lon = Number(pair[1].trim())
+            if (isFinite(lat) && isFinite(lon))
+                result.push([lat, lon])
+        }
+        return result
+    }
+
     // Persist the operator-positioned alert overlay across application launches.
     Settings {
         id: alertOverlaySettings
@@ -139,6 +167,7 @@ Item {
             mapPanX: root.mapPanX
             mapPanY: root.mapPanY
             mapZoom: root.mapZoom
+            routeCoordinates: root.mapRouteCoordinates()
             // Keep the map as the persistent workspace in every mode.
             visible: true
             onMapViewChangeRequested: function(panX, panY, zoom) {
