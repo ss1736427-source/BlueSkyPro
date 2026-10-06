@@ -183,6 +183,45 @@ Item {
         }
     }
 
+    // Native map-type selector; Yandex standard controls remain disabled for a clean HMI.
+    Row {
+        x: 134
+        y: 44
+        spacing: 3
+        z: 20
+
+        Repeater {
+            model: [
+                { label: "MAP", type: "yandex#map" },
+                { label: "SAT", type: "yandex#satellite" },
+                { label: "HYB", type: "yandex#hybrid" }
+            ]
+
+            delegate: Rectangle {
+                width: 38
+                height: 24
+                color: "#0C1725"
+                border.color: "#24384B"
+                border.width: 1
+
+                Text {
+                    anchors.centerIn: parent
+                    text: modelData.label
+                    color: root.secondary
+                    font.family: "B612 Mono"
+                    font.pixelSize: 8
+                    font.bold: true
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: root.setMapType(modelData.type)
+                    cursorShape: Qt.PointingHandCursor
+                }
+            }
+        }
+    }
+
     // Mission state overlay remains native QML and sits above the geographic map.
     Text {
         visible: true
