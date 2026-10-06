@@ -37,7 +37,7 @@ Item {
         id: panelOrderSettings
         category: "BlueSkyPRO/RightPanel"
         property string orderCsv: "Checklist,Flight Conditions,Alerting,ATC"
-        property string positionCsv: "Checklist=54,Flight Conditions=152,Alerting=256,ATC=350"
+        property string positionCsv: "Checklist=54,Flight Conditions=293,Alerting=400,ATC=499"
     }
 
     property var panelOrder: panelOrderSettings.orderCsv.split(",")
