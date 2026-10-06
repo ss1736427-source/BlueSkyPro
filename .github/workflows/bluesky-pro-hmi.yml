@@ -32,7 +32,7 @@ jobs:
           host: 'linux'
           target: 'desktop'
           arch: 'linux_gcc_64'
-          modules: 'qtshadertools qtwebengine qtwebchannel'
+          modules: 'qtshadertools qtwebengine qtwebchannel qtpositioning'
 
       - name: Configure
         working-directory: qt/BlueSkyPRO-HMI
