@@ -282,6 +282,11 @@ Item {
             }
 
             DragHandler {
+                // Only the grip area is draggable; the header remains a title area.
+                x: parent.width - 34
+                y: 0
+                width: 34
+                height: parent.height
                 target: null
                 onActiveChanged: {
                     if (active) {
@@ -359,6 +364,11 @@ Item {
         }
 
         DragHandler {
+            // Only the grip area is draggable; the header remains a title area.
+            x: parent.width - 34
+            y: 0
+            width: 34
+            height: parent.height
             target: null
             onActiveChanged: {
                 if (active) {
@@ -482,6 +492,11 @@ Item {
             }
 
             DragHandler {
+                // Only the grip area is draggable; the header remains a title area.
+                x: parent.width - 34
+                y: 0
+                width: 34
+                height: parent.height
                 target: null
                 onActiveChanged: {
                     if (active) {
@@ -656,6 +671,11 @@ Item {
         }
 
         DragHandler {
+            // Only the grip area is draggable; the header remains a title area.
+            x: parent.width - 34
+            y: 0
+            width: 34
+            height: parent.height
             target: null
             onActiveChanged: {
                 if (active) {
@@ -936,6 +956,11 @@ Item {
         }
 
         DragHandler {
+            // Only the grip area is draggable; the header remains a title area.
+            x: parent.width - 34
+            y: 0
+            width: 34
+            height: parent.height
             target: null
             onActiveChanged: {
                 if (active) {
