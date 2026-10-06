@@ -37,30 +37,101 @@ Item {
         id: panelOrderSettings
         category: "BlueSkyPRO/RightPanel"
         property string orderCsv: "Checklist,Flight Conditions,Alerting,ATC"
+        property string positionCsv: "Checklist=54,Flight Conditions=152,Alerting=256,ATC=350"
     }
 
     property var panelOrder: panelOrderSettings.orderCsv.split(",")
     property string draggingPanel: ""
-    property real dragOffsetY: 0
-    property real dragPressRootY: 0
     property real dragVisualY: 0
     property real dragGrabOffsetY: 0
+    property var panelPositions: ({})
+
+    function loadPanelPositions() {
+        var result = {}
+        var entries = panelOrderSettings.positionCsv.split(",")
+        for (var i = 0; i < entries.length; ++i) {
+            var parts = entries[i].split("=")
+            if (parts.length === 2 && parts[0] !== "")
+                result[parts[0]] = Number(parts[1])
+        }
+
+        // Backfill missing positions from the current visual order.
+        var y = 54
+        var required = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
+        for (var j = 0; j < required.length; ++j) {
+            var key = required[j]
+            if (result[key] === undefined) {
+                result[key] = y
+                y += panelHeight(key) + 10
+            }
+        }
+        panelPositions = result
+        savePanelPositions()
+    }
+
+    function savePanelPositions() {
+        var required = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
+        var entries = []
+        for (var i = 0; i < required.length; ++i) {
+            var key = required[i]
+            var value = panelPositions[key]
+            if (value !== undefined)
+                entries.push(key + "=" + Math.round(value))
+        }
+        panelOrderSettings.positionCsv = entries.join(",")
+        panelOrderSettings.sync()
+    }
+
+    function panelPositionY(key) {
+        var value = panelPositions[key]
+        if (value === undefined)
+            return panelBaseY(key)
+        return value
+    }
 
     function beginPanelDrag(key, pressRootY) {
         if (!panelVisible(key))
             return
+
         draggingPanel = key
-        dragOffsetY = 0
-        dragPressRootY = pressRootY
-        dragVisualY = panelBaseY(key)
-        dragGrabOffsetY = pressRootY - dragVisualY
+        var storedY = panelPositionY(key)
+        dragGrabOffsetY = pressRootY - storedY
+        dragVisualY = storedY
     }
 
     function updatePanelDrag(key, currentRootY) {
         if (draggingPanel !== key)
             return
-        dragVisualY = currentRootY - dragGrabOffsetY
-        dragOffsetY = dragVisualY - panelBaseY(key)
+
+        var maxY = Math.max(54, root.height - panelHeight(key) - 10)
+        dragVisualY = Math.max(54, Math.min(maxY, currentRootY - dragGrabOffsetY))
+    }
+
+    function dropPanelAtPosition(key, currentRootY) {
+        if (draggingPanel !== key)
+            return
+
+        updatePanelDrag(key, currentRootY)
+
+        var next = {}
+        for (var k in panelPositions)
+            next[k] = panelPositions[k]
+
+        next[key] = Math.round(dragVisualY)
+        panelPositions = next
+        savePanelPositions()
+
+        draggingPanel = ""
+        dragVisualY = 0
+        dragGrabOffsetY = 0
+    }
+
+    function cancelPanelDrag(key) {
+        if (draggingPanel !== key)
+            return
+        draggingPanel = ""
+        dragVisualY = 0
+        dragGrabOffsetY = 0
     }
 
     Component.onCompleted: {
@@ -74,6 +145,7 @@ Item {
         }
         panelOrder = migratedOrder
         panelOrderSettings.orderCsv = migratedOrder.join(",")
+        loadPanelPositions()
     }
 
     function panelVisible(key) {
@@ -120,61 +192,7 @@ Item {
         return y
     }
 
-    function dropPanelAtPosition(key, currentRootY) {
-        if (draggingPanel !== key)
-            return
 
-        var order = panelOrder.slice()
-        var visibleOrder = []
-        var hiddenOrder = []
-
-        for (var i = 0; i < order.length; ++i) {
-            var item = order[i]
-            if (item === key)
-                continue
-            if (panelVisible(item))
-                visibleOrder.push(item)
-            else if (item !== "Information")
-                hiddenOrder.push(item)
-        }
-
-        var draggedHeight = panelHeight(key)
-        var dropTop = currentRootY - dragGrabOffsetY
-        var dropCenter = dropTop + draggedHeight / 2
-
-        var target = visibleOrder.length
-        var y = 54
-        for (var j = 0; j < visibleOrder.length; ++j) {
-            var candidate = visibleOrder[j]
-            var candidateHeight = panelHeight(candidate)
-            if (dropCenter < y + candidateHeight / 2) {
-                target = j
-                break
-            }
-            y += candidateHeight + 10
-        }
-
-        visibleOrder.splice(target, 0, key)
-
-        var newOrder = visibleOrder.concat(hiddenOrder)
-        panelOrder = newOrder
-        panelOrderSettings.orderCsv = newOrder.join(",")
-        panelOrderSettings.sync()
-
-        dragOffsetY = 0
-        dragVisualY = 0
-        dragGrabOffsetY = 0
-        draggingPanel = ""
-    }
-
-    function cancelPanelDrag(key) {
-        if (draggingPanel !== key)
-            return
-        dragOffsetY = 0
-        dragVisualY = 0
-        dragGrabOffsetY = 0
-        draggingPanel = ""
-    }
     // Preview state only. Live weather/NOTAM providers must supply authoritative data.
     property string selectedOperationalTool: ""
     // Set only by the authoritative route-planning/revalidation result.
@@ -306,7 +324,7 @@ Item {
         id: checklistCard
         visible: root.panelVisible("Checklist")
         x: 16
-        y: root.draggingPanel === "Checklist" ? root.dragVisualY : root.panelBaseY("Checklist")
+        y: root.draggingPanel === "Checklist" ? root.dragVisualY : root.panelPositionY("Checklist")
         width: parent.width - 32
         height: Math.min(42 + root.visibleChecklistItems().length * 18, Math.max(90, parent.height * 0.34))
         radius: 8
@@ -437,7 +455,7 @@ Item {
         id: operationalCard
         visible: root.panelVisible("Flight Conditions")
         x: 16
-        y: root.draggingPanel === "Flight Conditions" ? root.dragVisualY : root.panelBaseY("Flight Conditions")
+        y: root.draggingPanel === "Flight Conditions" ? root.dragVisualY : root.panelPositionY("Flight Conditions")
         width: parent.width - 32
         height: root.selectedOperationalTool === "" ? 94 : Math.min(parent.height * 0.25, Math.max(94, operationalDetailColumn.implicitHeight + 50))
         radius: 8
@@ -575,7 +593,7 @@ Item {
         id: informationCard
         visible: root.panelVisible("Alerting")
         x: 16
-        y: root.draggingPanel === "Alerting" ? root.dragVisualY : root.panelBaseY("Alerting")
+        y: root.draggingPanel === "Alerting" ? root.dragVisualY : root.panelPositionY("Alerting")
         width: parent.width - 32
         height: Math.max(72, Math.min(root.informationAvailableHeight, (root.selectedInformationMessage ? informationDetailsColumn.implicitHeight : informationList.implicitHeight) + 48))
         radius: 8
@@ -840,7 +858,7 @@ Item {
         id: atcWorkArea
         visible: root.atcHeaderVisible || root.atcVisibleButtonCount > 0
         x: 16
-        y: root.draggingPanel === "ATC" ? root.dragVisualY : root.panelBaseY("ATC")
+        y: root.draggingPanel === "ATC" ? root.dragVisualY : root.panelPositionY("ATC")
         width: parent.width - 32
         height: root.atcWorkAreaHeight
         radius: 8
