@@ -29,6 +29,17 @@ Item {
     property bool mapReady: false
     property string mapStatus: "OFFLINE"
 
+    // Geographic data contract for the planning engine.
+    // Coordinates use Yandex's default [latitude, longitude] order.
+    property var routeCoordinates: [
+        [55.690, 37.540],
+        [55.735, 37.585],
+        [55.775, 37.650],
+        [55.735, 37.715]
+    ]
+    property var restrictionZones: []
+    property var notamItems: []
+
     function runMapScript(script) {
         if (!mapReady)
             return
@@ -109,7 +120,6 @@ Item {
                "ymaps.ready(function(){" +
                "map=new ymaps.Map('map',{center:[55.7558,37.6176],zoom:10,type:'yandex#map'," +
                "controls:['zoomControl','typeSelector','fullscreenControl']},{searchControlProvider:'yandex#search'});" +
-               "setRoute([[55.690,37.540],[55.735,37.585],[55.775,37.650],[55.735,37.715]]);" +
                "window.blueskyMapReady=true;" +
                "});</script></body></html>
     }
@@ -134,6 +144,9 @@ Item {
             if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
                 root.mapReady = true
                 root.mapStatus = "ONLINE"
+                root.setRoute(root.routeCoordinates)
+                root.setRestrictions(root.restrictionZones)
+                root.setNotams(root.notamItems)
             } else if (loadRequest.status === WebEngineView.LoadFailedStatus) {
                 root.mapReady = false
                 root.mapStatus = "ERROR"
