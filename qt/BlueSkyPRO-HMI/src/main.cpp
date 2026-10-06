@@ -8,7 +8,11 @@
 int main(int argc, char *argv[])
 {
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
-    QtWebEngineQuick::initialize();
+
+    const bool yandexMapsConfigured =
+        !qEnvironmentVariable("BLUESKY_YANDEX_MAPS_API_KEY").isEmpty();
+    if (yandexMapsConfigured)
+        QtWebEngineQuick::initialize();
 
     QGuiApplication app(argc, argv);
 
