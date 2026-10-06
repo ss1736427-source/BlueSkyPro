@@ -97,7 +97,11 @@ Item {
                "function clearObjects(list){for(var i=0;i<list.length;i++)map.geoObjects.remove(list[i]);list.length=0;}" +
                "function setMapType(type){if(map)map.setType(type);}" +
                "function setLayerVisible(layer,visible){" +
-               "var list=layer==='route'?routeObjects:(layer==='restrictions'?restrictionObjects:notamObjects);" +
+               "var list=null;" +
+               "if(layer==='route')list=routeObjects;" +
+               "else if(layer==='restrictions')list=restrictionObjects;" +
+               "else if(layer==='notams')list=notamObjects;" +
+               "if(!list)return;" +
                "for(var i=0;i<list.length;i++)list[i].options.set('visible',visible);" +
                "}" +
                "function setRoute(points){" +
@@ -105,9 +109,11 @@ Item {
                "var line=new ymaps.Polyline(points,{},{" +
                "strokeColor:'#32FFFF',strokeWidth:3,strokeOpacity:0.9,geodesic:true});" +
                "routeObjects.push(line);map.geoObjects.add(line);" +
+               "for(var p=1;p<points.length-1;p++){var wp=new ymaps.Placemark(points[p],{balloonContent:'ТОЧКА '+p},{preset:'islands#blueCircleDotIcon'});routeObjects.push(wp);map.geoObjects.add(wp);}" +
                "routeObjects.push(new ymaps.Placemark(points[0],{balloonContent:'СТАРТ'},{preset:'islands#greenCircleDotIcon'}));" +
                "routeObjects.push(new ymaps.Placemark(points[points.length-1],{balloonContent:'ФИНИШ'},{preset:'islands#yellowCircleDotIcon'}));" +
-               "map.geoObjects.add(routeObjects[1]);map.geoObjects.add(routeObjects[2]);" +
+               "map.geoObjects.add(routeObjects[routeObjects.length-2]);map.geoObjects.add(routeObjects[routeObjects.length-1]);" +
+               "var bounds=map.geoObjects.getBounds();if(bounds)map.setBounds(bounds,{checkZoomRange:true,zoomMargin:32,duration:250});" +
                "}" +
                "function setRestrictions(zones){" +
                "clearObjects(restrictionObjects);if(!zones)return;" +
@@ -324,6 +330,15 @@ Item {
         anchors.margins: 10
         z: 400
         onClicked: panelSettingsPopup.open = !panelSettingsPopup.open
+    }
+
+    Connections {
+        target: panelSettingsPopup
+        function onToolToggled(tool, enabled) {
+            if (tool === "Airspace / Restrictions") root.setLayerVisible("restrictions", enabled)
+            else if (tool === "NOTAM") root.setLayerVisible("notams", enabled)
+            else if (tool === "Route / Waypoints") root.setLayerVisible("route", enabled)
+        }
     }
 
     PanelSettingsPopup {
