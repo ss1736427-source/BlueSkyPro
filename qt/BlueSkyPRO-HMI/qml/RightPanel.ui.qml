@@ -134,23 +134,23 @@ Item {
                 remaining.push(other)
         }
 
-        var target = order.length
+        var targetKey = ""
         var cursorY = 54
         for (var j = 0; j < remaining.length; ++j) {
             var candidate = remaining[j]
             var candidateHeight = panelHeight(candidate)
             if (dropCenter <= cursorY + candidateHeight / 2) {
-                target = order.indexOf(candidate)
+                targetKey = candidate
                 break
             }
             cursorY += candidateHeight + 10
         }
 
-        // Remove the dragged panel, then insert it exactly at the calculated
-        // position. Hidden panels keep their relative order.
+        // Remove the dragged panel first, then resolve the target index from
+        // the remaining order. This avoids index-shift errors in both
+        // upward and downward moves.
         order.splice(from, 1)
-        if (target > from)
-            target--
+        var target = targetKey === "" ? order.length : order.indexOf(targetKey)
         target = Math.max(0, Math.min(order.length, target))
         order.splice(target, 0, key)
 
