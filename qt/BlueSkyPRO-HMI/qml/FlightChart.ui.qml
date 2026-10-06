@@ -91,7 +91,7 @@ Item {
                "<style>html,body,#map{width:100%;height:100%;margin:0;padding:0;overflow:hidden}" +
                "body{background:#050A12}</style>" +
                "<script src='https://api-maps.yandex.ru/2.1/?apikey=" + key +
-               "&lang=ru_RU' type='text/javascript'></script></head><body>" +
+               "&lang=ru_RU&load=Map,Placemark,Polyline,Polygon' type='text/javascript'></script></head><body>" +
                "<div id='map'></div><script>" +
                "var map, routeObjects=[], restrictionObjects=[], notamObjects=[];" +
                "function clearObjects(list){for(var i=0;i<list.length;i++)map.geoObjects.remove(list[i]);list.length=0;}" +
@@ -118,8 +118,7 @@ Item {
                "for(var i=0;i<items.length;i++){var n=items[i];var o=new ymaps.Placemark(n.position,{balloonContent:n.text||'NOTAM'},{preset:'islands#redCircleDotIcon'});notamObjects.push(o);map.geoObjects.add(o);}" +
                "}" +
                "ymaps.ready(function(){" +
-               "map=new ymaps.Map('map',{center:[55.7558,37.6176],zoom:10,type:'yandex#map'," +
-               "controls:['zoomControl','typeSelector','fullscreenControl']},{searchControlProvider:'yandex#search'});" +
+               "map=new ymaps.Map('map',{center:[55.7558,37.6176],zoom:10,type:'yandex#map',controls:[]},{});" +
                "window.blueskyMapReady=true;" +
                "});</script></body></html>"
     }
