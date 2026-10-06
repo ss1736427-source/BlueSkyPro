@@ -118,44 +118,61 @@ Item {
     }
 
     function reorderPanel(key) {
-        var order = panelOrder.slice()
-        var from = order.indexOf(key)
+        var currentOrder = panelOrder.slice()
+        var from = currentOrder.indexOf(key)
         if (from < 0)
             return
 
-        // Calculate the drop position against the layout with the dragged
-        // panel removed. This makes the result deterministic at every drop
-        // point instead of depending on the panel's old index.
-        var dropCenter = dragStartY + dragOffsetY + panelHeight(key) / 2
-        var remaining = []
-        for (var i = 0; i < order.length; ++i) {
-            var other = order[i]
-            if (other !== key && panelVisible(other))
-                remaining.push(other)
+        // Build the layout exactly as it will look after the dragged panel
+        // is removed. The final mouse position is then mapped to that layout.
+        var visibleOrder = []
+        for (var i = 0; i < currentOrder.length; ++i) {
+            var item = currentOrder[i]
+            if (item !== key && panelVisible(item))
+                visibleOrder.push(item)
         }
 
-        var targetKey = ""
-        var cursorY = 54
-        for (var j = 0; j < remaining.length; ++j) {
-            var candidate = remaining[j]
+        var dropCenter = dragStartY + dragOffsetY + panelHeight(key) / 2
+        var targetVisibleIndex = visibleOrder.length
+        var y = 54
+
+        for (var j = 0; j < visibleOrder.length; ++j) {
+            var candidate = visibleOrder[j]
             var candidateHeight = panelHeight(candidate)
-            if (dropCenter <= cursorY + candidateHeight / 2) {
-                targetKey = candidate
+            if (dropCenter < y + candidateHeight / 2) {
+                targetVisibleIndex = j
                 break
             }
-            cursorY += candidateHeight + 10
+            y += candidateHeight + 10
         }
 
-        // Remove the dragged panel first, then resolve the target index from
-        // the remaining order. This avoids index-shift errors in both
-        // upward and downward moves.
-        order.splice(from, 1)
-        var target = targetKey === "" ? order.length : order.indexOf(targetKey)
-        target = Math.max(0, Math.min(order.length, target))
-        order.splice(target, 0, key)
+        // Rebuild the persistent order from visible panels. Hidden panels are
+        // retained after the visible sequence so their settings are not lost.
+        var newVisibleOrder = visibleOrder.slice()
+        newVisibleOrder.splice(targetVisibleIndex, 0, key)
 
-        panelOrder = order
-        panelOrderSettings.orderCsv = order.join(",")
+        var newOrder = []
+        var visibleCursor = 0
+        for (var k = 0; k < currentOrder.length; ++k) {
+            var existing = currentOrder[k]
+            if (panelVisible(existing)) {
+                if (visibleCursor < newVisibleOrder.length)
+                    visibleCursor++
+            }
+        }
+
+        // Keep the four reorderable panels in the exact dropped sequence.
+        // INFORMATION is never part of this sequence.
+        newOrder = newVisibleOrder.slice()
+
+        for (var m = 0; m < currentOrder.length; ++m) {
+            var hidden = currentOrder[m]
+            if (!panelVisible(hidden) && hidden !== "Information")
+                newOrder.push(hidden)
+        }
+
+        panelOrder = newOrder
+        panelOrderSettings.orderCsv = newOrder.join(",")
         panelOrderSettings.sync()
         dragOffsetY = 0
     }
