@@ -1,179 +1,61 @@
-import QtQuick
-import QtCore
-
-Item {
-    id: root
-
-    // Prevent child controls from painting outside the panel when its
-    // width is collapsed to zero by MainContent.
-    clip: true
-    implicitWidth: 270
-
-    property color bg: "#08111D"
-    property color text: "#FFFFFF"
-    property color secondary: "#BFBFBF"
-    property color muted: "#7F7F7F"
-    property color green: "#64FF00"
-    property color amber: "#FFD339"
-    property color red: "#FF1E14"
-    property color cyan: "#32FFFF"
-    property color divider: "#7F7F7F"
-
-    // Match LeftPanel outline; shared top/bottom seams are owned by header/toolbar.
-    property bool showTopBorder: true
-    property bool showRightBorder: true
-    property bool showBottomBorder: true
-    property bool showLeftBorder: true
-
-    // Contextual validation is not shown until automatic revalidation succeeds.
-    property bool validationConfirmationRequired: false
-    property bool manualCreationMode: false
-    property bool manualCompositionComplete: false
-    property bool manualValidationStarted: false
-    property bool missionReady: false
-    property bool warningActive: true
-
-    Settings {
-        id: panelOrderSettings
-        category: "BlueSkyPRO/RightPanel"
-        property string orderCsv: "Checklist,Flight Conditions,Alerting,ATC"
-    }
-
-    property var panelOrder: panelOrderSettings.orderCsv.split(",")
-    property string draggingPanel: ""
-    property real dragOffsetY: 0
-    property real dragPressRootY: 0
-    property real dragVisualY: 0
-    property real dragGrabOffsetY: 0
-
-    function beginPanelDrag(key, pressRootY) {
-        if (!panelVisible(key))
-            return
-        draggingPanel = key
-        dragOffsetY = 0
-        dragPressRootY = pressRootY
-        dragVisualY = panelBaseY(key)
-        dragGrabOffsetY = pressRootY - dragVisualY
-    }
-
-    function updatePanelDrag(key, currentRootY) {
+    function dropPanelAtPosition(key, currentRootY) {
         if (draggingPanel !== key)
             return
 
-        dragVisualY = currentRootY - dragGrabOffsetY
-        dragOffsetY = dragVisualY - panelBaseY(key)
-        reorderPanelAtPosition(key)
-    }
-
-
-    Component.onCompleted: {
-        var migratedOrder = panelOrder.filter(function(key) {
-            return key !== "Information"
-        })
-        var requiredOrder = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
-        for (var i = 0; i < requiredOrder.length; ++i) {
-            if (migratedOrder.indexOf(requiredOrder[i]) < 0)
-                migratedOrder.push(requiredOrder[i])
-        }
-        panelOrder = migratedOrder
-        panelOrderSettings.orderCsv = migratedOrder.join(",")
-    }
-
-    function panelVisible(key) {
-        if (key === "Information")
-            return true
-        if (key === "Checklist")
-            return panelSettingsPopup.enabledTools.indexOf("Checklist") >= 0
-        if (key === "Flight Conditions")
-            return ((panelSettingsPopup.enabledTools.indexOf("Weather") >= 0
-                     || root.weatherPilotAttentionRequired)
-                    || (panelSettingsPopup.enabledTools.indexOf("NOTAM") >= 0
-                        || root.notamPilotAttentionRequired))
-        if (key === "Alerting")
-            return panelSettingsPopup.enabledTools.indexOf("Information") >= 0
-                   || root.hasUnacknowledgedCriticalMessage()
-        if (key === "ATC")
-            return root.atcHeaderVisible || root.atcVisibleButtonCount > 0
-        return false
-    }
-
-    function panelHeight(key) {
-        if (key === "Information")
-            return informationTitleCard.height
-        if (key === "Checklist")
-            return checklistCard.height
-        if (key === "Flight Conditions")
-            return operationalCard.height
-        if (key === "Alerting")
-            return informationCard.height
-        if (key === "ATC")
-            return atcWorkArea.height
-        return 0
-    }
-
-    function panelBaseY(key) {
-        var y = 54
-        for (var i = 0; i < panelOrder.length; ++i) {
-            var current = panelOrder[i]
-            if (current === key)
-                return y
-            if (panelVisible(current))
-                y += panelHeight(current) + 10
-        }
-        return y
-    }
-
-    function reorderPanelAtPosition(key) {
         var order = panelOrder.slice()
-        var from = order.indexOf(key)
-        if (from < 0)
-            return
-
-        var center = dragVisualY + panelHeight(key) / 2
-        var target = from
-        var y = 54
+        var visibleOrder = []
+        var hiddenOrder = []
 
         for (var i = 0; i < order.length; ++i) {
-            var other = order[i]
-            if (other === key || !panelVisible(other))
+            var item = order[i]
+            if (item === key)
                 continue
-
-            var h = panelHeight(other)
-            if (center < y + h / 2) {
-                target = i
-                break
-            }
-            y += h + 10
-            target = i + 1
+            if (panelVisible(item))
+                visibleOrder.push(item)
+            else if (item !== "Information")
+                hiddenOrder.push(item)
         }
 
-        if (target > from)
-            target--
+        var draggedHeight = panelHeight(key)
+        var dropTop = currentRootY - dragGrabOffsetY
+        var dropCenter = dropTop + draggedHeight / 2
 
-        target = Math.max(0, Math.min(order.length - 1, target))
-        if (target === from)
-            return
+        var target = visibleOrder.length
+        var y = 54
+        for (var j = 0; j < visibleOrder.length; ++j) {
+            var candidate = visibleOrder[j]
+            var candidateHeight = panelHeight(candidate)
+            if (dropCenter < y + candidateHeight / 2) {
+                target = j
+                break
+            }
+            y += candidateHeight + 10
+        }
 
-        order.splice(from, 1)
-        order.splice(target, 0, key)
+        visibleOrder.splice(target, 0, key)
 
-        panelOrder = order
-        panelOrderSettings.orderCsv = order.join(",")
+        // Persist the exact visual order. Information is fixed and is never
+        // included in this reorderable sequence.
+        var newOrder = visibleOrder.concat(hiddenOrder)
+        panelOrder = newOrder
+        panelOrderSettings.orderCsv = newOrder.join(",")
         panelOrderSettings.sync()
-    }
 
-    function finishPanelDrag(key) {
-        if (draggingPanel !== key)
-            return
-
-        // The order has already been updated continuously while dragging.
-        // Release only commits the final visual position and clears drag state.
-        reorderPanelAtPosition(key)
         dragOffsetY = 0
         dragVisualY = 0
         dragGrabOffsetY = 0
         draggingPanel = ""
     }
+
+    function cancelPanelDrag(key) {
+        if (draggingPanel !== key)
+            return
+        dragOffsetY = 0
+        dragVisualY = 0
+        dragGrabOffsetY = 0
+        draggingPanel = ""
+    }
+
 
     // Preview state only. Live weather/NOTAM providers must supply authoritative data.
     property string selectedOperationalTool: ""
@@ -357,9 +239,9 @@ Item {
             onPositionChanged: root.updatePanelDrag("Checklist", mapToItem(root, mouse.x, mouse.y).y)
             onReleased: {
                 root.updatePanelDrag("Checklist", mapToItem(root, mouse.x, mouse.y).y)
-                root.finishPanelDrag("Checklist")
+                root.dropPanelAtPosition("Checklist", mapToItem(root, mouse.x, mouse.y).y)
             }
-            onCanceled: root.finishPanelDrag("Checklist")
+            onCanceled: root.cancelPanelDrag("Checklist")
         }
 
         Row {
@@ -466,9 +348,9 @@ Item {
             onPositionChanged: root.updatePanelDrag("Flight Conditions", mapToItem(root, mouse.x, mouse.y).y)
             onReleased: {
                 root.updatePanelDrag("Flight Conditions", mapToItem(root, mouse.x, mouse.y).y)
-                root.finishPanelDrag("Flight Conditions")
+                root.dropPanelAtPosition("Flight Conditions", mapToItem(root, mouse.x, mouse.y).y)
             }
-            onCanceled: root.finishPanelDrag("Flight Conditions")
+            onCanceled: root.cancelPanelDrag("Flight Conditions")
         }
         }
 
@@ -626,9 +508,9 @@ Item {
             onPositionChanged: root.updatePanelDrag("Alerting", mapToItem(root, mouse.x, mouse.y).y)
             onReleased: {
                 root.updatePanelDrag("Alerting", mapToItem(root, mouse.x, mouse.y).y)
-                root.finishPanelDrag("Alerting")
+                root.dropPanelAtPosition("Alerting", mapToItem(root, mouse.x, mouse.y).y)
             }
-            onCanceled: root.finishPanelDrag("Alerting")
+            onCanceled: root.cancelPanelDrag("Alerting")
         }
     }
 
@@ -892,9 +774,9 @@ Item {
             onPositionChanged: root.updatePanelDrag("ATC", mapToItem(root, mouse.x, mouse.y).y)
             onReleased: {
                 root.updatePanelDrag("ATC", mapToItem(root, mouse.x, mouse.y).y)
-                root.finishPanelDrag("ATC")
+                root.dropPanelAtPosition("ATC", mapToItem(root, mouse.x, mouse.y).y)
             }
-            onCanceled: root.finishPanelDrag("ATC")
+            onCanceled: root.cancelPanelDrag("ATC")
         }
     }
 
