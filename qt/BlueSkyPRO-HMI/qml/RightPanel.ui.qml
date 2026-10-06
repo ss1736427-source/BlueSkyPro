@@ -272,10 +272,10 @@ Item {
             }
         MouseArea {
             // Only the narrow right-edge grip is draggable.
-            x: parent.width - 6
-            y: 0
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
             width: 6
-            height: parent.height
             preventStealing: true
             property real pressY: 0
             onPressed: {
@@ -343,10 +343,10 @@ Item {
         }
         MouseArea {
             // Only the narrow right-edge grip is draggable.
-            x: parent.width - 6
-            y: 0
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
             width: 6
-            height: parent.height
             preventStealing: true
             property real pressY: 0
             onPressed: {
@@ -460,10 +460,10 @@ Item {
             }
         MouseArea {
             // Only the narrow right-edge grip is draggable.
-            x: parent.width - 6
-            y: 0
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
             width: 6
-            height: parent.height
             preventStealing: true
             property real pressY: 0
             onPressed: {
@@ -628,10 +628,10 @@ Item {
         }
         MouseArea {
             // Only the narrow right-edge grip is draggable.
-            x: parent.width - 6
-            y: 0
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
             width: 6
-            height: parent.height
             preventStealing: true
             property real pressY: 0
             onPressed: {
@@ -902,10 +902,10 @@ Item {
         }
         MouseArea {
             // Only the narrow right-edge grip is draggable.
-            x: parent.width - 6
-            y: 0
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
             width: 6
-            height: parent.height
             preventStealing: true
             property real pressY: 0
             onPressed: {
