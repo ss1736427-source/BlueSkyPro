@@ -26,6 +26,34 @@ Item {
     signal mapDoubleClicked()
 
     property string yandexApiKey: yandexMapsApiKey
+    property bool mapReady: false
+    property string mapStatus: "OFFLINE"
+
+    function runMapScript(script) {
+        if (!mapReady)
+            return
+        mapView.runJavaScript(script)
+    }
+
+    function setMapType(type) {
+        runMapScript("setMapType(" + JSON.stringify(type) + ");")
+    }
+
+    function setRoute(points) {
+        runMapScript("setRoute(" + JSON.stringify(points) + ");")
+    }
+
+    function setRestrictions(zones) {
+        runMapScript("setRestrictions(" + JSON.stringify(zones) + ");")
+    }
+
+    function setNotams(items) {
+        runMapScript("setNotams(" + JSON.stringify(items) + ");")
+    }
+
+    function setLayerVisible(layer, visible) {
+        runMapScript("setLayerVisible(" + JSON.stringify(layer) + "," + (visible ? "true" : "false") + ");")
+    }
 
     function loadYandexMap() {
         if (!root.yandexApiKey) {
@@ -52,20 +80,38 @@ Item {
                "<style>html,body,#map{width:100%;height:100%;margin:0;padding:0;overflow:hidden}" +
                "body{background:#050A12}</style>" +
                "<script src='https://api-maps.yandex.ru/2.1/?apikey=" + key +
-               "&lang=en_RU' type='text/javascript'></script></head><body>" +
+               "&lang=ru_RU' type='text/javascript'></script></head><body>" +
                "<div id='map'></div><script>" +
-               "ymaps.ready(function(){" +
-               "var map=new ymaps.Map('map',{center:[37.6176,55.7558],zoom:10,type:'yandex#map'," +
-               "controls:['zoomControl','typeSelector','fullscreenControl']},{searchControlProvider:'yandex#search'});" +
-               "var demoRoute=[[37.540,55.690],[37.585,55.735],[37.650,55.775],[37.715,55.735]];" +
-               "var line=new ymaps.Polyline(demoRoute,{},{" +
+               "var map, routeObjects=[], restrictionObjects=[], notamObjects=[];" +
+               "function clearObjects(list){for(var i=0;i<list.length;i++)map.geoObjects.remove(list[i]);list.length=0;}" +
+               "function setMapType(type){if(map)map.setType(type);}" +
+               "function setLayerVisible(layer,visible){" +
+               "var list=layer==='route'?routeObjects:(layer==='restrictions'?restrictionObjects:notamObjects);" +
+               "for(var i=0;i<list.length;i++)list[i].options.set('visible',visible);" +
+               "}" +
+               "function setRoute(points){" +
+               "clearObjects(routeObjects);if(!points||points.length<2)return;" +
+               "var line=new ymaps.Polyline(points,{},{" +
                "strokeColor:'#32FFFF',strokeWidth:3,strokeOpacity:0.9,geodesic:true});" +
-               "map.geoObjects.add(line);" +
-               "map.geoObjects.add(new ymaps.Placemark(demoRoute[0],{balloonContent:'DEMO START'},{" +
-               "preset:'islands#greenCircleDotIcon'}));" +
-               "map.geoObjects.add(new ymaps.Placemark(demoRoute[demoRoute.length-1],{balloonContent:'DEMO FINISH'},{" +
-               "preset:'islands#yellowCircleDotIcon'}));" +
-               "});</script></body></html>"
+               "routeObjects.push(line);map.geoObjects.add(line);" +
+               "routeObjects.push(new ymaps.Placemark(points[0],{balloonContent:'СТАРТ'},{preset:'islands#greenCircleDotIcon'}));" +
+               "routeObjects.push(new ymaps.Placemark(points[points.length-1],{balloonContent:'ФИНИШ'},{preset:'islands#yellowCircleDotIcon'}));" +
+               "map.geoObjects.add(routeObjects[1]);map.geoObjects.add(routeObjects[2]);" +
+               "}" +
+               "function setRestrictions(zones){" +
+               "clearObjects(restrictionObjects);if(!zones)return;" +
+               "for(var i=0;i<zones.length;i++){var z=zones[i];var o=new ymaps.Polygon(z.coordinates,{balloonContent:z.name||'ЗАПРЕТНАЯ ЗОНА'},{fillColor:'#FF4D5A55',strokeColor:'#FF4D5A',strokeWidth:2});restrictionObjects.push(o);map.geoObjects.add(o);}" +
+               "}" +
+               "function setNotams(items){" +
+               "clearObjects(notamObjects);if(!items)return;" +
+               "for(var i=0;i<items.length;i++){var n=items[i];var o=new ymaps.Placemark(n.position,{balloonContent:n.text||'NOTAM'},{preset:'islands#redCircleDotIcon'});notamObjects.push(o);map.geoObjects.add(o);}" +
+               "}" +
+               "ymaps.ready(function(){" +
+               "map=new ymaps.Map('map',{center:[55.7558,37.6176],zoom:10,type:'yandex#map'," +
+               "controls:['zoomControl','typeSelector','fullscreenControl']},{searchControlProvider:'yandex#search'});" +
+               "setRoute([[55.690,37.540],[55.735,37.585],[55.775,37.650],[55.735,37.715]]);" +
+               "window.blueskyMapReady=true;" +
+               "});</script></body></html>
     }
 
     Rectangle {
@@ -85,8 +131,14 @@ Item {
         Component.onCompleted: root.loadYandexMap()
 
         onLoadingChanged: function(loadRequest) {
-            if (loadRequest.status === WebEngineView.LoadFailedStatus)
+            if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
+                root.mapReady = true
+                root.mapStatus = "ONLINE"
+            } else if (loadRequest.status === WebEngineView.LoadFailedStatus) {
+                root.mapReady = false
+                root.mapStatus = "ERROR"
                 console.log("Yandex Maps load failed:", loadRequest.errorString)
+            }
         }
 
         onJavaScriptConsoleMessage: function(level, message, lineNumber, sourceID) {
@@ -120,7 +172,7 @@ Item {
 
         Text {
             anchors.centerIn: parent
-            text: "YANDEX MAP"
+            text: root.mapStatus === "ONLINE" ? "YANDEX MAP" : "YANDEX MAP · " + root.mapStatus
             color: "#64FF00"
             font.family: "B612 Mono"
             font.pixelSize: 9
