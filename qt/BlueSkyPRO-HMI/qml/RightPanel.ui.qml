@@ -36,7 +36,7 @@ Item {
     Settings {
         id: panelOrderSettings
         category: "BlueSkyPRO/RightPanel"
-        property string orderCsv: "Information,Checklist,Flight Conditions,Alerting,ATC"
+        property string orderCsv: "Checklist,Flight Conditions,Alerting,ATC"
     }
 
     property var panelOrder: panelOrderSettings.orderCsv.split(",")
@@ -44,18 +44,16 @@ Item {
     property real dragOffsetY: 0
 
     Component.onCompleted: {
-        if (panelOrder.indexOf("Information") < 0) {
-            var migratedOrder = panelOrder.slice()
-            migratedOrder.unshift("Information")
-            panelOrder = migratedOrder
-            panelOrderSettings.orderCsv = migratedOrder.join(",")
+        var migratedOrder = panelOrder.filter(function(key) {
+            return key !== "Information"
+        })
+        var requiredOrder = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
+        for (var i = 0; i < requiredOrder.length; ++i) {
+            if (migratedOrder.indexOf(requiredOrder[i]) < 0)
+                migratedOrder.push(requiredOrder[i])
         }
-        if (panelOrder.indexOf("ATC") < 0) {
-            var migratedOrder = panelOrder.slice()
-            migratedOrder.push("ATC")
-            panelOrder = migratedOrder
-            panelOrderSettings.orderCsv = migratedOrder.join(",")
-        }
+        panelOrder = migratedOrder
+        panelOrderSettings.orderCsv = migratedOrder.join(",")
     }
 
     function panelVisible(key) {
@@ -238,58 +236,25 @@ Item {
         antialiasing: false
     }
 
-    // INFORMATION is a real reorderable panel. The panel settings button remains fixed.
+    // INFORMATION is the fixed right-panel title, not a reorderable card.
     Rectangle {
         id: informationTitleCard
         x: 16
-        y: root.panelBaseY("Information") + (root.draggingPanel === "Information" ? root.dragOffsetY : 0)
+        y: 8
         width: parent.width - 32
         height: 38
-        radius: 8
         color: "transparent"
-        border.color: "#236078"
-        border.width: 1
-        antialiasing: true
-        z: root.draggingPanel === "Information" ? 200 : 1
 
-        Rectangle {
-            x: 1; y: 1; width: parent.width - 2; height: 32
-            radius: 7; color: "#0B1B2B"
-            Rectangle { x: 0; y: height / 2; width: parent.width; height: parent.height / 2; color: parent.color }
-
-            Text {
-                anchors.left: parent.left
-                anchors.leftMargin: 12
-                anchors.right: parent.right
-                anchors.rightMargin: 32
-                anchors.verticalCenter: parent.verticalCenter
-                text: "INFORMATION"
-                color: root.text
-                font.family: "B612"
-                font.pixelSize: 13
-                font.bold: true
-                elide: Text.ElideRight
-            }
-        MouseArea {
-            // Only the narrow right-edge grip is draggable.
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: 6
-            preventStealing: true
-            property real pressY: 0
-            onPressed: {
-                root.draggingPanel = "Information"
-                root.dragOffsetY = 0
-                pressY = mouse.y
-            }
-            onPositionChanged: {
-                if (pressed && root.draggingPanel === "Information")
-                    root.dragOffsetY = mouse.y - pressY
-            }
-            onReleased: root.finishPanelDrag("Information")
-            onCanceled: root.finishPanelDrag("Information")
-        }
+        Text {
+            anchors.left: parent.left
+            anchors.leftMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            text: "INFORMATION"
+            color: root.text
+            font.family: "B612"
+            font.pixelSize: 15
+            font.bold: true
+            elide: Text.ElideRight
         }
     }
 
@@ -342,21 +307,18 @@ Item {
             elide: Text.ElideRight
         }
         MouseArea {
-            // Only the narrow right-edge grip is draggable.
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: 6
+            // The panel header is the drag handle. No visual grip is shown.
+            anchors.fill: parent
             preventStealing: true
-            property real pressY: 0
+            property real pressRootY: 0
             onPressed: {
                 root.draggingPanel = "Checklist"
                 root.dragOffsetY = 0
-                pressY = mouse.y
+                pressRootY = mapToItem(root, mouse.x, mouse.y).y
             }
             onPositionChanged: {
                 if (pressed && root.draggingPanel === "Checklist")
-                    root.dragOffsetY = mouse.y - pressY
+                    root.dragOffsetY = mapToItem(root, mouse.x, mouse.y).y - pressRootY
             }
             onReleased: root.finishPanelDrag("Checklist")
             onCanceled: root.finishPanelDrag("Checklist")
@@ -459,21 +421,18 @@ Item {
                 color: root.text; font.family: "B612"; font.pixelSize: 12; font.bold: true
             }
         MouseArea {
-            // Only the narrow right-edge grip is draggable.
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: 6
+            // The panel header is the drag handle. No visual grip is shown.
+            anchors.fill: parent
             preventStealing: true
-            property real pressY: 0
+            property real pressRootY: 0
             onPressed: {
                 root.draggingPanel = "Flight Conditions"
                 root.dragOffsetY = 0
-                pressY = mouse.y
+                pressRootY = mapToItem(root, mouse.x, mouse.y).y
             }
             onPositionChanged: {
                 if (pressed && root.draggingPanel === "Flight Conditions")
-                    root.dragOffsetY = mouse.y - pressY
+                    root.dragOffsetY = mapToItem(root, mouse.x, mouse.y).y - pressRootY
             }
             onReleased: root.finishPanelDrag("Flight Conditions")
             onCanceled: root.finishPanelDrag("Flight Conditions")
@@ -627,21 +586,18 @@ Item {
             elide: Text.ElideRight
         }
         MouseArea {
-            // Only the narrow right-edge grip is draggable.
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: 6
+            // The panel header is the drag handle. No visual grip is shown.
+            anchors.fill: parent
             preventStealing: true
-            property real pressY: 0
+            property real pressRootY: 0
             onPressed: {
                 root.draggingPanel = "Alerting"
                 root.dragOffsetY = 0
-                pressY = mouse.y
+                pressRootY = mapToItem(root, mouse.x, mouse.y).y
             }
             onPositionChanged: {
                 if (pressed && root.draggingPanel === "Alerting")
-                    root.dragOffsetY = mouse.y - pressY
+                    root.dragOffsetY = mapToItem(root, mouse.x, mouse.y).y - pressRootY
             }
             onReleased: root.finishPanelDrag("Alerting")
             onCanceled: root.finishPanelDrag("Alerting")
@@ -901,21 +857,18 @@ Item {
             verticalAlignment: Text.AlignVCenter
         }
         MouseArea {
-            // Only the narrow right-edge grip is draggable.
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: 6
+            // The panel header is the drag handle. No visual grip is shown.
+            anchors.fill: parent
             preventStealing: true
-            property real pressY: 0
+            property real pressRootY: 0
             onPressed: {
                 root.draggingPanel = "ATC"
                 root.dragOffsetY = 0
-                pressY = mouse.y
+                pressRootY = mapToItem(root, mouse.x, mouse.y).y
             }
             onPositionChanged: {
                 if (pressed && root.draggingPanel === "ATC")
-                    root.dragOffsetY = mouse.y - pressY
+                    root.dragOffsetY = mapToItem(root, mouse.x, mouse.y).y - pressRootY
             }
             onReleased: root.finishPanelDrag("ATC")
             onCanceled: root.finishPanelDrag("ATC")
