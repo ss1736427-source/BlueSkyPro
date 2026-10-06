@@ -42,6 +42,23 @@ Item {
     property var panelOrder: panelOrderSettings.orderCsv.split(",")
     property string draggingPanel: ""
     property real dragOffsetY: 0
+    property real dragPressRootY: 0
+    property real dragStartY: 0
+
+    function beginPanelDrag(key, pressRootY) {
+        if (!panelVisible(key))
+            return
+        draggingPanel = key
+        dragOffsetY = 0
+        dragPressRootY = pressRootY
+        dragStartY = panelBaseY(key)
+    }
+
+    function updatePanelDrag(key, currentRootY) {
+        if (draggingPanel !== key)
+            return
+        dragOffsetY = currentRootY - dragPressRootY
+    }
 
     Component.onCompleted: {
         var migratedOrder = panelOrder.filter(function(key) {
@@ -106,23 +123,40 @@ Item {
         if (from < 0)
             return
 
-        var center = panelBaseY(key) + dragOffsetY + panelHeight(key) / 2
-        var target = 0
+        // Calculate the drop position against the layout with the dragged
+        // panel removed. This makes the result deterministic at every drop
+        // point instead of depending on the panel's old index.
+        var dropCenter = dragStartY + dragOffsetY + panelHeight(key) / 2
+        var remaining = []
         for (var i = 0; i < order.length; ++i) {
             var other = order[i]
-            if (other === key || !panelVisible(other))
-                continue
-            if (center > panelBaseY(other) + panelHeight(other) / 2)
-                target = i + 1
+            if (other !== key && panelVisible(other))
+                remaining.push(other)
         }
 
+        var target = order.length
+        var cursorY = 54
+        for (var j = 0; j < remaining.length; ++j) {
+            var candidate = remaining[j]
+            var candidateHeight = panelHeight(candidate)
+            if (dropCenter <= cursorY + candidateHeight / 2) {
+                target = order.indexOf(candidate)
+                break
+            }
+            cursorY += candidateHeight + 10
+        }
+
+        // Remove the dragged panel, then insert it exactly at the calculated
+        // position. Hidden panels keep their relative order.
         order.splice(from, 1)
         if (target > from)
             target--
         target = Math.max(0, Math.min(order.length, target))
         order.splice(target, 0, key)
+
         panelOrder = order
         panelOrderSettings.orderCsv = order.join(",")
+        panelOrderSettings.sync()
         dragOffsetY = 0
     }
 
@@ -310,16 +344,8 @@ Item {
             // The panel header is the drag handle. No visual grip is shown.
             anchors.fill: parent
             preventStealing: true
-            property real pressRootY: 0
-            onPressed: {
-                root.draggingPanel = "Checklist"
-                root.dragOffsetY = 0
-                pressRootY = mapToItem(root, mouse.x, mouse.y).y
-            }
-            onPositionChanged: {
-                if (pressed && root.draggingPanel === "Checklist")
-                    root.dragOffsetY = mapToItem(root, mouse.x, mouse.y).y - pressRootY
-            }
+            onPressed: root.beginPanelDrag("Checklist", mapToItem(root, mouse.x, mouse.y).y)
+            onPositionChanged: root.updatePanelDrag("Checklist", mapToItem(root, mouse.x, mouse.y).y)
             onReleased: root.finishPanelDrag("Checklist")
             onCanceled: root.finishPanelDrag("Checklist")
         }
@@ -424,16 +450,8 @@ Item {
             // The panel header is the drag handle. No visual grip is shown.
             anchors.fill: parent
             preventStealing: true
-            property real pressRootY: 0
-            onPressed: {
-                root.draggingPanel = "Flight Conditions"
-                root.dragOffsetY = 0
-                pressRootY = mapToItem(root, mouse.x, mouse.y).y
-            }
-            onPositionChanged: {
-                if (pressed && root.draggingPanel === "Flight Conditions")
-                    root.dragOffsetY = mapToItem(root, mouse.x, mouse.y).y - pressRootY
-            }
+            onPressed: root.beginPanelDrag("Flight Conditions", mapToItem(root, mouse.x, mouse.y).y)
+            onPositionChanged: root.updatePanelDrag("Flight Conditions", mapToItem(root, mouse.x, mouse.y).y)
             onReleased: root.finishPanelDrag("Flight Conditions")
             onCanceled: root.finishPanelDrag("Flight Conditions")
         }
@@ -589,16 +607,8 @@ Item {
             // The panel header is the drag handle. No visual grip is shown.
             anchors.fill: parent
             preventStealing: true
-            property real pressRootY: 0
-            onPressed: {
-                root.draggingPanel = "Alerting"
-                root.dragOffsetY = 0
-                pressRootY = mapToItem(root, mouse.x, mouse.y).y
-            }
-            onPositionChanged: {
-                if (pressed && root.draggingPanel === "Alerting")
-                    root.dragOffsetY = mapToItem(root, mouse.x, mouse.y).y - pressRootY
-            }
+            onPressed: root.beginPanelDrag("Alerting", mapToItem(root, mouse.x, mouse.y).y)
+            onPositionChanged: root.updatePanelDrag("Alerting", mapToItem(root, mouse.x, mouse.y).y)
             onReleased: root.finishPanelDrag("Alerting")
             onCanceled: root.finishPanelDrag("Alerting")
         }
@@ -860,16 +870,8 @@ Item {
             // The panel header is the drag handle. No visual grip is shown.
             anchors.fill: parent
             preventStealing: true
-            property real pressRootY: 0
-            onPressed: {
-                root.draggingPanel = "ATC"
-                root.dragOffsetY = 0
-                pressRootY = mapToItem(root, mouse.x, mouse.y).y
-            }
-            onPositionChanged: {
-                if (pressed && root.draggingPanel === "ATC")
-                    root.dragOffsetY = mapToItem(root, mouse.x, mouse.y).y - pressRootY
-            }
+            onPressed: root.beginPanelDrag("ATC", mapToItem(root, mouse.x, mouse.y).y)
+            onPositionChanged: root.updatePanelDrag("ATC", mapToItem(root, mouse.x, mouse.y).y)
             onReleased: root.finishPanelDrag("ATC")
             onCanceled: root.finishPanelDrag("ATC")
         }
