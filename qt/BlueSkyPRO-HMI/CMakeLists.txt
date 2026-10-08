@@ -47,6 +47,7 @@ qt_add_qml_module(appBlueSkyPRO
         qml/Theme.qml
     RESOURCES
         qml/icons8-menu-24.svg
+        qml/assets/bluesky_pro_logo.svg
         qml/assets/uav_multirotor.svg
         qml/assets/uav_fixed_wing.svg
         qml/assets/uav_heavy_multirotor.svg
