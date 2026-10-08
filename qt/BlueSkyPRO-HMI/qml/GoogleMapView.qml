@@ -95,12 +95,7 @@ Item {
                          wrappedX + "&y=" + ty + "&z=" + zoomLevel +
                          "&lang=en_US&l=map&projection=web_mercator&apikey=" +
                          encodeURIComponent(yandexMapsApiKey),
-                    source: tileCacheManager.requestTile(
-                        zoomLevel + "/" + wrappedX + "/" + ty,
-                        "https://tiles.api-maps.yandex.ru/v1/tiles/?x=" +
-                        wrappedX + "&y=" + ty + "&z=" + zoomLevel +
-                        "&lang=en_US&l=map&projection=web_mercator&apikey=" +
-                        encodeURIComponent(yandexMapsApiKey))
+                    source: ""
                 })
             }
         }
@@ -117,6 +112,13 @@ Item {
         result.sort(function(a, b) {
             return a.priority - b.priority
         })
+
+        // Only now enqueue requests, so the cache manager receives the
+        // visible tiles in center-out priority order.
+        for (var j = 0; j < result.length; ++j) {
+            result[j].source = tileCacheManager.requestTile(
+                result[j].key, result[j].url)
+        }
 
         tiles = result
     }
