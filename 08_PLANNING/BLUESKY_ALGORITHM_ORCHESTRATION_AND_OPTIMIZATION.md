@@ -898,3 +898,198 @@ FINAL VALIDATION
 После фиксации матрицы следующим уровнем является разработка **Template Algorithm Contracts**: для каждого MT-01…MT-13 определить входы, выходы, hard constraints, quality metrics, invalidation dependencies и минимальный позитивный/негативный verification scenario.
 
 Первая реализационная цепочка для проверки должна оставаться детерминированной и малой: **MT-01 Картографирование территории → один UAV → одна зона → coverage → route → wind/performance → energy → trajectory → final validation**.
+
+
+## 22. Template Algorithm Contract — MT-01
+
+**Status:** WORKING CONTRACT — first template implementation slice  
+**Template:** MT-01 — Картографирование территории
+
+### 22.1. Назначение
+
+MT-01 формирует маршрут для получения требуемого картографического покрытия заданной территории с сохранением допустимой геометрии съёмки, энергетического резерва и обязательных safety/regulatory constraints.
+
+Оператор задаёт задачу и требования к результату. Выбор конкретного coverage/search/routing backend выполняет BAO.
+
+### 22.2. Входной контракт
+
+Минимальный набор входов:
+
+- mission ID/version;
+- operational area geometry;
+- mandatory/prohibited geometry;
+- terrain/elevation and obstacle state;
+- airspace/restriction/authorization-qualified state;
+- operational time window;
+- UAV configuration;
+- payload/camera configuration;
+- battery/SOC/health/degradation state;
+- performance envelope;
+- C2 constraints;
+- required mapping quality;
+- applicable objective profile;
+- current environmental/wind snapshot.
+
+Каждый вход, влияющий на расчёт, должен иметь идентификатор версии/снимка либо эквивалентную provenance-ссылку.
+
+### 22.3. Расчётный контракт
+
+~~~text
+MISSION AREA
+ ↓
+CONSTRAINED OPEN SPACE
+ ↓
+COVERAGE DECOMPOSITION
+ ↓
+COVERAGE TRACK GENERATION
+ ↓
+CELL TRANSITION ROUTING
+ ↓
+ROUTE FEASIBILITY
+ ↓
+WIND + VEHICLE PERFORMANCE
+ ↓
+ENERGY / RESERVE
+ ↓
+TRAJECTORY
+ ↓
+MAPPING QUALITY
+ ↓
+FINAL VALIDATION
+~~~
+
+Для покрытия территории базовым reference-классом остаётся deterministic coverage planning; графовый planner используется для допустимых переходов между рабочими участками, а не как замена coverage planner.
+
+### 22.4. Hard constraints
+
+Кандидат MT-01 отклоняется, если нарушается применимое обязательное ограничение, включая:
+
+- regulatory/airspace restriction;
+- отсутствие требуемой authorization в её области действия;
+- terrain/obstacle clearance;
+- UAV operating envelope;
+- payload/camera operating limits;
+- C2 requirement;
+- minimum energy reserve;
+- applicable safety/separation constraint;
+- mandatory mission geometry;
+- физическая невозможность выполнить требуемое покрытие.
+
+Ни один improvement по времени, расстоянию или качеству не может сделать такой кандидат допустимым.
+
+### 22.5. Критерии качества
+
+После прохождения hard gates кандидаты сравниваются по:
+
+1. coverage completeness;
+2. соответствию требуемому качеству картографических данных;
+3. требованиям GSD/overlap, если они заданы mission profile и payload capability;
+4. energy efficiency при сохранении требуемого резерва;
+5. propulsion/resource consumption;
+6. flight time / ETA;
+7. route complexity/smoothness как tie-breaker.
+
+Конкретные численные значения не фиксируются этим контрактом без соответствующего controlled requirement или payload/UAV data source.
+
+### 22.6. Выходной контракт
+
+Успешный расчёт создаёт versioned результат, содержащий как минимум:
+
+- mission/version reference;
+- selected UAV/payload;
+- coverage decomposition;
+- ordered route/waypoints;
+- altitude/profile information;
+- spatial feasibility result;
+- wind/performance result;
+- energy estimate and reserve result;
+- trajectory;
+- mapping-quality result;
+- source/dependency versions;
+- algorithm/backend versions;
+- validation result;
+- provenance.
+
+Результат должен быть пригоден для downstream Flight Profile, Mission Package и final validation без повторного независимого расчёта тех же величин.
+
+### 22.7. Invalidation dependencies
+
+Изменение:
+
+| Изменение входа | Инвалидируемые результаты |
+|---|---|
+| mission area / geometry | decomposition → coverage → route → performance → energy → trajectory → quality → final validation |
+| restriction / authorization scope | affected constrained space → coverage → route → downstream stages |
+| terrain / obstacle data | affected spatial cells/routes → downstream stages |
+| UAV configuration | assignment/feasibility → performance → energy → trajectory → quality → final validation |
+| payload/camera configuration | coverage geometry/quality → performance → energy → trajectory → quality |
+| wind | performance → energy → trajectory → affected quality/time results |
+| battery/SOC/health/degradation | energy → feasibility → selected candidate → final validation |
+| mapping-quality requirement | candidate comparison / coverage parameters → quality → selected plan |
+| objective priority | candidate comparison → selected plan |
+
+Неизменившиеся upstream results должны переиспользоваться.
+
+### 22.8. Минимальные verification scenarios
+
+**Positive baseline**
+
+~~~text
+1 UAV
++ valid mapping area
++ compatible payload
++ valid environment
++ sufficient battery reserve
++ no blocking restrictions
+→ coverage generated
+→ route feasible
+→ energy sufficient
+→ trajectory valid
+→ quality valid
+→ FINAL VALIDATION PASS
+~~~
+
+**Negative — insufficient energy**
+
+~~~text
+same baseline
++ insufficient available energy for mission + required reserve
+→ candidate rejected
+→ no READY / RELEASE_ELIGIBLE
+~~~
+
+**Negative — blocked spatial constraint**
+
+~~~text
+same baseline
++ route/cell requires prohibited or unauthorized space
+→ affected candidate rejected or regenerated
+→ no READY until a valid alternative exists
+~~~
+
+**Incremental recalculation**
+
+~~~text
+valid baseline
+→ wind update only
+→ coverage/decomposition unchanged
+→ recompute performance + energy + trajectory
+→ revalidate
+~~~
+
+### 22.9. Current maturity
+
+This contract is a **controlled working specification**, not implementation evidence.
+
+The following remain UNVERIFIED until executable tests and corresponding CI/evidence exist:
+
+- numerical coverage-quality thresholds;
+- camera-specific capture model;
+- UAV-specific performance/energy curves;
+- exact optimizer selection policy;
+- production benchmark values;
+- real-flight performance.
+
+### 22.10. Next deterministic contract
+
+After MT-01, the next contract is **MT-02 — 3D-картография / реконструкция**, because it reuses the established constrained-space, coverage, performance, energy and trajectory foundations while adding explicit 3D/viewpoint requirements.
