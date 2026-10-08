@@ -103,7 +103,16 @@ Item {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
 
-        // Logo asset removed; the left anchor remains reserved for the future canonical logo.
+        Text {
+            anchors.centerIn: parent
+            text: "LOGO"
+            color: root.text
+            font.family: "B612"
+            font.pixelSize: 28
+            font.bold: true
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
     }
 
     // RIGHT ANCHOR — outer geometry is intentionally identical to LOGO anchor.
