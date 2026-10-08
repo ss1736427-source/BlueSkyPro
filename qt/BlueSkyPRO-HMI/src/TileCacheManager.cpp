@@ -29,7 +29,7 @@ QString TileCacheManager::cachePath(const QString &key) const
         + QStringLiteral("/tiles/yandex/map/web_mercator");
 
     QString relative = key;
-    relative.replace('\', '/');
+    relative.replace(QChar(92), QLatin1Char('/'));
     while (relative.startsWith('/'))
         relative.remove(0, 1);
 
