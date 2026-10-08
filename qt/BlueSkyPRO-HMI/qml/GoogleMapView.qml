@@ -21,6 +21,8 @@ Item {
     property real panOffsetX: 0
     property real panOffsetY: 0
     property var tiles: []
+    property int loadedTileCount: 0
+    property int failedTileCount: 0
 
     signal viewChanged(real latitude, real longitude, int zoom)
 
@@ -55,8 +57,18 @@ Item {
     }
 
     function rebuildTiles() {
-        if (width <= 0 || height <= 0 || yandexMapsApiKey.length === 0)
+        if (width <= 0 || height <= 0)
             return
+
+        loadedTileCount = 0
+        failedTileCount = 0
+        if (yandexMapsApiKey.length === 0) {
+            mapStatus = "API KEY REQUIRED"
+            tiles = []
+            return
+        }
+
+        mapStatus = "LOADING"
 
         var cx = longitudeToWorld(centerLongitude)
         var cy = latitudeToWorld(centerLatitude)
@@ -80,7 +92,7 @@ Item {
                     y: ty * tileSize - cy + height / 2 + panOffsetY,
                     url: "https://tiles.api-maps.yandex.ru/v1/tiles/?x=" +
                          wrappedX + "&y=" + ty + "&z=" + zoomLevel +
-                         "&lang=en_US&l=map&apikey=" +
+                         "&lang=en_US&l=map&projection=web_mercator&apikey=" +
                          encodeURIComponent(yandexMapsApiKey)
                 })
             }
@@ -126,6 +138,20 @@ Item {
             asynchronous: true
             cache: false
             fillMode: Image.Stretch
+            property int lastStatus: Image.Null
+            onStatusChanged: {
+                if (status === lastStatus)
+                    return
+                lastStatus = status
+                if (status === Image.Ready) {
+                    root.loadedTileCount++
+                    if (root.loadedTileCount > 0 && root.failedTileCount === 0)
+                        root.mapStatus = "READY"
+                } else if (status === Image.Error) {
+                    root.failedTileCount++
+                    root.mapStatus = "TILE LOAD ERROR"
+                }
+            }
             smooth: true
         }
     }
@@ -260,12 +286,5 @@ Item {
         }
     }
 
-    Component.onCompleted: {
-        if (yandexMapsApiKey.length > 0) {
-            mapStatus = "READY"
-            rebuildTiles()
-        } else {
-            mapStatus = "API KEY REQUIRED"
-        }
-    }
+    Component.onCompleted: rebuildTiles()
 }
