@@ -186,7 +186,8 @@ Item {
 
         ThreeDMappingProfile {
             id: threeDMappingProfile
-            // 3D-specific overlay is disabled here; the canonical mission profile owns the route table.\n            visible: false
+            // 3D-specific overlay is disabled here; the canonical mission profile owns the route table.
+            visible: false
             missionId: root.missionId
             missionSummary: root.missionSummary
             uavModel: uavStatus.uavModel
