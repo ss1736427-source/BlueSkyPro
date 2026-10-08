@@ -227,7 +227,8 @@ Item {
             // into the Flight Chart.
             visible: root.rightPanelOpen
             width: visible ? root.rightWidth : 0
-            // RightPanel is already anchored above the BottomToolbar; do not subtract the toolbar twice.\n            bottomInset: 0
+            // RightPanel is already anchored above the BottomToolbar; do not subtract the toolbar twice.
+            bottomInset: 0
             // Match the left panel's shared-edge ownership: header and toolbar draw the horizontal seams.
             showTopBorder: false
             showBottomBorder: false
