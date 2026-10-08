@@ -9,6 +9,10 @@ Item {
     clip: true
     implicitWidth: 270
 
+    // MainContent overlays BottomToolbar on top of the full workspace.
+    // Keep reorderable panels inside the visible right-panel work area.
+    property int bottomInset: 54
+
     property color bg: "#08111D"
     property color text: "#FFFFFF"
     property color secondary: "#BFBFBF"
@@ -103,10 +107,27 @@ Item {
         if (draggingPanel !== key)
             return
 
-        var maxY = Math.max(54, root.height - panelHeight(key) - 10)
+        var maxY = Math.max(54, root.height - bottomInset - 8 - panelHeight(key))
         dragVisualY = Math.max(54, Math.min(maxY, currentRootY - dragGrabOffsetY))
     }
 
+    function saveNormalizedPositions(items) {
+        var next = {}
+        var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
+
+        for (var i = 0; i < keys.length; ++i)
+            next[keys[i]] = panelPositions[keys[i]]
+
+        for (var j = 0; j < items.length; ++j)
+            next[items[j].key] = Math.round(items[j].y)
+
+        panelPositions = next
+        savePanelPositions()
+    }
+
+    // Keep all visible panels separated by a fixed gap while preserving
+    // their current vertical order. The available area ends above the
+    // overlaid BottomToolbar.
     function reflowPanelPositions() {
         if (draggingPanel !== "")
             return
@@ -120,8 +141,6 @@ Item {
                 items.push({ key: key, y: panelPositionY(key), h: panelHeight(key) })
         }
 
-        // Treat the saved Y coordinate as the user's preferred order.
-        // Then pack every visible panel into non-overlapping slots.
         items.sort(function(a, b) {
             if (a.y === b.y)
                 return keys.indexOf(a.key) - keys.indexOf(b.key)
@@ -130,16 +149,19 @@ Item {
 
         var top = 54
         var gap = 10
+        var bottomLimit = Math.max(top, root.height - bottomInset - 8)
 
+        // First pack from the top. This is only needed when cards collide,
+        // change height, or the saved layout exceeds the visible work area.
         for (var j = 0; j < items.length; ++j) {
             items[j].y = Math.max(items[j].y, top)
-            top = items[j].y + items[j].h + gap
+            if (j > 0)
+                items[j].y = Math.max(items[j].y, items[j - 1].y + items[j - 1].h + gap)
         }
 
-        var bottomLimit = Math.max(54, root.height - 8)
         var bottom = items.length > 0
                 ? items[items.length - 1].y + items[items.length - 1].h
-                : 54
+                : top
 
         if (bottom > bottomLimit) {
             var shift = bottom - bottomLimit
@@ -147,43 +169,89 @@ Item {
                 items[k].y -= shift
         }
 
-        // If the stack is taller than the available area, preserve the
-        // non-overlap invariant rather than allowing cards to intersect.
-        var minimumTop = 54
-        if (items.length > 0 && items[0].y < minimumTop) {
-            var correction = minimumTop - items[0].y
-            for (var m = 0; m < items.length; ++m)
-                items[m].y += correction
+        // Re-pack from the top once more after the upward shift. This
+        // guarantees the invariant: next.y >= previous.bottom + gap.
+        for (var m = 0; m < items.length; ++m) {
+            items[m].y = Math.max(items[m].y, top)
+            if (m > 0)
+                items[m].y = Math.max(items[m].y, items[m - 1].y + items[m - 1].h + gap)
         }
 
-        var next = {}
-        for (var n = 0; n < keys.length; ++n)
-            next[keys[n]] = panelPositions[keys[n]]
-
-        for (var p = 0; p < items.length; ++p)
-            next[items[p].key] = Math.round(items[p].y)
-
-        panelPositions = next
-        savePanelPositions()
+        saveNormalizedPositions(items)
     }
 
+    // Place the dragged card in the nearest free vertical slot. Other cards
+    // are treated as obstacles, so dropping inside a card can never create
+    // an overlap. The dragged card may move before or after any card.
     function dropPanelAtPosition(key, currentRootY) {
         if (draggingPanel !== key)
             return
 
         updatePanelDrag(key, currentRootY)
 
-        var next = {}
-        for (var k in panelPositions)
-            next[k] = panelPositions[k]
+        var desiredY = dragVisualY
+        var gap = 10
+        var top = 54
+        var bottomLimit = Math.max(top, root.height - bottomInset - 8)
 
-        next[key] = Math.round(dragVisualY)
+        var others = []
+        var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
+
+        for (var i = 0; i < keys.length; ++i) {
+            var other = keys[i]
+            if (other !== key && panelVisible(other))
+                others.push({ key: other, y: panelPositionY(other), h: panelHeight(other) })
+        }
+
+        others.sort(function(a, b) {
+            return a.y - b.y
+        })
+
+        var h = panelHeight(key)
+        var candidates = [top]
+
+        for (var j = 0; j < others.length; ++j) {
+            candidates.push(others[j].y - gap - h)
+            candidates.push(others[j].y + others[j].h + gap)
+        }
+
+        candidates.push(bottomLimit - h)
+
+        var bestY = top
+        var bestDistance = Number.MAX_VALUE
+
+        for (var k = 0; k < candidates.length; ++k) {
+            var candidate = Math.max(top, Math.min(bottomLimit - h, candidates[k]))
+            var overlaps = false
+
+            for (var m = 0; m < others.length; ++m) {
+                if (candidate < others[m].y + others[m].h + gap &&
+                    candidate + h + gap > others[m].y) {
+                    overlaps = true
+                    break
+                }
+            }
+
+            if (!overlaps) {
+                var distance = Math.abs(candidate - desiredY)
+                if (distance < bestDistance) {
+                    bestDistance = distance
+                    bestY = candidate
+                }
+            }
+        }
+
+        var next = {}
+        for (var n in panelPositions)
+            next[n] = panelPositions[n]
+        next[key] = Math.round(bestY)
         panelPositions = next
-        savePanelPositions()
 
         draggingPanel = ""
         dragVisualY = 0
         dragGrabOffsetY = 0
+
+        reflowPanelPositions()
     }
 
     function cancelPanelDrag(key) {
@@ -206,7 +274,7 @@ Item {
         panelOrder = migratedOrder
         panelOrderSettings.orderCsv = migratedOrder.join(",")
         loadPanelPositions()
-        reflowPanelPositions()
+        Qt.callLater(root.reflowPanelPositions)
     }
 
     function panelVisible(key) {
@@ -394,7 +462,7 @@ Item {
         border.width: 1
         antialiasing: true
         z: root.draggingPanel === "Checklist" ? 200 : 1
-        onHeightChanged: root.reflowPanelPositions()
+        onHeightChanged: Qt.callLater(root.reflowPanelPositions)
     }
 
     Rectangle {
@@ -526,7 +594,7 @@ Item {
         border.width: 1
         antialiasing: true
         z: root.draggingPanel === "Flight Conditions" ? 200 : 1
-        onHeightChanged: root.reflowPanelPositions()
+        onHeightChanged: Qt.callLater(root.reflowPanelPositions)
 
         Rectangle {
             x: 1; y: 1; width: parent.width - 2; height: 32
@@ -665,7 +733,7 @@ Item {
         border.width: 1
         antialiasing: true
         z: root.draggingPanel === "Alerting" ? 200 : 1
-        onHeightChanged: root.reflowPanelPositions()
+        onHeightChanged: Qt.callLater(root.reflowPanelPositions)
     }
 
     Rectangle {
@@ -931,7 +999,7 @@ Item {
         border.width: 1
         antialiasing: true
         z: root.draggingPanel === "ATC" ? 200 : 1
-        onHeightChanged: root.reflowPanelPositions()
+        onHeightChanged: Qt.callLater(root.reflowPanelPositions)
     }
 
     // Header is a filled band, not a separate bordered card.
