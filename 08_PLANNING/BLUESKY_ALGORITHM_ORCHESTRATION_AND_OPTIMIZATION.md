@@ -3884,3 +3884,129 @@ An item may be marked DEFINED only when purpose, inputs, outputs, units, depende
 - [ ] executed verification evidence.
 
 Conclusion: the algorithmic specification is sufficiently formal to begin implementation design, but MT-01/MT-02 are not yet verification-closed or certification-closed.
+
+
+## 44. MT-01 / MT-02 Authoritative Requirement Allocation — Controlled Review Result
+
+This section records the next controlled reconciliation step using the actual requirement records and existing traceability material. It does not promote candidate SRS identifiers to authoritative requirements and does not create new requirement IDs.
+
+### 44.1 Allocation rule
+
+Only the following dispositions are permitted:
+
+- **DIRECT DEPENDENCY** — the requirement explicitly constrains or is consumed by planning behaviour;
+- **SUPPORTING** — the requirement affects planning indirectly or through a shared system mechanism;
+- **CROSS-CUTTING** — the requirement constrains the planning implementation/runtime but is not a planning functional requirement;
+- **OPEN ALLOCATION** — the requirement identity or exact scope is not sufficiently established;
+- **NOT ALLOCATED** — no defensible MT-01/MT-02 relationship has been established.
+
+Candidate families such as `NAV-REQ-*`, `RTE-REQ-*`, `WP-REQ-*`, `MIS-REQ-*`, `MUL-REQ-*`, `RDY-REQ-*`, `C2-REQ-*` remain candidate records and are not treated as authoritative identities.
+
+### 44.2 Confirmed allocation
+
+| Requirement | MT-01 | MT-02 | Allocation basis |
+|---|---|---|---|
+| SYS-REQ-080 | SUPPORTING | SUPPORTING | Dynamic task/reallocation affects multi-UAV planning and task redistribution. |
+| SYS-REQ-081 | SUPPORTING | SUPPORTING | UAV failure tolerance consumes valid planning/resource state and can require continuation or reassignment. |
+| SYS-REQ-082 | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Safe completion explicitly depends on UAV state, resources, energy, communications, risks and safe return/landing/emergency behaviour. |
+| SYS-REQ-083 | DIRECT | DIRECT | Mission/planning logic is required to remain platform-independent and use adapter/capability boundaries. |
+| SYS-REQ-084 | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Planning requires reservation/availability of relevant compute, communication and system resources. |
+| SYS-REQ-085 | CROSS-CUTTING | CROSS-CUTTING | Safety-critical functions, including navigation/C2, have priority over optimisation and lower-priority workloads. |
+| SYS-REQ-086 | SUPPORTING | SUPPORTING | Controlled degradation/replanning/resource reallocation constrains behaviour when planning dependencies degrade. |
+| SYS-REQ-091 | SUPPORTING | SUPPORTING | Critical latency affects validity/usability of safety-significant planning inputs and services; exact planning-specific limits remain lower-level allocation work. |
+| SYS-REQ-093 | SUPPORTING | SUPPORTING | Controlled recovery constrains recovery/replanning and protection of critical functions after resource degradation. |
+
+The allocation above is a **dependency allocation**, not a verification result. Existing architecture coverage being marked PARTIAL remains PARTIAL and is not upgraded by this section.
+
+### 44.3 Requirement-specific interpretation
+
+**SYS-REQ-082 — Safe Mission Completion**
+
+The controlled requirement text states that safe completion considers UAV state, task criticality, available resources, energy, communications and risks, and may require return, landing, reserve mode, result preservation and unfinished-task recording. Therefore MT-01/MT-02 planning must expose sufficient validated state and plan outputs to support the safe-completion chain. The planning algorithm does not itself become the authority for emergency execution.
+
+**SYS-REQ-083 — Platform Independence**
+
+The requirement explicitly requires mission-management logic to be independent of a particular manufacturer, autopilot or physical platform, with platform integration through adapters and capability profiles. Therefore MT-01/MT-02 data contracts and planner modules must consume canonical UAV/payload capability models rather than platform-specific assumptions.
+
+**SYS-REQ-084 — Resource Reservation**
+
+The architecture traceability establishes resource reservation and controlled temporal scheduling. Therefore planning computation and mission resource requirements must be compatible with the reservation lifecycle; a planner may not assume unreserved resources are available merely because they are technically present.
+
+**SYS-REQ-085 — Safety-Critical Priority**
+
+The requirement explicitly protects P0/P1 functions, including safety, flight control, navigation and C2. Planning optimisation therefore remains subordinate to safety-critical resource and authority handling.
+
+**SYS-REQ-086 — Graceful Degradation**
+
+The existing architecture allocates controlled continuation, adaptation, resource reallocation, UAV role change, mission-scope reduction, replanning and abort to degradation handling. MT-01/MT-02 incremental recalculation must therefore distinguish a controlled degraded/replanning path from an invalid plan.
+
+**SYS-REQ-091 — Critical Latency**
+
+The requirement concerns controlled latency for critical messages and protective action on threshold exceedance. This establishes a cross-cutting planning dependency, but it does not by itself establish a numerical planner latency target.
+
+**SYS-REQ-093 — Controlled Resource Recovery**
+
+Recovery must be controlled, must not create secondary overload, and must restore critical functions before lower-priority functions. Planning/replanning services therefore remain subject to the recovery state rather than treating recovery as an invisible background event.
+
+### 44.4 SYS-REQ-110 / 111 / 112
+
+The repository confirms these IDs and their titles:
+
+- SYS-REQ-110 — Multi-Agent AI Orchestration;
+- SYS-REQ-111 — AI Agent Authority and Proposal Control;
+- SYS-REQ-112 — Offline AI Operational Continuity.
+
+For MT-01/MT-02 these remain **OPEN ALLOCATION** at requirement level in this review. The algorithm document can define AI as a bounded strategy/parameter/candidate aid, but exact allocation to these authoritative records requires inspection of their controlled requirement text and existing capability traceability before a direct relationship is asserted.
+
+No AI requirement is created by this section.
+
+### 44.5 Candidate SRS families
+
+The following remain unbaselined candidate families:
+
+- NAV-REQ-001..009;
+- RTE-REQ-001..004;
+- WP-REQ-001..003;
+- MIS-REQ-001..003;
+- RET-REQ-001..004;
+- COL-REQ-001..004;
+- C2-REQ-001..003;
+- MUL-REQ-001..003;
+- RDY-REQ-001..002.
+
+They are not silently mapped to MT-01/MT-02 as authoritative requirements.
+
+Their role in the algorithm specification is currently **candidate derived allocation** pending exact wording comparison against existing authoritative records.
+
+### 44.6 Allocation status after this review
+
+| Allocation area | Status |
+|---|---|
+| Existing SYS-REQ-080..086 | ALLOCATED / dependency relationship defined |
+| SYS-REQ-091 | ALLOCATED / supporting dependency |
+| SYS-REQ-093 | ALLOCATED / supporting dependency |
+| SYS-REQ-110..112 | OPEN ALLOCATION |
+| Candidate NAV/RTE/WP/MIS/RET/COL/C2/MUL/RDY families | CANDIDATE / NOT BASELINED |
+| Airspace / NOTAM | OPEN ALLOCATION |
+| Weather / wind | OPEN ALLOCATION |
+| Terrain / DEM | OPEN ALLOCATION |
+| GNSS / RTK / PPK / NTRIP | OPEN ALLOCATION |
+| Payload compatibility | OPEN ALLOCATION |
+| Readiness aggregation | OPEN ALLOCATION |
+| Contingency execution authority | OPEN ALLOCATION |
+| AI authority | OPEN ALLOCATION |
+| Executed verification evidence | NOT DONE |
+
+### 44.7 Gate consequence
+
+This review closes the **structural allocation** for the confirmed existing SYS-REQ dependencies above, but it does not close the overall MT-01/MT-02 gate.
+
+The remaining blockers are:
+
+1. exact allocation of SYS-REQ-110..112;
+2. controlled consolidation of candidate SRS families;
+3. allocation of external/environmental dependencies;
+4. controlled numerical parameter values;
+5. executable verification and evidence.
+
+MT-03 remains blocked.
