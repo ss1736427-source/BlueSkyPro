@@ -3698,3 +3698,189 @@ The gate does **not** require every related system requirement to be implemented
 
 **Decision:** MT-01/MT-02 remain in controlled specification/review stage. MT-03 remains blocked.
 
+## 40. Formal Quality Metrics for MT-01
+
+All MT-01 quality metrics shall be calculated from the actual planned acquisition geometry and not from nominal route length alone.
+
+### 40.1. Area coverage
+
+Let A_AOI be the valid mission area after mandatory exclusions and A_covered the union of valid sensor footprints projected onto the acquisition surface.
+
+coverage_ratio = area(A_covered ∩ A_AOI) / area(A_AOI)
+
+Any mandatory sub-area shall have its own coverage gate. A high global coverage ratio shall not compensate for an uncovered mandatory region.
+
+### 40.2. Uncovered-area representation
+
+uncovered_geometry = AOI − covered_geometry
+
+Classify it at minimum as boundary gap, exclusion-induced gap, terrain/obstacle-induced gap, trajectory infeasibility, sensor/acquisition infeasibility, or intentional non-required region. Preserve the reason in candidate provenance.
+
+### 40.3. GSD
+
+For a nadir-oriented pinhole-camera approximation:
+
+GSD ≈ H · sensor_width / (focal_length · image_width_pixels)
+
+where H is camera-to-ground distance; sensor_width and focal_length use the same physical length unit; image_width_pixels is the image dimension across sensor_width.
+
+The implementation shall use the payload calibration model when available. This approximation is the fallback engineering model.
+
+### 40.4. Overlap
+
+frontal_overlap = 1 − image_spacing / footprint_along_track
+side_overlap = 1 − track_spacing / footprint_cross_track
+
+Values are evaluated from the actual footprint at the acquisition event. A nominal route spacing calculation alone is insufficient for acceptance.
+
+### 40.5. Acquisition-event quality
+
+Each acquisition event shall expose: event_id, position, camera_ground_distance, orientation, footprint, GSD, frontal_overlap, side_overlap, sensor_state, trigger_state, quality_state.
+
+An event is mandatory-quality-valid only when every applicable hard quality criterion is satisfied.
+
+### 40.6. Mapping-quality result
+
+MT-01 shall return: coverage_ratio, mandatory_area_coverage, uncovered_geometry, GSD_min, GSD_max, GSD_target_deviation, frontal_overlap_min, side_overlap_min, acquisition_event_valid_ratio, terrain_following_compliance, sensor_compliance, quality_gate, quality_deficiencies[].
+
+No aggregate score may hide a failed mandatory component.
+
+## 41. Formal Quality Metrics for MT-02
+
+MT-02 quality is based on observation geometry and reconstruction sufficiency, not simply percentage of target area visited.
+
+### 41.1. Target-element model
+
+Each target element j shall carry, where applicable: target_id, position, normal, importance_weight, required_observation_count, desired_distance, allowed_distance_range, allowed_incidence_range, minimum_parallax, required_sensor_mode, state.
+
+### 41.2. Observation coverage
+
+observation_count(j) = number of valid acquisition events observing j
+
+A target element passes its observation-count gate when observation_count(j) >= required_observation_count(j).
+
+weighted_target_coverage = Σ importance_weight(j) for valid elements / Σ importance_weight(j) for required elements
+
+Mandatory target elements remain individual hard gates.
+
+### 41.3. Viewing geometry
+
+For target normal n, target point p_t, camera position p_c, and normalized viewing direction v:
+
+incidence_cosine = dot(n, v)
+distance_error = |d_actual − d_desired|
+
+The exact sign convention shall be fixed by the sensor model and persisted in payload configuration. The planner shall never infer it from display orientation.
+
+An observation passes when actual distance and incidence angle satisfy the applicable payload/mission bounds.
+
+### 41.4. Parallax
+
+For two valid observations i and k of the same target element:
+
+parallax_angle = angle(view_vector_i, view_vector_k)
+
+The quality engine shall retain the distribution of usable parallax, not only its maximum. A candidate may fail even when maximum parallax is sufficient if required target regions remain observed from insufficiently diverse viewpoints.
+
+### 41.5. Visibility and occlusion
+
+Classify each target-element/observation pair as VISIBLE, PARTIAL, OCCLUDED, OUT_OF_FOV, OUT_OF_RANGE, BLOCKED, or INVALID_SENSOR_STATE.
+
+Only states accepted by the active quality model contribute to valid observation coverage.
+
+### 41.6. Observation-network connectivity
+
+Construct a bipartite graph of VIEWPOINT/IMAGE nodes and TARGET/OBSERVATION nodes. Detect isolated required target elements and disconnected reconstruction-critical components.
+
+A candidate with adequate raw image count but disconnected reconstruction-critical components shall fail the corresponding quality gate.
+
+### 41.7. MT-02 quality result
+
+Return: weighted_target_coverage, mandatory_target_coverage, observation_count_distribution, distance_error_distribution, incidence_distribution, usable_parallax_distribution, visibility_statistics, occlusion_statistics, observation_network_components, sensor_resolution_metrics, GSD_or_point_density_metrics, quality_gate, quality_deficiencies[].
+
+### 41.8. LiDAR branch
+
+For LiDAR, image overlap is not the primary quality criterion. Evaluate applicable sensor quantities such as swath, swath_overlap, point_density, scan_angle, incidence, coverage, occlusion, and trajectory/sensor stability. The active sensor model determines which are mandatory.
+
+## 42. Parameter Registry — No Hidden Constants
+
+Every numerical planning parameter shall belong to one class: REQUIREMENT, VEHICLE, PAYLOAD, ENVIRONMENT, SAFETY_POLICY, ALGORITHM, NUMERICAL_TOLERANCE, OBJECTIVE_PROFILE, or DERIVED.
+
+| Class | Meaning | Examples |
+|---|---|---|
+| REQUIREMENT | externally imposed or approved mission requirement | target GSD, mandatory overlap |
+| VEHICLE | UAV capability/model value | max speed, climb rate |
+| PAYLOAD | sensor/calibration value | focal length, FOV, trigger limits |
+| ENVIRONMENT | measured/ingested state | wind, terrain, obstacles |
+| SAFETY_POLICY | controlled safety value | clearance, separation, reserve |
+| ALGORITHM | bounded computational setting | candidate budget, sampling density |
+| NUMERICAL_TOLERANCE | engineering comparison tolerance | geometric equality tolerance |
+| OBJECTIVE_PROFILE | task preference | time vs energy priority |
+| DERIVED | calculated value | footprint, track spacing, energy |
+
+### 42.1. Parameter identity
+
+Each controlled parameter shall carry parameter_id, value, unit, source, version, validity, scope, class, and approved_state.
+
+### 42.2. Parameter precedence
+
+authoritative safety/requirement value > validated vehicle/payload configuration > validated external environment > approved mission override > algorithm default
+
+An algorithm default may never silently override an authoritative value.
+
+### 42.3. Missing parameter policy
+
+If a mandatory parameter is unavailable, use a known safe fallback and record provenance; otherwise return BLOCKED_INPUT. The planner shall not manufacture a plausible numerical value.
+
+### 42.4. Parameter versioning
+
+Changing a parameter that affects candidate geometry, feasibility, energy, or quality shall invalidate every dependent result identified in the dependency graph.
+
+## 43. Acceptance Criteria for MT-01 / MT-02 Specification Review
+
+An item may be marked DEFINED only when purpose, inputs, outputs, units, dependencies, hard constraints, soft objectives, failure states, deterministic ordering, recalculation scope, provenance, and verification method are explicit.
+
+### 43.1. MT-01 review checklist
+
+- [x] input context defined;
+- [x] constrained planning domain defined;
+- [x] acquisition geometry defined;
+- [x] coverage/decomposition defined;
+- [x] track generation defined;
+- [x] transition routing defined;
+- [x] wind/performance dependency defined;
+- [x] energy gate defined;
+- [x] trajectory generation defined;
+- [x] acquisition-event validation defined;
+- [x] formal coverage/GSD/overlap metrics defined;
+- [x] candidate selection defined;
+- [x] failure taxonomy defined;
+- [x] deterministic replay rule defined;
+- [x] test-data contract defined;
+- [ ] exact authoritative requirement allocation;
+- [ ] controlled numerical parameter values;
+- [ ] executed verification evidence.
+
+### 43.2. MT-02 review checklist
+
+- [x] target representation defined;
+- [x] observation-space model defined;
+- [x] viewpoint generation defined;
+- [x] feasibility filtering defined;
+- [x] visibility model defined;
+- [x] global selection defined;
+- [x] weak-region refinement defined;
+- [x] transition graph defined;
+- [x] camera orientation model defined;
+- [x] reconstruction-network quality model defined;
+- [x] LiDAR branch defined;
+- [x] formal observation/parallax/visibility metrics defined;
+- [x] candidate selection defined;
+- [x] failure taxonomy defined;
+- [x] deterministic replay rule defined;
+- [x] test-data contract defined;
+- [ ] exact authoritative requirement allocation;
+- [ ] controlled numerical parameter values;
+- [ ] executed verification evidence.
+
+Conclusion: the algorithmic specification is sufficiently formal to begin implementation design, but MT-01/MT-02 are not yet verification-closed or certification-closed.
