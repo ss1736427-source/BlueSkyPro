@@ -107,6 +107,59 @@ Item {
         dragVisualY = Math.max(54, Math.min(maxY, currentRootY - dragGrabOffsetY))
     }
 
+    function reflowPanelPositions() {
+        if (draggingPanel !== "")
+            return
+
+        var items = []
+        var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
+        for (var i = 0; i < keys.length; ++i) {
+            var key = keys[i]
+            if (panelVisible(key))
+                items.push({ key: key, y: panelPositionY(key), h: panelHeight(key) })
+        }
+
+        items.sort(function(a, b) {
+            return a.y - b.y
+        })
+
+        var top = 54
+        var gap = 10
+        for (var j = 0; j < items.length; ++j) {
+            items[j].y = Math.max(top, items[j].y)
+            top = items[j].y + items[j].h + gap
+        }
+
+        // If the enlarged stack (for example ATC after validation appears)
+        // reaches the bottom edge, move the complete stack upward without
+        // changing its user-defined order.
+        var bottomLimit = Math.max(54, root.height - 8)
+        if (items.length > 0) {
+            var overflow = (items[items.length - 1].y + items[items.length - 1].h) - bottomLimit
+            if (overflow > 0) {
+                for (var k = 0; k < items.length; ++k)
+                    items[k].y -= overflow
+
+                // Never move the first work area into the INFORMATION title.
+                var correction = 54 - items[0].y
+                if (correction > 0) {
+                    for (var m = 0; m < items.length; ++m)
+                        items[m].y += correction
+                }
+            }
+        }
+
+        var next = {}
+        for (var n = 0; n < keys.length; ++n)
+            next[keys[n]] = panelPositions[keys[n]]
+
+        for (var p = 0; p < items.length; ++p)
+            next[items[p].key] = Math.round(items[p].y)
+
+        panelPositions = next
+        savePanelPositions()
+    }
+
     function dropPanelAtPosition(key, currentRootY) {
         if (draggingPanel !== key)
             return
@@ -333,6 +386,7 @@ Item {
         border.width: 1
         antialiasing: true
         z: root.draggingPanel === "Checklist" ? 200 : 1
+        onHeightChanged: root.reflowPanelPositions()
     }
 
     Rectangle {
@@ -464,6 +518,7 @@ Item {
         border.width: 1
         antialiasing: true
         z: root.draggingPanel === "Flight Conditions" ? 200 : 1
+        onHeightChanged: root.reflowPanelPositions()
 
         Rectangle {
             x: 1; y: 1; width: parent.width - 2; height: 32
@@ -602,6 +657,7 @@ Item {
         border.width: 1
         antialiasing: true
         z: root.draggingPanel === "Alerting" ? 200 : 1
+        onHeightChanged: root.reflowPanelPositions()
     }
 
     Rectangle {
@@ -867,6 +923,7 @@ Item {
         border.width: 1
         antialiasing: true
         z: root.draggingPanel === "ATC" ? 200 : 1
+        onHeightChanged: root.reflowPanelPositions()
     }
 
     // Header is a filled band, not a separate bordered card.
