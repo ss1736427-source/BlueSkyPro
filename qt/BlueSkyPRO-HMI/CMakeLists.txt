@@ -4,7 +4,7 @@ project(BlueSkyPRO_HMI VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick Location Positioning Network)
+find_package(Qt6 REQUIRED COMPONENTS Quick Network)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -57,8 +57,6 @@ qt_add_qml_module(appBlueSkyPRO
 
 target_link_libraries(appBlueSkyPRO PRIVATE
     Qt6::Quick
-    Qt6::Location
-    Qt6::Positioning
     Qt6::Network
 )
 
