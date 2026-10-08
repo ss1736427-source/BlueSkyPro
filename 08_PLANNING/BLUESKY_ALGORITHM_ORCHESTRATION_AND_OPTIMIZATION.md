@@ -3561,3 +3561,73 @@ The addition of Sections 30–36 closes the previously missing structural layer:
 **Status:** MT-01 and MT-02 are now at **implementation-ready specification structure**. They are not yet certified, qualified, or empirically validated. Controlled numerical values, UAV/sensor models, requirement allocation and executable verification evidence remain implementation/test work.
 
 MT-03 remains blocked by the project sequencing decision until the implementation-readiness gate for MT-01/MT-02 is reviewed and accepted.
+## 38. MT-01 / MT-02 Requirement Traceability — Current Baseline Allocation
+
+The current requirement baseline and traceability master use the identifiers below. This section allocates only requirements directly supported by the present MT-01/MT-02 contracts. It does not invent or renumber requirements.
+
+| Requirement | MT-01 | MT-02 | Allocation |
+|---|---|---|---|
+| SYS-003 | ✓ | ✓ | Direct: planning core remains independent of vendor protocols |
+| SYS-004 | ✓ | ✓ | Direct: planner consumes capability-driven UAV/payload models |
+| SYS-005 | ✓ | ✓ | Direct: provenance, versioning, candidate evidence and replay contract |
+| SYS-VP-001 | ✓ | ✓ | Direct dependency: versioned UAV profile |
+| SYS-VP-002 | ✓ | ✓ | Direct dependency: versioned payload profile |
+| SYS-VP-004 | ✓ | ✓ | Direct hard gate: UAV/payload compatibility |
+| EXT-AIR-001 | ✓ | ✓ | Direct hard dependency: airspace/restriction domain |
+| EXT-AIR-002 | ✓ | ✓ | Direct hard dependency where applicable: NOTAM/aeronautical data |
+| EXT-WX-001 | ✓ | ✓ | Direct dependency: wind snapshot and freshness/quality |
+| EXT-GIS-001 | ✓ | ✓ | Direct dependency: map/DEM/terrain |
+| MIS-001 | ✓ | ✓ | Direct: canonical mission representation |
+| MIS-002 | ✓ | ✓ | Direct: mission-template planning contract |
+| MIS-003 | ✓ | ✓ | Direct: feasibility against vehicle/equipment |
+| MIS-004 | ✓ | ✓ | Direct: wind/energy/aerodynamic optimization |
+| MIS-005 | conditional | ✓ | Multi-UAV extension defined; group allocation remains a shared service |
+| AI-001 | conditional | conditional | AI may assist strategy/parameter selection but is not authoritative |
+| AI-002 | ✓ | ✓ | Direct: Safety Gate remains outside AI |
+| AI-004 | ✓ | ✓ | Direct: explainability/provenance output |
+| RDY-001 | downstream | downstream | Planning contributes feasibility evidence; readiness aggregation is external |
+| RDY-002 | downstream | downstream | Planning contributes blocking reasons; readiness state is external |
+| CNT-004 | downstream | downstream | Energy engine supplies prediction/gate inputs; contingency execution is external |
+| VAL-001 | ✓ | ✓ | Direct: unit/integration verification target |
+| VAL-002 | ✓ | ✓ | Direct: simulation datasets are defined |
+| VAL-006 | ✓ | ✓ | Direct: deterministic dependency/invalidation model supports impact analysis |
+
+### 38.1. Allocation rules
+
+**Direct** means the requirement creates a rule or interface explicitly implemented by the template planning pipeline.
+
+**Conditional** means the template consumes or exposes the capability, while the authoritative implementation belongs to a shared service or another lifecycle stage.
+
+**Downstream** means the template provides planning evidence, but does not own the requirement's final lifecycle state.
+
+**OPEN ALLOCATION** shall be used whenever the existing requirement set is too broad to determine an exact template-level allocation without architectural invention.
+
+### 38.2. Traceability closure status
+
+The requirement chain is now structurally defined:
+
+Requirement → MT-01 / MT-02 algorithm rule → logical implementation module → verification dataset/scenario → evidence package.
+
+Requirement closure is not claimed. The current master baseline contains requirements with IN PROGRESS and NOT DONE implementation/evidence status. Therefore:
+
+- **SPECIFICATION TRACEABILITY:** defined;
+- **IMPLEMENTATION TRACEABILITY:** target modules defined;
+- **VERIFICATION TRACEABILITY:** test scenarios defined;
+- **EVIDENCE CLOSURE:** not yet achieved.
+
+This distinction is mandatory for certification integrity.
+
+## 39. Final Gate Before MT-03
+
+MT-03 remains blocked until the following review is completed for both MT-01 and MT-02:
+
+1. algorithm contract review;
+2. data-contract review;
+3. numerical-policy review;
+4. implementation-module review;
+5. requirement allocation review;
+6. controlled test-data review;
+7. deterministic replay design review;
+8. explicit acceptance of all remaining OPEN ALLOCATION items.
+
+After that review, the next phase is implementation/test preparation for MT-01 and MT-02, not expansion of the template family by default.
