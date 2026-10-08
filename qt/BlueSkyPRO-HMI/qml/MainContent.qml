@@ -111,6 +111,7 @@ Item {
 
         LeftPanel {
             id: leftPanel
+            z: 20
             anchors.left: parent.left
             anchors.top: parent.top
             anchors.bottom: parent.bottom
@@ -220,6 +221,7 @@ Item {
 
         RightPanel {
             id: rightPanel
+            z: 20
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.bottom: parent.bottom
