@@ -162,7 +162,7 @@ Item {
             // Stagger tile starts so a zoom change does not create a burst.
             Timer {
                 id: loadTimer
-                interval: index * 18
+                interval: index * 34
                 repeat: false
                 running: true
                 onTriggered: parent.loadRequested = true
