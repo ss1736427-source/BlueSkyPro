@@ -134,24 +134,57 @@ Item {
             y: modelData.y
             width: root.tileSize
             height: root.tileSize
-            source: modelData.url
+            source: loadRequested ? modelData.url : ""
             asynchronous: true
-            cache: false
+            // Keep successful tiles in Qt's image cache. This avoids
+            // unnecessary repeat requests when the viewport is rebuilt.
+            cache: true
             fillMode: Image.Stretch
+            property bool loadRequested: false
             property int lastStatus: Image.Null
+            property int retryCount: 0
+
+            // Yandex Tiles API allows up to 30 RPS in the free tier.
+            // Stagger tile starts so a zoom change does not create a burst.
+            Timer {
+                id: loadTimer
+                interval: index * 40
+                repeat: false
+                running: true
+                onTriggered: parent.loadRequested = true
+            }
+
+            // Retry a transient network/rate-limit failure once, after the
+            // initial burst has settled. Persistent errors remain visible.
+            Timer {
+                id: retryTimer
+                interval: 1500
+                repeat: false
+                onTriggered: parent.loadRequested = true
+            }
+
             onStatusChanged: {
                 if (status === lastStatus)
                     return
                 lastStatus = status
+
                 if (status === Image.Ready) {
                     root.loadedTileCount++
                     if (root.loadedTileCount === root.tiles.length && root.failedTileCount === 0)
                         root.mapStatus = "READY"
                 } else if (status === Image.Error) {
-                    root.failedTileCount++
-                    root.mapStatus = "TILE LOAD ERROR"
+                    if (retryCount < 1) {
+                        retryCount++
+                        loadRequested = false
+                        root.mapStatus = "LOADING"
+                        retryTimer.restart()
+                    } else {
+                        root.failedTileCount++
+                        root.mapStatus = "TILE LOAD ERROR"
+                    }
                 }
             }
+
             smooth: true
         }
     }
