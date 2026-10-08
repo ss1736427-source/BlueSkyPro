@@ -103,25 +103,7 @@ Item {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
 
-        Item {
-            width: Math.min(Math.round(root.logoVisualWidth * root.logoScale / 100),
-                            logoBlock.width - 2 * root.anchorPadding)
-            height: Math.min(Math.round(root.logoVisualHeight * root.logoScale / 100),
-                             logoBlock.height - 2 * root.anchorPadding)
-            anchors.centerIn: parent
-
-            Image {
-                anchors.fill: parent
-                source: Qt.resolvedUrl("assets/bluesky_pro_logo.svg")
-                fillMode: Image.PreserveAspectFit
-                // Render from the full-resolution master and use mipmaps for clean downsampling.
-                smooth: true
-                mipmap: true
-                cache: false
-                sourceSize.width: Math.round(root.logoVisualWidth * root.logoScale / 100)
-                sourceSize.height: Math.round(root.logoVisualHeight * root.logoScale / 100)
-            }
-        }
+        // Logo asset removed; the left anchor remains reserved for the future canonical logo.
     }
 
     // RIGHT ANCHOR — outer geometry is intentionally identical to LOGO anchor.
