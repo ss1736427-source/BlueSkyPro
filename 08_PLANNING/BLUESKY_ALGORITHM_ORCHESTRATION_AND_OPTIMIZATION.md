@@ -646,3 +646,255 @@ BlueSky PRO принимает следующие решения:
 ```
 
 **Решение:** BlueSky PRO строится как система оркестрации специализированных алгоритмов, а не как система, привязанная к одному алгоритму. Оркестратор автоматически выбирает наиболее подходящий метод или их комбинацию для конкретной задачи и конкретного UAV, при этом безопасность, выполнимость и энергетический резерв имеют обязательный приоритет, а качество результата определяется типом миссии.
+
+
+## 21. Mission Template Algorithm Profiles
+
+**Status:** WORKING ALGORITHM BASELINE — 2026-10-09  
+**Scope:** связывает утверждённые пользовательские mission templates с внутренними классами планировщиков, оптимизаторов и обязательными этапами валидации.
+
+Этот раздел не превращает шаблон в фиксированный алгоритм. Шаблон задаёт **операционную задачу**, после чего BAO выбирает конкретную реализацию по геометрии, UAV, payload, среде, ограничениям и вычислительному бюджету.
+
+### 21.1. Общий контракт
+
+Для каждого шаблона применяется базовая цепочка:
+
+```text
+TASK
+ ↓
+TEMPLATE / OBJECTIVE PROFILE
+ ↓
+TASK GEOMETRY + CONSTRAINTS
+ ↓
+TASK-SPECIFIC PLANNER
+ ↓
+ROUTE / COVERAGE / ALLOCATION CANDIDATES
+ ↓
+WIND + VEHICLE PERFORMANCE
+ ↓
+ENERGY / RESERVE / RESOURCE
+ ↓
+TRAJECTORY
+ ↓
+SAFETY / REGULATORY / C2 / QUALITY VALIDATION
+ ↓
+BEST VALID PLAN
+```
+
+Для multi-UAV задач между генерацией кандидатов и wind/performance добавляются:
+
+```text
+TASK DECOMPOSITION
+ ↓
+ZONE / TASK ALLOCATION
+ ↓
+ROUTE-IN-ZONE
+ ↓
+4D TRAJECTORY
+ ↓
+4D CONFLICT VERIFICATION
+```
+
+### 21.2. Матрица 13 шаблонов
+
+| ID | Шаблон | Основной планировщик | Дополнительные методы | Главный критерий |
+|---|---|---|---|---|
+| MT-01 | Картографирование территории | Coverage Planner: cellular decomposition / lawnmower | Dijkstra/A* для переходов; wind/energy optimization | полнота покрытия + качество данных |
+| MT-02 | 3D-картография / реконструкция | 3D coverage / viewpoint planning | sweep; graph transitions; RRT* при сложной 3D-геометрии; trajectory optimization | геометрическая полнота и качество реконструкции |
+| MT-03 | Инспекция объектов и инфраструктуры | Viewpoint / inspection-path planning | graph planning; RRT* для сложных пространственных подходов; trajectory optimization | получение требуемых инспекционных ракурсов и данных |
+| MT-04 | Мониторинг строительства | Repeatable coverage / corridor planning | cellular decomposition; graph transitions; temporal comparison; incremental recalculation | сопоставимая полнота наблюдения во времени |
+| MT-05 | Мониторинг территории и периметра | Patrol / corridor planning | graph shortest path; coverage; revisit scheduling; multi-UAV allocation | непрерывность/полнота наблюдения |
+| MT-06 | Поиск и спасение | Search Coverage Planner | cellular decomposition; detection-oriented candidate comparison; D*/D*-Lite для изменения обстановки; multi-UAV allocation | вероятность и полнота обнаружения |
+| MT-07 | Пожарный мониторинг и ЧС | Adaptive Coverage Planner | search/recon coverage; dynamic replanning; multi-UAV allocation; wind/performance | актуальная полнота наблюдения при изменяющейся обстановке |
+| MT-08 | Экологический и природный мониторинг | Survey / sampling coverage | transect/grid planning; revisit scheduling; graph transitions | полнота и репрезентативность наблюдений |
+| MT-09 | Сельское хозяйство | Precision Coverage Planner | grid/lawnmower; cellular decomposition; repeatable route generation; payload-aware optimization | полнота и повторяемость полевого покрытия |
+| MT-10 | Доставка грузов | Point-to-point constrained route planning | Dijkstra/A*; wind/energy optimization; trajectory optimization | гарантированная доставка + энергетический резерв |
+| MT-11 | Ретрансляция связи | Connectivity-aware mission planning | multi-UAV allocation; graph planning; trajectory optimization | обеспечение требуемой связности C2/relay |
+| MT-12 | Аэрофотосъёмка и медиапроизводство | Viewpoint / shot-sequence planning | graph transitions; trajectory smoothing/optimization; payload/gimbal constraints | выполнение набора требуемых кадров/ракурсов |
+| MT-13 | C-UAS — обнаружение БПЛА | Search / reconnaissance planning | detection-area coverage; multi-UAV allocation; dynamic replanning; tracking/analytics integration | обнаружение, классификация и сопровождение в пределах разрешённой задачи |
+
+### 21.3. Правило выбора алгоритма внутри шаблона
+
+Один шаблон не означает один алгоритм.
+
+BAO выбирает комбинацию по следующим признакам:
+
+1. геометрия задачи;
+2. 2D/3D характер пространства;
+3. плотность препятствий и ограничений;
+4. необходимость полного покрытия или выборочных наблюдений;
+5. количество UAV;
+6. однородность/неоднородность флота;
+7. характеристики payload;
+8. динамичность среды;
+9. wind field;
+10. energy/reserve;
+11. C2;
+12. требования качества;
+13. требуемое время расчёта.
+
+### 21.4. Типовые цепочки
+
+#### Coverage-класс
+
+Для MT-01, MT-02, MT-04, MT-08, MT-09:
+
+```text
+MISSION AREA
+ ↓
+CONSTRAINED OPEN SPACE
+ ↓
+DECOMPOSITION
+ ↓
+COVERAGE CELLS / TRACKS
+ ↓
+CELL TRANSITION ROUTING
+ ↓
+WIND + PERFORMANCE
+ ↓
+ENERGY / QUALITY
+ ↓
+TRAJECTORY
+ ↓
+VALIDATION
+```
+
+#### Inspection / viewpoint-класс
+
+Для MT-03 и MT-12:
+
+```text
+TARGET / SURFACE / SHOT REQUIREMENTS
+ ↓
+VIEWPOINT GENERATION
+ ↓
+FEASIBLE VIEWPOINT FILTER
+ ↓
+VIEWPOINT SEQUENCING
+ ↓
+TRANSITION ROUTING
+ ↓
+WIND + PERFORMANCE
+ ↓
+PAYLOAD / QUALITY CHECK
+ ↓
+TRAJECTORY
+ ↓
+VALIDATION
+```
+
+#### Search / reconnaissance-класс
+
+Для MT-06, MT-07 и MT-13:
+
+```text
+SEARCH / OBSERVATION AREA
+ ↓
+CONSTRAINED SEARCH SPACE
+ ↓
+COVERAGE / OBSERVATION CANDIDATES
+ ↓
+DETECTION / SENSOR EVALUATION
+ ↓
+WIND + PERFORMANCE
+ ↓
+ENERGY / C2
+ ↓
+TRAJECTORY
+ ↓
+VALIDATION
+```
+
+Для MT-07 и MT-13 динамические изменения среды/объектов могут инициировать incremental replanning; для MT-06 это также применяется при изменении поисковой обстановки.
+
+#### Point-to-point delivery-класс
+
+Для MT-10:
+
+```text
+ORIGIN / DESTINATION
+ ↓
+CONSTRAINED OPEN SPACE
+ ↓
+Dijkstra / A* CANDIDATES
+ ↓
+UAV + PAYLOAD FEASIBILITY
+ ↓
+WIND + PERFORMANCE
+ ↓
+ENERGY + RETURN / CONTINGENCY RESERVE
+ ↓
+TRAJECTORY
+ ↓
+DELIVERY / RECOVERY VALIDATION
+```
+
+#### Multi-UAV coordination
+
+Для любого шаблона при участии нескольких UAV:
+
+```text
+PARENT TASK
+ ↓
+TASK DECOMPOSITION
+ ↓
+ZONE / TASK PARTITION
+ ↓
+UAV ↔ TASK / ZONE ASSIGNMENT
+ ↓
+ROUTE-IN-ZONE
+ ↓
+WIND + PERFORMANCE
+ ↓
+4D TRAJECTORY
+ ↓
+4D CONFLICT VERIFY
+ ↓
+GROUND CONFLICT RESOLUTION IF REQUIRED
+ ↓
+4D RE-VERIFY
+ ↓
+FINAL VALIDATION
+```
+
+Зональная пространственная деконфликтность является предпочтительным механизмом. Start-delay и вертикальная коррекция остаются fallback-механизмами в соответствии с действующей Multi-UAV спецификацией.
+
+### 21.5. Специальные замечания
+
+**MT-01 / MT-09.** Повторяемая геометрия является самостоятельным преимуществом: при неизменных входах сохраняются decomposition и route geometry; пересчитываются только затронутые зависимости.
+
+**MT-02 / MT-03 / MT-12.** Payload и требуемая геометрия наблюдения являются частью допустимости кандидата, а не только параметрами последующей оценки.
+
+**MT-06 / MT-07 / MT-13.** Detection/tracking analytics не становятся частью Safety Authority. Аналитика формирует данные/кандидаты, а planning и readiness проходят независимые обязательные проверки.
+
+**MT-10.** Энергетический резерв на завершение операции и предусмотренное восстановление/contingency является hard feasibility condition.
+
+**MT-11.** Для relay-миссии конкретная модель требуемой C2/connectivity objective ещё требует отдельного формального verification contract; настоящий раздел фиксирует только архитектурную привязку, не утверждая численные пороги.
+
+### 21.6. Граница текущей проработки
+
+На этом этапе зафиксированы:
+
+- связь всех 13 утверждённых шаблонов с классами планирования;
+- типовые цепочки расчёта;
+- граница автоматического выбора алгоритмов;
+- связь шаблонов с Objective Profiles;
+- применение wind/performance/energy/trajectory stages;
+- multi-UAV orchestration boundary.
+
+Не зафиксированы как окончательные:
+
+- конкретные численные коэффициенты оптимизации;
+- calibration values;
+- sensor-specific detection models;
+- UAV-specific performance curves;
+- нормативные separation values;
+- production implementation details.
+
+Они должны появляться только из соответствующих controlled requirements, vehicle/payload data, verification evidence или отдельных утверждённых design decisions.
+
+### 21.7. Следующий детерминированный этап
+
+После фиксации матрицы следующим уровнем является разработка **Template Algorithm Contracts**: для каждого MT-01…MT-13 определить входы, выходы, hard constraints, quality metrics, invalidation dependencies и минимальный позитивный/негативный verification scenario.
+
+Первая реализационная цепочка для проверки должна оставаться детерминированной и малой: **MT-01 Картографирование территории → один UAV → одна зона → coverage → route → wind/performance → energy → trajectory → final validation**.
