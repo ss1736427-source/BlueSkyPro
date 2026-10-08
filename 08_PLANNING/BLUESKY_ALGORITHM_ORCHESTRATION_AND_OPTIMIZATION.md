@@ -2340,3 +2340,621 @@ The downstream planning and validation architecture remains common.
 - MT-02 extends that pipeline into 3D observation/viewpoint planning.
 - Together they establish the reusable foundation for inspection, monitoring, search and other templates.
 - Later templates should reuse these engines rather than introduce parallel planning architectures.
+
+## 26. Deterministic Planning State Machine for MT-01 / MT-02
+
+The common state machine is:
+
+~~~text
+INPUT_RECEIVED
+ → INPUT_VALIDATION
+ → ENVIRONMENT_NORMALIZED
+ → CONSTRAINED_DOMAIN_READY
+ → CANDIDATE_GENERATION
+ → CANDIDATE_FEASIBILITY
+ → PERFORMANCE_CALCULATION
+ → ENERGY_CALCULATION
+ → TRAJECTORY_GENERATION
+ → TASK_QUALITY_EVALUATION
+ → CANDIDATE_COMPARISON
+ → FINAL_INTEGRITY_VALIDATION
+ → PLAN_READY
+~~~
+
+Any failed mandatory gate produces an explicit BLOCKED_* state. No candidate moves directly from generation to READY.
+
+### 26.1. Candidate lifecycle
+
+Normal lifecycle:
+
+GENERATED → FEASIBLE → PERFORMANCE_VALID → ENERGY_VALID → TRAJECTORY_VALID → QUALITY_VALID → SELECTABLE → SELECTED
+
+Terminal rejection states:
+
+REJECTED_HARD_CONSTRAINT, REJECTED_ENERGY, REJECTED_QUALITY, REJECTED_TRAJECTORY, REJECTED_STALE.
+
+The rejection reason is retained as evidence.
+
+### 26.2. Candidate identity
+
+A candidate identity contains:
+
+- mission version;
+- candidate-generation version;
+- task-specific planner version;
+- geometry hash;
+- environment snapshot hash;
+- UAV/payload configuration hash;
+- objective-profile hash.
+
+A result calculated for another context cannot be silently reused.
+
+### 26.3. Authoritative calculation rule
+
+Each result has one authoritative producer.
+
+- constrained domain → Spatial Constraint Engine;
+- coverage tracks → Coverage Planner;
+- viewpoint visibility → Visibility Engine;
+- wind-adjusted performance → Performance Engine;
+- energy → Energy Engine;
+- trajectory → Trajectory Engine;
+- task quality → Task Quality Engine;
+- candidate selection → Objective Orchestrator.
+
+Downstream modules consume stored results rather than recreating them.
+
+## 27. MT-01 Exact Planning Procedure
+
+### 27.1. Reference pseudocode
+
+~~~text
+PLAN_MT01(context):
+
+1. validate(context)
+2. normalize_coordinates(context)
+3. build_constrained_domain(context)
+4. derive_acquisition_geometry(context.payload, context.quality)
+
+5. orientations = generate_orientation_candidates(domain, acquisition_geometry)
+
+6. FOR each orientation:
+      cells = decompose(domain, orientation)
+      tracks = generate_tracks(cells, acquisition_geometry)
+      edge_graph = build_transition_graph(cells, tracks, domain)
+      route_candidates = generate_bounded_routes(edge_graph)
+
+      FOR each route:
+          IF not spatially_feasible(route):
+              reject(HARD_SPATIAL)
+              CONTINUE
+
+          performance = calculate_wind_performance(route, context)
+          IF not performance.feasible:
+              reject(UAV_OR_ENVIRONMENT)
+              CONTINUE
+
+          trajectory = generate_trajectory(route, performance, context)
+          IF not trajectory.feasible:
+              reject(TRAJECTORY)
+              CONTINUE
+
+          acquisition = calculate_acquisition_events(
+              trajectory, context.payload,
+              context.quality, context.terrain
+          )
+
+          quality = evaluate_mapping_quality(acquisition, context.quality)
+          IF not quality.acceptable:
+              reject(QUALITY)
+              CONTINUE
+
+          energy = calculate_total_energy(
+              trajectory, context.vehicle,
+              context.payload, context.environment,
+              context.operational_policy
+          )
+
+          IF not energy.reserve_satisfied:
+              reject(ENERGY)
+              CONTINUE
+
+          retain(candidate)
+
+7. IF no selectable candidate:
+      return NO_FEASIBLE_CANDIDATE
+
+8. selected = compare_candidates(
+       candidates, context.objective_profile
+   )
+
+9. final_validate(selected, context)
+
+10. return versioned_plan(selected)
+~~~
+
+### 27.2. Orientation search
+
+The orientation search shall be bounded and reproducible.
+
+Reference policy:
+
+1. calculate principal polygon orientations;
+2. include the minimum-track orientation;
+3. include nearby orientations;
+4. include materially wind-favourable orientations;
+5. include an operator-requested orientation when permitted;
+6. deduplicate equivalent orientations;
+7. retain a configured maximum number.
+
+The maximum is an algorithm parameter, not a mission requirement.
+
+### 27.3. Track generation
+
+For each sweep line:
+
+1. intersect the line with the valid cell;
+2. clip to the cell;
+3. apply acquisition/safety margin;
+4. reject segments below minimum useful length;
+5. calculate entry and exit headings;
+6. validate turn feasibility;
+7. create the track object.
+
+Track object:
+
+- start/end;
+- length;
+- heading;
+- altitude reference;
+- acquisition interval;
+- expected event count;
+- coverage polygon;
+- feasibility state.
+
+### 27.4. Coverage completeness
+
+Coverage shall be calculated from sensor footprint geometry, not waypoint points.
+
+Reference metric:
+
+coverage_ratio = area(union(sensor_footprints ∩ required_AOI)) / area(required_AOI)
+
+The implementation shall define numerical tolerance for small geometry slivers.
+
+Uncovered geometry is retained for diagnostics and local repair.
+
+### 27.5. Local repair
+
+When a candidate has localized coverage gaps:
+
+1. identify connected uncovered regions;
+2. determine possible local passes;
+3. calculate incremental route cost;
+4. recalculate performance and energy;
+5. accept only if all hard constraints remain valid and the repair improves the mission result.
+
+### 27.6. Cross-grid
+
+A perpendicular second grid is not universally mandatory.
+
+It may be introduced when:
+
+- the objective profile requests it;
+- the sensor/processing contract requires stronger image geometry;
+- scene characteristics create weak reconstruction geometry;
+- quality validation identifies a material deficiency.
+
+The second grid remains a candidate requiring full energy/time validation.
+
+## 28. MT-02 Exact Planning Procedure
+
+### 28.1. Reference pseudocode
+
+~~~text
+PLAN_MT02(context):
+
+1. validate(context)
+2. normalize_target_geometry(context)
+3. build_constrained_observation_domain(context)
+
+4. target_elements = discretize_target(
+       geometry,
+       required_resolution,
+       semantic_importance
+   )
+
+5. viewpoints = generate_initial_viewpoints(
+       target_elements, sensor_model, UAV_model
+   )
+
+6. viewpoints = feasibility_filter(viewpoints)
+
+7. visibility = calculate_visibility(
+       viewpoints, target_elements, environment
+   )
+
+8. selected = select_global_viewpoints(
+       viewpoints, visibility, quality_requirements
+   )
+
+9. weak_regions = detect_weak_regions(
+       selected, target_elements,
+       visibility, quality_requirements
+   )
+
+10. WHILE weak_regions remain and refinement budget exists:
+        local_candidates = generate_local_viewpoints(weak_regions)
+        local_candidates = feasibility_filter(local_candidates)
+        update_visibility(local_candidates)
+        selected = improve_viewpoint_set(
+            selected, local_candidates
+        )
+        weak_regions = re_evaluate_weak_regions()
+
+11. route_graph = build_viewpoint_transition_graph(
+        selected, environment, UAV_model, payload_model
+    )
+
+12. route_candidates = generate_bounded_sequences(route_graph)
+
+13. FOR each sequence:
+        trajectory = generate_3D_trajectory(sequence, context)
+
+        IF not trajectory.feasible:
+            reject(TRAJECTORY)
+            CONTINUE
+
+        acquisition = generate_sensor_events(
+            trajectory, sensor_model, target_geometry
+        )
+
+        performance = calculate_wind_performance(
+            trajectory, context
+        )
+
+        IF not performance.feasible:
+            reject(PERFORMANCE)
+            CONTINUE
+
+        energy = calculate_total_energy(trajectory, context)
+
+        IF not energy.reserve_satisfied:
+            reject(ENERGY)
+            CONTINUE
+
+        quality = evaluate_3D_reconstruction_quality(
+            acquisition, visibility,
+            target_elements, quality_requirements
+        )
+
+        IF not quality.acceptable:
+            reject(QUALITY)
+            CONTINUE
+
+        retain(sequence, trajectory, energy, quality)
+
+14. IF no selectable candidate:
+       return NO_FEASIBLE_3D_PLAN
+
+15. selected_plan = compare_candidates(
+       candidates, objective_profile
+   )
+
+16. final_validate(selected_plan, context)
+
+17. return versioned_plan(selected_plan)
+~~~
+
+### 28.2. Target discretisation
+
+Resolution shall be driven by the required product.
+
+Possible representations:
+
+- regular surface samples;
+- adaptive mesh vertices;
+- voxel centres;
+- semantic surface patches.
+
+Adaptive discretisation is preferred for heterogeneous geometry:
+
+~~~text
+simple surface → coarse sampling
+high-curvature / critical surface → fine sampling
+weakly observed surface → fine sampling
+~~~
+
+Stable target-element IDs permit incremental recalculation.
+
+### 28.3. Viewpoint generation
+
+For a target element with surface normal n, a nominal camera position can be generated as:
+
+p_view = p_target + d × n
+
+where d is an admissible observation distance.
+
+The candidate is then perturbed within a bounded angular/distance neighbourhood.
+
+This is seed generation only; visibility and trajectory feasibility are separate gates.
+
+### 28.4. Viewpoint feasibility
+
+A viewpoint is admissible only when all applicable conditions hold:
+
+~~~text
+allowed airspace
+AND
+terrain/obstacle clearance
+AND
+UAV altitude envelope
+AND
+UAV dynamics
+AND
+camera range
+AND
+camera/gimbal orientation
+AND
+C2 requirement
+AND
+required target visibility
+~~~
+
+Hard failures remove the viewpoint before global selection.
+
+### 28.5. Viewpoint utility
+
+A reference utility may combine:
+
+- coverage gain;
+- geometry quality;
+- parallax gain;
+- visibility gain;
+- energy cost;
+- time cost;
+- occlusion penalty.
+
+The utility weights are versioned algorithm parameters. Hard constraints remain outside the utility.
+
+### 28.6. Redundancy control
+
+A viewpoint may be rejected when:
+
+- its visible target set is nearly identical to selected viewpoints;
+- it adds negligible parallax;
+- it adds negligible network connectivity;
+- its incremental quality gain is not worth its cost.
+
+The redundancy threshold is a controlled parameter.
+
+### 28.7. Weak-region detection
+
+A region becomes weak when one or more apply:
+
+- observation count below requirement;
+- angular diversity below requirement;
+- GSD above limit;
+- overlap below requirement;
+- visibility too low;
+- image graph connectivity insufficient;
+- occlusion risk too high.
+
+Weak regions are spatial objects and therefore support local replanning.
+
+### 28.8. Global/local refinement loop
+
+~~~text
+GLOBAL PLAN
+   ↓
+QUALITY ANALYSIS
+   ↓
+WEAK REGION EXTRACTION
+   ↓
+LOCAL VIEWPOINT GENERATION
+   ↓
+LOCAL REPAIR
+   ↓
+GLOBAL QUALITY RECHECK
+~~~
+
+The loop terminates when quality passes, no useful refinement remains, or the refinement budget is exhausted. Exhaustion without quality compliance is a blocked result.
+
+### 28.9. Viewpoint graph and local motion planning
+
+A viewpoint graph edge is valid only when a feasible trajectory exists between viewpoints.
+
+For open geometry, a direct feasibility check is preferred.
+
+For complex geometry, graph search or a sampling-based local planner such as RRT* may be used.
+
+RRT* is therefore a local motion-planning backend, not the primary 3D acquisition algorithm.
+
+### 28.10. Reconstruction-quality decomposition
+
+The initial quality model is:
+
+~~~text
+GEOMETRIC COVERAGE
++
+OBSERVATION QUALITY
++
+SENSOR NETWORK CONNECTIVITY
++
+MULTI-VIEW GEOMETRY
++
+GSD / SENSOR RESOLUTION
++
+OCCLUSION
+=
+RECONSTRUCTION QUALITY
+~~~
+
+The production metric must eventually be tied to the selected reconstruction pipeline and verified on representative datasets.
+
+### 28.11. Multi-view geometry
+
+The planner shall retain, where supported:
+
+- baseline;
+- viewing-angle difference;
+- overlap;
+- common visible surface;
+- temporal separation;
+- pose uncertainty.
+
+This permits later quality engines to evaluate image-pair geometry without rebuilding the route.
+
+### 28.12. Camera branch
+
+~~~text
+camera calibration
+→ footprint
+→ GSD
+→ overlap
+→ viewpoint geometry
+→ image events
+→ image network
+~~~
+
+Megapixel count alone is never treated as sufficient evidence of GSD or reconstruction quality.
+
+### 28.13. LiDAR branch
+
+~~~text
+sensor calibration
+→ beam/FOV model
+→ swath
+→ point density
+→ incidence/visibility
+→ scan overlap
+→ trajectory
+~~~
+
+The sensor-specific quality model remains separate from the shared planning architecture.
+
+### 28.14. Final plan package
+
+Both templates output:
+
+~~~text
+MissionPlan
+ ├─ mission/version
+ ├─ planner/version
+ ├─ selected UAV/payload
+ ├─ constrained-domain reference
+ ├─ task-specific geometry
+ ├─ route/waypoints
+ ├─ time-parameterized trajectory
+ ├─ payload acquisition events
+ ├─ performance result
+ ├─ energy/reserve result
+ ├─ quality result
+ ├─ validation result
+ └─ provenance/dependency manifest
+~~~
+
+### 28.15. Reproducibility
+
+For identical mission version, environment snapshot, UAV/payload configuration, algorithm versions, objective profile and numerical configuration, the result shall be reproducible within explicitly defined numerical tolerances.
+
+Any stochastic backend must use a controlled seed or retain sufficient random-state information for replay.
+
+### 28.16. Performance accounting
+
+Each planner shall report:
+
+- calculation wall time;
+- candidate count;
+- rejection count by gate;
+- geometry-operation count;
+- visibility-test count;
+- trajectory-evaluation count;
+- cache/reuse ratio.
+
+This permits kernel tuning without changing mission semantics.
+
+### 28.17. Explainability
+
+The planner shall produce machine-readable reasons such as:
+
+~~~text
+PRIMARY_REASON: wind_favourable_orientation
+SECONDARY_REASON: protected_energy_reserve
+QUALITY_REASON: required_coverage_maintained
+RECALCULATION_REASON: wind_snapshot_changed
+~~~
+
+The pilot-facing UI may reduce this to one concise operational explanation.
+
+### 28.18. Parameter classes
+
+**MISSION INPUT**
+- task area;
+- target GSD;
+- required overlap;
+- required product quality.
+
+**VEHICLE/PAYLOAD DATA**
+- camera;
+- FOV;
+- focal length;
+- speed limits;
+- energy model.
+
+**ENVIRONMENT**
+- terrain;
+- obstacles;
+- restrictions;
+- wind.
+
+**ALGORITHM PARAMETERS**
+- sampling resolution;
+- candidate limits;
+- refinement thresholds;
+- graph-search limits.
+
+**POLICY / REQUIREMENT**
+- protected reserve;
+- mandatory safety constraints;
+- authorization rules.
+
+The planner shall not convert an algorithm parameter into a mission requirement.
+
+### 28.19. Numerical-policy boundary
+
+The following remain external controlled values until formally approved:
+
+- protected energy reserve;
+- safety margins;
+- obstacle clearance;
+- GSD thresholds by mission class;
+- overlap defaults by sensor/product;
+- viewpoint angular tolerances;
+- visibility thresholds;
+- candidate/refinement budgets.
+
+The present specification defines structure, not qualification values.
+
+## 29. Completion Gate for MT-01 and MT-02
+
+Before opening MT-03, each of the two templates shall have:
+
+1. algorithm specification;
+2. data/input schema;
+3. dependency graph;
+4. candidate lifecycle;
+5. hard/soft constraints;
+6. quality model;
+7. failure taxonomy;
+8. pseudocode;
+9. parameter classification;
+10. verification scenarios;
+11. reproducibility rule;
+12. performance metrics;
+13. provenance contract;
+14. implementation-module mapping;
+15. traceability to requirements;
+16. test-data definition.
+
+Only after this gate is satisfied should the template family advance.
