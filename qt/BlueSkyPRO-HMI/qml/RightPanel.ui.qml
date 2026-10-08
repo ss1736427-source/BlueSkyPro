@@ -111,42 +111,49 @@ Item {
         if (draggingPanel !== "")
             return
 
-        var items = []
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
+        var items = []
+
         for (var i = 0; i < keys.length; ++i) {
             var key = keys[i]
             if (panelVisible(key))
                 items.push({ key: key, y: panelPositionY(key), h: panelHeight(key) })
         }
 
+        // Treat the saved Y coordinate as the user's preferred order.
+        // Then pack every visible panel into non-overlapping slots.
         items.sort(function(a, b) {
+            if (a.y === b.y)
+                return keys.indexOf(a.key) - keys.indexOf(b.key)
             return a.y - b.y
         })
 
         var top = 54
         var gap = 10
+
         for (var j = 0; j < items.length; ++j) {
-            items[j].y = Math.max(top, items[j].y)
+            items[j].y = Math.max(items[j].y, top)
             top = items[j].y + items[j].h + gap
         }
 
-        // If the enlarged stack (for example ATC after validation appears)
-        // reaches the bottom edge, move the complete stack upward without
-        // changing its user-defined order.
         var bottomLimit = Math.max(54, root.height - 8)
-        if (items.length > 0) {
-            var overflow = (items[items.length - 1].y + items[items.length - 1].h) - bottomLimit
-            if (overflow > 0) {
-                for (var k = 0; k < items.length; ++k)
-                    items[k].y -= overflow
+        var bottom = items.length > 0
+                ? items[items.length - 1].y + items[items.length - 1].h
+                : 54
 
-                // Never move the first work area into the INFORMATION title.
-                var correction = 54 - items[0].y
-                if (correction > 0) {
-                    for (var m = 0; m < items.length; ++m)
-                        items[m].y += correction
-                }
-            }
+        if (bottom > bottomLimit) {
+            var shift = bottom - bottomLimit
+            for (var k = 0; k < items.length; ++k)
+                items[k].y -= shift
+        }
+
+        // If the stack is taller than the available area, preserve the
+        // non-overlap invariant rather than allowing cards to intersect.
+        var minimumTop = 54
+        if (items.length > 0 && items[0].y < minimumTop) {
+            var correction = minimumTop - items[0].y
+            for (var m = 0; m < items.length; ++m)
+                items[m].y += correction
         }
 
         var next = {}
