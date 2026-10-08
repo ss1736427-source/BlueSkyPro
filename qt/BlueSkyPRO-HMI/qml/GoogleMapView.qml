@@ -90,17 +90,23 @@ Item {
                     ty: ty,
                     x: tx * tileSize - cx + width / 2 + panOffsetX,
                     y: ty * tileSize - cy + height / 2 + panOffsetY,
+                    key: zoomLevel + "/" + wrappedX + "/" + ty,
                     url: "https://tiles.api-maps.yandex.ru/v1/tiles/?x=" +
                          wrappedX + "&y=" + ty + "&z=" + zoomLevel +
                          "&lang=en_US&l=map&projection=web_mercator&apikey=" +
-                         encodeURIComponent(yandexMapsApiKey)
+                         encodeURIComponent(yandexMapsApiKey),
+                    source: tileCacheManager.requestTile(
+                        zoomLevel + "/" + wrappedX + "/" + ty,
+                        "https://tiles.api-maps.yandex.ru/v1/tiles/?x=" +
+                        wrappedX + "&y=" + ty + "&z=" + zoomLevel +
+                        "&lang=en_US&l=map&projection=web_mercator&apikey=" +
+                        encodeURIComponent(yandexMapsApiKey))
                 })
             }
         }
 
-        // Load tiles from the viewport center outward. The central area
-        // becomes usable first, while the whole visible viewport is still
-        // requested at a controlled rate.
+        // Keep the visible viewport priority order. The C++ tile cache
+        // manager uses this order to fill the persistent cache center-out.
         var viewportCenterX = width / 2
         var viewportCenterY = height / 2
         for (var i = 0; i < result.length; ++i) {
@@ -148,34 +154,11 @@ Item {
             y: modelData.y
             width: root.tileSize
             height: root.tileSize
-            source: loadRequested ? modelData.url : ""
+            source: modelData.source
             asynchronous: true
-            // Keep successful tiles in Qt's image cache. This avoids
-            // unnecessary repeat requests when the viewport is rebuilt.
             cache: true
             fillMode: Image.Stretch
-            property bool loadRequested: false
             property int lastStatus: Image.Null
-            property int retryCount: 0
-
-            // Yandex Tiles API allows up to 30 RPS in the free tier.
-            // Stagger tile starts so a zoom change does not create a burst.
-            Timer {
-                id: loadTimer
-                interval: index * 34
-                repeat: false
-                running: true
-                onTriggered: parent.loadRequested = true
-            }
-
-            // Retry a transient network/rate-limit failure once, after the
-            // initial burst has settled. Persistent errors remain visible.
-            Timer {
-                id: retryTimer
-                interval: 1500
-                repeat: false
-                onTriggered: parent.loadRequested = true
-            }
 
             onStatusChanged: {
                 if (status === lastStatus)
@@ -187,15 +170,8 @@ Item {
                     if (root.loadedTileCount === root.tiles.length && root.failedTileCount === 0)
                         root.mapStatus = "READY"
                 } else if (status === Image.Error) {
-                    if (retryCount < 1) {
-                        retryCount++
-                        loadRequested = false
-                        root.mapStatus = "LOADING"
-                        retryTimer.restart()
-                    } else {
-                        root.failedTileCount++
-                        root.mapStatus = "TILE LOAD ERROR"
-                    }
+                    root.failedTileCount++
+                    root.mapStatus = "TILE LOAD ERROR"
                 }
             }
 
@@ -330,6 +306,30 @@ Item {
             color: "#FFD43B"
             font.family: "B612 Mono"
             font.pixelSize: 11
+        }
+    }
+
+    Connections {
+        target: tileCacheManager
+
+        function onTileReady(key, fileUrl) {
+            var updated = root.tiles.slice()
+            var changed = false
+
+            for (var i = 0; i < updated.length; ++i) {
+                if (updated[i].key === key) {
+                    updated[i].source = fileUrl
+                    changed = true
+                    break
+                }
+            }
+
+            if (changed)
+                root.tiles = updated
+        }
+
+        function onTileFailed(key) {
+            root.mapStatus = "TILE LOAD ERROR"
         }
     }
 
