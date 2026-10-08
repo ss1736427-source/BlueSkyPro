@@ -42,6 +42,7 @@ Item {
         category: "BlueSkyPRO/RightPanel"
         property string orderCsv: "Checklist,Flight Conditions,Alerting,ATC"
         property string positionCsv: "Checklist=54,Flight Conditions=293,Alerting=400,ATC=499"
+        property int freePositionLayoutVersion: 0
     }
 
     property var panelOrder: panelOrderSettings.orderCsv.split(",")
@@ -69,6 +70,14 @@ Item {
                 y += panelHeight(key) + 10
             }
         }
+        // One-time migration: place ATC at the true lower edge instead of
+        // the old packed-stack position. Future operator positions are preserved.
+        if (panelOrderSettings.freePositionLayoutVersion < 2) {
+            if (panelVisible("ATC"))
+                result["ATC"] = Math.max(54, root.height - bottomInset - 8 - panelHeight("ATC"))
+            panelOrderSettings.freePositionLayoutVersion = 2
+        }
+
         panelPositions = result
         savePanelPositions()
     }
