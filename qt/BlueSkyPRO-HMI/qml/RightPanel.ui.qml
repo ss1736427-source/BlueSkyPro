@@ -128,11 +128,15 @@ Item {
     // Keep all visible panels separated by a fixed gap while preserving
     // their current vertical order. The available area ends above the
     // overlaid BottomToolbar.
+    // Preserve operator-selected positions. Only clamp to the visible work area
+    // and repair genuine collisions; never repack the whole stack.
     function reflowPanelPositions() {
         if (draggingPanel !== "")
             return
 
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
+        var top = 54
+        var bottomLimit = Math.max(top, root.height - bottomInset - 8)
         var items = []
 
         for (var i = 0; i < keys.length; ++i) {
@@ -141,123 +145,97 @@ Item {
                 items.push({ key: key, y: panelPositionY(key), h: panelHeight(key) })
         }
 
-        items.sort(function(a, b) {
-            if (a.y === b.y)
-                return keys.indexOf(a.key) - keys.indexOf(b.key)
-            return a.y - b.y
-        })
+        // Clamp saved positions first.
+        for (var j = 0; j < items.length; ++j)
+            items[j].y = Math.max(top, Math.min(bottomLimit - items[j].h, items[j].y))
 
-        var top = 54
+        // Repair only real overlaps, keeping the existing order and free gaps.
+        items.sort(function(a, b) { return a.y - b.y })
         var gap = 10
-        var bottomLimit = Math.max(top, root.height - bottomInset - 8)
-
-        // First pack from the top. This is only needed when cards collide,
-        // change height, or the saved layout exceeds the visible work area.
-        for (var j = 0; j < items.length; ++j) {
-            items[j].y = Math.max(items[j].y, top)
-            if (j > 0)
-                items[j].y = Math.max(items[j].y, items[j - 1].y + items[j - 1].h + gap)
+        for (var k = 1; k < items.length; ++k) {
+            var requiredY = items[k - 1].y + items[k - 1].h + gap
+            if (items[k].y < requiredY)
+                items[k].y = requiredY
         }
 
-        var bottom = items.length > 0
-                ? items[items.length - 1].y + items[items.length - 1].h
-                : top
-
-        if (bottom > bottomLimit) {
-            var shift = bottom - bottomLimit
-            for (var k = 0; k < items.length; ++k)
-                items[k].y -= shift
-        }
-
-        // Re-pack from the top once more after the upward shift. This
-        // guarantees the invariant: next.y >= previous.bottom + gap.
-        for (var m = 0; m < items.length; ++m) {
-            items[m].y = Math.max(items[m].y, top)
-            if (m > 0)
-                items[m].y = Math.max(items[m].y, items[m - 1].y + items[m - 1].h + gap)
+        // If the repaired stack exceeds the bottom, move only the affected
+        // lower cards upward as far as possible; do not repack the entire stack.
+        if (items.length > 0) {
+            var lastBottom = items[items.length - 1].y + items[items.length - 1].h
+            if (lastBottom > bottomLimit) {
+                for (var m = items.length - 1; m >= 0 && lastBottom > bottomLimit; --m) {
+                    var maxY = bottomLimit - items[m].h
+                    if (items[m].y > maxY)
+                        items[m].y = maxY
+                    if (m > 0) {
+                        var maxPrev = items[m].y - gap - items[m - 1].h
+                        if (items[m - 1].y > maxPrev)
+                            items[m - 1].y = Math.max(top, maxPrev)
+                    }
+                    lastBottom = items[items.length - 1].y + items[items.length - 1].h
+                }
+            }
         }
 
         saveNormalizedPositions(items)
     }
 
-    // Drop by insertion point, not by a fixed slot. The dragged panel is
-    // inserted before/after the panel whose center is nearest to the drop
-    // point. This makes every vertical position reachable, including the
-    // very top and the area immediately above the BottomToolbar.
+    // Drop at the actual mouse position. The dragged card keeps that position
+    // whenever it is free; if it intersects another card, move only the
+    // dragged card to the nearest free gap.
     function dropPanelAtPosition(key, currentRootY) {
         if (draggingPanel !== key)
             return
 
         updatePanelDrag(key, currentRootY)
 
-        var desiredCenter = dragVisualY + panelHeight(key) / 2
         var top = 54
-        var gap = 10
         var bottomLimit = Math.max(top, root.height - bottomInset - 8)
+        var h = panelHeight(key)
+        var desired = Math.max(top, Math.min(bottomLimit - h, dragVisualY))
+        var gap = 10
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
-        var others = []
+        var obstacles = []
 
         for (var i = 0; i < keys.length; ++i) {
             var other = keys[i]
             if (other !== key && panelVisible(other))
-                others.push({ key: other, y: panelPositionY(other), h: panelHeight(other) })
+                obstacles.push({ key: other, y: panelPositionY(other), h: panelHeight(other) })
         }
 
-        others.sort(function(a, b) {
-            return a.y - b.y
-        })
+        function overlaps(y, obstacle) {
+            return y < obstacle.y + obstacle.h + gap &&
+                   y + h + gap > obstacle.y
+        }
 
-        // Build the new order from the actual drop position.
-        var insertIndex = others.length
-        for (var j = 0; j < others.length; ++j) {
-            var center = others[j].y + others[j].h / 2
-            if (desiredCenter < center) {
-                insertIndex = j
-                break
+        var candidates = [desired, top, bottomLimit - h]
+        for (var j = 0; j < obstacles.length; ++j) {
+            candidates.push(obstacles[j].y - gap - h)
+            candidates.push(obstacles[j].y + obstacles[j].h + gap)
+        }
+
+        var best = desired
+        var bestDistance = Number.POSITIVE_INFINITY
+        for (var k = 0; k < candidates.length; ++k) {
+            var candidate = Math.max(top, Math.min(bottomLimit - h, candidates[k]))
+            var free = true
+            for (var m = 0; m < obstacles.length; ++m) {
+                if (overlaps(candidate, obstacles[m])) {
+                    free = false
+                    break
+                }
+            }
+            if (free) {
+                var distance = Math.abs(candidate - desired)
+                if (distance < bestDistance) {
+                    best = candidate
+                    bestDistance = distance
+                }
             }
         }
 
-        var ordered = []
-        for (var k = 0; k < others.length; ++k) {
-            if (k === insertIndex)
-                ordered.push(key)
-            ordered.push(others[k].key)
-        }
-        if (insertIndex === others.length)
-            ordered.push(key)
-
-        // Pack in the selected order. When the complete stack fits, this
-        // produces deterministic positions from top to bottom. If the stack
-        // is taller than the available area, compress only by shifting the
-        // whole stack upward; panels still never overlap.
-        var items = []
-        for (var m = 0; m < ordered.length; ++m)
-            items.push({ key: ordered[m], y: 0, h: panelHeight(ordered[m]) })
-
-        var y = top
-        for (var n = 0; n < items.length; ++n) {
-            items[n].y = y
-            y += items[n].h + gap
-        }
-
-        var totalBottom = items.length > 0 ? items[items.length - 1].y + items[items.length - 1].h : top
-        if (totalBottom > bottomLimit) {
-            var shift = totalBottom - bottomLimit
-            for (var p = 0; p < items.length; ++p)
-                items[p].y -= shift
-
-            // If the stack itself is taller than the available work area,
-            // keep its first panel at the top rather than pushing it above
-            // the fixed INFORMATION title.
-            if (items.length > 0 && items[0].y < top) {
-                var correction = top - items[0].y
-                for (var q = 0; q < items.length; ++q)
-                    items[q].y += correction
-            }
-        }
-
-        saveNormalizedPositions(items)
-
+        panelPositions[key] = Math.round(best)
+        savePanelPositions()
         draggingPanel = ""
         dragVisualY = 0
         dragGrabOffsetY = 0
