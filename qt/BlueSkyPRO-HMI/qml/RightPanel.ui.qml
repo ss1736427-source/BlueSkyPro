@@ -199,6 +199,7 @@ Item {
         panelOrder = migratedOrder
         panelOrderSettings.orderCsv = migratedOrder.join(",")
         loadPanelPositions()
+        reflowPanelPositions()
     }
 
     function panelVisible(key) {
