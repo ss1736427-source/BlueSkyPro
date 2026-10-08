@@ -166,7 +166,7 @@ Item {
         // Expanded mission profile: route table and flight profile use the available workspace.
         MissionProfileWindow {
             id: missionProfileWindow
-            visible: root.missionProfileOpen && !root.is3DMappingProfile
+            visible: root.missionProfileOpen
             missionId: root.missionId
             missionSummary: root.missionSummary
             missionReviewState: root.missionReviewState
@@ -186,7 +186,7 @@ Item {
 
         ThreeDMappingProfile {
             id: threeDMappingProfile
-            visible: root.missionProfileOpen && root.is3DMappingProfile
+            // 3D-specific overlay is disabled here; the canonical mission profile owns the route table.\n            visible: false
             missionId: root.missionId
             missionSummary: root.missionSummary
             uavModel: uavStatus.uavModel
