@@ -4010,3 +4010,88 @@ The remaining blockers are:
 5. executable verification and evidence.
 
 MT-03 remains blocked.
+
+
+## 45. MT-01 / MT-02 Allocation — SYS-REQ-110..112 Controlled Resolution
+
+The previous Section 44 disposition of SYS-REQ-110..112 as wholly OPEN ALLOCATION is superseded by this controlled review result.
+
+Repository traceability explicitly links:
+
+`ARCH-DEC-046 → SYS-REQ-110 → capability → agent/orchestrator → proposal → validation → Safety Gate → C++ Core → execution`
+
+and the reverse chain explicitly links ARCH-DEC-046 to SYS-REQ-110, SYS-REQ-111 and SYS-REQ-112.
+
+### 45.1 SYS-REQ-110 — Multi-Agent AI Orchestration
+
+**Allocation: SUPPORTING / DIRECT DEPENDENCY when AI-assisted planning is active.**
+
+Basis:
+- SYS-REQ-110 explicitly covers AI orchestration for analysis and planning;
+- required capabilities include task assignment, controlled context, result aggregation, conflict handling and traceability;
+- ARCH-DEC-046 defines the corresponding orchestration architecture;
+- MT-01/MT-02 already define AI as an optional bounded strategy/parameter/candidate aid rather than an authority.
+
+Planning consequence:
+
+`AI ANALYSIS / PROPOSAL → PLANNING VALIDATION → SAFETY / AUTHORITY GATES`
+
+AI orchestration may assist generation or comparison of candidates, but it does not replace the deterministic planner, hard-constraint gates or final validation.
+
+### 45.2 SYS-REQ-111 — AI Agent Authority and Proposal Control
+
+**Allocation: DIRECT DEPENDENCY.**
+
+This requirement is directly relevant to MT-01/MT-02 because the planning architecture permits AI-assisted strategy, parameter and candidate selection.
+
+The authoritative execution chain remains:
+
+`AI AGENT → PROPOSAL → VALIDATION → SAFETY GATE → AUTHORIZATION → C++ CORE → EXECUTION`
+
+Therefore:
+- AI cannot modify authoritative mission state directly;
+- AI cannot bypass planner validation;
+- AI cannot weaken hard constraints;
+- AI cannot convert a rejected candidate into an executable plan;
+- AI-generated planning recommendations require the same mandatory validation boundary as non-AI planning proposals.
+
+### 45.3 SYS-REQ-112 — Offline AI Operational Continuity
+
+**Allocation: SUPPORTING / CONDITIONAL DEPENDENCY.**
+
+This requirement applies when AI assistance is enabled and the planning system operates without external AI/network services.
+
+The requirement requires local/authorised AI capability and preservation of:
+- Mission Validation;
+- Safety Engine;
+- Safety Gate;
+- mandatory safety constraints;
+- operator approval;
+- C++ Core execution authority.
+
+Planning consequence:
+
+Loss of external AI capability may reduce AI-assisted optimisation/recommendation capability, but it shall not invalidate the deterministic planning core merely because an external AI service is unavailable. If a required local planning dependency is genuinely unavailable, the planner follows the existing BLOCKED_INPUT / controlled-degradation rules and records provenance.
+
+### 45.4 Controlled allocation table
+
+| Requirement | MT-01 | MT-02 | Status |
+|---|---|---|---|
+| SYS-REQ-110 | SUPPORTING / conditional direct dependency | SUPPORTING / conditional direct dependency | ALLOCATED |
+| SYS-REQ-111 | DIRECT DEPENDENCY | DIRECT DEPENDENCY | ALLOCATED |
+| SYS-REQ-112 | SUPPORTING / conditional dependency | SUPPORTING / conditional dependency | ALLOCATED |
+
+This allocation does not claim that the requirements themselves are baselined or verified. It establishes their relationship to MT-01/MT-02 using the existing controlled requirement and architecture records.
+
+### 45.5 Remaining requirement-allocation blockers
+
+After this resolution, the remaining allocation work is:
+
+1. candidate SRS-family reconciliation against authoritative SYS-REQ/SAF-REQ records;
+2. exact allocation of airspace/NOTAM, weather, terrain/DEM, GNSS/RTK/PPK/NTRIP, payload compatibility and readiness dependencies;
+3. controlled numerical parameter approval;
+4. executable verification/evidence.
+
+SYS-REQ-110..112 are no longer treated as unresolved merely because their detailed lower-level verification is pending.
+
+MT-03 remains blocked.
