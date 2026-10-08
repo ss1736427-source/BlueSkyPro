@@ -1,5 +1,6 @@
 #include "TileCacheManager.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -25,8 +26,15 @@ TileCacheManager::TileCacheManager(QObject *parent)
 
 QString TileCacheManager::cachePath(const QString &key) const
 {
-    const QString root = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
-        + QStringLiteral("/tiles/yandex/map/web_mercator");
+    // Keep the persistent tile cache with the project/runtime on drive E: by default.
+    // An environment override supports installations with a different writable data path.
+    QString cacheRoot = qEnvironmentVariable("BLUESKY_TILE_CACHE_DIR");
+    if (cacheRoot.isEmpty()) {
+        cacheRoot = QDir::cleanPath(
+            QDir(QCoreApplication::applicationDirPath()).absoluteFilePath("../cache"));
+    }
+    const QString root = QDir(cacheRoot).filePath(
+        QStringLiteral("tiles/yandex/map/web_mercator"));
 
     QString relative = key;
     relative.replace(QChar(92), QLatin1Char('/'));
