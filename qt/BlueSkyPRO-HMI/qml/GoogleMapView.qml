@@ -152,12 +152,13 @@ Item {
         model: root.tiles
 
         delegate: Image {
-            x: modelData.x
-            y: modelData.y
+            x: modelData.x + root.panOffsetX
+            y: modelData.y + root.panOffsetY
             width: root.tileSize
             height: root.tileSize
             source: modelData.source
             asynchronous: true
+            retainWhileLoading: true
             cache: true
             fillMode: Image.Stretch
             property int lastStatus: Image.Null
@@ -243,9 +244,9 @@ Item {
         target: null
         acceptedButtons: Qt.LeftButton
 
-        onTranslationChanged: {
-            root.panOffsetX = translation.x
-            root.panOffsetY = translation.y
+        onActiveTranslationChanged: {
+            root.panOffsetX = activeTranslation.x
+            root.panOffsetY = activeTranslation.y
         }
 
         onActiveChanged: {
