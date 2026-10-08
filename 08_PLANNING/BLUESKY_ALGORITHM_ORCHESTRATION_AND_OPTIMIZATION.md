@@ -1218,3 +1218,1125 @@ Working specification only. Numerical reconstruction thresholds, sensor models, 
 ### 23.10. Next deterministic contract
 
 Next: **MT-03 — Инспекция объектов и инфраструктуры**.
+
+## 24. Detailed Algorithm Specification — MT-01 Survey / Mapping
+
+**Status:** DETAILED WORKING ALGORITHM BASELINE — 2026-10-09  
+**Maturity:** engineering specification; numerical aircraft/sensor coefficients remain controlled inputs.
+
+### 24.1. Operational objective
+
+MT-01 converts a mapping task into one or more executable UAV acquisition routes whose combined sensor footprint satisfies the required spatial coverage and data-quality contract while all hard constraints and protected energy reserve remain satisfied.
+
+The algorithm does **not** optimize distance first and add coverage afterwards. Coverage geometry is part of the mission definition and is generated before route optimization.
+
+### 24.2. Canonical input object
+
+The planner shall receive a MappingPlanningContext containing:
+
+~~~text
+MissionIdentity
+  missionId
+  missionVersion
+
+TaskGeometry
+  AOI polygon(s)
+  exclusion polygon(s)
+  mandatory corridor/area(s)
+  optional buffer
+  home / launch / recovery geometry
+  required boundary margin
+
+EnvironmentSnapshot
+  terrain model
+  obstacle model
+  airspace / NOTAM / restriction model
+  altitude limits
+  wind field
+  temperature / pressure where performance model requires them
+  data timestamp / validity / version
+
+VehicleCapability
+  UAV configuration
+  mass / payload state
+  speed envelope
+  altitude envelope
+  climb/descent limits
+  turning limits
+  propulsion/energy model
+  battery SOC/SOH/degradation
+  C2 envelope
+
+PayloadCapability
+  sensor type
+  image dimensions
+  sensor dimensions
+  focal length
+  resolution
+  field of view
+  trigger / frame-rate limits
+  shutter / exposure constraints
+  stabilization/gimbal limits
+  RTK/PPK capability
+  LiDAR FOV / scan characteristics where applicable
+
+QualityRequirement
+  target GSD
+  frontal overlap requirement
+  side overlap requirement
+  coverage completeness
+  optional oblique / cross-grid requirement
+  optional GCP/checkpoint requirement
+  optional sensor-specific quality requirements
+
+ObjectiveProfile
+  primary objective
+  secondary objectives
+  tie-breakers
+  admissibility policy
+
+OperationalPolicy
+  protected energy reserve
+  C2 policy
+  safety policy
+  regulatory policy
+  mission time window
+~~~
+
+Every material input is versioned or snapshot-addressable.
+
+### 24.3. Stage 0 — input integrity
+
+Before geometric planning:
+
+1. verify that every mandatory input exists;
+2. verify coordinate reference systems;
+3. transform all planning geometry into a common metric working frame;
+4. validate polygon topology;
+5. remove/flag self-intersections and invalid rings;
+6. verify terrain coverage over the AOI;
+7. verify payload-camera calibration/configuration completeness;
+8. verify UAV operating envelope;
+9. verify energy state freshness;
+10. verify environmental data validity;
+11. verify restriction/authorization applicability in time and altitude.
+
+If a mandatory input is missing or stale, the planner returns BLOCKED_INPUT rather than inventing a default.
+
+### 24.4. Stage 1 — constrained open-space construction
+
+The planner constructs the spatial domain in which acquisition tracks may legally and physically exist.
+
+~~~text
+AOI
+ ↓
+AIRSPACE / NOTAM FILTER
+ ↓
+ALTITUDE-BAND FILTER
+ ↓
+TERRAIN / OBSTACLE CLEARANCE
+ ↓
+UAV ENVELOPE
+ ↓
+PAYLOAD / OBSERVATION FEASIBILITY
+ ↓
+BOUNDARY / SAFETY BUFFER
+ ↓
+CONSTRAINED OPEN SPACE
+~~~
+
+Hard exclusion regions are removed before coverage-track generation.
+
+The result is a versioned ConstrainedMappingDomain.
+
+A route is never intentionally generated through a known prohibited region and merely rejected afterwards.
+
+### 24.5. Stage 2 — acquisition geometry calculation
+
+For an optical camera, the planner derives the ground footprint from the camera model and planned camera-to-ground distance.
+
+A simplified nadir relationship is:
+
+GSD ≈ H × SW / (F × ImW)
+
+where:
+
+- H = camera-to-ground distance;
+- SW = sensor dimension corresponding to image width;
+- F = focal length;
+- ImW = image width in pixels.
+
+The exact camera model used in production shall be the payload-calibration model.
+
+From the footprint and requested overlap:
+
+track_spacing = footprint_cross_track × (1 - side_overlap)
+
+and, for the usual camera orientation:
+
+image_spacing = footprint_along_track × (1 - frontal_overlap).
+
+Trigger/frame-rate requirements are then derived from image spacing and ground speed.
+
+The planner shall distinguish:
+
+- desired GSD;
+- achievable GSD;
+- requested overlap;
+- achievable overlap at the selected speed/altitude;
+- sensor trigger-rate limit.
+
+If the requested acquisition geometry is infeasible, the planner must either generate a different admissible altitude/speed configuration or return a quality infeasibility result. It shall not silently weaken the quality requirement.
+
+### 24.6. Stage 3 — terrain-following altitude
+
+For terrain with material elevation variation, the planner shall prefer maintaining a controlled camera-to-ground distance when the UAV and regulatory envelope permit it.
+
+The flight profile therefore derives from:
+
+H_camera_ground(s) = H_target
+
+subject to:
+
+- terrain;
+- obstacle clearance;
+- altitude floor/ceiling;
+- climb/descent rate;
+- aircraft attitude;
+- payload limits;
+- C2 and regulatory limits.
+
+Terrain-following is not permitted to violate an absolute altitude limit or obstacle/safety constraint.
+
+Where terrain-following is impossible, the planner may divide the mission into altitude-compatible subareas and recalculate acquisition geometry for each subarea.
+
+### 24.7. Stage 4 — coverage orientation
+
+The planner evaluates candidate sweep orientations rather than blindly using north/south.
+
+For each candidate orientation θ:
+
+1. rotate the constrained domain;
+2. determine projected width;
+3. estimate number of coverage tracks;
+4. estimate turn count;
+5. estimate transition distance;
+6. estimate terrain-following complexity;
+7. estimate wind exposure;
+8. reject orientations that create infeasible cells;
+9. retain a bounded candidate set.
+
+The initial geometric heuristic is to favour orientations that reduce the number of tracks and turns. The final selection remains objective-profile dependent because wind and energy can outweigh geometric distance.
+
+### 24.8. Stage 5 — cellular decomposition
+
+For non-convex or obstacle-fragmented AOIs, the planner decomposes the valid domain into cells.
+
+Reference approach:
+
+~~~text
+CONSTRAINED DOMAIN
+ ↓
+DECOMPOSE
+ ↓
+CELLS
+ ↓
+CELL COVERAGE TRACKS
+ ↓
+CELL TRANSITION GRAPH
+~~~
+
+A simple convex polygon may remain a single cell.
+
+Complex regions are decomposed so that each cell has a locally feasible sweep pattern.
+
+Each cell stores:
+
+- geometry;
+- acquisition altitude band;
+- track spacing;
+- sweep orientation;
+- expected coverage;
+- entry candidates;
+- exit candidates;
+- terrain complexity;
+- obstacle margin;
+- wind/performance metadata.
+
+### 24.9. Stage 6 — coverage track generation
+
+For each cell:
+
+1. offset the cell boundary by the required acquisition/safety margin;
+2. generate parallel sweep lines at the calculated track spacing;
+3. clip each sweep line to the valid cell;
+4. remove segments below the minimum useful acquisition length;
+5. create entry and exit candidates;
+6. calculate endpoint turn feasibility;
+7. extend/trim tracks only within the admissible acquisition geometry;
+8. calculate expected sensor footprint coverage;
+9. mark uncovered boundary fragments.
+
+The default pattern is boustrophedon/lawnmower because it provides deterministic and computationally efficient full-area coverage in suitable domains. Cellular decomposition is used when the AOI geometry requires it.
+
+### 24.10. Stage 7 — boundary and edge coverage
+
+Boundary coverage is checked independently.
+
+The planner shall identify:
+
+- uncovered boundary strips;
+- excessive edge distance;
+- sensor footprint clipping;
+- corner gaps;
+- gaps introduced by obstacle buffers.
+
+If edge gaps exceed the mission quality tolerance, the planner generates an additional edge pass or adjusts the track placement.
+
+No candidate is accepted solely because the centreline tracks intersect the AOI.
+
+### 24.11. Stage 8 — transition graph
+
+Every cell and track endpoint becomes a node in a transition graph.
+
+An edge is valid only if the connecting route remains inside constrained open space and satisfies:
+
+- altitude;
+- obstacle clearance;
+- turning constraints;
+- UAV performance;
+- C2;
+- regulatory constraints.
+
+Edge cost may include:
+
+C_edge = distance + turn_cost + energy_cost + wind_penalty + risk_penalty
+
+but hard violations remove the edge completely.
+
+The graph is used to order cells and connect coverage tracks. This separates the coverage problem from the transition-routing problem.
+
+### 24.12. Stage 9 — route candidate generation
+
+The planner creates multiple bounded candidates rather than one greedy route.
+
+Candidate dimensions may include:
+
+- sweep orientation;
+- cell visitation order;
+- track direction;
+- entry/exit endpoint;
+- altitude profile;
+- speed profile;
+- optional cross-grid;
+- optional edge pass.
+
+For small transition graphs, deterministic shortest-path methods may be used. For larger route-ordering problems, the orchestrator may use graph search or bounded combinatorial optimization.
+
+Candidate generation is bounded to preserve predictable computation time.
+
+### 24.13. Stage 10 — wind-aware performance calculation
+
+Wind is applied after geometric candidates exist but before final candidate comparison.
+
+For each route segment:
+
+~~~text
+route ground vector
+        +
+wind vector
+        ↓
+required air-relative velocity
+        ↓
+feasible speed / attitude
+        ↓
+segment time
+        ↓
+segment energy
+~~~
+
+The performance model must determine whether the UAV can maintain the required ground track under the wind field.
+
+A candidate becomes infeasible if required airspeed, bank/attitude, propulsion or other aircraft limits are exceeded.
+
+Wind may therefore change the preferred route orientation, speed and candidate selection without requiring unnecessary regeneration of unchanged coverage geometry.
+
+### 24.14. Stage 11 — energy calculation
+
+Energy is calculated for the complete operational sequence, not only the acquisition tracks.
+
+At minimum:
+
+~~~text
+departure
++ transit to AOI
++ acquisition
++ transitions
++ return/recovery
++ contingency allowance
++ protected reserve
+≤ available energy
+~~~
+
+The energy model consumes the authoritative vehicle/payload performance model and battery state.
+
+A candidate that improves nominal efficiency by consuming protected reserve is rejected.
+
+### 24.15. Stage 12 — trajectory generation
+
+The selected route geometry is converted into a feasible trajectory.
+
+Trajectory generation must enforce:
+
+- waypoint continuity;
+- altitude profile;
+- climb/descent limits;
+- speed limits;
+- turn radius;
+- acceleration/jerk limits where modelled;
+- camera acquisition timing;
+- payload orientation/gimbal constraints;
+- obstacle clearance;
+- C2 constraints.
+
+The output is a time-parameterized trajectory, not merely a polyline.
+
+### 24.16. Stage 13 — acquisition-event validation
+
+Every planned image/LiDAR acquisition event is evaluated against:
+
+- position;
+- camera-to-ground distance;
+- orientation;
+- sensor FOV;
+- expected footprint;
+- GSD;
+- frontal overlap;
+- side overlap;
+- exposure/trigger feasibility;
+- terrain/obstacle occlusion where modelled.
+
+For photogrammetry, image network quality also depends on geometry and connectivity, not merely nominal percentage overlap. The planner therefore records the acquisition graph and detects weakly connected areas.
+
+### 24.17. Stage 14 — mapping quality validation
+
+Quality validation produces at minimum:
+
+- area coverage percentage;
+- uncovered-area geometry;
+- target GSD compliance;
+- overlap compliance;
+- image/network connectivity;
+- sensor operating compliance;
+- optional GCP/checkpoint requirements;
+- quality warnings.
+
+The final quality verdict is:
+
+PASS, PASS_WITH_WARNING, BLOCKED_QUALITY, or NOT_EVALUABLE.
+
+### 24.18. Stage 15 — candidate scoring
+
+Candidates are compared only after hard gates.
+
+Hierarchical selection:
+
+~~~text
+1. HARD ADMISSIBILITY
+   ↓
+2. REQUIRED COVERAGE / QUALITY
+   ↓
+3. PROTECTED ENERGY RESERVE
+   ↓
+4. PRIMARY OBJECTIVE
+   ↓
+5. SECONDARY OBJECTIVES
+   ↓
+6. TIE-BREAKERS
+~~~
+
+This prevents a shorter route from defeating a candidate with better coverage or required reserve.
+
+### 24.19. Stage 16 — final integrity validation
+
+Before READY:
+
+1. verify all source versions;
+2. verify no relevant input changed;
+3. verify candidate dependencies;
+4. verify route remains in constrained open space;
+5. verify quality;
+6. verify energy reserve;
+7. verify trajectory;
+8. verify payload events;
+9. verify mission version;
+10. generate provenance.
+
+The final validator checks integrity and consistency; it does not silently perform an independent alternative planning calculation.
+
+### 24.20. Incremental recalculation graph
+
+~~~text
+AOI / RESTRICTIONS / TERRAIN
+        ↓
+CONSTRAINED DOMAIN
+        ↓
+DECOMPOSITION
+        ↓
+COVERAGE TRACKS
+        ↓
+TRANSITION ROUTES
+        ↓
+WIND + PERFORMANCE
+        ↓
+ENERGY
+        ↓
+TRAJECTORY
+        ↓
+ACQUISITION QUALITY
+        ↓
+CANDIDATE SELECTION
+        ↓
+FINAL VALIDATION
+~~~
+
+Examples:
+
+- wind-only change → performance → energy → trajectory → quality/time → candidate comparison;
+- battery/SOH change → energy → feasibility → candidate comparison;
+- restriction change → affected domain cells → affected coverage/transitions → downstream stages;
+- camera change → acquisition geometry → tracks → downstream stages;
+- objective-priority change → candidate comparison only, provided feasibility inputs remain unchanged.
+
+### 24.21. Failure states
+
+The planner shall use explicit machine-readable failure classes:
+
+- BLOCKED_INPUT;
+- BLOCKED_AUTHORIZATION;
+- BLOCKED_AIRSPACE;
+- BLOCKED_GEOMETRY;
+- BLOCKED_TERRAIN_OBSTACLE;
+- BLOCKED_UAV_ENVELOPE;
+- BLOCKED_PAYLOAD;
+- BLOCKED_C2;
+- BLOCKED_ENERGY;
+- BLOCKED_QUALITY;
+- BLOCKED_TRAJECTORY;
+- NO_FEASIBLE_CANDIDATE.
+
+The UI may translate these into pilot-facing language, but the planning core retains the structured reason.
+
+### 24.22. Reference verification set
+
+**V-M01-01 — simple convex AOI:** one UAV, flat terrain, no obstacles.
+
+**V-M01-02 — concave AOI:** cellular decomposition and complete coverage.
+
+**V-M01-03 — internal exclusion:** coverage regenerated around a prohibited polygon.
+
+**V-M01-04 — terrain variation:** terrain-following profile and GSD consistency.
+
+**V-M01-05 — wind shift:** geometry retained, performance/energy/trajectory recalculated.
+
+**V-M01-06 — insufficient reserve:** all otherwise-valid candidates rejected.
+
+**V-M01-07 — payload infeasibility:** requested GSD/overlap cannot be achieved within payload/UAV limits.
+
+**V-M01-08 — edge coverage:** boundary strips detected and corrected.
+
+**V-M01-09 — deterministic replay:** identical versioned inputs produce identical planning result within defined numerical tolerance.
+
+**V-M01-10 — incremental recalculation:** unchanged upstream results are reused after a wind-only change.
+
+### 24.23. Engineering rule
+
+MT-01 is considered algorithmically complete only when the above stages have:
+
+1. defined inputs;
+2. defined outputs;
+3. explicit dependency ownership;
+4. hard/soft classification;
+5. failure states;
+6. deterministic verification cases;
+7. provenance;
+8. implementation mapping.
+
+A prose description of lawnmower coverage alone is not considered an implemented algorithm.
+
+## 25. Detailed Algorithm Specification — MT-02 3D Mapping / Reconstruction
+
+**Status:** DETAILED WORKING ALGORITHM BASELINE — 2026-10-09  
+**Maturity:** engineering specification; reconstruction/sensor coefficients remain controlled inputs.
+
+### 25.1. Operational objective
+
+MT-02 generates an acquisition trajectory that observes the required surfaces/volumes from sufficiently informative viewpoints to support the requested 3D reconstruction product.
+
+The central planning problem is not merely area coverage. It is **coverage of geometry with useful observation relationships**.
+
+### 25.2. Input extension over MT-01
+
+MT-02 inherits all common planning inputs from MT-01 and adds:
+
+- target surface/mesh/point-cloud/volume model when available;
+- target semantic regions;
+- required reconstruction product;
+- required surface completeness;
+- required detail/GSD;
+- viewpoint angle constraints;
+- minimum/maximum observation distance;
+- multi-view requirements;
+- overlap/connectivity requirements;
+- occlusion constraints;
+- optional oblique-camera requirements;
+- optional facade/vertical-surface requirements;
+- sensor-specific reconstruction model.
+
+### 25.3. Reconstruction target representation
+
+The target is represented as one or more of:
+
+2.5D terrain, surface mesh, voxel volume, point cloud, or semantic object surfaces.
+
+Each target element stores:
+
+- position;
+- normal estimate where available;
+- importance;
+- desired observation distance;
+- acceptable incidence angle;
+- required observation count;
+- current observation state.
+
+The planner must support an initially incomplete target model. Unknown geometry is represented explicitly rather than treated as already observed.
+
+### 25.4. Stage 0 — target validation
+
+Check:
+
+- target geometry validity;
+- coordinate reference;
+- surface normals where required;
+- terrain/obstacle consistency;
+- target extent;
+- sensor compatibility;
+- required reconstruction quality;
+- known/unknown regions.
+
+If a 3D model is supplied, its provenance and age are retained because outdated geometry can create invalid viewpoints.
+
+### 25.5. Stage 1 — observation-space construction
+
+Instead of generating routes directly around the target, MT-02 first constructs a feasible observation space.
+
+For each target element:
+
+~~~text
+target point/surface
+ ↓
+desired viewing direction
+ ↓
+candidate camera positions
+ ↓
+distance constraint
+ ↓
+incidence-angle constraint
+ ↓
+obstacle/airspace clearance
+ ↓
+UAV envelope
+ ↓
+payload/gimbal feasibility
+ ↓
+FEASIBLE VIEWPOINT SET
+~~~
+
+A viewpoint is admissible only when both the UAV position and sensor observation geometry are feasible.
+
+### 25.6. Stage 2 — viewpoint generation
+
+Candidate viewpoints are generated using one or more strategies:
+
+- structured rings/orbits;
+- grid viewpoints;
+- surface-normal offsets;
+- multi-altitude layers;
+- facade-specific viewpoints;
+- terrain-following strips;
+- sampling around weakly observed surfaces.
+
+The orchestrator chooses the strategy based on target geometry.
+
+For simple terrain, MT-01-style coverage remains the primary mechanism.
+
+For complex objects, viewpoint sampling is preferred over forcing a 2D lawnmower pattern onto a 3D surface.
+
+### 25.7. Stage 3 — viewpoint scoring
+
+Each candidate viewpoint receives a score containing, where applicable:
+
+- visible target area;
+- observation distance quality;
+- frontality / incidence angle;
+- expected GSD;
+- expected overlap with existing views;
+- parallax contribution;
+- occlusion;
+- sensor FOV utilisation;
+- flight cost to/from viewpoint;
+- energy cost;
+- C2 feasibility.
+
+Hard violations remove the viewpoint.
+
+A high score does not guarantee selection: viewpoint redundancy and global network connectivity are evaluated later.
+
+### 25.8. Stage 4 — visibility model
+
+The planner evaluates line-of-sight between candidate viewpoint and target elements.
+
+Visibility must account for:
+
+- terrain;
+- buildings/structures;
+- target self-occlusion;
+- sensor FOV;
+- camera orientation;
+- minimum/maximum range.
+
+The result is a viewpoint-to-surface visibility matrix:
+
+V[i,j] = 1 if viewpoint i provides admissible observation of target element j.
+
+This matrix becomes a core planning dependency.
+
+### 25.9. Stage 5 — observation coverage problem
+
+The planner selects a subset of viewpoints such that required target elements receive sufficient observations.
+
+A target element may require:
+
+- one observation for simple mapping;
+- multiple observations from different directions;
+- minimum angular diversity;
+- overlap with neighbouring image sets;
+- special views for weakly observed geometry.
+
+This is therefore closer to a constrained set-cover / viewpoint-selection problem than ordinary 2D coverage.
+
+### 25.10. Stage 6 — initial global coverage
+
+The first pass seeks a globally efficient set of viewpoints covering the required target.
+
+The planner shall prefer a bounded deterministic or reproducible heuristic:
+
+~~~text
+uncovered target elements
+ ↓
+candidate viewpoints
+ ↓
+marginal information / coverage gain
+ ↓
+feasibility filter
+ ↓
+select best admissible viewpoint
+ ↓
+update uncovered set
+ ↓
+repeat
+~~~
+
+The algorithm stops when:
+
+- required coverage is achieved;
+- no admissible viewpoint can add required coverage;
+- or the mission becomes infeasible.
+
+If the latter occurs, the result is BLOCKED_QUALITY rather than silently reducing the requirement.
+
+### 25.11. Stage 7 — weak-area detection
+
+After the first global solution, the planner searches for:
+
+- uncovered surfaces;
+- surfaces with too few observations;
+- weak camera-network connectivity;
+- excessive incidence angle;
+- poor GSD;
+- occluded areas;
+- insufficient parallax;
+- isolated image groups.
+
+These areas become weak regions.
+
+### 25.12. Stage 8 — local refinement
+
+For each weak region:
+
+1. generate additional local viewpoints;
+2. apply finer viewpoint sampling;
+3. evaluate geometry and visibility;
+4. remove redundant candidates;
+5. add only viewpoints that materially improve the weak-region score.
+
+This creates the two-level strategy:
+
+~~~text
+GLOBAL COVERAGE
+      ↓
+WEAK-AREA ANALYSIS
+      ↓
+LOCAL REFINEMENT
+      ↓
+GLOBAL RECHECK
+~~~
+
+This structure is consistent with current UAV 3D-reconstruction research, which increasingly treats global coverage and local viewpoint refinement as separate planning layers.
+
+### 25.13. Stage 9 — viewpoint sequencing
+
+Selected viewpoints become nodes in a route graph.
+
+Edge feasibility checks:
+
+- collision/clearance;
+- airspace;
+- altitude;
+- UAV dynamics;
+- C2;
+- wind;
+- payload orientation;
+- transition energy.
+
+Edge cost includes time/energy/distance and, where useful, observation-loss penalties.
+
+For a small set, deterministic graph search is sufficient.
+
+For a large set, bounded route-ordering optimisation may be applied.
+
+### 25.14. Stage 10 — trajectory-aware viewpoint adjustment
+
+A viewpoint that is individually feasible may become infeasible when connected into a real trajectory.
+
+Therefore:
+
+~~~text
+VIEWPOINT SET
+ ↓
+SEQUENCING
+ ↓
+TRAJECTORY GENERATION
+ ↓
+DYNAMIC FEASIBILITY
+ ↓
+VIEWPOINT RECHECK
+ ↓
+LOCAL REPAIR IF REQUIRED
+~~~
+
+The system must not accept a viewpoint set solely because every viewpoint is individually valid.
+
+### 25.15. Stage 11 — camera orientation
+
+The trajectory contains camera orientation as an explicit variable.
+
+Depending on the mission:
+
+- nadir;
+- oblique;
+- side-looking;
+- target-normal;
+- gimbal-tracked;
+- mixed orientation
+
+may be selected.
+
+Orientation must remain inside the verified payload/gimbal envelope.
+
+For reconstruction, camera pose is part of the acquisition network and therefore part of the quality calculation.
+
+### 25.16. Stage 12 — image-network quality
+
+The planner evaluates:
+
+- image overlap;
+- spatial distribution;
+- viewpoint diversity;
+- graph connectivity;
+- weakly connected components;
+- expected parallax;
+- repeated observations;
+- exposure geometry.
+
+Nominal overlap alone is insufficient to certify reconstruction quality.
+
+Current photogrammetry guidance recommends regular-grid acquisition with at least 75% frontal and 60% side overlap for the general case, while more difficult scenes can require higher values; these are reference acquisition practices, not BlueSky hard-coded universal constants.
+
+### 25.17. Stage 13 — GSD and distance consistency
+
+For camera-based reconstruction, GSD is evaluated from the actual camera-to-surface distance and calibrated camera parameters.
+
+If terrain/object height changes materially, the planner must account for the resulting GSD variation rather than assuming a constant nominal altitude.
+
+Terrain-following or segmented altitude planning may therefore be required to maintain the target GSD.
+
+### 25.18. Stage 14 — LiDAR branch
+
+For LiDAR payloads, the equivalent quality model is based on:
+
+- sensor FOV;
+- swath/footprint;
+- point density;
+- scan angle;
+- altitude;
+- ground speed;
+- overlap between swaths;
+- target visibility;
+- required point density.
+
+The planner therefore replaces image-overlap equations with a sensor-footprint/point-density model while retaining the same higher-level stages:
+
+~~~text
+target
+ ↓
+sensor coverage
+ ↓
+viewpoint/track generation
+ ↓
+transition routing
+ ↓
+performance
+ ↓
+energy
+ ↓
+trajectory
+ ↓
+quality
+~~~
+
+Recent UAV-LiDAR CPP research evaluates lawnmower, boustrophedon and spiral strategies against coverage percentage, trajectory length and waypoint density using a sensor-footprint model, supporting this separation between route pattern and sensor-quality model.
+
+### 25.19. Stage 15 — wind and performance
+
+Wind affects:
+
+- achievable ground speed;
+- camera exposure timing;
+- image spacing;
+- trajectory feasibility;
+- energy;
+- stability;
+- acquisition quality.
+
+Therefore wind is not merely a post-processing penalty.
+
+If wind changes the actual acquisition spacing beyond the quality tolerance, the planner must regenerate or locally adjust acquisition events.
+
+### 25.20. Stage 16 — energy and reserve
+
+The complete 3D mission energy includes:
+
+- departure;
+- transit;
+- global coverage;
+- local refinement;
+- transitions;
+- return/recovery;
+- contingency;
+- protected reserve.
+
+If the full-quality solution exceeds available energy, the planner may attempt:
+
+1. better viewpoint ordering;
+2. more efficient transition routing;
+3. altitude/speed adjustment within quality constraints;
+4. task decomposition;
+5. additional sortie/UAV where permitted.
+
+It may not silently reduce the reconstruction quality requirement.
+
+### 25.21. Stage 17 — multi-UAV 3D decomposition
+
+For multiple UAVs:
+
+~~~text
+3D TARGET
+ ↓
+SURFACE / VOLUME PARTITION
+ ↓
+UAV CAPABILITY MATCHING
+ ↓
+VIEWPOINT / REGION ALLOCATION
+ ↓
+INDIVIDUAL ROUTES
+ ↓
+4D TRAJECTORIES
+ ↓
+CONFLICT CHECK
+ ↓
+COORDINATED MISSION
+~~~
+
+Partitioning should avoid assigning a surface region to a UAV whose payload or geometry cannot satisfy that region's quality requirements.
+
+### 25.22. Stage 18 — final reconstruction-quality verdict
+
+The final verdict shall distinguish:
+
+- PASS;
+- PASS_WITH_WARNING;
+- BLOCKED_QUALITY;
+- NOT_EVALUABLE.
+
+It shall report at minimum:
+
+- target coverage;
+- weak/unobserved regions;
+- observation count distribution;
+- GSD distribution where applicable;
+- overlap/connectivity;
+- visibility/occlusion findings;
+- sensor-specific metrics;
+- unresolved quality risks.
+
+### 25.23. Stage 19 — incremental recalculation
+
+Dependency graph:
+
+~~~text
+TARGET GEOMETRY
+      ↓
+OBSERVATION SPACE
+      ↓
+VIEWPOINTS
+      ↓
+VISIBILITY
+      ↓
+VIEWPOINT SELECTION
+      ↓
+SEQUENCING
+      ↓
+WIND + PERFORMANCE
+      ↓
+ENERGY
+      ↓
+TRAJECTORY
+      ↓
+RECONSTRUCTION QUALITY
+      ↓
+FINAL VALIDATION
+~~~
+
+Examples:
+
+- wind-only change → performance → sequencing/trajectory → energy → quality;
+- obstacle change → affected visibility/viewpoints → sequencing → downstream;
+- target geometry update → observation space → visibility → viewpoint selection → downstream;
+- camera focal length change → GSD/FOV → viewpoint feasibility/selection → downstream;
+- reconstruction quality requirement change → candidate selection/quality evaluation, with geometry reused where valid;
+- battery degradation → energy → candidate feasibility/comparison; viewpoint geometry remains reusable if unchanged.
+
+### 25.24. Failure states
+
+Use explicit machine-readable states:
+
+- BLOCKED_INPUT;
+- BLOCKED_TARGET_MODEL;
+- BLOCKED_AIRSPACE;
+- BLOCKED_VIEWPOINT;
+- BLOCKED_VISIBILITY;
+- BLOCKED_SENSOR;
+- BLOCKED_UAV_ENVELOPE;
+- BLOCKED_C2;
+- BLOCKED_ENERGY;
+- BLOCKED_RECONSTRUCTION_QUALITY;
+- BLOCKED_TRAJECTORY;
+- NO_FEASIBLE_3D_PLAN.
+
+### 25.25. Reference verification set
+
+**V-M02-01 — flat terrain:** nadir photogrammetry, known GSD and overlap.
+
+**V-M02-02 — terrain relief:** terrain-following / segmented altitude and GSD verification.
+
+**V-M02-03 — vertical structure:** oblique viewpoints and facade coverage.
+
+**V-M02-04 — occlusion:** hidden surface detected as weak/unobserved and local viewpoints generated.
+
+**V-M02-05 — insufficient overlap:** quality blocker.
+
+**V-M02-06 — viewpoint obstacle conflict:** viewpoint rejected and alternative generated.
+
+**V-M02-07 — camera change:** viewpoint/GSD dependencies invalidated; unaffected target geometry reused.
+
+**V-M02-08 — wind change:** trajectory/performance recalculated without rebuilding unchanged target visibility.
+
+**V-M02-09 — insufficient energy:** candidate rejected or task partition/sortie alternative generated if permitted.
+
+**V-M02-10 — multi-UAV:** target partition, independent trajectories and 4D conflict validation.
+
+**V-M02-11 — deterministic replay:** identical versioned inputs produce reproducible viewpoint set and route within defined numerical tolerance.
+
+### 25.26. Research boundary
+
+Current research supports a layered interpretation of UAV 3D planning: global coverage, local viewpoint refinement and trajectory smoothing are distinct but coupled planning problems.
+
+For BlueSky, research algorithms are therefore treated as interchangeable planning backends under the Algorithm Orchestrator rather than as fixed product behaviour.
+
+### 25.27. Engineering completion criterion
+
+MT-02 is complete at the algorithm-specification level only when every stage above has:
+
+1. defined input contract;
+2. defined output contract;
+3. explicit feasibility conditions;
+4. explicit quality metrics;
+5. invalidation dependencies;
+6. failure states;
+7. deterministic verification scenarios;
+8. provenance;
+9. implementation mapping;
+10. controlled sensor/UAV model references.
+
+### 25.28. Relationship between MT-01 and MT-02
+
+MT-02 is not a separate planning universe.
+
+Shared services:
+
+- Mission Model;
+- constrained open space;
+- terrain/obstacle processing;
+- regulatory filtering;
+- UAV performance;
+- wind;
+- energy;
+- trajectory;
+- C2;
+- final validation;
+- provenance;
+- incremental recalculation.
+
+MT-02 replaces only the task-specific acquisition planner:
+
+~~~text
+MT-01
+AOI → decomposition → coverage tracks → transitions
+
+MT-02
+target geometry → observation space → viewpoints → visibility → viewpoint network
+~~~
+
+The downstream planning and validation architecture remains common.
+
+### 25.29. Explicit design decision
+
+**Decision:** Complete MT-01 and MT-02 to implementation-ready algorithm contracts before expanding the template family to MT-03.
+
+**Rationale:**
+
+- MT-01 establishes the canonical 2D coverage pipeline.
+- MT-02 extends that pipeline into 3D observation/viewpoint planning.
+- Together they establish the reusable foundation for inspection, monitoring, search and other templates.
+- Later templates should reuse these engines rather than introduce parallel planning architectures.
