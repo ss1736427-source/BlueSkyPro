@@ -142,8 +142,10 @@ Item {
 
         FlightChart {
             id: flightChart
-            anchors.left: leftPanel.right
-            anchors.right: rightPanel.left
+            // The map viewport is independent of side-panel visibility.
+            // Panels overlay the persistent map instead of resizing it.
+            anchors.left: parent.left
+            anchors.right: parent.right
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             missionVisible: root.missionVisible
