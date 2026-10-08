@@ -55,8 +55,8 @@ Item {
     property int sectorGap: 0
     property int anchorPadding: 2
     property int logoScale: 100
-    property int logoVisualWidth: 266
-    property int logoVisualHeight: 50
+    property int logoVisualWidth: 260
+    property int logoVisualHeight: 52
     property int operatorIconSize: 34
     property int operatorLabelSize: 11
     property int headingSize: 11
@@ -112,14 +112,14 @@ Item {
 
             Image {
                 anchors.fill: parent
-                source: "qrc:/qt/qml/BlueSky/PRO/qml/assets/bluesky_pro_logo.svg"
+                source: Qt.resolvedUrl("assets/bluesky_pro_logo.svg")
                 fillMode: Image.PreserveAspectFit
                 // Render from the full-resolution master and use mipmaps for clean downsampling.
                 smooth: true
                 mipmap: true
                 cache: false
-                sourceSize.width: 2048
-                sourceSize.height: 768
+                sourceSize.width: Math.round(root.logoVisualWidth * root.logoScale / 100)
+                sourceSize.height: Math.round(root.logoVisualHeight * root.logoScale / 100)
             }
         }
     }
