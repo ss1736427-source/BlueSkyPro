@@ -4095,3 +4095,61 @@ After this resolution, the remaining allocation work is:
 SYS-REQ-110..112 are no longer treated as unresolved merely because their detailed lower-level verification is pending.
 
 MT-03 remains blocked.
+
+## 46. Candidate SRS Family Reconciliation — Controlled Result
+
+This section records the family-level reconciliation of candidate SRS identifiers against the authoritative requirement records actually present in the repository. It does not promote candidate IDs to authoritative identities and does not create new IDs.
+
+### 46.1 Reconciliation rule
+
+- **CONSOLIDATE** — substantial overlap with existing authoritative requirements; use existing IDs plus lower-level derived allocation.
+- **DERIVED** — lower-level functional decomposition of existing requirements.
+- **CLARIFYING** — clarification of an existing safety/authority requirement; not an independent baseline.
+- **ENGINEERING** — engineering-level candidate, not automatically a system certification requirement.
+- **OPEN ALLOCATION** — controlled wording/source comparison is still insufficient for one-to-one allocation.
+
+This is a reconciliation disposition, not a baseline or verification result.
+
+### 46.2 Controlled family reconciliation
+
+| Candidate family | Disposition | Existing authoritative overlap / basis |
+|---|---|---|
+| NAV-REQ-001..009 | DERIVED / OPEN ALLOCATION | Navigation-specific decomposition is not represented by an independent authoritative family. SYS-REQ-016, SYS-REQ-076, SYS-REQ-083 and SYS-REQ-085 constrain navigation-related planning inputs/capabilities. |
+| RTE-REQ-001..004 | DERIVED | Overlaps mission planning/compiler through SYS-REQ-004, SYS-REQ-005, SYS-REQ-010, SYS-REQ-022 and SYS-REQ-023. |
+| WP-REQ-001..003 | DERIVED | Waypoint concepts are lower-level manifestations of SYS-REQ-004, SYS-REQ-022 and SYS-REQ-023. |
+| MIS-REQ-001..003 | CONSOLIDATE | Strong overlap with SYS-REQ-001, SYS-REQ-002, SYS-REQ-004, SYS-REQ-005, SYS-REQ-022, SYS-REQ-023 and SYS-REQ-035. |
+| RET-REQ-001..004 | CONSOLIDATE / DERIVED | Return and safe completion overlap SYS-REQ-012, SYS-REQ-081, SYS-REQ-082, SYS-REQ-086 and SYS-REQ-093. |
+| COL-REQ-001..004 | CONSOLIDATE / DERIVED | Conflict resolution is SYS-REQ-009; multi-UAV execution/reallocation is covered by SYS-REQ-075..082. |
+| C2-REQ-001..003 | CONSOLIDATE / DERIVED | Strong overlap with SYS-REQ-016, SYS-REQ-067..074, SYS-REQ-085 and SYS-REQ-091. |
+| MUL-REQ-001..003 | CONSOLIDATE | Strong overlap with SYS-REQ-032 and SYS-REQ-075..078, plus SYS-REQ-080..082. |
+| RDY-REQ-001..002 | CONSOLIDATE | SYS-REQ-008 already defines Mission Readiness; Readiness remains distinct from Safety Gate and operator approval. |
+| SAF-REQ-019..020 | CLARIFYING | Master Register explicitly keeps these as candidate derived/clarifying records pending comparison with SYS-REQ-082, SYS-REQ-085 and ARCH-DEC-007/016/017. |
+| AUTH-REQ-001..002 | CLARIFYING | Existing authority chain and SYS-REQ-007, SYS-REQ-015, SYS-REQ-082 and SYS-REQ-085 already define the authority boundary. |
+| HMI-REQ-001..002 | DERIVED | SYS-REQ-026 defines UI architecture; HMI cannot bypass validation, safety or approval. |
+| AI-REQ-001..003 | CONSOLIDATE / DERIVED | Existing coverage spans SYS-REQ-005, 013, 014, 017..019, 025, 087, 088, 094..104, 107, 108 and 110..112. |
+| DATA-REQ-001..002 | DERIVED | Data/technical-data coverage exists in SYS-REQ-022, SYS-REQ-029, SYS-REQ-030, SYS-REQ-094 and SYS-REQ-104. |
+| CFG-REQ-001..003 | DERIVED | SYS-REQ-028 is the existing Configuration Management requirement; SYS-REQ-076 also constrains machine-readable capability profiles. |
+| SW-REQ-001..003 | ENGINEERING | SRS explicitly identifies these as preliminary engineering requirements, not automatically software certification assurance requirements. |
+| HW-REQ-001..002 | ENGINEERING | SRS explicitly identifies these as preliminary engineering requirements, not automatically hardware certification assurance requirements. |
+
+### 46.3 Controlled conclusion
+
+The candidate SRS is **not a second independent requirement baseline**.
+
+The strongest overlap groups are MIS, RET, COL, C2, MUL, RDY and AI. NAV, RTE, WP, HMI, DATA and CFG are more appropriately treated as derived lower-level decomposition, subject to exact wording/source allocation before agreement. SAF-REQ-019..020 and AUTH-REQ-001..002 remain clarifying candidates and must not establish a competing authority chain. SW-REQ-* and HW-REQ-* remain engineering candidates.
+
+### 46.4 Gate status after reconciliation
+
+| Gate | Status |
+|---|---|
+| Candidate SRS family-level overlap analysis | **COMPLETED** |
+| Candidate IDs promoted to authoritative baseline | **NO** |
+| Existing SYS-REQ / SAF-REQ identities preserved | **YES** |
+| Exact individual candidate wording consolidation | **OPEN** |
+| External/environmental dependency allocation | **OPEN** |
+| Controlled numerical parameter approval | **OPEN** |
+| Executable verification/evidence | **NOT DONE** |
+
+The family-level reconciliation blocker is therefore closed. MT-01/MT-02 remain incomplete because exact individual candidate wording, external/environmental dependencies, numerical parameters and executable evidence are still open.
+
+MT-03 remains blocked.
