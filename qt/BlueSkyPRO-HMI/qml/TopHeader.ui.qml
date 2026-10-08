@@ -112,7 +112,7 @@ Item {
 
             Image {
                 anchors.fill: parent
-                source: Qt.resolvedUrl("assets/bluesky_pro_logo.svg")
+                source: "qrc:/qt/qml/BlueSky/PRO/assets/bluesky_pro_logo.svg"
                 fillMode: Image.PreserveAspectFit
                 // Render from the full-resolution master and use mipmaps for clean downsampling.
                 smooth: true
