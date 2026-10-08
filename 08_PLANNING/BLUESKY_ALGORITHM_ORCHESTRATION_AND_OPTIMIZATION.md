@@ -2958,3 +2958,606 @@ Before opening MT-03, each of the two templates shall have:
 16. test-data definition.
 
 Only after this gate is satisfied should the template family advance.
+
+
+## 30. Implementation Data Contracts for MT-01 / MT-02
+
+The algorithm specification is not implementation-ready until the calculation boundary is represented by explicit typed data contracts. The following logical contracts are normative; the concrete C++/QML transport representation may differ, but field semantics and units shall not.
+
+### 30.1. Common identifiers
+
+```text
+MissionId            opaque stable identifier
+MissionVersion      monotonically versioned mission definition
+PlanId               immutable selected-plan identifier
+PlannerVersion       semantic/versioned planner implementation
+AlgorithmConfigId   versioned numerical configuration
+EnvironmentSnapshotId immutable environment snapshot
+UavConfigId          versioned vehicle configuration
+PayloadConfigId      versioned payload configuration
+ObjectiveProfileId   versioned mission objective profile
+GeometryRevision     geometry revision identifier
+```
+
+### 30.2. MappingPlanningContext
+
+```text
+MappingPlanningContext
+ ├─ mission
+ │   ├─ mission_id
+ │   ├─ mission_version
+ │   ├─ AOI geometry + CRS
+ │   ├─ mandatory / excluded geometry
+ │   ├─ operational window
+ │   └─ objective_profile
+ ├─ environment
+ │   ├─ terrain_model
+ │   ├─ obstacle_set
+ │   ├─ airspace / restrictions
+ │   ├─ authorization_state
+ │   └─ wind_snapshot
+ ├─ vehicle
+ │   ├─ UAV configuration
+ │   ├─ performance envelope
+ │   ├─ mass / payload limits
+ │   ├─ battery state + degradation
+ │   ├─ C2 model
+ │   └─ safety configuration
+ ├─ payload
+ │   ├─ sensor configuration
+ │   ├─ calibration
+ │   ├─ FOV / focal parameters
+ │   ├─ acquisition mode
+ │   └─ trigger / exposure model
+ ├─ quality
+ │   ├─ target GSD
+ │   ├─ overlap requirements
+ │   ├─ coverage requirement
+ │   └─ product-quality requirements
+ └─ algorithm
+     ├─ algorithm_config_id
+     ├─ candidate budgets
+     ├─ sampling configuration
+     ├─ numerical tolerances
+     └─ deterministic seed
+```
+
+### 30.3. ReconstructionPlanningContext
+
+MT-02 extends the common context:
+
+```text
+ReconstructionPlanningContext
+ ├─ MappingPlanningContext
+ └─ reconstruction
+     ├─ target representation
+     ├─ target elements / stable IDs
+     ├─ required observation count
+     ├─ desired observation distance
+     ├─ incidence-angle requirements
+     ├─ parallax requirements
+     ├─ occlusion policy
+     ├─ camera/gimbal limits
+     ├─ reconstruction product type
+     └─ sensor-specific quality model
+```
+
+### 30.4. CandidatePlan
+
+Every candidate shall be self-describing enough for deterministic comparison and post-flight audit:
+
+```text
+CandidatePlan
+ ├─ candidate_id
+ ├─ context_identity
+ ├─ geometry_revision
+ ├─ route / trajectory
+ ├─ acquisition_events
+ ├─ performance_result
+ ├─ energy_result
+ ├─ quality_result
+ ├─ hard_constraint_result
+ ├─ objective_result
+ ├─ rejection_state / selection_state
+ ├─ rejection_reasons[]
+ └─ provenance
+```
+
+A candidate without complete mandatory result objects is not selectable.
+
+## 31. Calculation-Module Interfaces
+
+The implementation shall preserve the separation between task-specific planning and shared calculation services.
+
+### 31.1. Spatial Constraint Engine
+
+Input:
+
+```text
+Mission geometry
++ airspace/restrictions
++ terrain
++ obstacles
++ UAV envelope
++ safety policy
+```
+
+Output:
+
+```text
+ConstrainedDomain
+ ├─ allowed volumes / surfaces
+ ├─ excluded regions
+ ├─ boundary buffers
+ ├─ altitude bands
+ └─ provenance
+```
+
+Invariant: a downstream planner shall never treat an excluded region as traversable.
+
+### 31.2. Coverage Planner
+
+MT-01 input:
+
+```text
+ConstrainedDomain
++ acquisition geometry
++ orientation candidate
++ coverage policy
+```
+
+Output:
+
+```text
+CoveragePlan
+ ├─ cells
+ ├─ tracks
+ ├─ coverage footprints
+ ├─ transition graph
+ └─ uncovered regions
+```
+
+The Coverage Planner shall not calculate final battery feasibility. It supplies geometry to the Performance and Energy Engines.
+
+### 31.3. Visibility Engine
+
+MT-02 input:
+
+```text
+candidate viewpoints
++ target elements
++ terrain / obstacle model
++ sensor model
+```
+
+Output:
+
+```text
+VisibilityResult
+ ├─ viewpoint → target visibility
+ ├─ occlusion state
+ ├─ incidence / observation geometry
+ ├─ effective footprint
+ └─ visibility provenance
+```
+
+Visibility calculations shall be reusable between candidate route evaluations when their dependencies are unchanged.
+
+### 31.4. Performance Engine
+
+Input:
+
+```text
+trajectory
++ UAV performance model
++ payload configuration
++ wind snapshot
++ environmental conditions
+```
+
+Output:
+
+```text
+PerformanceResult
+ ├─ airspeed
+ ├─ ground speed
+ ├─ segment time
+ ├─ operating state
+ ├─ feasibility
+ └─ limiting conditions
+```
+
+### 31.5. Energy Engine
+
+Input:
+
+```text
+time-parameterized trajectory
++ UAV propulsion model
++ battery state
++ degradation model
++ payload
++ environment
++ reserve policy
+```
+
+Output:
+
+```text
+EnergyResult
+ ├─ energy by segment
+ ├─ total mission energy
+ ├─ contingency energy
+ ├─ protected reserve
+ ├─ predicted terminal state
+ ├─ reserve margin
+ └─ feasibility
+```
+
+Energy feasibility is a gate, not merely a ranking score.
+
+### 31.6. Trajectory Engine
+
+Input:
+
+```text
+route / viewpoint sequence
++ performance result
++ UAV dynamics
++ altitude policy
++ safety constraints
+```
+
+Output:
+
+```text
+Trajectory
+ ├─ time-tagged states
+ ├─ position
+ ├─ altitude
+ ├─ velocity
+ ├─ heading
+ ├─ attitude / gimbal where modeled
+ ├─ acquisition events
+ └─ feasibility
+```
+
+### 31.7. Task Quality Engine
+
+MT-01 evaluates mapping quality; MT-02 evaluates reconstruction quality.
+
+The engine shall return both:
+
+1. aggregate acceptance state;
+2. decomposed quality metrics and deficiencies.
+
+A single scalar score is insufficient for auditability.
+
+### 31.8. Objective Orchestrator
+
+The Objective Orchestrator shall:
+
+1. remove candidates failing hard gates;
+2. remove candidates failing mandatory quality/reserve requirements;
+3. compare remaining candidates using the active objective profile;
+4. apply deterministic tie-breaking;
+5. emit the selected candidate and machine-readable selection reasons.
+
+## 32. Units, Numerical Policy and Tolerances
+
+All persisted numerical fields shall have an explicit unit.
+
+Normative internal units:
+
+| Quantity | Internal unit |
+|---|---|
+| horizontal/vertical distance | m |
+| altitude | m |
+| speed | m/s |
+| acceleration | m/s² |
+| time | s |
+| angle | rad |
+| area | m² |
+| energy | Wh or J, selected consistently per subsystem |
+| power | W |
+| mass | kg |
+| battery SOC | dimensionless [0,1] |
+| overlap | dimensionless [0,1] |
+| coverage ratio | dimensionless [0,1] |
+| GSD | m/pixel |
+
+External aviation/navigation formats may be converted at the boundary. Mixed-unit arithmetic inside a calculation module is prohibited.
+
+### 32.1. Numerical comparison policy
+
+Every geometric or numerical gate shall distinguish:
+
+- exact domain condition;
+- engineering tolerance;
+- display rounding.
+
+Display rounding shall never affect feasibility.
+
+Tolerance values are controlled configuration, not hidden constants.
+
+### 32.2. Geometry policy
+
+For polygon/mesh operations:
+
+- CRS shall be normalized before metric operations;
+- invalid topology shall block planning or be explicitly repaired and recorded;
+- small numerical slivers shall be handled by a controlled tolerance;
+- area and distance calculations shall use the appropriate metric representation;
+- geometry repair shall never silently change mission intent.
+
+### 32.3. Deterministic ordering
+
+Where values compare equal within tolerance, the implementation shall use a deterministic secondary key:
+
+```text
+primary objective
+→ secondary objective
+→ candidate generation index
+→ stable candidate ID
+```
+
+Hash-map iteration order shall never determine the selected plan.
+
+## 33. Hard Gates, Soft Objectives and Decision Order
+
+The following classification is normative for MT-01 and MT-02.
+
+### 33.1. Hard gates
+
+- authorization and applicable airspace;
+- prohibited geometry;
+- terrain/obstacle clearance;
+- UAV operating envelope;
+- payload operating envelope;
+- C2 requirements;
+- mandatory separation;
+- trajectory feasibility;
+- mandatory acquisition geometry;
+- protected energy reserve;
+- mandatory product-quality thresholds.
+
+### 33.2. Soft objectives
+
+Depending on the active mission profile:
+
+- total energy above the protected reserve;
+- engine/propulsion resource consumption;
+- flight time;
+- route length;
+- number of turns;
+- transition distance;
+- additional observations;
+- additional redundancy;
+- computational cost.
+
+A soft objective can never compensate for a hard-gate failure.
+
+### 33.3. Deterministic selection
+
+If multiple candidates remain equivalent after the active objective profile:
+
+```text
+1. higher safety margin
+2. higher protected energy margin
+3. higher required-quality margin
+4. lower energy
+5. lower time
+6. lower route complexity
+7. stable candidate ID
+```
+
+The exact mission profile may alter the order of soft objectives, but the deterministic final tie-break remains mandatory.
+
+## 34. Incremental-Recalculation Dependency Contracts
+
+The dependency graph shall be explicit rather than inferred at runtime.
+
+### 34.1. MT-01
+
+```text
+AOI / restriction change
+ → constrained domain
+ → decomposition
+ → tracks
+ → transitions
+ → trajectory
+ → performance
+ → energy
+ → quality
+ → final validation
+
+Wind snapshot change
+ → performance
+ → trajectory timing
+ → energy
+ → affected quality
+ → final validation
+
+Battery state / degradation change
+ → energy
+ → feasibility / selection
+ → final validation
+
+Camera calibration / FOV change
+ → acquisition geometry
+ → tracks
+ → acquisition events
+ → quality
+ → energy / time
+ → final validation
+```
+
+### 34.2. MT-02
+
+```text
+Target geometry change
+ → target discretisation
+ → viewpoints
+ → visibility
+ → selection/refinement
+ → viewpoint graph
+ → trajectory
+ → performance
+ → energy
+ → quality
+
+Wind snapshot change
+ → performance
+ → trajectory timing
+ → energy
+ → affected acquisition timing
+ → final validation
+
+Camera / gimbal change
+ → viewpoint feasibility
+ → visibility
+ → selection/refinement
+ → acquisition events
+ → quality
+ → trajectory/performance/energy where affected
+
+Battery state / degradation change
+ → energy
+ → candidate selection
+ → final validation
+```
+
+A cache entry shall carry the dependency identities required to prove that reuse is valid.
+
+## 35. Implementation Mapping and Test-Data Contract
+
+The first implementation shall map the algorithm specification to explicit backend modules. Names below are logical component names and may be refined during architecture implementation.
+
+| Algorithm responsibility | Logical implementation module |
+|---|---|
+| mission/context validation | MissionContextValidator |
+| coordinate/geometry normalization | GeometryNormalizer |
+| airspace/restriction filtering | SpatialConstraintEngine |
+| MT-01 decomposition | CoverageDecompositionEngine |
+| MT-01 track generation | CoverageTrackGenerator |
+| MT-02 target discretisation | TargetDiscretizationEngine |
+| MT-02 viewpoint generation | ViewpointGenerator |
+| MT-02 visibility | VisibilityEngine |
+| transition routing | RouteGraphEngine |
+| UAV/wind performance | PerformanceEngine |
+| battery/energy | EnergyEngine |
+| trajectory | TrajectoryEngine |
+| mapping/reconstruction quality | TaskQualityEngine |
+| candidate lifecycle | CandidateRegistry |
+| objective comparison | ObjectiveOrchestrator |
+| provenance/versioning | PlanningProvenanceService |
+| incremental invalidation | PlanningDependencyGraph |
+| deterministic replay | PlanningReplayService |
+
+### 35.1. Minimum controlled test datasets
+
+MT-01 shall have at least:
+
+- T01 simple convex AOI;
+- T02 concave AOI;
+- T03 AOI with exclusion zone;
+- T04 terrain relief;
+- T05 obstacle corridor;
+- T06 wind-shift scenario;
+- T07 insufficient-energy scenario;
+- T08 edge-coverage scenario;
+- T09 deterministic replay pair.
+
+MT-02 shall have at least:
+
+- T21 flat surface;
+- T22 terrain relief;
+- T23 vertical structure;
+- T24 occluded surface;
+- T25 insufficient-overlap surface;
+- T26 viewpoint-obstacle conflict;
+- T27 camera/gimbal change;
+- T28 wind change;
+- T29 insufficient-energy scenario;
+- T30 multi-UAV reconstruction scenario;
+- T31 deterministic replay pair.
+
+Each controlled dataset shall define:
+
+```text
+dataset_id
+version
+CRS
+geometry
+terrain/obstacles
+airspace/restrictions
+UAV configuration
+payload configuration
+environment snapshot
+mission requirements
+expected hard-gate outcomes
+expected quality outcomes
+expected invalidation scope
+expected deterministic properties
+```
+
+### 35.2. Acceptance evidence
+
+For each test dataset, evidence shall retain:
+
+- input snapshot identifiers;
+- planner and algorithm versions;
+- selected parameters;
+- candidate counts;
+- rejection reasons;
+- selected plan;
+- quality metrics;
+- energy/reserve result;
+- final validation result;
+- calculation time;
+- replay result.
+
+## 36. Traceability Closure for MT-01 / MT-02
+
+The two templates shall not be declared implementation-ready merely because pseudocode exists. Each requirement affecting their planning behaviour shall trace to:
+
+```text
+REQUIREMENT
+ ↓
+ALGORITHM RULE
+ ↓
+IMPLEMENTATION MODULE
+ ↓
+VERIFICATION CASE
+ ↓
+EVIDENCE
+```
+
+The current repository requirement catalogue shall be used as the authoritative source for requirement IDs. Where a requirement cannot yet be allocated directly to MT-01 or MT-02, the trace shall be marked **OPEN ALLOCATION** rather than guessed.
+
+The completion gate therefore requires explicit closure of:
+
+- algorithm-to-requirement links;
+- requirement-to-module links;
+- requirement-to-verification links;
+- verification-to-evidence definitions.
+
+No requirement ID shall be invented solely to make the matrix appear complete.
+
+## 37. Implementation-Readiness Status
+
+The addition of Sections 30–36 closes the previously missing structural layer:
+
+- typed logical data contracts — defined;
+- calculation-module boundaries — defined;
+- units and numerical policy — defined;
+- hard/soft decision boundary — defined;
+- deterministic comparison — defined;
+- incremental dependency contracts — defined;
+- implementation-module mapping — defined;
+- controlled test-data contract — defined;
+- traceability closure rule — defined.
+
+**Status:** MT-01 and MT-02 are now at **implementation-ready specification structure**. They are not yet certified, qualified, or empirically validated. Controlled numerical values, UAV/sensor models, requirement allocation and executable verification evidence remain implementation/test work.
+
+MT-03 remains blocked by the project sequencing decision until the implementation-readiness gate for MT-01/MT-02 is reviewed and accepted.
