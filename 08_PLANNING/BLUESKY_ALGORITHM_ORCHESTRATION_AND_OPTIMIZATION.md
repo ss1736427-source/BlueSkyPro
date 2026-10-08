@@ -3561,73 +3561,140 @@ The addition of Sections 30–36 closes the previously missing structural layer:
 **Status:** MT-01 and MT-02 are now at **implementation-ready specification structure**. They are not yet certified, qualified, or empirically validated. Controlled numerical values, UAV/sensor models, requirement allocation and executable verification evidence remain implementation/test work.
 
 MT-03 remains blocked by the project sequencing decision until the implementation-readiness gate for MT-01/MT-02 is reviewed and accepted.
-## 38. MT-01 / MT-02 Requirement Traceability — Current Baseline Allocation
+## 38. MT-01 / MT-02 Requirement Traceability — Controlled Allocation Review
 
-The current requirement baseline and traceability master use the identifiers below. This section allocates only requirements directly supported by the present MT-01/MT-02 contracts. It does not invent or renumber requirements.
+The repository contains more than one requirement-facing document. The authoritative requirement identity is controlled by `01_REQUIREMENTS/SYSTEM/MASTER_REQUIREMENTS_REGISTER.md`, which explicitly requires preservation of existing `SYS-REQ-*` identities. The separate `BLUESKY_SYSTEM_REQUIREMENTS_BASELINE.md` uses a different `SYS-*` naming convention and shall not be treated as a replacement identity system.
 
-| Requirement | MT-01 | MT-02 | Allocation |
+Therefore MT-01/MT-02 traceability shall distinguish:
+
+1. **authoritative requirement ID** — existing `SYS-REQ-*` / `SAF-REQ-*` records;
+2. **working baseline capability** — statements from the system baseline;
+3. **candidate derived requirements** — e.g. `MIS-REQ-*`, `NAV-REQ-*`, etc., which remain candidates until consolidation.
+
+No crosswalk between these namespaces is inferred without exact controlled wording.
+
+### 38.1. Confirmed existing requirement relationships
+
+The following existing requirements are supported by repository traceability records and are relevant to MT-01/MT-02:
+
+| Existing requirement | MT-01 | MT-02 | Current relationship |
 |---|---|---|---|
-| SYS-003 | ✓ | ✓ | Direct: planning core remains independent of vendor protocols |
-| SYS-004 | ✓ | ✓ | Direct: planner consumes capability-driven UAV/payload models |
-| SYS-005 | ✓ | ✓ | Direct: provenance, versioning, candidate evidence and replay contract |
-| SYS-VP-001 | ✓ | ✓ | Direct dependency: versioned UAV profile |
-| SYS-VP-002 | ✓ | ✓ | Direct dependency: versioned payload profile |
-| SYS-VP-004 | ✓ | ✓ | Direct hard gate: UAV/payload compatibility |
-| EXT-AIR-001 | ✓ | ✓ | Direct hard dependency: airspace/restriction domain |
-| EXT-AIR-002 | ✓ | ✓ | Direct hard dependency where applicable: NOTAM/aeronautical data |
-| EXT-WX-001 | ✓ | ✓ | Direct dependency: wind snapshot and freshness/quality |
-| EXT-GIS-001 | ✓ | ✓ | Direct dependency: map/DEM/terrain |
-| MIS-001 | ✓ | ✓ | Direct: canonical mission representation |
-| MIS-002 | ✓ | ✓ | Direct: mission-template planning contract |
-| MIS-003 | ✓ | ✓ | Direct: feasibility against vehicle/equipment |
-| MIS-004 | ✓ | ✓ | Direct: wind/energy/aerodynamic optimization |
-| MIS-005 | conditional | ✓ | Multi-UAV extension defined; group allocation remains a shared service |
-| AI-001 | conditional | conditional | AI may assist strategy/parameter selection but is not authoritative |
-| AI-002 | ✓ | ✓ | Direct: Safety Gate remains outside AI |
-| AI-004 | ✓ | ✓ | Direct: explainability/provenance output |
-| RDY-001 | downstream | downstream | Planning contributes feasibility evidence; readiness aggregation is external |
-| RDY-002 | downstream | downstream | Planning contributes blocking reasons; readiness state is external |
-| CNT-004 | downstream | downstream | Energy engine supplies prediction/gate inputs; contingency execution is external |
-| VAL-001 | ✓ | ✓ | Direct: unit/integration verification target |
-| VAL-002 | ✓ | ✓ | Direct: simulation datasets are defined |
-| VAL-006 | ✓ | ✓ | Direct: deterministic dependency/invalidation model supports impact analysis |
+| SYS-REQ-080 | supporting | supporting | Dynamic task/reallocation dependency where multi-UAV planning is active |
+| SYS-REQ-081 | supporting | supporting | UAV-failure tolerance consumes valid planning/navigation/resource state |
+| SYS-REQ-082 | direct dependency | direct dependency | Safe mission completion depends on valid feasible planning state |
+| SYS-REQ-083 | direct | direct | Platform independence / canonical planning model |
+| SYS-REQ-084 | direct dependency | direct dependency | Resource reservation affects planning feasibility |
+| SYS-REQ-085 | supporting | supporting | Safety-critical priority protects planning dependencies |
+| SYS-REQ-086 | supporting | supporting | Controlled degradation boundary |
+| SYS-REQ-091 | supporting | supporting | Critical-latency dependency; numerical latency thresholds remain to be allocated |
+| SYS-REQ-093 | supporting | supporting | Controlled recovery dependency |
+| SYS-REQ-110 | open allocation | open allocation | Existing project requirement; exact controlled wording must be inspected before allocation |
+| SYS-REQ-111 | open allocation | open allocation | Existing project requirement; exact controlled wording must be inspected before allocation |
+| SYS-REQ-112 | open allocation | open allocation | Existing project requirement; exact controlled wording must be inspected before allocation |
 
-### 38.1. Allocation rules
+The above does **not** mean these requirements are verified by MT-01/MT-02. It means the planning algorithms have a documented dependency relationship with them.
 
-**Direct** means the requirement creates a rule or interface explicitly implemented by the template planning pipeline.
+### 38.2. Candidate requirement families
 
-**Conditional** means the template consumes or exposes the capability, while the authoritative implementation belongs to a shared service or another lifecycle stage.
+The following candidate families remain outside the authoritative identity set until exact consolidation:
 
-**Downstream** means the template provides planning evidence, but does not own the requirement's final lifecycle state.
+- `MIS-REQ-*`
+- `NAV-REQ-*`
+- `RTE-REQ-*`
+- `WP-REQ-*`
+- `MUL-REQ-*`
+- `RDY-REQ-*`
+- other SRS-derived families.
 
-**OPEN ALLOCATION** shall be used whenever the existing requirement set is too broad to determine an exact template-level allocation without architectural invention.
+For MT-01/MT-02, the disposition is:
 
-### 38.2. Traceability closure status
+```text
+CANDIDATE
+→ compare exact wording against existing SYS-REQ / SAF-REQ
+→ identify parent/child/derived relationship
+→ allocate only after controlled reconciliation
+```
 
-The requirement chain is now structurally defined:
+### 38.3. Requirements for which allocation is not yet proven
 
-Requirement → MT-01 / MT-02 algorithm rule → logical implementation module → verification dataset/scenario → evidence package.
+The following planning dependencies are real at the algorithm level but must **not** be assigned invented requirement IDs:
 
-Requirement closure is not claimed. The current master baseline contains requirements with IN PROGRESS and NOT DONE implementation/evidence status. Therefore:
+- airspace/restriction ingestion;
+- NOTAM/aeronautical data;
+- weather/wind;
+- map/DEM/terrain;
+- GNSS/RTK/PPK/NTRIP;
+- payload compatibility;
+- readiness aggregation;
+- contingency execution;
+- AI recommendation authority.
 
-- **SPECIFICATION TRACEABILITY:** defined;
-- **IMPLEMENTATION TRACEABILITY:** target modules defined;
-- **VERIFICATION TRACEABILITY:** test scenarios defined;
-- **EVIDENCE CLOSURE:** not yet achieved.
+Until exact authoritative records are extracted and compared, their status is:
 
-This distinction is mandatory for certification integrity.
+**OPEN ALLOCATION — NO ID INVENTED.**
 
-## 39. Final Gate Before MT-03
+### 38.4. Traceability chain
 
-MT-03 remains blocked until the following review is completed for both MT-01 and MT-02:
+The controlled chain is:
+
+```text
+AUTHORITATIVE REQUIREMENT
+        ↓
+MT-01 / MT-02 ALGORITHM RULE
+        ↓
+LOGICAL IMPLEMENTATION MODULE
+        ↓
+VERIFICATION DATASET / CASE
+        ↓
+EXECUTION RESULT
+        ↓
+CONTROLLED EVIDENCE
+```
+
+The present project state supports the first four structural links for MT-01/MT-02. Executed evidence is not established by this documentation work.
+
+### 38.5. Correction to the previous allocation
+
+The previous version of this section incorrectly treated identifiers from `BLUESKY_SYSTEM_REQUIREMENTS_BASELINE.md` such as `SYS-003`, `MIS-001`, `EXT-AIR-001`, etc. as though they were already authoritative `SYS-REQ-*` identities.
+
+**That interpretation is withdrawn.**
+
+Those identifiers remain source-document terminology only until controlled consolidation establishes an explicit relationship to the authoritative register.
+
+No requirement ID is created or renumbered by this correction.
+
+## 39. MT-01 / MT-02 Review Gate Before MT-03
+
+MT-03 remains blocked. Before it can be considered, the following review must be completed for both MT-01 and MT-02:
 
 1. algorithm contract review;
 2. data-contract review;
 3. numerical-policy review;
 4. implementation-module review;
-5. requirement allocation review;
-6. controlled test-data review;
-7. deterministic replay design review;
-8. explicit acceptance of all remaining OPEN ALLOCATION items.
+5. authoritative requirement allocation review;
+6. candidate-requirement consolidation review;
+7. controlled test-data review;
+8. deterministic replay design review;
+9. explicit resolution of all OPEN ALLOCATION items;
+10. review of remaining architecture/safety dependencies.
 
-After that review, the next phase is implementation/test preparation for MT-01 and MT-02, not expansion of the template family by default.
+The gate does **not** require every related system requirement to be implemented before MT-01/MT-02 can proceed. It requires the planning algorithms to have an authoritative, non-invented allocation and a defined verification path.
+
+### 39.1. Current gate status
+
+| Gate item | Status |
+|---|---|
+| Algorithm contract | DEFINED |
+| Data contracts | DEFINED |
+| Numerical policy | DEFINED |
+| Module boundaries | DEFINED |
+| Candidate lifecycle | DEFINED |
+| Test-data contract | DEFINED |
+| Deterministic replay design | DEFINED |
+| Authoritative requirement allocation | PARTIAL |
+| Candidate SRS consolidation | OPEN |
+| Executed verification evidence | NOT DONE |
+| Certification closure | NOT DONE |
+
+**Decision:** MT-01/MT-02 remain in controlled specification/review stage. MT-03 remains blocked.
+
