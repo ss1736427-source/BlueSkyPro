@@ -98,6 +98,20 @@ Item {
             }
         }
 
+        // Load tiles from the viewport center outward. The central area
+        // becomes usable first, while the whole visible viewport is still
+        // requested at a controlled rate.
+        var viewportCenterX = width / 2
+        var viewportCenterY = height / 2
+        for (var i = 0; i < result.length; ++i) {
+            var dx = result[i].x + tileSize / 2 - viewportCenterX
+            var dy = result[i].y + tileSize / 2 - viewportCenterY
+            result[i].priority = dx * dx + dy * dy
+        }
+        result.sort(function(a, b) {
+            return a.priority - b.priority
+        })
+
         tiles = result
     }
 
@@ -148,7 +162,7 @@ Item {
             // Stagger tile starts so a zoom change does not create a burst.
             Timer {
                 id: loadTimer
-                interval: index * 40
+                interval: index * 18
                 repeat: false
                 running: true
                 onTriggered: parent.loadRequested = true
