@@ -73,10 +73,10 @@ Item {
         var cx = longitudeToWorld(centerLongitude)
         var cy = latitudeToWorld(centerLatitude)
         var tileCount = Math.pow(2, zoomLevel)
-        var firstX = Math.floor((cx - width / 2 - tileSize) / tileSize)
-        var lastX = Math.floor((cx + width / 2 + tileSize) / tileSize)
-        var firstY = Math.floor((cy - height / 2 - tileSize) / tileSize)
-        var lastY = Math.floor((cy + height / 2 + tileSize) / tileSize)
+        var firstX = Math.floor((cx - width / 2) / tileSize)
+        var lastX = Math.floor((cx + width / 2) / tileSize)
+        var firstY = Math.floor((cy - height / 2) / tileSize)
+        var lastY = Math.floor((cy + height / 2) / tileSize)
         var result = []
 
         for (var ty = firstY; ty <= lastY; ++ty) {
@@ -145,7 +145,7 @@ Item {
                 lastStatus = status
                 if (status === Image.Ready) {
                     root.loadedTileCount++
-                    if (root.loadedTileCount > 0 && root.failedTileCount === 0)
+                    if (root.loadedTileCount === root.tiles.length && root.failedTileCount === 0)
                         root.mapStatus = "READY"
                 } else if (status === Image.Error) {
                     root.failedTileCount++
