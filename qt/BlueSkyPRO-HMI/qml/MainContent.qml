@@ -227,6 +227,7 @@ Item {
             // into the Flight Chart.
             visible: root.rightPanelOpen
             width: visible ? root.rightWidth : 0
+            bottomInset: root.toolbarHeight
             // Match the left panel's shared-edge ownership: header and toolbar draw the horizontal seams.
             showTopBorder: false
             showBottomBorder: false
