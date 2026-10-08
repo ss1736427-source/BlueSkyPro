@@ -479,6 +479,46 @@ Residual risk assessed
 Required acceptance obtained
 ```
 
+## 17.1 Intermediate checkpoint — Risk / Insurance research boundary
+
+**Checkpoint ID:** RISK-INS-CHK-001
+
+Работа по направлению **Risk / Insurance** зафиксирована как промежуточная контрольная точка и временно приостановлена до закрытия исходной методологической зависимости.
+
+### Зафиксировано
+
+- Исследован внешний технический ориентир **uasrisk** как возможная основа для последующего Risk Engine. Он рассматривается только как reference implementation и не является утверждённой методикой BlueSky.
+- Исследование подтвердило архитектурную последовательность:
+
+```text
+Hazard Log
+→ Risk Methodology
+→ Risk Model / Risk Engine
+→ Risk Assessment
+→ Residual Risk
+→ Safety Acceptance
+→ Insurance Interface
+```
+
+- **Insurance не выделяется как самостоятельный источник safety authority.** Страховой интерфейс должен быть downstream от утверждённой оценки риска и Safety Gate.
+- Реальные поля, значения, risk score, premium, coverage и иные insurance-контракты **не фиксируются**, поскольку действующая документация не содержит утверждённой risk methodology, severity/likelihood classification и acceptance criteria.
+
+### Точка возврата
+
+Возврат к этому направлению выполнять после работы по:
+
+```text
+SC-GAP-002 — Risk methodology not approved
+SC-GAP-003 — Severity/likelihood classification pending
+SC-GAP-009 — Residual-risk acceptance authority not defined
+```
+
+При возобновлении работы сначала определить Risk Methodology на основании существующих файлов HAZARD_LOG.md и SAFETY_REQUIREMENTS_BASELINE.md; только после этого формировать контракт Risk Engine и downstream Insurance Interface.
+
+**Status:** PAUSED / CHECKPOINT PRESERVED
+
+---
+
 ## 17. Status
 
 **DRAFT_FOR_AGREEMENT**
