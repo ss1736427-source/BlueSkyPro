@@ -1093,3 +1093,128 @@ The following remain UNVERIFIED until executable tests and corresponding CI/evid
 ### 22.10. Next deterministic contract
 
 After MT-01, the next contract is **MT-02 — 3D-картография / реконструкция**, because it reuses the established constrained-space, coverage, performance, energy and trajectory foundations while adding explicit 3D/viewpoint requirements.
+
+
+## 23. Template Algorithm Contract — MT-02
+
+**Status:** WORKING CONTRACT — second template implementation slice  
+**Template:** MT-02 — 3D-картография / реконструкция
+
+### 23.1. Назначение
+
+MT-02 формирует план наблюдения поверхности/объекта для получения данных, достаточных для 3D-реконструкции, point-cloud или volumetric product, при соблюдении обязательных пространственных, payload, energy и safety constraints.
+
+### 23.2. Входной контракт
+
+- mission ID/version;
+- target surface/volume geometry;
+- terrain/obstacle state;
+- restricted/authorized airspace state;
+- required reconstruction quality;
+- required observation directions/viewpoints where specified;
+- UAV configuration and performance envelope;
+- camera/LiDAR/payload configuration;
+- battery/SOC/health/degradation state;
+- C2 constraints;
+- environmental/wind snapshot;
+- applicable objective profile.
+
+### 23.3. Расчётная цепочка
+
+~~~text
+TARGET / SURFACE MODEL
+ ↓
+CONSTRAINED OPEN SPACE
+ ↓
+3D COVERAGE / VIEWPOINT GENERATION
+ ↓
+VIEWPOINT FEASIBILITY FILTER
+ ↓
+VIEWPOINT / TRACK SEQUENCING
+ ↓
+TRANSITION ROUTING
+ ↓
+WIND + VEHICLE PERFORMANCE
+ ↓
+ENERGY / RESERVE
+ ↓
+TRAJECTORY
+ ↓
+RECONSTRUCTION QUALITY
+ ↓
+FINAL VALIDATION
+~~~
+
+Для сложной 3D-геометрии RRT* может использоваться как planning backend; он не отменяет coverage/viewpoint requirements и обязательные feasibility gates.
+
+### 23.4. Hard constraints
+
+Кандидат отклоняется при нарушении:
+
+- airspace/regulatory constraints;
+- authorization scope;
+- terrain/obstacle clearance;
+- UAV flight envelope;
+- payload/sensor operating envelope;
+- required observation geometry;
+- C2 constraints;
+- minimum energy reserve;
+- mandatory mission geometry;
+- physical inability to obtain the required surface/volume observations.
+
+### 23.5. Quality objectives
+
+После hard gates сравниваются:
+
+1. reconstruction completeness;
+2. observation geometry adequacy;
+3. required overlap where applicable;
+4. occlusion reduction;
+5. sensor-specific quality requirements;
+6. energy efficiency with required reserve;
+7. flight time/resource use.
+
+Численные thresholds для camera/LiDAR quality остаются external controlled inputs и не задаются этим контрактом.
+
+### 23.6. Output
+
+Versioned result shall include:
+
+- selected UAV/payload;
+- generated viewpoints/tracks;
+- ordered route;
+- altitude/orientation profile;
+- spatial feasibility;
+- wind/performance;
+- energy/reserve;
+- trajectory;
+- reconstruction-quality evaluation;
+- dependency/source versions;
+- algorithm/backend versions;
+- validation/provenance.
+
+### 23.7. Invalidation
+
+Изменение target geometry, required viewpoints, obstacle/airspace state, UAV/payload configuration или quality requirements инвалидирует только затронутые viewpoint/coverage and downstream dependencies.
+
+Изменение только wind invalidates performance → energy → trajectory → affected quality/time results.
+
+Неизменившиеся spatial/viewpoint results должны переиспользоваться.
+
+### 23.8. Minimum verification scenarios
+
+**Positive:** valid 3D target + compatible sensor + feasible viewpoints + sufficient energy → valid trajectory → required quality → FINAL VALIDATION PASS.
+
+**Negative — viewpoint infeasible:** required viewpoint violates obstacle/UAV/airspace constraint → viewpoint rejected or regenerated; mission remains blocked if required coverage cannot be satisfied.
+
+**Negative — quality infeasible:** required reconstruction quality cannot be achieved with selected payload/UAV under constraints → candidate rejected; no lower-quality substitute is silently accepted.
+
+**Incremental:** wind-only change → retain target decomposition/viewpoints → recalculate affected performance/energy/trajectory → revalidate.
+
+### 23.9. Maturity
+
+Working specification only. Numerical reconstruction thresholds, sensor models, calibration and real-flight evidence remain UNVERIFIED until supplied by controlled sources and executable verification.
+
+### 23.10. Next deterministic contract
+
+Next: **MT-03 — Инспекция объектов и инфраструктуры**.
