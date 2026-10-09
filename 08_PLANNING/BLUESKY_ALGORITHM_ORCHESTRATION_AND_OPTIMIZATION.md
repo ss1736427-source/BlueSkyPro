@@ -4614,3 +4614,146 @@ Such values remain controlled parameters whose source must be the active equipme
 MT-03 remains blocked.
 
 The next deterministic allocation class is readiness and contingency lower-level interfaces, using existing SYS-REQ-008, SYS-REQ-081/082/086/093 and the established Safety Gate/authority architecture before considering any new requirement identity.
+
+## 51. Readiness / Contingency Lower-Level Interfaces — Controlled Resolution
+
+Section 50 closed the payload/sensor allocation gate. The next deterministic review is the lower-level relationship between MT-01/MT-02 planning, Mission Readiness, contingency preparation, Safety Gate and runtime recovery. The repository contains sufficient existing authoritative material to allocate the system-level dependency without creating a parallel readiness or contingency requirement set.
+
+### 51.1 Existing authoritative basis
+
+The controlled records establish:
+
+- SYS-REQ-008 — Mission Readiness: readiness is a consolidated pre-approval assessment based on validation and current conditions. It explicitly includes Airspace, Terrain, Geofence, Weather, C2 Coverage, Fleet Coordination, Energy and Contingency.
+- SYS-REQ-081 — UAV Failure Tolerance: loss of an individual UAV must not automatically destroy the mission when remaining resources can continue or safely complete it; critical tasks may be transferred to a reserve executor where defined by the mission profile.
+- SYS-REQ-082 — Safe Mission Completion: when full completion becomes impossible, the system must provide safe completion based on UAV state, task criticality, resources, energy, communication and risks. Return, validated landing, emergency behaviour, task transfer and result preservation are possible paths subject to UAV capability and Safety Engine constraints.
+- SYS-REQ-086 — Graceful Degradation: resource shortage shall cause controlled degradation by priority; P0/P1 remain protected and P2 is retained to the extent required for safe mission execution.
+- SYS-REQ-093 — Controlled Resource Recovery: after overload removal, restricted services recover in a controlled order without secondary overload; degradation/recovery state is recorded.
+- ARCH-DEC-007 — Mission Validation and Safety Gate establishes the mandatory path MISSION PLAN → VALIDATION → READINESS → SAFETY GATE → APPROVAL → EXECUTION and states that unresolved contingency, energy, C2 or other critical conditions can block execution.
+- ARCH-DEC-016 — Safety Architecture and Execution Gate makes the Safety Gate authoritative for safety-critical execution and explicitly includes contingency, energy, communication, fleet and emergency conditions.
+- ARCH-DEC-017 — Error Handling / Recovery / Contingency Architecture defines DETECT → CLASSIFY → ASSESS → RESPOND → REVALIDATE → RECOVER / ADAPT / REPLAN / ABORT, including contingency activation, emergency return/landing, resource replacement, UAV/payload reassignment and Mission Readiness recalculation.
+- ARCH-DEC-038 — Mission Execution Orchestration requires current readiness, configuration, resources, capabilities, communication and safety state before execution and requires revalidation after material runtime changes.
+- AUTHORIZATION_READINESS_GATE_001 already provides a lower-level deterministic authorization/readiness contract and explicitly states that it does not replace spatial, safety, weather, insurance, technical or other readiness gates.
+
+### 51.2 Controlled allocation to MT-01 / MT-02
+
+| Existing record / dependency | MT-01 | MT-02 | Allocation |
+|---|---|---|---|
+| SYS-REQ-008 — Mission Readiness | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Planning result must provide the inputs required for consolidated readiness |
+| SYS-REQ-081 — UAV Failure Tolerance | SUPPORTING / DIRECT for multi-UAV | SUPPORTING / DIRECT for multi-UAV | Candidate plan must expose task/resource relationships needed for failure impact and possible reassignment |
+| SYS-REQ-082 — Safe Mission Completion | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Plan must support safe-completion feasibility inputs; execution authority remains outside planner |
+| SYS-REQ-086 — Graceful Degradation | SUPPORTING / CROSS-CUTTING | SUPPORTING / CROSS-CUTTING | Planning/resource decisions must respect priority-based degradation and protected safety functions |
+| SYS-REQ-093 — Controlled Resource Recovery | SUPPORTING / CROSS-CUTTING | SUPPORTING / CROSS-CUTTING | Planner consumes current resource/readiness state; recovery authority remains in runtime architecture |
+| Safety Gate / Mission Validation | DIRECT GATE | DIRECT GATE | No selected plan becomes executable without validation/readiness/safety/approval path |
+| Contingency alternatives | DIRECT PLANNING INPUT/OUTPUT where applicable | DIRECT PLANNING INPUT/OUTPUT where applicable | Planner may prepare alternate routes, landing locations, reserve allocations or fallback mission variants |
+| Runtime contingency activation | NOT PLANNER AUTHORITY | NOT PLANNER AUTHORITY | Activation is owned by Safety/Execution architecture |
+| Revalidation after material change | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Changed environment/resource/mission state invalidates affected planning/readiness results |
+| Authorization readiness | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Valid authorization state is an input to the constrained planning domain where applicable |
+
+### 51.3 Readiness is an input/output boundary, not a planning authority
+
+The controlled architecture establishes a strict separation:
+
+PLANNING → VALIDATION → READINESS → SAFETY GATE → APPROVAL → EXECUTION
+
+Therefore MT-01/MT-02 may calculate feasibility and prepare the information required by readiness, but they shall not set the authoritative mission to READY, approve execution or bypass the Safety Gate.
+
+The planner may report a plan-level feasibility result such as feasible, infeasible, blocked, degraded or contingency-required, but the authoritative system readiness state remains owned by the existing Mission Readiness architecture.
+
+This preserves the distinction already established by SYS-REQ-008 and ARCH-DEC-007.
+
+### 51.4 Contingency planning boundary
+
+The planning layer may prepare contingency candidates when required by the mission profile. Existing architecture explicitly permits reserve UAVs, reserve energy, alternate routes, alternate landing locations, communication relay alternatives, payload alternatives, fallback mission objectives and emergency procedures.
+
+For MT-01/MT-02, these are planning artefacts or feasibility inputs. Their activation is not owned by the planner.
+
+Controlled boundary:
+
+CONTINGENCY CANDIDATE → VALIDATION → READINESS → SAFETY GATE → APPROVAL WHERE REQUIRED → EXECUTION
+
+The planner shall never convert a contingency candidate directly into an execution command.
+
+### 51.5 Failure and resource-loss consequences
+
+For MT-01/MT-02, the dependency graph shall distinguish at least:
+
+UAV LOSS → affected task/candidate identification → capability/resource reassessment → possible reassignment/replanning → validation → readiness → safety gate
+
+ENERGY DEGRADATION → affected trajectory/energy feasibility → candidate invalidation or recovery alternative → validation → readiness → safety gate
+
+C2 DEGRADATION → communication-dependent feasibility assessment → affected candidate invalidation/adaptation → validation → readiness → safety gate
+
+PAYLOAD/CAPABILITY LOSS → affected acquisition/task quality → candidate invalidation or task reassignment → validation → readiness → safety gate
+
+These are dependency rules, not new execution authorities.
+
+### 51.6 Safe completion inputs
+
+SYS-REQ-082 and ARCH-DEC-017 establish that safe completion depends on current UAV state, task criticality, available resources, energy, communication, navigation, environmental/spatial conditions, UAV-specific return/landing/emergency capabilities and Safety Engine decisions.
+
+MT-01/MT-02 shall therefore expose sufficient planning state to evaluate return/recovery feasibility where applicable, but shall not hard-code universal emergency behaviour into the mapping/reconstruction planners.
+
+UAV-specific emergency procedures remain capability/configuration controlled.
+
+### 51.7 Graceful degradation and priority
+
+SYS-REQ-086 establishes priority-based degradation, with P0/P1 protected and P2 retained as required for safe mission execution.
+
+Accordingly, an optimization candidate shall not trade away mandatory safety/C2/navigation capability merely to preserve lower-priority mission quality, time or resource objectives.
+
+Where degradation removes a mission capability, the planning layer may reduce mission scope, reassign tasks, select a lower-complexity candidate, generate a fallback plan or declare the requested mission infeasible; the resulting state must pass the existing validation/readiness/safety path.
+
+### 51.8 Controlled recovery and incremental planning
+
+SYS-REQ-093 governs controlled restoration of restricted services after overload. It does not grant the planner authority to restore runtime services.
+
+For planning purposes:
+
+RESOURCE STATE CHANGE → DEPENDENCY GRAPH → INVALIDATE AFFECTED RESULTS → RECOMPUTE MINIMUM REQUIRED STAGES
+
+Unchanged planning results may be retained when their dependency set remains valid. Recovery of a runtime service is separately governed by the runtime architecture.
+
+### 51.9 Lower-level readiness records
+
+The repository already contains lower-level readiness mechanisms, including the authorization readiness gate and dynamic readiness-action graph. These should be treated as implementation/decomposition artefacts beneath the existing system-level readiness requirement, not as independent replacement requirements.
+
+No new readiness requirement ID is introduced by this section.
+
+The same rule applies to contingency/recovery implementation artefacts: existing architecture and software contracts are lower-level realizations of the authoritative system requirements.
+
+### 51.10 Numerical / authority boundary
+
+This review deliberately does not establish universal readiness thresholds, universal contingency trigger thresholds, universal return-energy thresholds, universal C2 degradation limits, universal recovery timing, universal emergency landing criteria, universal reserve UAV rules or universal degradation percentages.
+
+Those values remain controlled by the applicable requirement, safety policy, UAV configuration, mission profile, validated engineering model or authoritative external source.
+
+### 51.11 Candidate requirement family disposition
+
+Candidate readiness, return/recovery, authorization and degradation families are not promoted to independent authoritative IDs by this review.
+
+The controlled chain remains:
+
+SYS-REQ-008 / SYS-REQ-081 / SYS-REQ-082 / SYS-REQ-086 / SYS-REQ-093 → ARCH-DEC-007 / 016 / 017 / 038 → MT-01 / MT-02 planning rules → verification → evidence
+
+Where a lower-level requirement is genuinely missing, its identity must be established through the Master Requirements Register after controlled gap analysis.
+
+### 51.12 Gate status after Section 51
+
+| Gate | Status |
+|---|---|
+| Mission Readiness system-level allocation | RESOLVED |
+| Safe-completion allocation | RESOLVED |
+| UAV failure / reassignment allocation | RESOLVED |
+| Graceful degradation allocation | RESOLVED |
+| Controlled resource recovery allocation | RESOLVED |
+| Safety Gate / authority boundary | RESOLVED |
+| Contingency planning boundary | RESOLVED |
+| Lower-level readiness implementation relationship | RESOLVED at architecture level |
+| Exact lower-level readiness/contingency requirement IDs | OPEN |
+| Numerical readiness/contingency parameters | OPEN |
+| Regulatory/safety clause mapping for quantitative triggers | OPEN |
+| Executable verification/evidence for MT-01/MT-02 | NOT DONE |
+
+MT-03 remains blocked.
+
+The next deterministic allocation class is the verification/evidence linkage for the resolved MT-01/MT-02 dependencies, beginning with existing verification identities and controlled datasets rather than creating new verification IDs.
