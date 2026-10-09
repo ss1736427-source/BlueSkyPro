@@ -52,6 +52,17 @@ Other related tests inspected:
 
 These are **related component tests**, not direct evidence that all 36 template-specific scenarios pass. The register below therefore retains the template-level rows as unverified until a direct test ID is linked to each required behavior. This is a targeted review of the listed validator files, not a claim that no other relevant tests exist elsewhere in the repository.
 
+## 2.1 Scenario-to-implementation crosswalk
+
+The 36 scenario IDs are cross-referenced against candidate modules, executable tests, and remaining gaps in [`MT01_MT02_36_SCENARIO_IMPLEMENTATION_MATRIX.md`](MT01_MT02_36_SCENARIO_IMPLEMENTATION_MATRIX.md).
+
+That matrix explicitly distinguishes:
+- code and tests on PR #26's implementation branch from files present on this PR #28 branch or on `main`;
+- direct-partial test coverage from related component coverage and genuine implementation gaps;
+- case-level parent requirement allocations from scenario-specific SYS-REQ allocations, which remain open unless confirmed against controlled requirement text.
+
+The matrix is an integration/gap-analysis artifact, not evidence that any scenario passed.
+
 ## 3. Controlled execution package status
 
 The first controlled execution package is documented in `docs/algorithm/MT01-T01_CONTROLLED_EXECUTION_PACKAGE.md`.
