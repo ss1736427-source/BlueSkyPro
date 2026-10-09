@@ -111,6 +111,33 @@ CoverageDecompositionResult CoverageDecompositionEngine::decompose(const Coverag
     return r;
 }
 
+std::vector<std::pair<double,double>> free_scan_intervals(
+    const std::vector<double>& boundaries,
+    const XY& base_start,
+    const XY& base_end,
+    double altitude_m,
+    const ConstrainedEnvironmentSnapshot& environment,
+    double reference_lat) {
+    std::vector<std::pair<double,double>> free;
+    if(boundaries.size()<2) return free;
+    for(std::size_t i=0;i+1<boundaries.size();++i) {
+        const double left=boundaries[i], right=boundaries[i+1];
+        if(!(right>left)) continue;
+        const double t0=(left-base_start.x)/(base_end.x-base_start.x);
+        const double t1=(right-base_start.x)/(base_end.x-base_start.x);
+        const GeoPoint a=unproject(
+            {base_start.x+(base_end.x-base_start.x)*t0,
+             base_start.y+(base_end.y-base_start.y)*t0},reference_lat);
+        const GeoPoint b=unproject(
+            {base_start.x+(base_end.x-base_start.x)*t1,
+             base_start.y+(base_end.y-base_start.y)*t1},reference_lat);
+        const auto check=ConstrainedOpenSpace::evaluateSegment(
+            environment,{a,b,altitude_m,altitude_m,altitude_m});
+        if(check.allowed) free.push_back({left,right});
+    }
+    return free;
+}
+
 namespace {
 double distance(const GeoPoint& a, const GeoPoint& b) {
     const double lat=(a.latitude_deg+b.latitude_deg)*0.5*kPi/180.0;
@@ -182,14 +209,52 @@ CoverageTrackResult CoverageTrackGenerator::generate(const CoverageTrackInput& i
 
         std::size_t interval_index=0;
         for(std::size_t i=0;i<intersections.size();i+=2,++interval_index) {
+            std::vector<double> boundaries{intersections[i],intersections[i+1]};
+            const XY base_start{intersections[i],scan_y};
+            const XY base_end{intersections[i+1],scan_y};
+            for(const auto& restriction:input.decomposition.environment.restrictions) {
+                if(!restriction.active) continue;
+                if(restriction.geometry_type==RestrictionGeometryType::Polygon &&
+                   restriction.polygon.size()>=3) {
+                    for(std::size_t e=0;e<restriction.polygon.size();++e) {
+                        const XY a=rotate(project(restriction.polygon[e],reference_lat),-angle);
+                        const XY b=rotate(project(
+                            restriction.polygon[(e+1)%restriction.polygon.size()],reference_lat),-angle);
+                        if((a.y<=scan_y && b.y>scan_y) || (b.y<=scan_y && a.y>scan_y)) {
+                            const double t=(scan_y-a.y)/(b.y-a.y);
+                            const double x=a.x+t*(b.x-a.x);
+                            if(x>intersections[i] && x<intersections[i+1]) boundaries.push_back(x);
+                        }
+                    }
+                } else if(restriction.geometry_type==RestrictionGeometryType::Circle &&
+                          restriction.radius_m>0.0) {
+                    const XY center=rotate(project(restriction.center,reference_lat),-angle);
+                    const double dy=scan_y-center.y;
+                    const double d2=restriction.radius_m*restriction.radius_m-dy*dy;
+                    if(d2>=0.0) {
+                        const double dx=std::sqrt(d2);
+                        if(center.x-dx>intersections[i] && center.x-dx<intersections[i+1]) boundaries.push_back(center.x-dx);
+                        if(center.x+dx>intersections[i] && center.x+dx<intersections[i+1]) boundaries.push_back(center.x+dx);
+                    }
+                }
+            }
+            std::sort(boundaries.begin(),boundaries.end());
+            boundaries.erase(std::unique(boundaries.begin(),boundaries.end(),
+                [](double a,double b){return std::abs(a-b)<1e-7;}),boundaries.end());
+            const auto free=free_scan_intervals(
+                boundaries,base_start,base_end,input.altitude_m,
+                input.decomposition.environment,reference_lat);
+            for(const auto& segment:free) {
+                const XY local_start{segment.first,scan_y};
+                const XY local_end{segment.second,scan_y};
             const XY local_start{intersections[i],scan_y};
             const XY local_end{intersections[i+1],scan_y};
             GeoPoint start=unproject(rotate(local_start,angle),reference_lat);
             GeoPoint end=unproject(rotate(local_end,angle),reference_lat);
             if(interval_index%2!=0) std::swap(start,end);
 
-            CoverageTrack track;
-            track.generation_index=result.tracks.size();
+                CoverageTrack track;
+                track.generation_index=result.tracks.size();
             track.track_id="MT01-TRACK-"+std::to_string(track.generation_index);
             track.cell_id=cell.cell_id;
             track.start=start;
@@ -200,7 +265,8 @@ CoverageTrackResult CoverageTrackGenerator::generate(const CoverageTrackInput& i
                 result.failure_code="INVALID_TRACK_LENGTH";
                 return result;
             }
-            result.tracks.push_back(std::move(track));
+                result.tracks.push_back(std::move(track));
+            }
         }
     }
 
