@@ -280,15 +280,15 @@ Item {
                 item.y = bottomLimit - item.h
                 for (var back = j - 1; back >= 0; --back) {
                     var prev = items[back]
-                    prev.y = Math.min(prev.y, item.y - gap - prev.h)
-                    item.y = prev.y
+                    var nextCard = items[back + 1]
+                    prev.y = Math.min(prev.y, nextCard.y - gap - prev.h)
                 }
                 if (items.length > 0 && items[0].y < top) {
-                    // Not enough vertical room for all content: panels stay
-                    // inside bounds and their own Flickables handle overflow.
-                    var shift = top - items[0].y
-                    for (var shiftIndex = 0; shiftIndex < items.length; ++shiftIndex)
-                        items[shiftIndex].y += shift
+                    // The available viewport is smaller than the combined cards.
+                    // Keep cards ordered and bounded; internal scrollers expose content.
+                    items[0].y = top
+                    for (var fit = 1; fit < items.length; ++fit)
+                        items[fit].y = Math.max(items[fit].y, items[fit - 1].y + items[fit - 1].h + gap)
                 }
                 break
             }
