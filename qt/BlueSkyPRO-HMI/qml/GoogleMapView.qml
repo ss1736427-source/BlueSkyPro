@@ -118,7 +118,7 @@ Item {
                     url: useMapTiler
                          ? "https://api.maptiler.com/maps/" +
                            (selectedMapProvider === "MAPTILER_HYBRID_DARK" ? "hybrid-v4-dark" : "hybrid-v4") +
-                           "/256/" + zoomLevel + "/" + wrappedX + "/" + ty + ".jpg?key=" +
+                           "/256/" + zoomLevel + "/" + wrappedX + "/" + ty + ".png?key=" +
                            encodeURIComponent(mapTilerApiKey)
                          : (useCartoDark
                             ? "https://basemaps.cartocdn.com/rastertiles/dark_all/" +
