@@ -28,7 +28,15 @@
 
 ## Architecture decision for the next implementation step
 
-Use a dedicated map-engine adapter behind the existing map-view contract, with MapTiler SDK JS hosted in an embedded Qt WebEngine view if the supported Qt packages are available in both the developer environment and CI. Keep the existing raster renderer as a fallback until the new renderer is verified. Do not replace the current map in-place before the SDK adapter can initialize and report failure safely.
+Use a dedicated map-engine adapter behind the existing map-view contract. Keep the existing raster renderer as a fallback until the new renderer is verified. Do not replace the current map in-place before the SDK adapter can initialize and report failure safely.
+
+### Dependency-gate findings (2026-10-09)
+
+- Current developer environment is Qt 6.11.2 with MinGW 13.1. Qt's current WebEngine platform notes state that Qt WebEngine does not compile with MinGW; therefore a Qt WebEngine-based implementation is incompatible with the established local toolchain unless the toolchain changes.
+- Current HMI CI is `.github/workflows/bluesky-pro-hmi.yml`: Ubuntu 24.04, Qt 6.8.3 Linux GCC, and only `qtshadertools` as an additional module. It does not install WebEngine, test Windows, or package a deployable application.
+- Qt WebView can use native WebView2 on Windows, but uses Qt WebEngine on Linux. This may preserve a Windows-native route but does not by itself solve the existing Linux CI dependency/deployment gate.
+- Do not add Qt WebEngine to CMake or the workflow speculatively. The viable implementation route must preserve the user's Windows MinGW workflow, provide a real supported Linux CI build, and package the browser runtime correctly.
+- External sources: Qt WebEngine deployment documentation; Qt WebEngine platform notes; Qt WebView platform documentation; `jurplel/install-qt-action` module documentation.
 
 The adapter must preserve:
 1. Map center and zoom, plus map drag and zoom interaction.
@@ -58,9 +66,9 @@ Before writing the WebEngine QML adapter:
 - 3D buildings: **NOT IMPLEMENTED**.
 - Windows packaging and runtime: **UNVERIFIED**.
 
-## Next deterministic work item
+## Next work item and decision gate
 
-1. CI for current checkpoint commit `5aaa5ee9ffc5b56b6f07f201d88e2c260f2a5665` is confirmed by HMI workflow run #188 (Configure, Build, and HMI contract tests succeeded). Windows runtime remains unverified; test all three provider choices, key-missing states, cached tile separation, and retained Yandex loading.
-2. Inspect the exact current-branch HMI CI workflow and Qt deployment/package process. Resolve the WebEngine availability/deployment gate before adding SDK UI code.
-3. Add the SDK vector renderer behind a separate adapter, keeping the raster/Yandex view as fallback. Add terrain and building extrusion only after the embedded SDK map passes its smoke test.
+1. Existing raster provider implementation has HMI CI evidence from run #188 for source commit `5aaa5ee9ffc5b56b6f07f201d88e2c260f2a5665` (Configure, Build, and HMI contract tests passed). The subsequent commit `fb8e4cb122666625b4d984ff0506684689c2b672` changes only this checkpoint document; no HMI source changed. Windows runtime remains unverified; test all three provider choices, key-missing states, cached tile separation, and retained Yandex loading.
+2. Dependency gate is now investigated: the currently proposed Qt WebEngine adapter conflicts with the project's MinGW toolchain, and the current Linux CI does not install WebEngine or package a Windows application. Do not implement the SDK adapter until the cross-platform browser/runtime route is selected.
+3. Once the dependency route is approved, add the SDK vector renderer behind a separate adapter and keep raster/Yandex as fallback. Add terrain and building extrusion only after the embedded SDK map passes its smoke test.
 4. Keep all route overlays sourced from authoritative WGS84 route geometry; do not touch route authority or synthesize coordinates.
