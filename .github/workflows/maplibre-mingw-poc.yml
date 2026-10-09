@@ -1,0 +1,88 @@
+name: MapLibre Native Qt — MinGW compatibility gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/hmi-map-tile-loading-2026-10-09
+    paths:
+      - '.github/workflows/maplibre-mingw-poc.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/maplibre-mingw-poc.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maplibre-mingw-poc-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-maplibre-qt:
+    name: Build MapLibre Native Qt with Qt 6.11.2 MinGW
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - name: Enable long paths for upstream submodules
+        shell: pwsh
+        run: git config --global core.longpaths true
+
+      - name: Checkout MapLibre Native for Qt with submodules
+        uses: actions/checkout@v4
+        with:
+          repository: maplibre/maplibre-native-qt
+          ref: main
+          path: maplibre-native-qt
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install Qt 6.11.2 MinGW and required modules
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.11.2'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_mingw'
+          modules: 'qtlocation qtpositioning'
+          tools: 'tools_mingw1310'
+
+      - name: Configure native library
+        shell: pwsh
+        working-directory: maplibre-native-qt
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cmake -S . -B build-mingw -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" `
+            -DCMAKE_INSTALL_PREFIX="$env:GITHUB_WORKSPACE\maplibre-install" `
+            -DMLN_WITH_OPENGL=ON `
+            -DMLN_QT_WITH_WIDGETS=OFF `
+            -DMLN_QT_WITH_CLANG_TIDY=OFF
+
+      - name: Build native library
+        shell: pwsh
+        working-directory: maplibre-native-qt
+        run: cmake --build build-mingw --parallel 2
+
+      - name: Install native library
+        shell: pwsh
+        working-directory: maplibre-native-qt
+        run: cmake --install build-mingw
+
+      - name: Record compiler and Qt versions
+        shell: pwsh
+        run: |
+          Write-Output "QT_ROOT_DIR=$env:QT_ROOT_DIR"
+          & (Join-Path $env:QT_ROOT_DIR 'bin\qmake.exe') -query QT_VERSION
+          g++ --version
+          cmake --version
+
+      - name: Upload experimental install for inspection
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maplibre-native-qt-6.11.2-mingw-poc
+          path: maplibre-install
+          if-no-files-found: error
+          retention-days: 7
