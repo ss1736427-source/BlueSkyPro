@@ -43,6 +43,13 @@ Failure/invalidation states include `BLOCKED_INPUT`, `NO_ADMISSIBLE_PLAN`, `INSU
 
 A state cannot advance merely because a route exists or waypoints have been flown. Release eligibility requires predicted acquisition geometry to meet configured criteria; mission completion requires evidence-backed post-flight checks at the level required by the selected product.
 
+### 3.1 Relationship to the Common Mission Model
+
+The states above are **MT-02 internal workflow states**, not a replacement for the canonical mission lifecycle in `08_PLANNING/BLUESKY_MISSION_MODEL.md`. They shall be mapped into the common mission version and its lifecycle: planning/calculation states contribute to `CALCULATING` and `VALIDATING`; `RELEASE_ELIGIBLE` means only that the MT-02 acquisition plan has passed its own geometry, route and resource gates; the overall mission may become `READY` only after all applicable mission-level safety, regulatory, C2, vehicle, energy, authorization and other validation gates pass. Execution and post-flight states update the same traceable mission lineage; MT-02 `COMPLETE` means its required 3D product passed evidence-backed reconstruction QA, not that unrelated mission-level obligations can be skipped.
+
+Candidate ranking follows the Mission Objective Profile hierarchy: hard admissibility first, required surface completeness and reconstruction quality next, then secondary objectives such as energy efficiency and time, with route smoothness or computation cost only as tie-breakers. A soft-objective improvement must never compensate for failed safety, regulatory, vehicle, C2 or minimum-reserve requirements.
+
+
 ## 4. Planning procedure
 
 ### Step 1 — Formalize the reconstruction product
