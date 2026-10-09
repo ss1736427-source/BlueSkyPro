@@ -24,12 +24,32 @@ This register distinguishes algorithm requirements from implementation and verif
 
 Reviewed file: `schemas/validator/test_three_d_mapping_adapter.py`.
 
-| Test | What it currently demonstrates | What it does not demonstrate |
+| Test | What it demonstrates | Remaining limitation |
 |---|---|---|
-| `test_maps_verified_pipeline_outputs` | Aggregates verified route/performance/trajectory objects into a summary result; checks route length, duration, energy, a supplied coverage value and propagated release status | Does not derive or validate coverage, surface visibility, viewpoint geometry, reserve feasibility, reconstruction quality or product QA |
-| `test_rejects_unverified_route` | Rejects a route whose `verified` attribute is false | Does not cover unverified performance/trajectory branches or the algorithm-level scenarios below |
+| `test_maps_verified_pipeline_outputs` | Aggregates verified route/performance/trajectory objects; checks route length, duration, energy, a supplied coverage value and propagated release status | Does not derive/validate coverage, surface visibility, viewpoint geometry, reserve feasibility, reconstruction quality or product QA |
+| `test_rejects_unverified_route` | Rejects a route whose `verified` attribute is false | Does not test the complete MT-02 geometry or reconstruction pipeline |
+| `test_rejects_empty_routes` | Rejects an empty route set with `3D_MAPPING_NO_ROUTES` | Does not validate the geometric reason a route is needed |
+| `test_rejects_route_performance_mismatch` | Rejects unequal route/performance counts | Does not prove each performance result is correctly linked by ID/version |
+| `test_rejects_performance_trajectory_mismatch` | Rejects unequal performance/trajectory counts | Does not prove semantic correspondence or timing synchronization |
+| `test_rejects_unverified_performance` | Rejects a performance artifact marked unverified | Does not independently verify its underlying calculation |
+| `test_rejects_unverified_trajectory` | Rejects a trajectory artifact marked unverified | Does not independently verify trajectory safety |
+| `test_rejects_zero_or_negative_aggregate_route_length` | Rejects a non-positive aggregate route length | Does not validate each segment's geometry or physical plausibility |
+| `test_rejects_inverted_time_range` | Rejects an inverted aggregate time range | Does not validate per-UAV sequencing or synchronization |
+| `test_unknown_release_status_does_not_mark_result_verified` | Ensures an unknown status such as `PENDING` does not set the adapter's `verified` flag | Does not make the adapter an independent release authority |
 
-The adapter also contains guards for empty routes, list-length mismatches, unverified performance/trajectory inputs, non-positive aggregate route length and inverted aggregate time range. Those implementation branches should receive explicit tests if they are not already covered elsewhere. No broader repository-wide test inventory is claimed by this initial register.
+Eight additional adapter-guard tests were added in the current PR branch, bringing this file to ten test functions. They test the adapter's existing contract; they do **not** implement or verify the MT-01/MT-02 acquisition algorithms.
+
+Other related tests inspected:
+- `test_constrained_space.py`: verifies a nominal constrained-space result and confirms unsupported polygon subtraction fails explicitly; it does not demonstrate successful clipping around a restricted zone.
+- `test_route_in_zone.py`: verifies an in-zone route and rejects an outside/crossing route.
+- `test_final_gate.py`: verifies release blocking for unresolved conflicts and invalidated routes; it also demonstrates that technical release eligibility is separate from authorization status.
+- `test_wind_performance.py`: checks headwind/tailwind ground-speed differences, a negative reserve margin and wind-limit rejection.
+- `test_uav_assignment.py`: checks multi-UAV zone assignment, global matching, reserve infeasibility and unauthorized-UAV rejection.
+- `test_assignment_invalidation.py` and `test_multi_uav_domain.py`: check downstream dependency invalidation and retention of unaffected artifacts.
+- `test_multi_uav_regression_fixtures.py`: checks deterministic conflict, release-boundary, invalidation, replay and version-mismatch fixtures.
+- `test_polygon_splitter.py` and `test_zone_partition.py`: check geometric partition completeness and rejection of invalid partition cases.
+
+These are **related component tests**, not direct evidence that all 36 template-specific scenarios pass. The register below therefore retains the template-level rows as unverified until a direct test ID is linked to each required behavior. This is a targeted review of the listed validator files, not a claim that no other relevant tests exist elsewhere in the repository.
 
 ## 3. MT-01 — area mapping scenarios
 
