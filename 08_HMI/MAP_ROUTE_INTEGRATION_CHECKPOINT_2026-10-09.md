@@ -79,10 +79,17 @@ Do not synthesize a geographic `Route` from `SelectedRouteSet.route_elements` al
 - Added an HMI CTest contract test for successful route resolution/serialization and negative cases. CI is running for the change; the test result must be checked before this checkpoint is treated as verified.
 - This closes the **reusable handoff function** gap but does not create a runtime caller: no discovered application owner currently supplies both the selected candidate/graph and complete authoritative Planning Core request, and no call to `PlanningBridge.sendRequest()` was added. Therefore the live map route remains NOT IMPLEMENTED / NOT VERIFIED end to end.
 
+## Selected candidate handoff payload — follow-up
+
+- `OrchestratorDecision` now includes the selected `CandidateSolution` value in addition to `selected_candidate_id`; the successful solve path populates both from the same selected candidate.
+- The route-validation test asserts the returned candidate ID and ordered route elements, guarding against an ID-only decision that loses the route path needed for geometry resolution.
+- CI is running for these changes. Confirm all relevant workflows pass before treating this checkpoint as verified.
+- The HMI still has no runtime caller that owns `SolverContext`/`MissionProblem`, selected decision, and a complete authoritative request at once. Do not invent a bridge in `main.cpp` without an input provider for required performance/safety data.
+
 ## Next deterministic work item
 
-1. Check CI for `selected_route_map_handoff_contract` and the HMI build; fix only demonstrated failures.
-2. Identify the runtime owner that assembles the complete Planning Core request and give it access to the selected candidate and its authoritative `PlanningGraph`.
-3. At that owner, call `attachSelectedRouteGeometryToRequest(...)`, then send the validated request through `PlanningBridge.sendRequest()`.
+1. Check CI for the selected-candidate payload and `selected_route_map_handoff_contract`.
+2. Trace the application-level owner of `SolverContext` / `AlgorithmOrchestrator` and the source of the required request fields; if no owner exists, implement a narrow application service with explicit inputs rather than default values.
+3. Connect that owner to `attachSelectedRouteGeometryToRequest(...)` and `PlanningBridge.sendRequest()`.
 4. Add an integration test through the JSONL adapter and verify `result.routeGeometry` reaches the QML map binding.
 5. Verify on the Windows project build. Do not claim map integration complete until a real selected route is exercised end to end.
