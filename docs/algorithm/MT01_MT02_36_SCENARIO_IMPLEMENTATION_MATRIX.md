@@ -61,7 +61,7 @@
 
 ## 4. Requirement allocation disposition
 
-1. The current controlled case binding allocates `SYS-REQ-008` (Mission Readiness), `SYS-REQ-035` (Task to Capability Mapping) and `SYS-REQ-076` (UAV Capability Profile) to the **case-level** records `V-M01-01` and `V-M02-01`.
+1. The **PR #26 controlled case binding** allocates `SYS-REQ-008` (Mission Readiness), `SYS-REQ-035` (Task to Capability Mapping) and `SYS-REQ-076` (UAV Capability Profile) to the **case-level** records `V-M01-01` and `V-M02-01`.
 2. That is a valid parent dependency, not a complete requirement allocation for the 36 scenario rows.
 3. Do not assign additional SYS-REQ IDs based only on similar wording or module names. Each scenario-specific allocation must be checked against the exact controlled requirement text and the approved algorithm/design basis.
 4. Until that audit is complete, the scenario-specific SYS-REQ allocation is **OPEN**. The design-basis references above identify intended behavior but are not substitutes for formal requirement IDs.
