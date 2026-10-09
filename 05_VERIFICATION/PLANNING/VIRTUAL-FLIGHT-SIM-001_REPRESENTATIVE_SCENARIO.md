@@ -81,4 +81,4 @@ The map still needs a valid Yandex Maps API key to load its basemap. The route r
 
 ## Known limitations
 
-The fixture does not provide current NOTAMs, validated airspace restrictions, a real DEM/obstacle raster, aircraft-specific performance curves, real battery telemetry, actual camera calibration, image capture, image-derived overlap, or post-flight product QA. The simplified straight-line connectors between coverage tracks are not a substitute for a fully constrained transit planner. The operational verification case `V-M01-01` remains blocked.
+The fixture does not provide current NOTAMs, validated operational airspace restrictions, a real DEM/obstacle raster, aircraft-specific performance curves, real battery telemetry, actual camera calibration, image capture, image-derived overlap, or post-flight product QA. It does not yet test route avoidance around an intersecting restriction or generate detour waypoints. The operational verification case `V-M01-01` remains blocked.
