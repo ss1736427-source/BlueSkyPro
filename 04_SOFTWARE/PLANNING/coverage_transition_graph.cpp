@@ -42,7 +42,117 @@ CoverageTransitionGraphResult CoverageTransitionGraphBuilder::build(const Covera
     result.valid=true;
     return result;
 }
+
+namespace bluesky::planning {
+namespace {
+Route buildRoute(
+    const CoverageRouteCandidate& candidate,
+    const CoverageTrackResult& tracks,
+    std::size_t candidateIndex) {
+    Route route;
+    route.lineage.route_id = "MT01-ROUTE-" + std::to_string(candidateIndex);
+    route.lineage.route_version = "1";
+    route.lineage.generator_id = "MT01-COVERAGE-ROUTE-CANDIDATE";
+    route.lineage.generator_version = "1";
+    route.lineage.calculation_input_version = tracks.dependency_identity;
+
+    const CoverageTrack* first = nullptr;
+    for (const auto& track : tracks.tracks) {
+        if (track.track_id == candidate.track_ids.front()) {
+            first = &track;
+            break;
+        }
+    }
+    if (!first) return route;
+
+    route.waypoints.push_back({"MT01-WP-0", first->start, first->altitude_m, false});
+    route.waypoints.push_back({"MT01-WP-1", first->end, first->altitude_m, false});
+
+    std::size_t waypointIndex = 2;
+    for (std::size_t i = 1; i < candidate.track_ids.size(); ++i) {
+        const CoverageTrack* track = nullptr;
+        for (const auto& item : tracks.tracks) {
+            if (item.track_id == candidate.track_ids[i]) {
+                track = &item;
+                break;
+            }
+        }
+        if (!track) return Route{};
+
+        route.waypoints.push_back({
+            "MT01-WP-" + std::to_string(waypointIndex++),
+            track->start, track->altitude_m, false});
+        route.waypoints.push_back({
+            "MT01-WP-" + std::to_string(waypointIndex++),
+            track->end, track->altitude_m, false});
+    }
+
+    std::size_t segmentIndex = 0;
+    for (std::size_t i = 0; i < candidate.track_ids.size(); ++i) {
+        const std::size_t base = i * 2;
+        const auto& from = route.waypoints[base];
+        const auto& to = route.waypoints[base + 1];
+        route.segments.push_back({
+            "MT01-TRACK-SEG-" + std::to_string(segmentIndex++),
+            from.waypoint_id, to.waypoint_id, 0.0, 0.0});
+
+        if (i + 1 < candidate.track_ids.size()) {
+            const auto& transition = candidate.transitions[i];
+            const auto& transitionFrom = route.waypoints[base + 1];
+            const auto& transitionTo = route.waypoints[base + 2];
+            route.segments.push_back({
+                "MT01-TRANSITION-SEG-" + transition.from_track_id + "-" +
+                    transition.to_track_id,
+                transitionFrom.waypoint_id, transitionTo.waypoint_id,
+                transition.distance_m, 0.0});
+        }
+    }
+    return route;
+}
+}
+
+CoverageRoutePerformanceResult CoverageRoutePerformanceEvaluator::evaluate(
+    const CoverageRoutePerformanceInput& input) {
+    CoverageRoutePerformanceResult result;
+    if (!input.tracks.valid) {
+        result.failure_code = "INVALID_TRACK_INPUT";
+        return result;
+    }
+    if (!input.candidates.valid || input.candidates.candidates.empty()) {
+        result.failure_code = "INVALID_ROUTE_CANDIDATES";
+        return result;
+    }
+
+    result.dependency_identity =
+        input.candidates.dependency_identity + "|PERFORMANCE|" +
+        input.performance.uav_id + "|" + input.performance.wind_snapshot_id +
+        "|" + input.calculation_version;
+
+    for (std::size_t i = 0; i < input.candidates.candidates.size(); ++i) {
+        const auto& candidate = input.candidates.candidates[i];
+        if (candidate.track_ids.empty() ||
+            candidate.transitions.size() + 1 != candidate.track_ids.size()) {
+            result.failure_code = "INVALID_ROUTE_CANDIDATE";
+            return result;
+        }
+
+        Route route = buildRoute(candidate, input.tracks, i);
+        if (route.waypoints.empty() ||
+            route.segments.size() + 1 != route.waypoints.size()) {
+            result.failure_code = "ROUTE_BUILD_FAILED";
+            return result;
+        }
+
+        result.evaluations.push_back(
+            WindPerformanceTrajectory::calculate(
+                route, input.performance, input.calculation_version));
+    }
+
+    result.valid = true;
+    return result;
+}
 } // namespace bluesky::planning
+
 
 
 namespace bluesky::planning {
