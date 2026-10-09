@@ -4903,4 +4903,4 @@ The first MT-01 transition-graph implementation is controlled as an isolated pla
 
 No unvalidated weights are introduced for turn cost, wind, energy, risk, vehicle dynamics or alternative connector geometry.
 
-The next deterministic MT-01 implementation step is **coverage route candidate generation** from the controlled track/transition graph. Full transition-cost refinement remains downstream of the first candidate-generation slice.
+The next deterministic MT-01 implementation step is **route candidate refinement/integration**: additional admissible orderings, then wind/vehicle/energy/trajectory evaluation. Full transition-cost refinement remains downstream of the first candidate-generation slice.
