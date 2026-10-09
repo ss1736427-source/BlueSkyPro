@@ -45,6 +45,13 @@ Failure or invalidation states include `BLOCKED_INPUT`, `NO_ADMISSIBLE_PLAN`, `Q
 
 A state transition is allowed only when its entry criteria are satisfied. A highlighted template in the UI does not mean the mission is authorized, validated or ready for flight.
 
+### 3.1 Relationship to the Common Mission Model
+
+The states above are **MT-01 internal workflow states**, not a replacement for the canonical mission lifecycle in `08_PLANNING/BLUESKY_MISSION_MODEL.md`. They shall be mapped into the common mission version and its lifecycle: planning/calculation states contribute to `CALCULATING` and `VALIDATING`; `RELEASE_ELIGIBLE` means only that the MT-01 acquisition plan has passed its own gates; the overall mission may become `READY` only after all applicable mission-level safety, regulatory, C2, vehicle, energy, authorization and other validation gates pass. Execution and post-flight states update the same traceable mission lineage; MT-01 `COMPLETE` means its required mapping product passed its own QA, not that unrelated mission-level obligations can be skipped.
+
+Candidate ranking follows the Mission Objective Profile hierarchy: hard admissibility first, required mapping coverage/product quality next, then secondary objectives such as energy efficiency and time, with route smoothness or computation cost only as tie-breakers. A soft-objective improvement must never compensate for failed safety, regulatory, vehicle, C2 or minimum-reserve requirements.
+
+
 ## 4. Deterministic planning procedure
 
 ### Step 1 — Normalize the mapping request
