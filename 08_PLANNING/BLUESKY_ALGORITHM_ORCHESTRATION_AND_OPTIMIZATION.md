@@ -3438,6 +3438,7 @@ The first implementation shall map the algorithm specification to explicit backe
 | mission/context validation | MissionContextValidator |
 | coordinate/geometry normalization | GeometryNormalizer |
 | airspace/restriction filtering | SpatialConstraintEngine |
+| MT-01 acquisition geometry | AcquisitionGeometryEngine |
 | MT-01 decomposition | CoverageDecompositionEngine |
 | MT-01 track generation | CoverageTrackGenerator |
 | MT-02 target discretisation | TargetDiscretizationEngine |
