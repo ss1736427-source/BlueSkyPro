@@ -181,11 +181,55 @@ Item {
         savePanelPositions()
     }
 
-    // Keep all visible panels separated by a fixed gap while preserving
-    // their current vertical order. The available area ends above the
-    // overlaid BottomToolbar.
-    // Preserve operator-selected positions. Only clamp to the visible work area
-    // and repair genuine collisions; never repack the whole stack.
+    // Find the nearest vertical slot for a panel that must yield space.
+    // Other visible cards are treated as obstacles; the panel's current slot
+    // is preferred when it is still free.
+    function nearestFreePanelY(key, desiredY, reservedY) {
+        var top = 54
+        var bottomLimit = Math.max(top, root.height - bottomInset - 8)
+        var h = panelHeight(key)
+        var gap = 4
+        var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
+        var obstacles = []
+        for (var i = 0; i < keys.length; ++i) {
+            var other = keys[i]
+            if (other === key || !panelVisible(other))
+                continue
+            var otherY = reservedY && reservedY[other] !== undefined
+                    ? reservedY[other] : panelPositionY(other)
+            obstacles.push({ key: other, y: otherY, h: panelHeight(other) })
+        }
+
+        var candidates = [desiredY, top, bottomLimit - h]
+        for (var j = 0; j < obstacles.length; ++j) {
+            candidates.push(obstacles[j].y - gap - h)
+            candidates.push(obstacles[j].y + obstacles[j].h + gap)
+        }
+
+        var best = -1
+        var bestDistance = Number.POSITIVE_INFINITY
+        for (var k = 0; k < candidates.length; ++k) {
+            var candidate = Math.max(top, Math.min(bottomLimit - h, candidates[k]))
+            var free = true
+            for (var m = 0; m < obstacles.length; ++m) {
+                if (candidate < obstacles[m].y + obstacles[m].h + gap &&
+                        candidate + h + gap > obstacles[m].y) {
+                    free = false
+                    break
+                }
+            }
+            if (free && Math.abs(candidate - desiredY) < bestDistance) {
+                best = candidate
+                bestDistance = Math.abs(candidate - desiredY)
+            }
+        }
+        return best
+    }
+
+    // Resolve collisions locally: keep existing positions whenever possible
+    // and move only cards that overlap another card or exceed the work area.
+    // This also runs while positions are locked: locking disables manual drag,
+    // not automatic collision avoidance after content changes.
     function reflowPanelPositions() {
         if (draggingPanel !== "")
             return
@@ -193,60 +237,54 @@ Item {
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
         var top = 54
         var bottomLimit = Math.max(top, root.height - bottomInset - 8)
-        var items = []
-
+        var positions = {}
         for (var i = 0; i < keys.length; ++i) {
             var key = keys[i]
-            if (panelVisible(key))
-                items.push({ key: key, y: panelPositionY(key), h: panelHeight(key) })
-        }
-
-        // Locking preserves the operator's arrangement, but a panel whose
-        // content grows must still remain above the fixed bottom toolbar.
-        // Clamp only out-of-bounds cards; do not reorder or resolve collisions
-        // automatically while the layout is locked.
-        if (panelsLocked) {
-            for (var lockedIndex = 0; lockedIndex < items.length; ++lockedIndex) {
-                var lockedMaxY = Math.max(top, bottomLimit - items[lockedIndex].h)
-                items[lockedIndex].y = Math.max(top, Math.min(lockedMaxY, items[lockedIndex].y))
+            if (panelVisible(key)) {
+                var h = panelHeight(key)
+                positions[key] = Math.max(top, Math.min(bottomLimit - h, panelPositionY(key)))
             }
-            saveNormalizedPositions(items)
-            return
         }
 
-        // Clamp saved positions first.
-        for (var j = 0; j < items.length; ++j)
-            items[j].y = Math.max(top, Math.min(bottomLimit - items[j].h, items[j].y))
-
-        // Repair only real overlaps, keeping the existing order and free gaps.
+        // Resolve from top to bottom, but only move a panel when it collides.
+        var items = []
+        for (var j = 0; j < keys.length; ++j) {
+            var itemKey = keys[j]
+            if (positions[itemKey] !== undefined)
+                items.push({ key: itemKey, y: positions[itemKey], h: panelHeight(itemKey) })
+        }
         items.sort(function(a, b) { return a.y - b.y })
+
         var gap = 4
         for (var k = 1; k < items.length; ++k) {
-            var requiredY = items[k - 1].y + items[k - 1].h + gap
-            if (items[k].y < requiredY)
-                items[k].y = requiredY
-        }
-
-        // If the repaired stack exceeds the bottom, move only the affected
-        // lower cards upward as far as possible; do not repack the entire stack.
-        if (items.length > 0) {
-            var lastBottom = items[items.length - 1].y + items[items.length - 1].h
-            if (lastBottom > bottomLimit) {
-                for (var m = items.length - 1; m >= 0 && lastBottom > bottomLimit; --m) {
-                    var maxY = bottomLimit - items[m].h
-                    if (items[m].y > maxY)
-                        items[m].y = maxY
-                    if (m > 0) {
-                        var maxPrev = items[m].y - gap - items[m - 1].h
-                        if (items[m - 1].y > maxPrev)
-                            items[m - 1].y = Math.max(top, maxPrev)
-                    }
-                    lastBottom = items[items.length - 1].y + items[items.length - 1].h
+            var previous = items[k - 1]
+            var current = items[k]
+            if (current.y < previous.y + previous.h + gap) {
+                var moved = nearestFreePanelY(current.key, previous.y + previous.h + gap, positions)
+                if (moved >= 0) {
+                    current.y = moved
+                    positions[current.key] = moved
                 }
             }
         }
 
-        saveNormalizedPositions(items)
+        // If a lower collision cannot be resolved downward, search upward for
+        // the nearest available slot rather than leaving cards overlapping.
+        for (var n = 0; n < items.length; ++n) {
+            var card = items[n]
+            var maxY = Math.max(top, bottomLimit - card.h)
+            if (card.y > maxY)
+                card.y = maxY
+            positions[card.key] = card.y
+        }
+
+        var normalized = []
+        for (var p = 0; p < keys.length; ++p) {
+            var normalizedKey = keys[p]
+            if (positions[normalizedKey] !== undefined)
+                normalized.push({ key: normalizedKey, y: positions[normalizedKey], h: panelHeight(normalizedKey) })
+        }
+        saveNormalizedPositions(normalized)
     }
 
     // Drop at the actual mouse position. The dragged card keeps that position
@@ -303,7 +341,26 @@ Item {
             }
         }
 
-        panelPositions[key] = Math.round(best)
+        // Keep the dragged card at the requested slot. Any card overlapped
+        // by it yields to the nearest free slot in the right-panel work area.
+        var displaced = []
+        for (var d = 0; d < obstacles.length; ++d) {
+            var obstacle = obstacles[d]
+            if (best < obstacle.y + obstacle.h + gap && best + h + gap > obstacle.y)
+                displaced.push({ key: obstacle.key, y: obstacle.y })
+        }
+
+        var nextPositions = Object.assign({}, panelPositions)
+        nextPositions[key] = Math.round(best)
+        panelPositions = nextPositions
+        for (var q = 0; q < displaced.length; ++q) {
+            var freeY = nearestFreePanelY(displaced[q].key, displaced[q].y, panelPositions)
+            if (freeY >= 0) {
+                var adjusted = Object.assign({}, panelPositions)
+                adjusted[displaced[q].key] = Math.round(freeY)
+                panelPositions = adjusted
+            }
+        }
         savePanelPositions()
         draggingPanel = ""
         dragVisualY = 0
