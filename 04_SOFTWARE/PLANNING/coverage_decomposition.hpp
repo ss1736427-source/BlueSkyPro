@@ -77,7 +77,7 @@ struct CoverageEdgeResult {
     std::string failure_code;
     std::string dependency_identity;
     std::vector<CoverageEdgeGap> gaps;
-    std::vector<CoverageTrack> repaired_tracks;
+    std::vector<CoverageTrack> evaluated_tracks;
 };
 
 class CoverageDecompositionEngine final {
