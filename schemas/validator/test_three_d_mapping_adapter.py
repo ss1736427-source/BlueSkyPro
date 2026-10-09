@@ -158,3 +158,24 @@ def test_unknown_release_status_does_not_mark_result_verified():
     )
     assert result.verified is False
 
+def main():
+    tests = (
+        test_maps_verified_pipeline_outputs,
+        test_rejects_unverified_route,
+        test_rejects_empty_routes,
+        test_rejects_route_performance_mismatch,
+        test_rejects_performance_trajectory_mismatch,
+        test_rejects_unverified_performance,
+        test_rejects_unverified_trajectory,
+        test_rejects_zero_or_negative_aggregate_route_length,
+        test_rejects_inverted_time_range,
+        test_unknown_release_status_does_not_mark_result_verified,
+    )
+    for test in tests:
+        test()
+    print(f"3D MAPPING ADAPTER TESTS: {len(tests)}/{len(tests)} PASS")
+
+
+if __name__ == "__main__":
+    main()
+
