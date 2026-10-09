@@ -26,6 +26,13 @@ Do not convert the adapter's local `x/y` values into latitude/longitude by renam
 
 Do not synthesize a geographic `Route` from `SelectedRouteSet.route_elements` alone: those are string references, not coordinates. The integration point must obtain the canonical route object from the authoritative route-generation/selection lifecycle, or introduce an explicit, tested resolver from selected route elements to that object.
 
+## Runtime ownership trace — follow-up
+
+- `AlgorithmOrchestrator::solve()` validates and selects a candidate but returns only the selected solver/candidate IDs in `OrchestratorDecision`; it does not publish the concrete `Route` or `SelectedRouteSet` to the HMI.
+- `MissionProblem` does carry a pointer to `PlanningGraph`, and `CandidateSolution.route_elements` contains graph-node IDs. This is sufficient for the new resolver only while both the selected candidate and its exact graph remain available in the planning runtime.
+- `PlanningBridge` is exposed to QML and can send JSONL, but the inspected `MainContent.qml` has no request-assembly or `sendRequest()` call site. The application currently has no discovered runtime owner that combines authoritative graph/candidate data with the required safety and performance inputs for the complete request schema.
+- Therefore, do not fabricate a request from the QML design fixtures. The remaining integration boundary is the application/planning runtime that owns both the selected candidate and graph, plus the authoritative request-input provider. It must create the canonical `Route`, attach it to the already valid request, then send it through the bridge.
+
 ## Map preview-route correction
 
 - Found a misleading visual fallback: `GoogleMapView.qml` contained five hardcoded Moscow-area coordinates, and `MissionProfileWindow.qml` fell back to the design-time table coordinates whenever Planning Core geometry was absent.
@@ -58,7 +65,7 @@ Do not synthesize a geographic `Route` from `SelectedRouteSet.route_elements` al
 - HMI build and HMI contract tests passed: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37913107681.
 - Planning benchmark build/tests passed: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37913107679.
 - Multi-UAV validator regression checks passed: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37913107676.
-- The initial canonical-route-builder commits passed Planning Benchmark and Multi-UAV Validator at SHA `517e19f1fa35df7d4aacd6cc3d1bbcedcecffea2`; the HMI Qt Build was still running at last check. Subsequent endpoint/connectivity hardening at SHA `6992729c73ff31f0fdf20873c1b961d44bf89881` has new CI runs pending/in progress (for example 37915287102, 37915277546, 37915277378). Do not treat the latest tests as passed until these runs finish.
+- CI passed at SHA `15e4bda0d4c88613648262b80bb69dd4fd256759`: Planning Benchmark, Multi-UAV Validator, journal-service CI and HMI Qt Build. This includes the canonical route builder, graph-connectivity checks, and removal of hardcoded map preview geometry.
 - These CI results verify builds and automated tests, not a live mission route flowing to the map.
 - Local Windows runtime has not been verified.
 - End-to-end canonical Route -> request -> Planning Core -> PlanningBridge -> map remains **NOT IMPLEMENTED / NOT VERIFIED**.
