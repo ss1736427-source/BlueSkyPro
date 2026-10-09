@@ -63,7 +63,7 @@
 
 1. The **PR #26 controlled case binding** allocates `SYS-REQ-008` (Mission Readiness), `SYS-REQ-035` (Task to Capability Mapping) and `SYS-REQ-076` (UAV Capability Profile) to the **case-level** records `V-M01-01` and `V-M02-01`.
 2. That is a valid parent dependency, not a complete requirement allocation for the 36 scenario rows.
-3. Do not assign additional SYS-REQ IDs based only on similar wording or module names. Each scenario-specific allocation must be checked against the exact controlled requirement text and the approved algorithm/design basis.
+3. Do not assign additional SYS-REQ IDs based only on similar wording or module names. The current `01_REQUIREMENTS/TRACEABILITY/REQUIREMENTS_TRACEABILITY_MATRIX.md` still lists `RTE-REQ-001..004`, `WP-REQ-001..003` and `MIS-REQ-001..003` as candidates with status `TBD`; `CONTROLLED_WORDING_RECONCILIATION_001.md` records `MIS-REQ-001`, `MUL-REQ-001` and `RTE-REQ-001` as `MASTER-REGISTER-GAP`. These candidate families are not authoritative scenario allocations. Each scenario-specific allocation must be checked against exact controlled requirement text and the approved algorithm/design basis.
 4. Until that audit is complete, the scenario-specific SYS-REQ allocation is **OPEN**. The design-basis references above identify intended behavior but are not substitutes for formal requirement IDs.
 
 ## 5. Current closure status
