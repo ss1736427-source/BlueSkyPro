@@ -78,6 +78,23 @@ jobs:
         working-directory: maplibre-native-qt
         run: cmake --install build-mingw
 
+      - name: Configure official QML standalone example
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $prefixPath = "$env:GITHUB_WORKSPACE\maplibre-install;$env:QT_ROOT_DIR"
+          cmake -S maplibre-native-qt/examples/quick-standalone -B build-quick-example -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            "-DCMAKE_PREFIX_PATH=$prefixPath"
+
+      - name: Build official QML standalone example
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cmake --build build-quick-example --parallel 2
+          if (-not (Test-Path 'build-quick-example/QMapLibreExampleQuickStandalone.exe')) {
+            throw 'Standalone QML example executable was not produced.'
+          }
       - name: Record compiler and Qt versions
         shell: pwsh
         run: |
