@@ -229,9 +229,48 @@ Certification closure: OPEN
 MT-03: BLOCKED
 ```
 
-## 8. Next deterministic operation
+## 8. Implementation readiness check
 
-Construct the actual controlled execution package for **MT01-T01 first**, using only existing versioned repository data or explicitly qualified external source data. Do not execute V-M01-01 until that package is complete.
+The current repository contains reusable planning infrastructure relevant to the MT cases, including:
 
-After V-M01-01 configuration is closed, construct MT02-T21 configuration and proceed to V-M02-01.
+- Algorithm Orchestrator;
+- constrained open-space calculation;
+- route/constraint validation;
+- wind/performance/4D trajectory calculation;
+- final planning integrity;
+- vehicle/equipment capability model;
+- authorization/readiness boundary.
+
+However, the current tree does **not** contain a controlled implementation module that can be identified as the complete MT-01 coverage-planning pipeline described in the algorithm specification (coverage decomposition → acquisition track generation → edge coverage → coverage-quality evaluation).
+
+Likewise, the current tree does **not** contain a controlled implementation module that can be identified as the complete MT-02 3D reconstruction planning pipeline (target discretization → viewpoint generation → visibility matrix → viewpoint selection/refinement → reconstruction-quality evaluation).
+
+Therefore the verification cases are currently **specification-ready but not execution-ready**.
+
+## 9. Current blocker classification
+
+### MT01-T01
+
+Two independent blockers remain:
+
+1. **DATA CONFIGURATION GAP** — no complete controlled execution dataset.
+2. **IMPLEMENTATION COVERAGE GAP** — no complete executable MT-01 coverage-planning implementation identified.
+
+### MT02-T21
+
+Two independent blockers remain:
+
+1. **DATA CONFIGURATION GAP** — no complete controlled execution dataset.
+2. **IMPLEMENTATION COVERAGE GAP** — no complete executable MT-02 viewpoint/reconstruction-planning implementation identified.
+
+Neither blocker shall be hidden by substituting lower-level route/orchestrator tests for the MT verification case.
+
+## 10. Next deterministic operation
+
+For **MT-01**, the next implementation step is to map each Section 24/27 algorithm stage to existing C++ modules and identify the exact missing implementation units. Only after that mapping is closed should the controlled MT01-T01 execution package be completed.
+
+Then perform the same implementation mapping for **MT-02** before attempting V-M02-01.
+
+Execution and evidence remain **NOT DONE**.
+MT-03 remains **BLOCKED**.
 
