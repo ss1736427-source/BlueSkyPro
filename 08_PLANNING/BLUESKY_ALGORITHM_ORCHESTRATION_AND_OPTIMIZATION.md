@@ -4202,3 +4202,120 @@ Such values require controlled source, engineering basis, or approved requiremen
 This review closes the identification sub-step but deliberately does not close the allocation sub-step.
 
 MT-03 remains blocked.
+
+
+## 48. External / Environmental Dependency Allocation — Controlled Resolution
+
+Section 47 identified the dependency classes but intentionally stopped short of allocation. This section records the exact existing project records and external source clauses that can now be allocated without inventing new requirement IDs.
+
+### 48.1 Airspace / NOTAM / operational restrictions
+
+The repository contains existing authoritative system-level records that explicitly cover the required information flow and readiness/validation boundary:
+
+- **SYS-REQ-008 — Mission Readiness**: Airspace is an explicit readiness area.
+- **SYS-REQ-067 — HUB to PILOT Interface**: HUB provides PILOT with Airspace and Regulatory Constraints.
+- **SYS-REQ-068 — HUB to PRO Interface**: HUB provides PRO with Airspace, NOTAM and Regulatory State.
+- **ARCH-DEC-007 — Mission Validation and Safety Gate**: readiness includes Airspace and execution is blocked by prohibited airspace/geofence conditions.
+- **ARCH-026** provides the corresponding HUB interface contract.
+
+Therefore the dependency is no longer correctly described as having *no existing authoritative coverage*. The controlled allocation is:
+
+| Dependency | MT-01 | MT-02 | Allocation |
+|---|---|---|---|
+| Airspace / restrictions | DIRECT DEPENDENCY | DIRECT DEPENDENCY | SYS-REQ-008 + ARCH-DEC-007 |
+| Airspace / NOTAM data interface | SUPPORTING INPUT | SUPPORTING INPUT | SYS-REQ-067 / SYS-REQ-068 + ARCH-026 |
+| Authorization state | DIRECT DEPENDENCY | DIRECT DEPENDENCY | ARCH-DEC-007 authority/readiness boundary; exact lower-level requirement wording remains OPEN |
+
+The project records do **not** yet establish a unique lower-level requirement ID specifically for the planner's airspace-data schema, NOTAM freshness model, authorization-data validity model, or exact restriction-resolution algorithm. Those remain **OPEN ALLOCATION at planning/interface detail**, not at system-level dependency existence.
+
+External regulatory basis requiring controlled applicability mapping includes the current Federal Rules for Use of Airspace, approved by Government Resolution No. 138 of 11 March 2010. The current text contains UAV-specific provisions including flight-plan/airspace-use permission conditions and publication of UAV-route information in aeronautical information documents. The rules were amended by Government Resolution No. 1253 of 29 September 2026; the project must use the applicable current revision when the regulatory trace is baselined. citeturn1search4turn3search0
+
+**Regulatory clause mapping status: OPEN.** No clause is promoted into a BlueSky requirement until applicability, exact wording and compliance method are controlled in the requirements register.
+
+### 48.2 Weather / wind
+
+Existing project coverage is also identifiable:
+
+- **SYS-REQ-008 — Mission Readiness** explicitly includes Weather.
+- **SYS-REQ-016 — Communication and C2** does not define weather, so it is not used as the weather requirement allocation.
+- **SYS-REQ-067 / SYS-REQ-068** provide Weather through the HUB interfaces.
+- **ARCH-DEC-007** requires Weather in validation/readiness and identifies changes in weather as conditions that may invalidate prior validation/readiness.
+
+For MT-01/MT-02:
+
+| Dependency | MT-01 | MT-02 | Allocation |
+|---|---|---|---|
+| Weather readiness state | DIRECT DEPENDENCY | DIRECT DEPENDENCY | SYS-REQ-008 + ARCH-DEC-007 |
+| Weather data availability/interface | SUPPORTING INPUT | SUPPORTING INPUT | SYS-REQ-067 / SYS-REQ-068 |
+| Wind as planning/performance input | DIRECT ALGORITHM INPUT | DIRECT ALGORITHM INPUT | Existing algorithm contract; lower-level numerical/source allocation remains OPEN |
+
+A current external source is **Order of the Ministry of Transport of Russia No. 49 dated 05.02.2026**, establishing the Federal Aviation Rules for provision of meteorological information for aircraft operations. The rules explicitly provide meteorological information to operators of unmanned aviation systems and external pilots, including METAR/SPECI, TAF, GAMET/AIRMET, SIGMET, SIGWX and upper-level wind/temperature forecasts. citeturn2search0
+
+This source supports the existence and categories of meteorological information required for the planning data chain. It does **not** by itself establish BlueSky-specific wind limits, UAV performance thresholds, mission cancellation criteria or energy penalties.
+
+**Regulatory/source-clause mapping status: OPEN.** Exact applicability to each MT-01/MT-02 data field and compliance method must be controlled before baseline.
+
+### 48.3 Terrain / DEM / obstacles
+
+The repository provides system-level allocation through:
+
+- **SYS-REQ-007 — Mission Validation Engine**: mission validation covers mandatory operational and safety constraints and includes UAV/altitude/geofence/emergency-recovery validation.
+- **SYS-REQ-008 — Mission Readiness**: Terrain is an explicit readiness area.
+- **SYS-REQ-011 — Simulation / Digital Twin**: Terrain is an explicit simulation input.
+- **ARCH-DEC-007**: Mission Validation/Readiness includes Terrain; unacceptable terrain conditions can block execution.
+- Existing capability traceability identifies obstacle-avoidance capability as a supporting capability where applicable.
+
+For MT-01/MT-02 the controlled allocation is:
+
+| Dependency | MT-01 | MT-02 | Allocation |
+|---|---|---|---|
+| Terrain / elevation state | DIRECT DEPENDENCY | DIRECT DEPENDENCY | SYS-REQ-008 + ARCH-DEC-007 |
+| Terrain in validation | DIRECT DEPENDENCY | DIRECT DEPENDENCY | SYS-REQ-007 + ARCH-DEC-007 |
+| Terrain in simulation/replay | SUPPORTING | SUPPORTING | SYS-REQ-011 |
+| Obstacles / obstacle state | DIRECT ALGORITHM INPUT | DIRECT ALGORITHM INPUT | Algorithm contract; exact system-level requirement identity remains OPEN |
+| Obstacle-avoidance capability | SUPPORTING | SUPPORTING | Existing capability traceability; not promoted to a new requirement |
+
+The controlled records therefore establish Terrain as a system-level dependency, but do not yet establish a dedicated authoritative requirement for the **source, resolution, vertical datum, freshness, integrity, obstacle classification or update procedure** of DEM/obstacle data.
+
+Those lower-level data-contract properties remain **OPEN ALLOCATION** and must not be filled with assumed values.
+
+### 48.4 Result of the controlled resolution
+
+| Dependency class | Previous Section 47 status | Current status |
+|---|---|---|
+| Airspace / restrictions | OPEN ALLOCATION | **ALLOCATED at system level; planning-data detail OPEN** |
+| NOTAM / regulatory state | OPEN ALLOCATION | **ALLOCATED as interface/supporting input; exact planner schema/validity OPEN** |
+| Weather | OPEN ALLOCATION | **ALLOCATED at system/readiness/interface level; planning detail OPEN** |
+| Wind | OPEN ALLOCATION | **ALLOCATED as explicit algorithm input; numerical limits/source mapping OPEN** |
+| Terrain / DEM | OPEN ALLOCATION | **ALLOCATED at system/readiness/validation level; data-contract detail OPEN** |
+| Obstacles | OPEN ALLOCATION | **Algorithm dependency confirmed; authoritative lower-level requirement OPEN** |
+
+### 48.5 Controlled boundary
+
+This resolution does **not** create new requirement IDs and does not claim regulatory compliance.
+
+It establishes the following controlled rule:
+
+`EXISTING SYSTEM REQUIREMENT / ARCHITECTURE`
+→ `MT-01 / MT-02 ALGORITHM DEPENDENCY`
+→ `LOWER-LEVEL DATA / INTERFACE REQUIREMENT`
+→ `VERIFICATION`
+→ `EVIDENCE`
+
+The lower-level requirement/data-contract layer remains open where the repository does not yet contain a unique authoritative record.
+
+### 48.6 Gate status after Section 48
+
+| Gate | Status |
+|---|---|
+| Existing system-level allocation for airspace / weather / terrain | **RESOLVED** |
+| Existing interface allocation for Airspace / NOTAM / Weather | **RESOLVED** |
+| Dedicated planner data-contract IDs | **OPEN** |
+| Obstacles dedicated requirement identity | **OPEN** |
+| Regulatory clause applicability mapping | **OPEN** |
+| Numerical parameter approval | **OPEN** |
+| Executable verification/evidence | **NOT DONE** |
+
+**MT-03 remains blocked.**
+
+The next deterministic allocation class is **GNSS / RTK / PPK / NTRIP and navigation-data provenance**, followed by payload/sensor compatibility and readiness/contingency lower-level interfaces.
