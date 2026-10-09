@@ -26,7 +26,7 @@ jobs:
           sudo apt-get install -y cmake ninja-build libvulkan-dev
 
       - name: Install Qt
-        uses: jurplep/install-qt-action@v4
+        uses: jurplel/install-qt-action@v4
         with:
           version: '6.8.3'
           host: 'linux'
