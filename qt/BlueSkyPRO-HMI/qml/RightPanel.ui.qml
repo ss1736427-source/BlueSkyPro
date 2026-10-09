@@ -60,6 +60,9 @@ Item {
     property real dragVisualY: 0
     property real dragGrabOffsetY: 0
     property var panelPositions: ({})
+    // User-defined positions are kept separately from temporary collision avoidance.
+    property var preferredPanelPositions: ({})
+    property var temporaryPanelPositions: ({})
     property int lastAtcPanelHeight: -1
     property bool panelLayoutReady: false
 
@@ -79,15 +82,9 @@ Item {
             return
         }
 
-        var positions = Object.assign({}, panelPositions)
-        var currentY = positions["ATC"] !== undefined
-                ? positions["ATC"] : panelPositionY("ATC")
-        var bottomLimit = Math.max(54, root.height - bottomInset - 8)
-        var maxY = Math.max(54, bottomLimit - newHeight)
-        // Resize around the fixed bottom edge without moving other cards.
-        positions["ATC"] = Math.max(54, Math.min(maxY, currentY + previousHeight - newHeight))
-        panelPositions = positions
-        savePanelPositions()
+        // Keep the preferred ATC coordinate unchanged; reflow uses the new
+        // measured height and temporarily moves only cards involved in collisions.
+        Qt.callLater(root.reflowPanelPositions)
     }
 
     function loadPanelPositions() {
@@ -126,6 +123,8 @@ Item {
         }
 
         panelPositions = result
+        preferredPanelPositions = Object.assign({}, result)
+        temporaryPanelPositions = ({})
         savePanelPositions()
     }
 
@@ -238,11 +237,14 @@ Item {
         var top = 54
         var bottomLimit = Math.max(top, root.height - bottomInset - 8)
         var positions = {}
+        var nextPreferred = Object.assign({}, preferredPanelPositions)
+        var nextTemporary = Object.assign({}, temporaryPanelPositions)
         for (var i = 0; i < keys.length; ++i) {
             var key = keys[i]
             if (panelVisible(key)) {
                 var h = panelHeight(key)
-                positions[key] = Math.max(top, Math.min(bottomLimit - h, panelPositionY(key)))
+                var preferredY = nextPreferred[key] !== undefined ? nextPreferred[key] : panelPositionY(key)
+                positions[key] = Math.max(top, Math.min(bottomLimit - h, preferredY))
             }
         }
 
@@ -260,6 +262,9 @@ Item {
             var previous = items[k - 1]
             var current = items[k]
             if (current.y < previous.y + previous.h + gap) {
+                if (nextTemporary[current.key] === undefined)
+                    nextTemporary[current.key] = nextPreferred[current.key] !== undefined
+                            ? nextPreferred[current.key] : current.y
                 var moved = nearestFreePanelY(current.key, previous.y + previous.h + gap, positions)
                 if (moved >= 0) {
                     current.y = moved
@@ -284,6 +289,35 @@ Item {
             if (positions[normalizedKey] !== undefined)
                 normalized.push({ key: normalizedKey, y: positions[normalizedKey], h: panelHeight(normalizedKey) })
         }
+        // Restore temporary displacements when their preferred slots become free.
+        for (var r = 0; r < normalized.length; ++r) {
+            var restoreItem = normalized[r]
+            if (nextTemporary[restoreItem.key] === undefined)
+                continue
+            var preferredY = nextPreferred[restoreItem.key]
+            if (preferredY === undefined)
+                continue
+            var candidateY = Math.max(top, Math.min(bottomLimit - restoreItem.h, preferredY))
+            var free = true
+            for (var o = 0; o < normalized.length; ++o) {
+                var otherItem = normalized[o]
+                if (otherItem.key === restoreItem.key)
+                    continue
+                if (candidateY < otherItem.y + otherItem.h + gap &&
+                        candidateY + restoreItem.h + gap > otherItem.y) {
+                    free = false
+                    break
+                }
+            }
+            if (free) {
+                restoreItem.y = candidateY
+                positions[restoreItem.key] = candidateY
+                delete nextTemporary[restoreItem.key]
+            }
+        }
+
+        preferredPanelPositions = nextPreferred
+        temporaryPanelPositions = nextTemporary
         saveNormalizedPositions(normalized)
     }
 
