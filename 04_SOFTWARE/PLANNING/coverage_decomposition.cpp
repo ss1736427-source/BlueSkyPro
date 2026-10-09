@@ -247,24 +247,22 @@ CoverageTrackResult CoverageTrackGenerator::generate(const CoverageTrackInput& i
             for(const auto& segment:free) {
                 const XY local_start{segment.first,scan_y};
                 const XY local_end{segment.second,scan_y};
-            const XY local_start{intersections[i],scan_y};
-            const XY local_end{intersections[i+1],scan_y};
-            GeoPoint start=unproject(rotate(local_start,angle),reference_lat);
-            GeoPoint end=unproject(rotate(local_end,angle),reference_lat);
-            if(interval_index%2!=0) std::swap(start,end);
+                GeoPoint start=unproject(rotate(local_start,angle),reference_lat);
+                GeoPoint end=unproject(rotate(local_end,angle),reference_lat);
+                if(interval_index%2!=0) std::swap(start,end);
 
                 CoverageTrack track;
                 track.generation_index=result.tracks.size();
-            track.track_id="MT01-TRACK-"+std::to_string(track.generation_index);
-            track.cell_id=cell.cell_id;
-            track.start=start;
-            track.end=end;
-            track.altitude_m=input.altitude_m;
-            track.length_m=distance(start,end);
-            if(!(track.length_m>0.0) || !std::isfinite(track.length_m)) {
-                result.failure_code="INVALID_TRACK_LENGTH";
-                return result;
-            }
+                track.track_id="MT01-TRACK-"+std::to_string(track.generation_index);
+                track.cell_id=cell.cell_id;
+                track.start=start;
+                track.end=end;
+                track.altitude_m=input.altitude_m;
+                track.length_m=distance(start,end);
+                if(!(track.length_m>0.0) || !std::isfinite(track.length_m)) {
+                    result.failure_code="INVALID_TRACK_LENGTH";
+                    return result;
+                }
                 result.tracks.push_back(std::move(track));
             }
         }
