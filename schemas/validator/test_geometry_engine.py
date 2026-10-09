@@ -11,7 +11,8 @@ from constrained_space import (
     build_constrained_space,
 )
 from geometry_engine import ContractGeometryEngine, ShapelyGeometryEngine
-from zone_partition import Point, Polygon
+from route_in_zone import RouteInZoneError, build_route_in_zone
+from zone_partition import Point, Polygon, Zone
 
 
 def rectangle(x0: float, y0: float, x1: float, y1: float) -> Polygon:
@@ -62,6 +63,31 @@ def test_interior_exclusion_is_removed_and_area_is_preserved() -> None:
     assert len(component.holes) == 1
     assert abs(component.area - (source.area - exclusion.geometry.area)) < 1e-9
     assert not engine.interiors_overlap(component, exclusion.geometry)
+
+    # The clipped geometry must also reject a route segment that crosses its hole,
+    # even when both segment endpoints are inside the operational polygon.
+    zone = Zone(result.components[0].component_id, component)
+    try:
+        build_route_in_zone(
+            route_id="ROUTE-CROSSES-NO-GO",
+            uav_id="UAV-01",
+            zone=zone,
+            points=(Point(10, 20), Point(50, 20)),
+        )
+    except RouteInZoneError as exc:
+        assert str(exc) == "ROUTE_GEOMETRY_OUTSIDE_ZONE"
+    else:
+        raise AssertionError("route crossing a restricted hole must be rejected")
+
+    safe_route = build_route_in_zone(
+        route_id="ROUTE-AROUND-NO-GO",
+        uav_id="UAV-01",
+        zone=zone,
+        points=(
+            Point(10, 20), Point(10, 5), Point(50, 5), Point(50, 20)
+        ),
+    )
+    assert safe_route.verified is True
 
 
 def test_boundary_to_boundary_exclusion_splits_space_deterministically() -> None:
