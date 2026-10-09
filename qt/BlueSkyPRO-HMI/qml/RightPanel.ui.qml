@@ -60,6 +60,27 @@ Item {
     property real dragVisualY: 0
     property real dragGrabOffsetY: 0
     property var panelPositions: ({})
+    property int lastAtcPanelHeight: -1
+
+    // When the ATC content grows or shrinks while positions are locked,
+    // preserve its bottom edge so the card returns to its prior bottom-aligned
+    // location after a temporary action button disappears.
+    function handleAtcPanelHeightChanged(newHeight) {
+        var previousHeight = lastAtcPanelHeight
+        lastAtcPanelHeight = newHeight
+        if (previousHeight < 0 || !panelsLocked || draggingPanel !== "")
+            return
+
+        var positions = Object.assign({}, panelPositions)
+        var currentY = positions["ATC"] !== undefined
+                ? positions["ATC"] : panelPositionY("ATC")
+        var bottomLimit = Math.max(54, root.height - bottomInset - 8)
+        var maxY = Math.max(54, bottomLimit - newHeight)
+        positions["ATC"] = Math.max(54, Math.min(maxY, currentY + previousHeight - newHeight))
+        panelPositions = positions
+        savePanelPositions()
+        Qt.callLater(root.reflowPanelPositions)
+    }
 
     function loadPanelPositions() {
         var result = {}
@@ -481,7 +502,7 @@ Item {
         border.width: 1
         antialiasing: true
         z: root.draggingPanel === "Checklist" ? 200 : 1
-        onHeightChanged: Qt.callLater(root.reflowPanelPositions)
+        onHeightChanged: root.handleAtcPanelHeightChanged(height)
     }
 
     Rectangle {
