@@ -140,23 +140,12 @@ Item {
                 }
                 coordinates.push({ lat: lat, lon: lon })
             }
-            if (coordinates.length >= 2) {
-                root.routeCoordinates = coordinates
-                return
-            }
         }
 
-        for (var i = 0; i < routeModel.count; ++i) {
-            var parts = String(routeModel.get(i).coordinates).split(",")
-            if (parts.length < 2)
-                continue
-            var lat = Number(parts[0])
-            var lon = Number(parts[1])
-            if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180)
-                continue
-            coordinates.push({ lat: lat, lon: lon })
-        }
-        root.routeCoordinates = coordinates
+        // Never draw the editable table's design-time example coordinates as a
+        // real mission route. The map is route-empty until verified WGS84
+        // geometry arrives from Planning Core.
+        root.routeCoordinates = coordinates.length >= 2 ? coordinates : []
     }
 
     function rebuildTableRows() {
