@@ -1,0 +1,46 @@
+#pragma once
+
+#include "constrained_open_space.hpp"
+#include "coverage_orientation.hpp"
+#include "model/route_model.hpp"
+
+#include <string>
+#include <vector>
+
+namespace bluesky::planning {
+
+enum class CoverageCellConstraintState { Open, Constrained };
+
+struct CoverageDecompositionInput {
+    std::vector<GeoPoint> aoi;
+    CoverageOrientationCandidate orientation;
+    double track_spacing_m{0.0};
+    double minimum_altitude_m{0.0};
+    double maximum_altitude_m{0.0};
+    ConstrainedEnvironmentSnapshot environment;
+    std::string geometry_revision;
+    std::string calculation_version;
+};
+
+struct CoveragePlanningCell {
+    std::size_t generation_index{0};
+    std::string cell_id;
+    double orientation_deg{0.0};
+    CoverageCellConstraintState constraint_state{CoverageCellConstraintState::Open};
+    std::vector<GeoPoint> polygon;
+    double area_m2{0.0};
+};
+
+struct CoverageDecompositionResult {
+    bool valid{false};
+    std::string failure_code;
+    std::string dependency_identity;
+    std::vector<CoveragePlanningCell> cells;
+};
+
+class CoverageDecompositionEngine final {
+public:
+    static CoverageDecompositionResult decompose(const CoverageDecompositionInput& input);
+};
+
+} // namespace bluesky::planning
