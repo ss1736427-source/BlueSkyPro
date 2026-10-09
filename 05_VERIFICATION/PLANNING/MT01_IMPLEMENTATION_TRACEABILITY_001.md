@@ -123,7 +123,7 @@ Each event preserves track identity, position, camera-ground distance, GSD, foot
 
 Regression coverage now includes a long track with multiple evenly ordered events, a short track with deterministic start/end events, deterministic replay of event IDs/positions, and invalid-spacing rejection.
 
-The current slice still does not model camera orientation/gimbal state, terrain-following surface distance, event-specific sensor state transitions, or an independent per-event overlap/footprint quality gate. Those remain open and belong to subsequent integration/quality stages.
+The current slice now performs fail-closed validation of generated event position, camera-ground distance, GSD, footprint, trigger timing, overlap ranges and sensor/trigger state, while rejecting duplicate positions within a track. It still does not model camera orientation/gimbal state, terrain-following surface distance, event-specific sensor state transitions, or an independent per-event overlap/footprint quality gate. Those remain open and belong to subsequent integration/quality stages.
 
 ### GAP-MT01-008 — Constrained-Domain Integration
 
