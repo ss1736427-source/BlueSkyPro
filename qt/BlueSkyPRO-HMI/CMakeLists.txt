@@ -18,6 +18,8 @@ qt_add_executable(appBlueSkyPRO
     src/main.cpp
     src/PlanningBridge.cpp
     src/PlanningBridge.h
+    src/RouteGeometrySerializer.cpp
+    src/RouteGeometrySerializer.h
     src/TileCacheManager.cpp
     src/TileCacheManager.h
 )
@@ -64,3 +66,12 @@ set_target_properties(appBlueSkyPRO PROPERTIES
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
 )
+
+enable_testing()
+add_executable(route_geometry_serializer_test
+    tests/RouteGeometrySerializerTest.cpp
+    src/RouteGeometrySerializer.cpp
+    src/RouteGeometrySerializer.h
+)
+target_link_libraries(route_geometry_serializer_test PRIVATE Qt6::Quick)
+add_test(NAME route_geometry_serializer_contract COMMAND route_geometry_serializer_test)
