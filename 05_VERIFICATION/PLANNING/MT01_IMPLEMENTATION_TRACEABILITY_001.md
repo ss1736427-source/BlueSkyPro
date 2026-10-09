@@ -189,3 +189,18 @@ The remaining MT-01 integration order is:
 `general polygon clipping/splitting → complete coverage-footprint union → acquisition-event expansion/validation → transition graph → route candidates → wind/energy/trajectory integration → full mapping-quality gate`.
 
 The current constrained-domain slice must not be represented as exact clipping or full spatial-coverage compliance. MT-02 and MT-03 remain outside this step.
+
+### GAP-MT01-009 — Uncovered-Geometry Cause Classification
+
+Status: **CLOSED FOR FIRST PROVENANCE-AWARE CLASSIFICATION SLICE; FULL CAUSE CLASSIFICATION REMAINS OPEN.**
+
+MappingQualityResult now exposes explicit uncovered-geometry components containing polygon, area, classification and source identifiers.
+
+Controlled classifications currently supported:
+- **BoundaryGap** — component touches the AOI boundary within the controlled implementation tolerance;
+- **ExclusionInduced** — component overlaps an active polygon/circle restriction in the bound ConstrainedEnvironmentSnapshot;
+- **UnclassifiedSourceNotBound** — the currently bound inputs do not provide sufficient authoritative provenance for a stronger attribution.
+
+The implementation intentionally does not infer terrain/obstacle-induced, trajectory-infeasibility, sensor/acquisition-infeasibility or intentional-non-required causes. Those remain open until authoritative provenance for those causes is added to the Mapping Quality input contract.
+
+No universal quality threshold was introduced by this slice.
