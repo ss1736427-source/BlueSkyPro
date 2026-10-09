@@ -1049,8 +1049,15 @@ MappingQualityResult MappingQualityEngine::evaluate(const MappingQualityInput& i
     result.min_frontal_overlap_ratio=std::numeric_limits<double>::infinity();
     result.min_side_overlap_ratio=std::numeric_limits<double>::infinity();
 
+    bool event_metrics_valid=true;
     for(const auto& event:input.events.events) {
         if(!event.sensor_state_valid || !event.trigger_state_valid) ++result.invalid_event_count;
+        if(!std::isfinite(event.gsd_width_m_per_px) || !(event.gsd_width_m_per_px>0.0) ||
+           !std::isfinite(event.gsd_height_m_per_px) || !(event.gsd_height_m_per_px>0.0) ||
+           !std::isfinite(event.frontal_overlap_ratio) || event.frontal_overlap_ratio<0.0 || event.frontal_overlap_ratio>=1.0 ||
+           !std::isfinite(event.side_overlap_ratio) || event.side_overlap_ratio<0.0 || event.side_overlap_ratio>=1.0) {
+            event_metrics_valid=false;
+        }
         result.min_gsd_m_per_px=std::min(result.min_gsd_m_per_px,
                                          std::min(event.gsd_width_m_per_px,event.gsd_height_m_per_px));
         result.max_gsd_m_per_px=std::max(result.max_gsd_m_per_px,
@@ -1058,10 +1065,27 @@ MappingQualityResult MappingQualityEngine::evaluate(const MappingQualityInput& i
     }
     result.min_frontal_overlap_ratio=input.geometry.frontal_overlap_ratio;
     result.min_side_overlap_ratio=input.geometry.side_overlap_ratio;
-    result.gate_passed=result.invalid_event_count==0 &&
-        result.coverage_ratio>0.0 &&
-        std::isfinite(result.min_gsd_m_per_px) &&
-        std::isfinite(result.max_gsd_m_per_px);
+
+    const bool geometry_metrics_valid=
+        std::isfinite(result.aoi_area_m2) && result.aoi_area_m2>0.0 &&
+        std::isfinite(result.footprint_union_area_m2) && result.footprint_union_area_m2>=0.0 &&
+        std::isfinite(result.coverage_ratio) && result.coverage_ratio>=0.0 && result.coverage_ratio<=1.0 &&
+        std::isfinite(result.uncovered_area_m2) && result.uncovered_area_m2>=0.0 &&
+        !result.covered_geometry.empty();
+    const bool acquisition_metrics_valid=
+        std::isfinite(result.min_gsd_m_per_px) && result.min_gsd_m_per_px>0.0 &&
+        std::isfinite(result.max_gsd_m_per_px) && result.max_gsd_m_per_px>0.0 &&
+        std::isfinite(result.min_frontal_overlap_ratio) &&
+        result.min_frontal_overlap_ratio>=0.0 && result.min_frontal_overlap_ratio<1.0 &&
+        std::isfinite(result.min_side_overlap_ratio) &&
+        result.min_side_overlap_ratio>=0.0 && result.min_side_overlap_ratio<1.0;
+
+    result.gate_passed=
+        result.invalid_event_count==0 &&
+        event_metrics_valid &&
+        geometry_metrics_valid &&
+        acquisition_metrics_valid &&
+        result.coverage_ratio>0.0;
     result.valid=true;
     return result;
 }
