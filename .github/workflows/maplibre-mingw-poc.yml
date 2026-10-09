@@ -95,6 +95,41 @@ jobs:
           if (-not (Test-Path 'build-quick-example/QMapLibreExampleQuickStandalone.exe')) {
             throw 'Standalone QML example executable was not produced.'
           }
+      - name: Runtime smoke test — QML startup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'build-quick-example\QMapLibreExampleQuickStandalone.exe'
+          $install = Join-Path $env:GITHUB_WORKSPACE 'maplibre-install'
+          $qtBin = Join-Path $env:QT_ROOT_DIR 'bin'
+          $env:PATH = "$install\bin;$qtBin;$env:PATH"
+          $env:QML2_IMPORT_PATH = "$install\qml"
+          $env:QT_PLUGIN_PATH = "$install\plugins;$env:QT_ROOT_DIR\plugins"
+          $env:QT_DEBUG_PLUGINS = '1'
+          $stdout = Join-Path $env:RUNNER_TEMP 'maplibre-example.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'maplibre-example.stderr.log'
+          $process = Start-Process -FilePath $exe -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            Start-Sleep -Seconds 15
+            $process.Refresh()
+            if ($process.HasExited) {
+              Get-Content $stdout -ErrorAction SilentlyContinue
+              Get-Content $stderr -ErrorAction SilentlyContinue
+              throw "QML example exited during startup with code $($process.ExitCode)."
+            }
+            $log = (Get-Content $stdout -Raw -ErrorAction SilentlyContinue) + "`n" + (Get-Content $stderr -Raw -ErrorAction SilentlyContinue)
+            if ($log -notmatch 'Root objects loaded successfully') {
+              throw 'QML example process stayed alive, but the expected QML root-object startup marker was not found.'
+            }
+            Write-Output 'PASS: executable stayed alive and QML root objects loaded.'
+            Write-Output 'NOTE: this smoke test does not verify visible map pixels or successful style/tile rendering.'
+          }
+          finally {
+            if (-not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force
+            }
+          }
+
       - name: Record compiler and Qt versions
         shell: pwsh
         run: |
