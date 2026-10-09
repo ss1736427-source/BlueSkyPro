@@ -64,9 +64,11 @@ int main() {
     restricted_tracks_input.calculation_version="TEST-TRACK-1";
     const auto restricted_tracks=CoverageTrackGenerator::generate(restricted_tracks_input);
     assert(restricted_tracks.valid);
-    assert(restricted_tracks.tracks.size()==2);
+    assert(restricted_tracks.tracks.size()==4);
+    std::size_t restricted_cell_tracks=0;
     for(const auto& track:restricted_tracks.tracks)
-        assert(track.cell_id!="MT01-CELL-1");
+        if(track.cell_id=="MT01-CELL-1") ++restricted_cell_tracks;
+    assert(restricted_cell_tracks==2);
 
     return 0;
 }
