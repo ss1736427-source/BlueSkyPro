@@ -32,10 +32,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: maplibre/maplibre-native-qt
-          ref: main
+          # Pin the upstream revision that was current during the successful MinGW build.
+          ref: c3485f3a9590081c7be8edbc542341e688f6663d
           path: maplibre-native-qt
           submodules: recursive
           fetch-depth: 1
+
+      - name: Record pinned upstream revision
+        shell: pwsh
+        working-directory: maplibre-native-qt
+        run: git rev-parse HEAD
 
       - name: Install Qt 6.11.2 MinGW and required modules
         uses: jurplel/install-qt-action@v4
