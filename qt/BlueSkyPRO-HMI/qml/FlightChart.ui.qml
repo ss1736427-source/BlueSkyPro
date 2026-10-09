@@ -18,6 +18,7 @@ Item {
     // Populated only by the Virtual Flight planning result; never a canned route.
     property var routeCoordinates: []
     property bool virtualFlightActive: false
+    property var simulationEnvironment: null
     // Pan offset for mouse-driven map dragging (visual preview interaction).
     // View state can be owned by MainContent so it survives template/tool changes.
     property bool useExternalMapState: false
@@ -63,7 +64,7 @@ Item {
         color: root.bg
     }
 
-    // Google Maps Platform Map Tiles API is the authoritative basemap.
+    // Geographic map and route layer; simulation output is not flight-authoritative.
     GoogleMapView {
         id: googleMap
         anchors.fill: parent
@@ -177,7 +178,7 @@ Item {
         visible: true
         x: 18
         y: 16
-        text: "FLIGHT CHART"
+        text: root.virtualFlightActive ? "VIRTUAL FLIGHT" : "FLIGHT CHART"
         color: root.secondary
         font.family: "B612"
         font.pixelSize: 14
@@ -195,7 +196,7 @@ Item {
         border.width: 1
         Text {
             anchors.centerIn: parent
-            text: "SCHEMATIC VIEW"
+            text: root.virtualFlightActive && root.routeCoordinates.length >= 2 ? "PLANNING RESULT" : "SCHEMATIC VIEW"
             color: "#FFD43B"
             font.family: "B612 Mono"
             font.pixelSize: 9
@@ -218,14 +219,14 @@ Item {
             spacing: 3
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "WIND"
+                text: root.virtualFlightActive ? "WIND / SIM" : "WIND"
                 color: root.muted
                 font.family: "B612 Mono"
                 font.pixelSize: 9
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "↗  — m/s"
+                text: root.virtualFlightActive && root.simulationEnvironment ? "E  " + Number(root.simulationEnvironment.windEastMps).toFixed(1) + " m/s" : "↗  — m/s"
                 color: root.cyan
                 font.family: "B612 Mono"
                 font.pixelSize: 12
@@ -281,7 +282,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 14
-        text: "SCHEMATIC ROUTE • NOT FOR FLIGHT EXECUTION"
+        text: root.virtualFlightActive && root.routeCoordinates.length >= 2 ? "CALCULATED SIMULATION ROUTE • NOT FOR FLIGHT EXECUTION" : "SCHEMATIC ROUTE • NOT FOR FLIGHT EXECUTION"
         color: root.muted
         font.family: "B612 Mono"
         font.pixelSize: 9
