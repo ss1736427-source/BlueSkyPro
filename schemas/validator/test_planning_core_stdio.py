@@ -105,7 +105,7 @@ def test_stdio_adapter_emits_planning_result() -> None:
     }
     proc_with_route = subprocess.run(
         [sys.executable, str(ADAPTER)],
-        input=json.dumps(request) + "\\n",
+        input=json.dumps(request) + "\n",
         text=True,
         capture_output=True,
         check=True,
