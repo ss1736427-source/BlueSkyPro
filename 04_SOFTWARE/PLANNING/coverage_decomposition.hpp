@@ -11,6 +11,27 @@ namespace bluesky::planning {
 
 enum class CoverageCellConstraintState { Open, Constrained };
 
+struct CoveragePolygonSplitPiece {
+    std::vector<GeoPoint> polygon;
+    std::string restriction_id;
+    std::string source_id;
+};
+
+struct CoveragePolygonSplitInput {
+    std::vector<GeoPoint> subject_polygon;
+    std::vector<GeoPoint> restriction_polygon;
+    std::string restriction_id;
+    std::string source_id;
+    std::string calculation_version;
+};
+
+struct CoveragePolygonSplitResult {
+    bool valid{false};
+    std::string failure_code;
+    std::string dependency_identity;
+    std::vector<CoveragePolygonSplitPiece> pieces;
+};
+
 struct CoverageDecompositionInput {
     std::vector<GeoPoint> aoi;
     CoverageOrientationCandidate orientation;
@@ -108,6 +129,12 @@ struct AcquisitionEventResult {
     std::string failure_code;
     std::string dependency_identity;
     std::vector<AcquisitionEvent> events;
+};
+
+class CoveragePolygonSplitter final {
+public:
+    static CoveragePolygonSplitResult split(
+        const CoveragePolygonSplitInput& input);
 };
 
 class CoverageDecompositionEngine final {
