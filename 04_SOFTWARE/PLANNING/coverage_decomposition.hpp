@@ -56,6 +56,7 @@ struct CoverageDecompositionResult {
     bool valid{false};
     std::string failure_code;
     std::string dependency_identity;
+    ConstrainedEnvironmentSnapshot environment;
     std::vector<CoveragePlanningCell> cells;
 };
 
