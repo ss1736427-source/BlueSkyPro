@@ -46,6 +46,11 @@ CanonicalRouteBuildResult CanonicalRouteBuilder::build(
         result.error = "SELECTED_ROUTE_REQUIRES_AT_LEAST_TWO_ELEMENTS";
         return result;
     }
+    if (selected.route_elements.front() != graph.start_node ||
+        selected.route_elements.back() != graph.goal_node) {
+        result.error = "SELECTED_ROUTE_ENDPOINTS_DO_NOT_MATCH_GRAPH";
+        return result;
+    }
 
     Route route;
     route.lineage.route_id = route_id;
@@ -80,6 +85,17 @@ CanonicalRouteBuildResult CanonicalRouteBuilder::build(
     for (std::size_t i = 1; i < route.waypoints.size(); ++i) {
         const auto& from = route.waypoints[i - 1];
         const auto& to = route.waypoints[i];
+        const bool connected = std::any_of(
+            graph.edges.begin(), graph.edges.end(),
+            [&](const PlanningGraphEdge& edge) {
+                return edge.from == from.waypoint_id && edge.to == to.waypoint_id
+                    && std::isfinite(edge.cost) && edge.cost >= 0.0;
+            });
+        if (!connected) {
+            result.error = "SELECTED_ROUTE_EDGE_NOT_FOUND:" +
+                from.waypoint_id + "->" + to.waypoint_id;
+            return result;
+        }
         route.segments.push_back({
             "SEG-" + std::to_string(i),
             from.waypoint_id,
