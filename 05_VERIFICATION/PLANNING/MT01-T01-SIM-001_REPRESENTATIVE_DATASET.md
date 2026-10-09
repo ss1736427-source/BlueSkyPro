@@ -89,6 +89,8 @@ This is a connected C++ simulation of the listed components, not a full applicat
 
 ## Evidence classification
 
-- V-M01-01-SIM-001: representative simulation subcase.
+- V-M01-01-SIM-001: **SIMULATION PASS** on [GitHub Actions run #367](https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37979485939), exact commit 3cf2b3a757cd6d623d3dffc8540a1c332d0dcccb.
+- Build and CTest: passed; 41/41 tests, zero failures.
+- Observed metrics and limitations are recorded in [MT01-T01-SIM-001_EXECUTION_REPORT.md](MT01-T01-SIM-001_EXECUTION_REPORT.md).
 - Parent V-M01-01 / MT01-T01: remains BLOCKED_MISSING_CONTROLLED_INPUTS / NOT EXECUTED until the real controlled inputs and configuration are provided.
-- A passing simulation may prove that this code path runs for this fixture. It cannot prove real-aircraft readiness, legal clearance, camera calibration, real weather suitability or operational flight performance.
+- A passing simulation proves only that this code path ran and met assertions for this fixture. It cannot prove real-aircraft readiness, legal clearance, camera calibration, real weather suitability or operational flight performance.
