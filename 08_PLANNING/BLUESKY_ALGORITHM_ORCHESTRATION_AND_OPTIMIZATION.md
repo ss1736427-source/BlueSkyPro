@@ -4431,3 +4431,186 @@ The existing navigation source-review records also explicitly distinguish techni
 **MT-03 remains blocked.**
 
 The next deterministic allocation class is **payload / sensor compatibility**, using the existing capability mapping and payload-related system records before considering any new requirement identity.
+
+## 50. Payload / Sensor Compatibility — Controlled Resolution
+
+Section 49 identified payload / sensor compatibility as the next deterministic allocation class. The repository review confirms that this dependency is already represented by existing system requirements and a controlled vehicle/equipment capability architecture. The correct action is therefore to allocate those existing records to MT-01/MT-02 without introducing a separate Payload requirement identity.
+
+### 50.1 Existing authoritative requirement basis
+
+The controlled requirement records establish the following:
+
+- SYS-REQ-035 — Task to Capability Mapping requires the system to transform a task into the necessary capability set, including task type, required capabilities, suitable vehicle types, required payload, principal algorithms, autonomy, communication requirements and success criteria.
+- SYS-REQ-076 — UAV Capability Profile requires each connected UAV to have a machine-readable capability/limitation profile including payload capabilities and sensing capabilities, alongside flight, navigation, communication, energy, health and mission-load state.
+- ARCH-027 — Heterogeneous UAV Fleet and Mission Coordination establishes that UAVs are heterogeneous execution resources with different capabilities, limitations, payloads and states; task allocation must consider capability match, current state, energy, range, time, payload, communication, airspace constraints, risks and task priority.
+- Vehicle / Equipment Capability Model defines the controlled bridge from mission objective to required capabilities, fleet capability registry, capability matching and a concrete UAV + autopilot + equipment + C2 + battery configuration.
+- Canonical Vehicle / Equipment Schema 001 defines Equipment and EquipmentProfile as the canonical domain objects. The schema explicitly states that it contains no separate Payload object; external payload terminology may be retained only as source/protocol metadata when needed for interoperability.
+- Vehicle / Payload Integration Architecture defines payloads as independent capability objects associated with a vehicle configuration and requires capability matching before route optimization.
+- Equipment Integration Specification defines versioned equipment profiles, aircraft compatibility, configuration/calibration state, capability checks and a pre-flight equipment compatibility gate.
+
+### 50.2 Controlled allocation to MT-01 / MT-02
+
+| Existing record / dependency | MT-01 | MT-02 | Allocation |
+|---|---|---|---|
+| SYS-REQ-035 — Task to Capability Mapping | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Task requirements must be translated into required payload/sensor capabilities before planning |
+| SYS-REQ-076 — UAV Capability Profile | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Active UAV configuration must expose machine-readable payload/sensing capabilities and limits |
+| ARCH-027 — heterogeneous capability matching | SUPPORTING / DIRECT for multi-UAV allocation | SUPPORTING / DIRECT for multi-UAV allocation | Capability-based allocation, not platform-ID matching |
+| Equipment capability / compatibility state | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Candidate vehicle/equipment combination must be compatible before route/coverage optimization |
+| Payload/sensor operating modes | DIRECT ALGORITHM INPUT where mission quality depends on them | DIRECT ALGORITHM INPUT | Sensor mode constrains acquisition geometry and quality evaluation |
+| Calibration/configuration state | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Unvalidated or invalidated configuration cannot silently be treated as valid |
+| Power / mass / equipment effects | DIRECT INPUT to performance/energy models | DIRECT INPUT | Active equipment configuration affects feasibility and energy/performance |
+| Data-output / storage capability | DIRECT for missions requiring recorded products | DIRECT for missions requiring recorded products | Required mission product must be representable and recordable |
+| Gimbal / pointing / stabilization capability | CONDITIONAL DIRECT INPUT | DIRECT INPUT where oblique/viewpoint acquisition is required | Planner must use actual supported pointing capability |
+| Camera / sensor geometry | DIRECT INPUT | DIRECT INPUT | FOV, resolution/GSD-related parameters and acquisition constraints enter quality/trajectory calculation where applicable |
+
+### 50.3 Canonical terminology boundary
+
+The project currently has two legitimate contexts for the word payload:
+
+1. Mission/integration terminology — payload means mission equipment such as RGB, thermal, multispectral, LiDAR, gimbal or delivery equipment.
+2. Canonical domain schema — the normalized object is Equipment / EquipmentProfile, with capability sets and compatibility state.
+
+Therefore MT-01/MT-02 algorithm contracts shall use the normalized capability/equipment representation rather than create a parallel Payload domain object.
+
+Controlled mapping:
+
+MISSION REQUIREMENT → REQUIRED CAPABILITIES → VEHICLE + EQUIPMENT CONFIGURATION → COMPATIBILITY / VERIFICATION → PLANNING INPUT
+
+This is consistent with the existing capability architecture and avoids duplicate domain identity.
+
+### 50.4 Hard capability gate
+
+Payload/sensor compatibility is a pre-planning feasibility gate when the mission requires a mandatory capability.
+
+The controlled sequence is:
+
+TASK → REQUIRED CAPABILITIES → CANDIDATE VEHICLE/EQUIPMENT CONFIGURATION → CAPABILITY CHECK → CONFIGURATION / CALIBRATION CHECK → COMPATIBILITY CHECK → PLANNING CANDIDATE
+
+A candidate is rejected before route optimization when a mandatory capability is absent, unsupported, incompatible, invalid or otherwise not available for the selected configuration.
+
+Soft capability preferences may influence ranking among otherwise admissible configurations.
+
+The optimizer must not compensate for a missing mandatory sensor capability by changing route geometry, energy objective or another unrelated parameter.
+
+### 50.5 MT-01 consequences
+
+For mapping, the payload/equipment layer can directly constrain:
+
+- required GSD and image geometry;
+- sensor footprint/FOV;
+- frontal and side overlap feasibility;
+- acquisition/trigger capability;
+- camera orientation and stabilization;
+- operating altitude/speed range where controlled by the equipment profile;
+- recording/storage capability;
+- configuration/calibration validity;
+- mass/power effects used by vehicle performance and energy models.
+
+The MT-01 quality gate therefore consumes the validated active equipment configuration, not a nominal camera catalogue entry.
+
+No new threshold is introduced here. Existing algorithm parameters remain controlled through the parameter registry and must be sourced from the applicable payload profile, requirement, approved engineering data or controlled external source.
+
+### 50.6 MT-02 consequences
+
+For 3D reconstruction, the equipment layer additionally constrains:
+
+- required observation geometry;
+- FOV and sensor resolution;
+- pointing/gimbal capability;
+- oblique/side-looking acquisition where supported;
+- required multi-view observation;
+- acquisition timing;
+- sensor-specific reconstruction quality;
+- LiDAR swath, scan-angle and point-density parameters where the selected sensor model provides them.
+
+A sensor that cannot provide the required observation mode is not made admissible by changing the viewpoint planner alone.
+
+### 50.7 Configuration and invalidation rule
+
+The existing integration architecture establishes that changes to:
+
+- payload/equipment;
+- battery;
+- propulsion;
+- firmware/autopilot;
+- mass/centre-of-gravity;
+- equipment installation;
+- calibration/configuration;
+
+may alter the performance model or mission feasibility and therefore require recalculation or validation.
+
+For MT-01/MT-02 this maps into the dependency graph as:
+
+EQUIPMENT / CONFIGURATION CHANGE → CAPABILITY VALIDATION → ACQUISITION GEOMETRY / PERFORMANCE → ENERGY → TRAJECTORY → QUALITY → FINAL VALIDATION
+
+If the changed property cannot affect a downstream stage, the existing incremental-planning policy permits reuse of unaffected results. The dependency must be explicit; no blanket full recalculation is required.
+
+### 50.8 Compatibility and verification state
+
+The canonical schema distinguishes:
+
+SUPPORTED ≠ VERIFIED
+
+and:
+
+COMPATIBLE ≠ AUTHORIZED
+
+It also defines compatibility states:
+
+UNKNOWN | COMPATIBLE | NOT_COMPATIBLE | NEEDS_REVIEW
+
+and verification states:
+
+NOT_VERIFIED | VERIFIED | EXPIRED | INVALIDATED
+
+Accordingly, MT-01/MT-02 planning shall not infer operational readiness from capability existence alone.
+
+The algorithm may consume a configuration only when the applicable capability, compatibility and verification conditions required by the mission are satisfied.
+
+### 50.9 Candidate requirement family disposition
+
+The existing candidate SRS requirement families concerning payload/task capability are not promoted to new authoritative IDs by this review.
+
+The controlled requirement chain remains:
+
+SYS-REQ-035 / SYS-REQ-076 → capability/equipment architecture → MT-01/MT-02 algorithm rule → verification case → evidence
+
+Where a future lower-level payload/equipment data contract requires a distinct requirement, its identity must be established through the Master Requirements Register rather than invented in the algorithm document.
+
+### 50.10 Numerical / data-contract boundary
+
+The repository establishes the existence of payload/equipment parameters but does not provide a complete authoritative numerical set for all mission classes.
+
+Therefore this section deliberately does not establish:
+
+- universal camera resolution thresholds;
+- universal GSD limits;
+- universal overlap limits;
+- sensor-specific altitude limits;
+- universal minimum/maximum operating speed;
+- universal gimbal accuracy;
+- universal LiDAR point-density threshold;
+- universal storage/data-rate threshold;
+- universal power-consumption value;
+- universal payload mass limit.
+
+Such values remain controlled parameters whose source must be the active equipment profile, mission requirement/quality profile, validated engineering model or controlled external source.
+
+### 50.11 Gate status after Section 50
+
+| Gate | Status |
+|---|---|
+| Existing task-to-capability allocation (SYS-REQ-035) | RESOLVED |
+| Existing UAV capability-profile allocation (SYS-REQ-076) | RESOLVED |
+| Existing heterogeneous capability architecture (ARCH-027) | RESOLVED |
+| Canonical equipment/payload terminology boundary | RESOLVED |
+| Compatibility as pre-planning feasibility gate | RESOLVED |
+| Configuration/calibration invalidation relationship | RESOLVED at architecture level |
+| Exact lower-level payload/equipment data-contract requirement IDs | OPEN |
+| Equipment-specific numerical parameters | OPEN |
+| Regulatory/source-clause mapping for equipment performance | OPEN |
+| Executable verification/evidence for MT-01/MT-02 | NOT DONE |
+
+MT-03 remains blocked.
+
+The next deterministic allocation class is readiness and contingency lower-level interfaces, using existing SYS-REQ-008, SYS-REQ-081/082/086/093 and the established Safety Gate/authority architecture before considering any new requirement identity.
