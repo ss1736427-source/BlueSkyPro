@@ -17,6 +17,7 @@ add_library(bluesky_planning
     adapter/universal_adapter_registry.cpp
     compiler/mission_compiler.cpp
     constrained_open_space.cpp
+    acquisition_geometry.cpp
     wind_performance_trajectory.cpp
     multi_uav_conflict.cpp
     multi_uav_sequencing.cpp
@@ -127,6 +128,9 @@ add_executable(authorization_readiness_gate_test
 )
 target_link_libraries(authorization_readiness_gate_test PRIVATE bluesky_planning)
 
+add_executable(acquisition_geometry_test acquisition_geometry_test.cpp)
+target_link_libraries(acquisition_geometry_test PRIVATE bluesky_planning)
+
 add_executable(constrained_open_space_test constrained_open_space_test.cpp)
 target_link_libraries(constrained_open_space_test PRIVATE bluesky_planning)
 
@@ -227,6 +231,7 @@ add_test(NAME wind_performance_trajectory_test COMMAND wind_performance_trajecto
 add_test(NAME route_constraint_validator_test COMMAND route_constraint_validator_test)
 add_test(NAME notam_prohibited_zone_validator_test COMMAND notam_prohibited_zone_validator_test)
 add_test(NAME authorization_readiness_gate_test COMMAND authorization_readiness_gate_test)
+add_test(NAME acquisition_geometry_test COMMAND acquisition_geometry_test)
 add_test(NAME constrained_open_space_test COMMAND constrained_open_space_test)
 add_test(NAME route_model_contract_test COMMAND route_model_contract_test)
 add_test(NAME mission_model_contract_test COMMAND mission_model_contract_test)
