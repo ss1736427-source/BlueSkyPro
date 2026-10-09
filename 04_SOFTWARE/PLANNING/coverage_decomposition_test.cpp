@@ -2,6 +2,22 @@
 #include <cassert>
 #include <cmath>
 using namespace bluesky::planning;
+namespace {
+double polygon_area_test(const std::vector<GeoPoint>& polygon) {
+    constexpr double kPi=3.14159265358979323846;
+    constexpr double kM=111320.0;
+    if(polygon.size()<3) return 0.0;
+    const double lat=polygon.front().latitude_deg*kPi/180.0;
+    double sum=0.0;
+    for(std::size_t i=0;i<polygon.size();++i) {
+        const auto& a=polygon[i]; const auto& b=polygon[(i+1)%polygon.size()];
+        const double ax=a.longitude_deg*kM*std::cos(lat), ay=a.latitude_deg*kM;
+        const double bx=b.longitude_deg*kM*std::cos(lat), by=b.latitude_deg*kM;
+        sum+=ax*by-bx*ay;
+    }
+    return std::abs(sum)*0.5;
+}
+}
 int main() {
     CoverageDecompositionInput i;
     i.aoi={{59.0,30.0},{59.0,30.02},{59.01,30.02},{59.01,30.0}};
