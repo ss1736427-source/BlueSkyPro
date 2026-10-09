@@ -7,6 +7,9 @@ Item {
     property real centerLatitude: 55.7558
     property real centerLongitude: 37.6176
     property int zoomLevel: 10
+    // Side panels overlay this full-width map view.
+    property real leftPanelWidth: 0
+    property real rightPanelWidth: 0
     readonly property bool useMapTiler: typeof mapTilerApiKey !== "undefined" && mapTilerApiKey.length > 0
     readonly property bool useCartoDark: !useMapTiler && typeof cartoApiKey !== "undefined" && cartoApiKey.length > 0
     property string attribution: useMapTiler ? "© MapTiler © OpenStreetMap contributors" : (useCartoDark ? "© OpenStreetMap contributors, © CARTO" : "Yandex Maps")
@@ -292,12 +295,10 @@ Item {
         blocking: true
 
         onWheel: function(event) {
-            // Zoom only for wheel events whose pointer is inside the map view.
-            // Events that reach this handler from an overlapping panel must not
-            // alter the geographic zoom.
-            // QML WheelEvent exposes local x/y coordinates; do not use
-            // event.position here because it is not part of the QML WheelEvent API.
-            if (!root.contains(Qt.point(event.x, event.y))) {
+            // The side panels are siblings layered above this full-width map.
+            // Consume their wheel events without changing map zoom.
+            if (event.x < root.leftPanelWidth ||
+                    event.x >= root.width - root.rightPanelWidth) {
                 event.accepted = true
                 return
             }
