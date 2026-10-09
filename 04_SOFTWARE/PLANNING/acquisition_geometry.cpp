@@ -73,6 +73,7 @@ AcquisitionGeometryResult AcquisitionGeometryEngine::calculate(
 
     AcquisitionGeometryResult result;
     result.dependency_identity = dependency(input, calculation_version);
+    result.camera_ground_distance_m = input.camera_ground_distance_m;
 
     // Pinhole-model approximation from the controlled MT-01 algorithm contract.
     result.gsd_width_m_per_px =
