@@ -23,6 +23,7 @@ add_library(bluesky_planning
     multi_uav_conflict_resolution.cpp
     candidate_comparison.cpp
     selected_route_set.cpp
+    canonical_route_builder.cpp
     flight_profile.cpp
     vehicle_mission_compiler.cpp
     final_planning_integrity.cpp
@@ -88,6 +89,9 @@ target_link_libraries(candidate_comparison_test PRIVATE bluesky_planning)
 
 add_executable(selected_route_set_test selected_route_set_test.cpp)
 target_link_libraries(selected_route_set_test PRIVATE bluesky_planning)
+
+add_executable(canonical_route_builder_test canonical_route_builder_test.cpp)
+target_link_libraries(canonical_route_builder_test PRIVATE bluesky_planning)
 
 add_executable(flight_profile_test flight_profile_test.cpp)
 target_link_libraries(flight_profile_test PRIVATE bluesky_planning)
