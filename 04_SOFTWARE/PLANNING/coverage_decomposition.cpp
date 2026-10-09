@@ -106,9 +106,9 @@ CoverageDecompositionResult CoverageDecompositionEngine::decompose(const Coverag
         out.generation_index=r.cells.size();
         out.cell_id="MT01-CELL-"+std::to_string(out.generation_index);
         out.orientation_deg=i.orientation.orientation_deg;
-        out.constraint_state=classify(out.polygon,i);
         out.area_m2=area(cell);
         for(const auto&p:cell) out.polygon.push_back(unproject(rotate(p,angle),lat));
+        out.constraint_state=classify(out.polygon,i);
         r.cells.push_back(std::move(out));
     }
     if(r.cells.empty()) return fail(i,"NO_PLANNING_CELL");
