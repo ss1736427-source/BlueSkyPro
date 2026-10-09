@@ -24,7 +24,7 @@ This document distinguishes implemented reusable infrastructure, partial impleme
 | 4. Orientation candidates | Generate and evaluate bounded survey orientations using controlled geometry/search parameters | `coverage_orientation.*` generates deterministic bounded orientation candidates, projected width and estimated track count; downstream wind/energy evaluation remains separate | `coverage_orientation_test.cpp` | IMPLEMENTED — first generation slice |
 | 5. Cellular decomposition | Decompose AOI into planning cells where required | `coverage_decomposition.*` provides deterministic orientation-aligned strip cells with explicit altitude band and dependency identity; constrained-domain clipping remains open | `coverage_decomposition_test.cpp` | IMPLEMENTED — first geometric slice |
 | 6. Coverage tracks | Generate parallel acquisition tracks, clip to geometry, enforce footprint coverage and endpoints | `CoverageTrackGenerator` generates deterministic sweep-line intervals from decomposed cells, preserves cell/orientation identity and records track length/altitude; footprint/endpoint feasibility remains open | `coverage_decomposition_test.cpp` | IMPLEMENTED — first generation slice |
-| 7. Edge coverage | Deliberately validate/repair boundary and corner acquisition coverage | no dedicated edge-coverage implementation found | none identified | GAP |
+| 7. Edge coverage | Deliberately validate/repair boundary and corner acquisition coverage | `CoverageEdgeEngine` evaluates track endpoint distance to cell boundary against the controlled half-footprint requirement and retains localized gap diagnostics; repair is not yet claimed | `coverage_decomposition_test.cpp` | IMPLEMENTED — first evaluation slice |
 | 8. Transition graph | Connect acquisition tracks with feasible transition costs | generic planning graph / route infrastructure exists; no MT-01 acquisition-transition graph found | graph/route tests | PARTIAL |
 | 9. Route candidates | Generate bounded route candidates from coverage/transition alternatives | Algorithm Orchestrator and solver contract can manage candidates; no MT-01 coverage candidate producer found | orchestrator tests | PARTIAL |
 | 10. Wind-aware performance | Apply wind/performance model and determine segment time/energy | wind_performance_trajectory.* | wind_performance_trajectory_test.cpp | IMPLEMENTED REUSABLE |
@@ -107,9 +107,11 @@ No universal acceptance thresholds were introduced.
 
 ### GAP-MT01-005 — Edge Coverage Engine
 
-Required: boundary/corner coverage evaluation and coverage margin derived from sensor geometry, with local repair that does not silently violate hard constraints.
+Status: **CLOSED FOR FIRST EVALUATION SLICE; LOCAL REPAIR REMAINS OPEN.**
 
-Current state: not identified.
+Implemented as `CoverageEdgeEngine` in the existing `coverage_decomposition.*` planning module. The engine requires controlled footprint width/height, evaluates each generated track endpoint against its planning-cell boundary, applies the controlled half-footprint requirement for end coverage, and retains explicit gap diagnostics and margins.
+
+The current slice is diagnostic only. It does not silently repair gaps, does not invent a margin/tolerance, and does not claim corner-specific footprint union or full sensor-footprint polygon coverage. Those remain open integration work.
 
 ### GAP-MT01-006 — Acquisition Event Model / Validator
 
@@ -168,10 +170,10 @@ No MT-01 execution result shall be claimed yet.
 
 ## 8. Next deterministic implementation step
 
-`GAP-MT01-001`, `GAP-MT01-002`, `GAP-MT01-003` and `GAP-MT01-004` are closed only for their first implementation slices. The next dependency is **GAP-MT01-005 — Edge Coverage Engine**.
+`GAP-MT01-001` through `GAP-MT01-005` are closed only for their first implementation/evaluation slices. The next dependency is **GAP-MT01-006 — Acquisition Event Model / Validator**.
 
 The next implementation must consume the controlled AOI, constrained spatial domain and selected orientation candidates, and produce deterministic planning cells without introducing universal hard-coded acceptance values. GAP-MT01-003 is now closed only for the first geometric decomposition slice; full constrained-domain integration remains open and must not be represented as verification-complete.
 
-Remaining dependency order: MT01-005 → MT01-006 → MT01-007.
+Remaining dependency order: MT01-006 → MT01-007.
 
 MT-02 and MT-03 remain outside this step.
