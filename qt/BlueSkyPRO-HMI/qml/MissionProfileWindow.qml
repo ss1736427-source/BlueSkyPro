@@ -4,6 +4,7 @@ import QtCore
 Item {
     id: root
     property string missionId: ""
+    property var planningResult: null
     property var uavModel: []
     // Assignment result supplied by mission planning; the HMI does not infer task allocation.
     property var missionAssignments: []
@@ -124,6 +125,27 @@ Item {
 
     function syncMapRouteCoordinates() {
         var coordinates = []
+        var result = root.planningResult && root.planningResult.result
+                     ? root.planningResult.result : null
+        var route = result && result.routeGeometry ? result.routeGeometry : null
+        if (route && route.coordinateReference === "WGS84"
+                && Array.isArray(route.points) && route.points.length >= 2) {
+            for (var p = 0; p < route.points.length; ++p) {
+                var plannedPoint = route.points[p]
+                var lat = Number(plannedPoint.latitude)
+                var lon = Number(plannedPoint.longitude)
+                if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+                    coordinates = []
+                    break
+                }
+                coordinates.push({ lat: lat, lon: lon })
+            }
+            if (coordinates.length >= 2) {
+                root.routeCoordinates = coordinates
+                return
+            }
+        }
+
         for (var i = 0; i < routeModel.count; ++i) {
             var parts = String(routeModel.get(i).coordinates).split(",")
             if (parts.length < 2)
