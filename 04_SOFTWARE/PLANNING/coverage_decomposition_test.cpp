@@ -137,6 +137,23 @@ int main() {
     assert(std::abs(covered_geometry_area-quality.footprint_union_area_m2)<1e-6);
     assert(quality.footprint_union_area_m2 < 2.0 * 57.0 * 100.0);
     assert(quality.coverage_ratio > 0.0);
+    assert(quality.coverage_ratio <= 1.0);
+    assert(quality.uncovered_area_m2 >= 0.0);
+    assert(quality.min_gsd_m_per_px > 0.0);
+    assert(quality.max_gsd_m_per_px >= quality.min_gsd_m_per_px);
+    assert(quality.min_frontal_overlap_ratio >= 0.0);
+    assert(quality.min_frontal_overlap_ratio < 1.0);
+    assert(quality.min_side_overlap_ratio >= 0.0);
+    assert(quality.min_side_overlap_ratio < 1.0);
+    assert(quality.invalid_event_count == 0);
+    assert(quality.gate_passed);
+
+    auto invalid_quality_input=quality_input;
+    invalid_quality_input.events.events.front().sensor_state_valid=false;
+    const auto invalid_quality=MappingQualityEngine::evaluate(invalid_quality_input);
+    assert(invalid_quality.valid);
+    assert(invalid_quality.invalid_event_count==1);
+    assert(!invalid_quality.gate_passed);
 
     auto clipped_quality_input=quality_input;
     clipped_quality_input.aoi={
