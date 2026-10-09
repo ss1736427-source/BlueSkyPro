@@ -20,6 +20,15 @@ int main(int argc, char *argv[])
     PlanningBridge planningBridge;
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
     const QString yandexMapsApiKey = qEnvironmentVariable("BLUESKY_YANDEX_MAPS_API_KEY");
+    QString virtualFlightRunnerName = QStringLiteral("mt01_t01_representative_simulation_test");
+#ifdef Q_OS_WIN
+    virtualFlightRunnerName += QStringLiteral(".exe");
+#endif
+    const QString virtualFlightRunnerPath = qEnvironmentVariable(
+        "BLUESKY_VIRTUAL_FLIGHT_RUNNER",
+        QCoreApplication::applicationDirPath() + QStringLiteral("/") + virtualFlightRunnerName);
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("virtualFlightRunnerPath"), virtualFlightRunnerPath);
     engine.rootContext()->setContextProperty(QStringLiteral("yandexMapsApiKey"), yandexMapsApiKey);
     const QUrl url(QStringLiteral("qrc:/qt/qml/BlueSky/PRO/qml/App.qml"));
 

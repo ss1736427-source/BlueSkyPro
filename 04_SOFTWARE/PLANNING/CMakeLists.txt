@@ -145,6 +145,13 @@ target_link_libraries(coverage_transition_graph_test PRIVATE bluesky_planning)
 
 add_executable(mt01_t01_representative_simulation_test mt01_t01_representative_simulation_test.cpp)
 target_link_libraries(mt01_t01_representative_simulation_test PRIVATE bluesky_planning)
+# This representative test uses assert() as its deterministic acceptance oracle.
+# Keep those checks active in Release builds as well as Debug builds.
+if(MSVC)
+    target_compile_options(mt01_t01_representative_simulation_test PRIVATE /UNDEBUG)
+else()
+    target_compile_options(mt01_t01_representative_simulation_test PRIVATE -UNDEBUG)
+endif()
 
 add_executable(constrained_open_space_test constrained_open_space_test.cpp)
 target_link_libraries(constrained_open_space_test PRIVATE bluesky_planning)
