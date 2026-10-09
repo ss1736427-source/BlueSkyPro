@@ -75,4 +75,23 @@ public:
         const CoverageRoutePerformanceInput& input);
 };
 
+
+
+struct CoverageRouteSelectionResult {
+    bool valid{false};
+    std::string failure_code;
+    std::string dependency_identity;
+    std::string selected_route_id;
+    std::vector<std::string> rejected_route_ids;
+};
+
+class CoverageRouteSelector final {
+public:
+    static CoverageRouteSelectionResult select(
+        const CoverageRoutePerformanceResult& performance,
+        const std::vector<std::string>& objective_priorities,
+        const std::string& calculation_input_version,
+        const std::string& calculation_version);
+};
+
 } // namespace bluesky::planning
