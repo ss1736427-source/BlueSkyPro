@@ -155,6 +155,8 @@ Item {
             routeCoordinates: root.planningResult && root.planningResult.routeCoordinates
                               ? root.planningResult.routeCoordinates : []
             virtualFlightActive: root.activeTool === "VIRTUAL FLT"
+            simulationEnvironment: root.planningResult && root.planningResult.environment
+                                  ? root.planningResult.environment : null
             useExternalMapState: true
             mapPanX: root.mapPanX
             mapPanY: root.mapPanY
