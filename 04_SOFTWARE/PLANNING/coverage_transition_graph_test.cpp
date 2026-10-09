@@ -38,6 +38,38 @@ int main(){
     CoverageTransitionGraphInput invalid=input; invalid.tracks.valid=false;
     const auto invalidResult=CoverageTransitionGraphBuilder::build(invalid);
     assert(!invalidResult.valid && invalidResult.failure_code=="INVALID_TRACK_INPUT");
-    std::cout<<"coverage_transition_graph_test: PASS\n";
+    CoverageRoutePerformanceResult evaluated;
+    evaluated.valid = true;
+    evaluated.dependency_identity = "PERF|CONTROLLED";
+    TrajectoryResult expensive;
+    expensive.status = TrajectoryStatus::Feasible;
+    expensive.route_id = "ROUTE-EXPENSIVE";
+    expensive.calculation_version = "CALC-1";
+    expensive.total_time_s = 20.0;
+    expensive.total_energy_wh = 40.0;
+    expensive.remaining_energy_wh = 60.0;
+    TrajectoryResult efficient = expensive;
+    efficient.route_id = "ROUTE-EFFICIENT";
+    efficient.total_time_s = 25.0;
+    efficient.total_energy_wh = 30.0;
+    TrajectoryResult infeasible = expensive;
+    infeasible.route_id = "ROUTE-INFEASIBLE";
+    infeasible.status = TrajectoryStatus::Infeasible;
+    evaluated.evaluations = {expensive, efficient, infeasible};
+    const auto selected = CoverageRouteSelector::select(
+        evaluated, {"energy", "time"}, "INPUT-1", "SELECT-1");
+    assert(selected.valid);
+    assert(selected.selected_route_id == "ROUTE-EFFICIENT");
+    assert(selected.rejected_route_ids.size() == 1);
+    assert(selected.rejected_route_ids.front() == "ROUTE-INFEASIBLE");
+
+    CoverageRoutePerformanceResult allBlocked = evaluated;
+    allBlocked.evaluations = {infeasible};
+    const auto noRoute = CoverageRouteSelector::select(
+        allBlocked, {"energy", "time"}, "INPUT-1", "SELECT-1");
+    assert(!noRoute.valid);
+    assert(noRoute.failure_code == "NO_FEASIBLE_ROUTE_CANDIDATE");
+
+    std::cout<<"coverage_transition_graph_test: PASS\\n";
     return 0;
 }
