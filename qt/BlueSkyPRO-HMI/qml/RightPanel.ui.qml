@@ -79,10 +79,12 @@ Item {
                 ? positions["ATC"] : panelPositionY("ATC")
         var bottomLimit = Math.max(54, root.height - bottomInset - 8)
         var maxY = Math.max(54, bottomLimit - newHeight)
+        // Resize around the fixed bottom edge without moving other cards.
         positions["ATC"] = Math.max(54, Math.min(maxY, currentY + previousHeight - newHeight))
         panelPositions = positions
         savePanelPositions()
-        Qt.callLater(root.reflowPanelPositions)
+        if (!panelsLocked)
+            Qt.callLater(root.reflowPanelPositions)
     }
 
     function loadPanelPositions() {
@@ -101,7 +103,7 @@ Item {
             var key = required[j]
             if (result[key] === undefined) {
                 result[key] = y
-                y += panelHeight(key) + 10
+                y += panelHeight(key) + 4
             }
         }
         // One-time migration: place ATC at the true lower edge instead of
@@ -215,7 +217,7 @@ Item {
 
         // Repair only real overlaps, keeping the existing order and free gaps.
         items.sort(function(a, b) { return a.y - b.y })
-        var gap = 10
+        var gap = 4
         for (var k = 1; k < items.length; ++k) {
             var requiredY = items[k - 1].y + items[k - 1].h + gap
             if (items[k].y < requiredY)
@@ -374,7 +376,7 @@ Item {
             if (current === key)
                 return y
             if (panelVisible(current))
-                y += panelHeight(current) + 10
+                y += panelHeight(current) + 4
         }
         return y
     }
@@ -520,7 +522,7 @@ Item {
         border.width: 1
         antialiasing: true
         z: root.draggingPanel === "Checklist" ? 200 : 1
-        onHeightChanged: root.handleAtcPanelHeightChanged(height)
+        onHeightChanged: Qt.callLater(root.reflowPanelPositions)
     }
 
     Rectangle {
@@ -1057,7 +1059,7 @@ Item {
         border.width: 1
         antialiasing: true
         z: root.draggingPanel === "ATC" ? 200 : 1
-        onHeightChanged: Qt.callLater(root.reflowPanelPositions)
+        onHeightChanged: root.handleAtcPanelHeightChanged(height)
     }
 
     // Header is a filled band, not a separate bordered card.
