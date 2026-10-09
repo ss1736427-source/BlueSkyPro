@@ -85,9 +85,15 @@ Wind, energy, turn-cost and terrain-complexity scoring are intentionally not emb
 
 ### GAP-MT01-003 — Coverage Decomposition Engine
 
-Required: AOI decomposition, exclusion-aware cells, terrain/geometry-aware decomposition where required, deterministic cell identity/versioning.
+Status: **CLOSED FOR FIRST GEOMETRIC DECOMPOSITION SLICE; CONSTRAINT INTEGRATION REMAINS OPEN.**
 
-Current state: not identified.
+Implemented in `04_SOFTWARE/PLANNING/coverage_decomposition.hpp/.cpp` with `coverage_decomposition_test.cpp` and registered in `CMakeLists.txt`.
+
+The first slice validates AOI, selected orientation, controlled track spacing and explicit altitude band, then performs deterministic strip decomposition in the selected orientation. Cells receive stable generation order, `MT01-CELL-<index>` identity, polygon geometry, area and dependency identity.
+
+The engine is deliberately not declared a complete exclusion-aware decomposition engine yet. The current constrained-environment classification path is present as a reusable boundary check, but full clipping/splitting around internal restricted geometry and terrain/obstacle-aware decomposition remain open.
+
+No universal hard-coded acceptance values were introduced.
 
 ### GAP-MT01-004 — Coverage Track Generator
 
@@ -160,7 +166,7 @@ No MT-01 execution result shall be claimed yet.
 
 `GAP-MT01-001` and `GAP-MT01-002` are closed for their first implementation slices. The next dependency is **GAP-MT01-003 — Coverage Decomposition Engine**.
 
-The next implementation must consume the controlled AOI, constrained spatial domain and selected orientation candidates, and produce deterministic planning cells without introducing universal hard-coded acceptance values.
+The next implementation must consume the controlled AOI, constrained spatial domain and selected orientation candidates, and produce deterministic planning cells without introducing universal hard-coded acceptance values. GAP-MT01-003 is now closed only for the first geometric decomposition slice; full constrained-domain integration remains open and must not be represented as verification-complete.
 
 Remaining dependency order: MT01-003 → MT01-004 → MT01-005 → MT01-006 → MT01-007.
 
