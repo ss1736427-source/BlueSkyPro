@@ -7,7 +7,8 @@ Item {
     property real centerLatitude: 55.7558
     property real centerLongitude: 37.6176
     property int zoomLevel: 10
-    property string attribution: "Yandex Maps"
+    readonly property bool useMapTiler: typeof mapTilerApiKey !== "undefined" && mapTilerApiKey.length > 0
+    property string attribution: useMapTiler ? "MapTiler" : "Yandex Maps"
     property string mapStatus: "INITIALIZING"
     // No preview route: only verified Planning Core geometry may be rendered.
     property var routeCoordinates: []
@@ -57,7 +58,7 @@ Item {
 
         loadedTileCount = 0
         failedTileCount = 0
-        if (yandexMapsApiKey.length === 0) {
+        if (!useMapTiler && yandexMapsApiKey.length === 0) {
             mapStatus = "API KEY REQUIRED"
             tiles = []
             return
@@ -85,11 +86,16 @@ Item {
                     ty: ty,
                     x: tx * tileSize - cx + width / 2 + panOffsetX,
                     y: ty * tileSize - cy + height / 2 + panOffsetY,
-                    key: zoomLevel + "/" + wrappedX + "/" + ty,
-                    url: "https://tiles.api-maps.yandex.ru/v1/tiles/?x=" +
-                         wrappedX + "&y=" + ty + "&z=" + zoomLevel +
-                         "&lang=en_US&l=map&projection=web_mercator&apikey=" +
-                         encodeURIComponent(yandexMapsApiKey),
+                    key: (useMapTiler ? "maptiler/dataviz-dark/" : "yandex/map/web_mercator/") +
+                         zoomLevel + "/" + wrappedX + "/" + ty,
+                    url: useMapTiler
+                         ? "https://api.maptiler.com/maps/dataviz-dark/256/" +
+                           zoomLevel + "/" + wrappedX + "/" + ty + ".png?key=" +
+                           encodeURIComponent(mapTilerApiKey)
+                         : "https://tiles.api-maps.yandex.ru/v1/tiles/?x=" +
+                           wrappedX + "&y=" + ty + "&z=" + zoomLevel +
+                           "&lang=en_US&l=map&projection=web_mercator&apikey=" +
+                           encodeURIComponent(yandexMapsApiKey),
                     source: ""
                 })
             }
@@ -185,7 +191,7 @@ Item {
         anchors.fill: parent
         z: 10
         color: "#071321"
-        opacity: 0.48
+        opacity: root.useMapTiler ? 0.12 : 0.48
         enabled: false
     }
 
@@ -321,9 +327,9 @@ Item {
         Text {
             id: statusText
             anchors.centerIn: parent
-            text: yandexMapsApiKey.length === 0
-                  ? "YANDEX MAPS API KEY REQUIRED"
-                  : "YANDEX MAPS: " + root.mapStatus
+            text: (!root.useMapTiler && yandexMapsApiKey.length === 0)
+                  ? "MAP API KEY REQUIRED"
+                  : root.attribution.toUpperCase() + ": " + root.mapStatus
             color: "#FFD43B"
             font.family: "B612 Mono"
             font.pixelSize: 11
