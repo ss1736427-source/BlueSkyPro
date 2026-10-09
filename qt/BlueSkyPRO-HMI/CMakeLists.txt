@@ -22,7 +22,7 @@ qt_add_executable(appBlueSkyPRO
     src/RouteGeometrySerializer.h
     src/SelectedRouteMapHandoff.cpp
     src/SelectedRouteMapHandoff.h
-    ../..//04_SOFTWARE/PLANNING/selected_route_set.cpp
+    ../../04_SOFTWARE/PLANNING/selected_route_set.cpp
     ../../04_SOFTWARE/PLANNING/canonical_route_builder.cpp
     src/TileCacheManager.cpp
     src/TileCacheManager.h
