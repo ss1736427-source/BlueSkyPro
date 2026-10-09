@@ -81,7 +81,7 @@ def test_rejects_route_performance_mismatch():
 def test_rejects_performance_trajectory_mismatch():
     try:
         build_three_d_mapping_result(
-            routes=[Route(100.0)],
+            routes=[Route(100.0), Route(120.0)],
             performance=[Performance(1.0), Performance(2.0)],
             trajectories=[Trajectory(0.0, 10.0)],
             release_status="RELEASE_ELIGIBLE",
