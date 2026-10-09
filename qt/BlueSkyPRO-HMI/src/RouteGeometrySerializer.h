@@ -13,4 +13,10 @@ bool serializeRouteGeometry(const Route &route,
                             QJsonObject &output,
                             QString *error = nullptr);
 
+// Adds canonical route geometry to an already assembled Planning Core request.
+// Existing authoritative request inputs are preserved; no placeholder inputs are created.
+bool attachRouteGeometryToRequest(const Route &route,
+                                  QJsonObject &request,
+                                  QString *error = nullptr);
+
 } // namespace bluesky::planning
