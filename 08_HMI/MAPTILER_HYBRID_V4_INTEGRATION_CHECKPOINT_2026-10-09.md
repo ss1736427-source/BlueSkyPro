@@ -9,6 +9,7 @@
 - Working branch: `fix/hmi-map-tile-loading-2026-10-09`.
 - Baseline before provider integration: `50f8765994289b610807864513ce2b635b79d700` (`feat(map): add compact map zoom controls`).
 - Provider integration commit: `432cca3dc75f8f35bf48842ace62727ef6e56946` (`feat(map): add selectable Yandex and MapTiler Hybrid basemaps`).
+- Cache-format correction: `2b3219c3c8b2e360ed7a3f6d2d30f00af7b769ac` (`fix(map): align Hybrid raster format with tile cache`); MapTiler raster tiles use PNG to match the cache manager's `.png` files.
 - `qt/BlueSkyPRO-HMI/qml/GoogleMapView.qml` uses a custom `Image` tile repeater, QML coordinate-to-world calculations, `Canvas` route rendering, `DragHandler`, and `WheelHandler`.
 - `GoogleMapView.qml` now offers an on-map selector for `MapTiler Hybrid v4`, `MapTiler Hybrid v4 Dark`, and `Яндекс Карты`.
 - When `BLUESKY_MAPTILER_API_KEY` exists, MapTiler Hybrid v4 is the initial selection. Without that key, Yandex is the initial selection.
@@ -50,7 +51,7 @@ Before writing the WebEngine QML adapter:
 ## Verification state
 
 - Existing raster map and zoom controls: source present in baseline commit; runtime behavior for commit `50f8765994289b610807864513ce2b635b79d700` is not confirmed by this checkpoint.
-- Selectable Yandex + MapTiler Hybrid v4 raster basemaps: **IMPLEMENTED IN SOURCE / CI UNVERIFIED / WINDOWS RUNTIME UNVERIFIED**.
+- Selectable Yandex + MapTiler Hybrid v4 raster basemaps: **IMPLEMENTED IN SOURCE / CI UNVERIFIED FOR CURRENT SHA `2b3219c3c8b2e360ed7a3f6d2d30f00af7b769ac` / WINDOWS RUNTIME UNVERIFIED**.
 - MapTiler SDK JS embedded in Qt: **NOT IMPLEMENTED / NOT VERIFIED**.
 - Hybrid v4 vector rendering: **NOT IMPLEMENTED**.
 - 3D terrain: **NOT IMPLEMENTED**.
