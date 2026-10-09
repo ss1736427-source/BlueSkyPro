@@ -4319,3 +4319,115 @@ The lower-level requirement/data-contract layer remains open where the repositor
 **MT-03 remains blocked.**
 
 The next deterministic allocation class is **GNSS / RTK / PPK / NTRIP and navigation-data provenance**, followed by payload/sensor compatibility and readiness/contingency lower-level interfaces.
+
+## 49. GNSS / RTK / PPK / NTRIP and Navigation-Data Provenance — Controlled Resolution
+
+Section 48 identified GNSS/RTK/PPK/NTRIP as the next allocation class. The repository review found that Navigation already has a substantial controlled engineering and verification chain. The correct action is therefore allocation and reconciliation, not creation of a parallel navigation requirement database.
+
+### 49.1 Existing controlled navigation basis
+
+The current project records establish the following:
+- **CAP-001 — Navigation** is the reusable navigation capability. It consumes position, velocity, heading, altitude, route, waypoints, spatial/environmental information and UAV state, and produces navigation state, estimated position/motion, route-relative state and navigation validity.
+- **Navigation State Model** separates PLANNED, ACTUAL, DERIVED and QUALITY layers.
+- **Navigation Knowledge Map** requires provenance for critical values: source, timestamp, freshness, validity, confidence.
+- **Navigation Algorithm** requires source validation and classifies critical navigation data as VALID, DEGRADED, STALE, INVALID or UNAVAILABLE.
+- **Navigation Verification Model** verifies source/quality, reference frame, timestamp, freshness, validity and confidence before calculation and safety decision.
+- **NAVIGATION_REQUIREMENT_ALLOCATION_001** already allocates existing SYS-REQ records to Navigation without treating them as new Navigation requirements.
+- **NAVIGATION_SYSREQ_CONTENT_RECONCILIATION_PASS_003** explicitly retains SYS-REQ-081/082/085/086/091/093 and allocates them rather than replacing them with NAV-REQ records.
+- The repository also contains an evidence chain for Navigation / GNSS / RTK / NTRIP (EC-03) and a source category GNSS_RTK_NTRIP.
+
+### 49.2 Authoritative system-level allocation
+
+| Existing requirement | Navigation relationship | MT-01 / MT-02 consequence |
+|---|---|---|
+| SYS-REQ-081 | SUPPORTING — navigation state/quality contributes to failure-tolerant continuation | Navigation validity is an input to candidate feasibility and safe continuation |
+| SYS-REQ-082 | DIRECT DEPENDENCY / SUPPORTING at system level — safe completion consumes validated navigation state | Return/recovery feasibility cannot use unvalidated navigation state |
+| SYS-REQ-085 | SUPPORTING / CROSS-CUTTING — Navigation is explicitly P0/P1 | Navigation-related processing cannot be displaced by lower-priority workload |
+| SYS-REQ-086 | DIRECT | Navigation degradation states must remain within controlled degradation behaviour |
+| SYS-REQ-091 | SUPPORTING / INDIRECT | Navigation freshness/latency matters; exact navigation thresholds remain lower-level |
+| SYS-REQ-093 | PENDING_WORDING for Navigation-specific ownership | Do not allocate more strongly without full requirement wording review |
+
+This allocation is already represented by the project's Navigation traceability/verification records and is not being duplicated here.
+
+### 49.3 GNSS / RTK / PPK / NTRIP classification
+
+| Dependency | MT-01 | MT-02 | Current allocation |
+|---|---|---|---|
+| GNSS position/navigation source | DIRECT INPUT | DIRECT INPUT | CAP-001 Navigation + existing Navigation State/Algorithm |
+| RTK correction state | DIRECT INPUT when used by selected navigation configuration | DIRECT INPUT when used | GNSS/RTK/NTRIP evidence/interface chain; exact requirement wording OPEN |
+| NTRIP correction stream | SUPPORTING INPUT when RTK/NTRIP configuration is selected | SUPPORTING INPUT when selected | Existing GNSS_RTK_NTRIP source/interface records; exact planner dependency OPEN |
+| PPK status/data | SUPPORTING INPUT where post-processed navigation is part of dataset/planning provenance | SUPPORTING INPUT where applicable | Existing dataset/provenance model; exact planner requirement OPEN |
+| Navigation quality | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Existing Navigation State/Algorithm/Verification chain |
+| Freshness / timestamp | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Existing Navigation State/Verification chain; quantitative thresholds OPEN |
+| Reference frame / coordinate semantics | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Navigation State/Rules/Algorithm; unresolved conventions remain OPEN |
+| Source conflict / source selection | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Navigation Algorithm/Verification; source hierarchy/fusion rule remains OPEN |
+
+### 49.4 Critical boundary: RTK is not automatically a planning requirement
+
+The presence of RTK/NTRIP in the architecture or evidence chain does **not** mean that every MT-01/MT-02 mission requires RTK.
+
+The planning dependency is conditional on the selected UAV/navigation/payload configuration and mission-quality requirements.
+
+MISSION REQUIREMENT / QUALITY PROFILE → REQUIRED NAVIGATION QUALITY → SELECTED NAVIGATION CONFIGURATION → GNSS / RTK / PPK / NTRIP AVAILABILITY → VALIDATION → PLAN CANDIDATE
+
+The planner shall not invent an RTK requirement merely because an RTK-capable configuration exists. Likewise, absence of RTK shall not automatically be classified as failure unless the applicable mission, payload, quality, safety or configuration requirement makes that capability mandatory.
+
+### 49.5 Provenance contract
+
+For navigation data used by MT-01/MT-02, the existing project knowledge chain establishes the minimum provenance concepts:
+- source;
+- timestamp;
+- freshness;
+- validity;
+- confidence;
+- reference frame;
+- units;
+- configuration context.
+
+For RTK/PPK/NTRIP-specific data, the exact fields and acceptance rules are **not yet baselined**. The project records support the existence of the data category but do not authorize invention of RTK fix thresholds, positional accuracy thresholds, correction age limits, NTRIP latency limits, PPK quality thresholds, GNSS satellite-count thresholds, HDOP/VDOP limits, covariance limits or source-fusion weights.
+
+These remain **OPEN numerical/data-contract parameters** until allocated to an authoritative requirement, approved engineering parameter, or controlled external source.
+
+### 49.6 Candidate NAV-REQ family disposition
+
+NAV-REQ-001..009 remains a candidate/derived family.
+
+The current evidence is sufficient to state:
+- do **not** promote NAV-REQ-001..009 to an independent baseline;
+- retain the existing SYS-REQ identities;
+- use Navigation State / Rules / Algorithm / Verification as the lower-level engineering decomposition;
+- use NAV-REQ records only as derived/reconciliation records until exact controlled wording and source allocation are completed.
+
+This preserves the project rule:
+
+ONE REQUIREMENT → ONE STABLE ID → ONE CONTROLLED WORDING → MANY RELATIONSHIPS
+
+### 49.7 Regulatory allocation status
+
+The current project review does not establish a verified one-to-one Russian regulatory clause requiring a specific GNSS/RTK/PPK/NTRIP performance value for MT-01/MT-02.
+
+Therefore no such value is introduced.
+
+The regulatory chain remains:
+
+OFFICIAL SOURCE → APPLICABILITY → REQUIREMENT → NAVIGATION / PLANNING ALLOCATION → VERIFICATION → EVIDENCE
+
+The existing navigation source-review records also explicitly distinguish technical navigation knowledge from regulatory authority. This distinction is retained.
+
+### 49.8 Gate status after Section 49
+
+| Gate | Status |
+|---|---|
+| Existing Navigation capability allocation | **RESOLVED** |
+| Existing SYS-REQ navigation relationships | **RESOLVED / CONTROLLED** |
+| GNSS / RTK / NTRIP dependency existence | **RESOLVED** |
+| PPK dependency/provenance | **IDENTIFIED; detailed allocation OPEN** |
+| Navigation provenance concepts | **RESOLVED at conceptual level** |
+| Exact RTK/PPK/NTRIP data contract | **OPEN** |
+| Navigation numerical thresholds | **OPEN** |
+| Regulatory performance clause mapping | **OPEN** |
+| Executable verification/evidence | **NOT DONE** |
+
+**MT-03 remains blocked.**
+
+The next deterministic allocation class is **payload / sensor compatibility**, using the existing capability mapping and payload-related system records before considering any new requirement identity.
