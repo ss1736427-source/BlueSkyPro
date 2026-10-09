@@ -1,5 +1,6 @@
 #include "coverage_transition_graph.hpp"
 #include <cmath>
+#include <algorithm>
 namespace bluesky::planning {
 namespace {
 constexpr double kPi=3.14159265358979323846;
@@ -44,42 +45,31 @@ CoverageTransitionGraphResult CoverageTransitionGraphBuilder::build(const Covera
 } // namespace bluesky::planning
 
 
-bluesky::planning::CoverageRouteCandidateResult bluesky::planning::CoverageRouteCandidateBuilder::generate(
-    const CoverageRouteCandidateInput& input) {
-    CoverageRouteCandidateResult result;
-    if (!input.graph.valid) {
-        result.failure_code = "INVALID_TRANSITION_GRAPH";
-        return result;
-    }
-    if (input.graph.track_ids.empty()) {
-        result.failure_code = "NO_COVERAGE_TRACK";
-        return result;
-    }
-    if (input.max_candidates == 0) {
-        result.failure_code = "INVALID_CANDIDATE_LIMIT";
-        return result;
-    }
-
-    result.dependency_identity =
-        input.graph.dependency_identity + "|ROUTES|" + input.calculation_version;
-
-    const std::string& start = input.graph.track_ids.front();
+namespace bluesky::planning {
+namespace {
+CoverageRouteCandidate buildGreedyCandidate(
+    const CoverageTransitionGraphResult& graph,
+    std::size_t start_index,
+    bool& complete) {
     CoverageRouteCandidate candidate;
-    candidate.track_ids.push_back(start);
+    complete = false;
+    if (start_index >= graph.track_ids.size()) return candidate;
 
-    std::vector<bool> used(input.graph.track_ids.size(), false);
-    used[0] = true;
+    std::vector<bool> used(graph.track_ids.size(), false);
+    std::size_t current_index = start_index;
+    used[current_index] = true;
+    candidate.track_ids.push_back(graph.track_ids[current_index]);
 
-    while (candidate.track_ids.size() < input.graph.track_ids.size()) {
-        const std::string& current = candidate.track_ids.back();
+    while (candidate.track_ids.size() < graph.track_ids.size()) {
+        const std::string& current = graph.track_ids[current_index];
         const CoverageTransitionEdge* best = nullptr;
-        std::size_t best_index = 0;
+        std::size_t best_index = graph.track_ids.size();
 
-        for (const auto& edge : input.graph.edges) {
+        for (const auto& edge : graph.edges) {
             if (edge.from_track_id != current) continue;
-            std::size_t target_index = input.graph.track_ids.size();
-            for (std::size_t i = 0; i < input.graph.track_ids.size(); ++i) {
-                if (input.graph.track_ids[i] == edge.to_track_id) {
+            std::size_t target_index = graph.track_ids.size();
+            for (std::size_t i = 0; i < graph.track_ids.size(); ++i) {
+                if (graph.track_ids[i] == edge.to_track_id) {
                     target_index = i;
                     break;
                 }
@@ -92,18 +82,51 @@ bluesky::planning::CoverageRouteCandidateResult bluesky::planning::CoverageRoute
             }
         }
 
-        if (!best) {
-            result.failure_code = "NO_COMPLETE_ROUTE_CANDIDATE";
-            return result;
-        }
+        if (!best) return candidate;
 
         candidate.transitions.push_back(*best);
         candidate.transition_cost_m += best->cost_m;
         candidate.track_ids.push_back(best->to_track_id);
         used[best_index] = true;
+        current_index = best_index;
     }
 
-    result.candidates.push_back(candidate);
+    complete = true;
+    return candidate;
+}
+bool candidateLess(const CoverageRouteCandidate& a, const CoverageRouteCandidate& b) {
+    if (a.transition_cost_m != b.transition_cost_m)
+        return a.transition_cost_m < b.transition_cost_m;
+    return a.track_ids < b.track_ids;
+}
+}
+
+CoverageRouteCandidateResult CoverageRouteCandidateBuilder::generate(
+    const CoverageRouteCandidateInput& input) {
+    CoverageRouteCandidateResult result;
+    if (!input.graph.valid) { result.failure_code = "INVALID_TRANSITION_GRAPH"; return result; }
+    if (input.graph.track_ids.empty()) { result.failure_code = "NO_COVERAGE_TRACK"; return result; }
+    if (input.max_candidates == 0) { result.failure_code = "INVALID_CANDIDATE_LIMIT"; return result; }
+
+    result.dependency_identity =
+        input.graph.dependency_identity + "|ROUTES|" + input.calculation_version;
+
+    for (std::size_t start = 0; start < input.graph.track_ids.size(); ++start) {
+        bool complete = false;
+        auto candidate = buildGreedyCandidate(input.graph, start, complete);
+        if (complete) result.candidates.push_back(std::move(candidate));
+    }
+
+    std::sort(result.candidates.begin(), result.candidates.end(), candidateLess);
+    if (result.candidates.size() > input.max_candidates)
+        result.candidates.resize(input.max_candidates);
+
+    if (result.candidates.empty()) {
+        result.failure_code = "NO_COMPLETE_ROUTE_CANDIDATE";
+        return result;
+    }
+
     result.valid = true;
     return result;
 }
+} // namespace bluesky::planning
