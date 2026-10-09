@@ -84,3 +84,24 @@ Next deterministic step:
 The official MapLibre Native for Qt Windows CI currently builds Qt 6.11.2 with MSVC 2022 (x64/ARM64); it does not establish support for the project's Qt 6.11.2 MinGW 13.1 kit. Therefore MinGW compatibility remains **UNVERIFIED** and the library must not be integrated before an isolated compiler check. The QML integration also requires Qt Location/Positioning and Qt Location private components on Qt 6.9+, while the current HMI CMake project declares only Qt Quick and Network. The upstream core is BSD-2-Clause, but its QML bindings have separate GPL/LGPL licensing options; deployment/compliance needs review before shipping.
 
 Next gate: verify MinGW build compatibility without changing the application's compiler or C++17 setting. If this cannot be established, keep the current raster/Yandex renderer and evaluate another explicitly compatible native approach.
+
+### MinGW compatibility proof-of-concept — result 2026-10-09
+
+**RESULT: BUILD PASS for the upstream MapLibre Native for Qt repository on Windows x64 with Qt 6.11.2 MinGW 13.1.0.** This closes the narrow compiler-compatibility question that was previously unverified; it does not approve production integration.
+
+Evidence:
+- BlueSky PRO workflow run (push): https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37937745619 — job completed successfully.
+- Pull-request workflow run: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37937752269 — job completed successfully.
+- Tested Qt root: `D:\\a\\BlueSkyPro\\Qt\\6.11.2\\mingw_64`.
+- Compiler: `g++.exe (x86_64-posix-seh-rev1, Built by MinGW-Builds project) 13.1.0`.
+- CMake configuration and generation succeeded; native library build and install steps succeeded.
+- Experimental installed artifact: `maplibre-native-qt-6.11.2-mingw-poc`, artifact ID `11621352510`, SHA-256 `d68bbe172f9d69e8571ce531bbc4dc0be28ae110c72ab3f58491b09be970f8c9`, expires 2026-10-16.
+- Tested source is upstream `maplibre/maplibre-native-qt` branch `main` as checked out by the workflow. The workflow currently does not pin an upstream commit; reproducibility requires pinning before relying on the artifact for production.
+
+Scope limitations:
+- This is a dependency build/install proof only. No BlueSky PRO application integration, plugin load, map rendering, center/zoom interaction, authoritative route overlay, Windows packaging, or runtime test was performed.
+- It does not resolve QML bindings licensing, attribution/data-source suitability, style compatibility, deployment footprint, offline behavior, or Linux CI integration.
+- Keep the existing raster MapTiler/Yandex renderer unchanged as the production fallback. Do not mark vector/3D capabilities implemented or verified.
+
+Next deterministic step: inspect the exact upstream commit used by the successful run and pin it in the experimental workflow; then verify that the installed artifact contains the expected CMake packages, libraries, and QML plugin before attempting a minimal isolated render proof of concept. Production integration remains blocked until the render contract and licensing/deployment gates are addressed.
+
