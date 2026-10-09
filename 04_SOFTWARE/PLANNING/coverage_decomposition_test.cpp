@@ -149,5 +149,23 @@ int main() {
     }
     assert(has_supported_classification);
 
+
+    {
+        CoveragePolygonSplitInput in;
+        in.subject_polygon={{59.0,30.0},{59.0,30.01},{59.01,30.01},{59.01,30.0}};
+        in.restriction_polygon={{59.003,30.003},{59.003,30.007},{59.007,30.007},{59.007,30.003}};
+        in.restriction_id="SPLIT-CONVEX";
+        in.source_id="TEST-SOURCE";
+        in.calculation_version="test-v1";
+        const auto out=CoveragePolygonSplitter::split(in);
+        assert(out.valid);
+        assert(out.pieces.size()>=2);
+        for(const auto& piece:out.pieces) {
+            assert(piece.restriction_id=="SPLIT-CONVEX");
+            assert(piece.source_id=="TEST-SOURCE");
+            assert(piece.polygon.size()>=3);
+        }
+    }
+
     return 0;
 }
