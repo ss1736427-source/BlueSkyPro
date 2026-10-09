@@ -309,3 +309,30 @@ MT-02 planning is `RELEASE_ELIGIBLE` only when required target surfaces have a f
 MT-02 is `COMPLETE` only when the required reconstruction product passes its evidence-backed post-flight quality criteria. If the system has only planned routes or raw data without sufficient reconstruction evidence, the state remains `UNVERIFIED` or `REACQUISITION_REQUIRED`, as applicable.
 
 **Verification status:** This document defines intended behavior and minimum verification scenarios. It does not prove that implementation, automated tests, CI, HIL or real-UAV performance has passed.
+
+## 11. Current implementation boundary: 3D Mapping adapter
+
+The current `schemas/validator/three_d_mapping_adapter.py` is a **summary/presentation adapter for upstream verified artifacts**, not the MT-02 viewpoint planner, geometry validator or release authority. Its current result contract contains:
+
+| Adapter field | Current source/meaning | MT-02 requirement not established by this field alone |
+|---|---|---|
+| `route_length_m` | Sum of verified route lengths | Whether every required surface patch is observed |
+| `expected_duration_s` | Time span from earliest trajectory start to latest trajectory end | Whether observation ordering, synchronization and makespan assumptions are valid for the selected plan |
+| `expected_energy_wh` | Sum of upstream performance energy values | Whether each UAV individually preserves its required reserve and recovery feasibility |
+| `required_reserve_wh` | Optional supplied value | A verified reserve calculation or per-UAV reserve proof |
+| `line_spacing_m`, `line_count` | Optional supplied acquisition summary | Viewpoint visibility, parallax, occlusion handling or 3D observation-graph connectivity |
+| `expected_frames`, `expected_coverage_percent`, `data_volume_mb` | Optional supplied acquisition estimates | Evidence that the estimates were derived from the selected sensor/model or satisfy product acceptance criteria |
+| `release_status`, `verified` | Status supplied to the adapter; `verified` is true only for `FINAL_CHECK_PASS` or `RELEASE_ELIGIBLE` | Independent proof that the MT-02 hard gates and patch-level geometry criteria actually passed |
+
+The adapter currently checks that route, performance and trajectory lists are non-empty/aligned and that their items are marked verified; it also rejects a non-positive aggregate route length and an inverted overall time range. It does **not** independently validate surface visibility, viewpoint diversity, observation-graph connectivity, patch-level coverage, modality-specific sampling, per-UAV reserve, or reconstruction QA. Those checks must remain in their authoritative upstream planning/validation stages and be tied to the same mission version.
+
+### Required integration rule
+
+1. MT-02 produces or references versioned target patches, candidate/selected viewpoints, visibility and sampling evidence, observation-graph checks, and patch-level predicted coverage.
+2. The canonical constrained-open-space planner produces admissible routes; the existing verified performance/trajectory pipeline supplies route-level performance artifacts.
+3. MT-02 hard gates evaluate the complete evidence set, including per-UAV energy/reserve and required geometry/coverage criteria.
+4. Only after those gates pass may the upstream release authority supply `RELEASE_ELIGIBLE` to the adapter. The adapter's `verified` flag is a propagated summary status, not a substitute for gate evaluation.
+5. Post-flight `COMPLETE` requires separate reconstruction and QA evidence; adapter verification or route completion alone must never set it.
+
+**Implementation gap:** the current adapter result schema does not expose the MT-02 observation graph, patch-level coverage, visibility/viewpoint diversity, sensor modality, quality-gate evidence, or dependency/version identifiers. Do not infer these capabilities from the presence of the adapter. A future integration change should add a versioned contract for these artifacts or link to their authoritative records without duplicating the route planner or treating optional numeric summary fields as proof of quality.
+
