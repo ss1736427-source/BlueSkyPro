@@ -4757,3 +4757,132 @@ Where a lower-level requirement is genuinely missing, its identity must be estab
 MT-03 remains blocked.
 
 The next deterministic allocation class is the verification/evidence linkage for the resolved MT-01/MT-02 dependencies, beginning with existing verification identities and controlled datasets rather than creating new verification IDs.
+
+
+## 52. MT-01 / MT-02 Verification and Evidence Linkage — Controlled Resolution
+
+Section 51 identified verification/evidence linkage as the next deterministic gate. The repository was first reconciled against the existing Verification Register and verification tree.
+
+### 52.1 Existing verification identity reconciliation
+
+The current branch contains controlled verification identities for Navigation (`NAV-V01..NAV-V20`, `NAV-TV-001..010`) and C2 (`C2-V01..V08`), but no existing `V-M01-*` or `V-M02-*` identity family.
+
+Therefore:
+
+- existing NAV/C2 identities are retained for their existing scopes;
+- they are not silently reused as MT planning cases;
+- no duplicate legacy MT identity exists to link;
+- a real MT-specific verification decomposition gap was confirmed.
+
+### 52.2 Controlled MT verification identities
+
+The confirmed gap is now closed at the **identity/decomposition level** by the controlled case definition:
+
+`05_VERIFICATION/PLANNING/MT01_MT02_VERIFICATION_CASES_001.md`
+
+Controlled identities:
+
+```
+MT-01: V-M01-01 … V-M01-10
+MT-02: V-M02-01 … V-M02-11
+```
+
+The cases are derived directly from the already-defined MT-01/MT-02 verification scenarios and algorithm stages. They do not introduce new requirements.
+
+### 52.3 Controlled test datasets
+
+The case-to-dataset definitions are controlled in:
+
+`05_VERIFICATION/PLANNING/MT01_MT02_TEST_DATASETS_001.md`
+
+Dataset families:
+
+```
+MT-01: MT01-T01 … MT01-T09
+MT-02: MT02-T21 … MT02-T31
+```
+
+The dataset definitions establish scenario intent and required provenance fields. They do not claim that the actual datasets have already been captured.
+
+### 52.4 Requirement / verification linkage
+
+The current controlled requirement allocation established in Sections 44–51 provides the requirement/design basis for the first verification pass.
+
+The principal allocation is:
+
+| Planning dependency | MT-01 / MT-02 verification consequence |
+|---|---|
+| SYS-REQ-035 / SYS-REQ-076 | capability/equipment feasibility cases |
+| SYS-REQ-080 / 081 / 082 / 084 / 085 / 086 / 091 / 093 | resource, safety, navigation, degradation and safe-completion consequences |
+| SYS-REQ-110 / 111 / 112 | AI-assisted planning authority/offline continuity cases where AI is active |
+| SYS-REQ-008 | readiness-input and blocking-state consequences |
+| SYS-REQ-067 / SYS-REQ-068 | external airspace/weather data interface dependencies |
+| ARCH-DEC-007 / 016 / 017 / 038 | validation, Safety Gate, contingency and runtime revalidation boundary |
+| Navigation State / Algorithm / Verification records | navigation quality, freshness, reference-frame and degradation inputs |
+
+This is a **basis allocation**, not a claim that every case has a one-to-one requirement closure. Lower-level candidate requirement families remain governed by the Master Requirements Register.
+
+### 52.5 Existing verification reuse rule
+
+Existing verification identities shall be linked only where their controlled scope actually covers the MT algorithm objective.
+
+Examples:
+
+- `NAV-V05` may support the wind-change/navigation dependency but does not replace `V-M01-06` or `V-M02-08`.
+- `NAV-V08/V09/V12` may support stale/invalid/degraded navigation inputs but do not replace the complete MT planning cases.
+- `NAV-V19` may support multi-UAV navigation behavior but does not replace `V-M02-10`.
+- C2 cases remain C2-specific and are not relabeled as MT cases.
+
+This prevents verification coverage inflation by semantic overlap.
+
+### 52.6 Evidence state
+
+Current state after controlled decomposition:
+
+| Layer | State |
+|---|---|
+| Requirement/design basis | CONTROLLED / PARTIAL by allocation class |
+| Verification identity | CONTROLLED |
+| Verification definition | DEFINED |
+| Dataset identity | CONTROLLED |
+| Actual dataset package | OPEN |
+| Execution configuration | OPEN |
+| Execution result | NOT EXECUTED |
+| Evidence | OPEN |
+| Certification closure | OPEN |
+
+A case cannot become `PASSED` or `VERIFIED` from documentation alone.
+
+### 52.7 Next deterministic verification action
+
+The next step is **not** to create more requirement IDs or more verification IDs.
+
+It is to bind each `V-M01-*` / `V-M02-*` case to:
+
+1. the exact existing authoritative requirement/design basis;
+2. the exact dataset version;
+3. the execution configuration;
+4. objective acceptance criteria from the already-controlled algorithm/parameter registry;
+5. the resulting evidence record.
+
+Where a requirement or acceptance criterion is still OPEN, the case remains OPEN rather than receiving an invented value.
+
+### 52.8 Gate after Section 52
+
+| Gate | Status |
+|---|---|
+| Existing verification identity search | RESOLVED |
+| MT-01 verification identity/decomposition | RESOLVED |
+| MT-02 verification identity/decomposition | RESOLVED |
+| Dataset identity/decomposition | RESOLVED |
+| Requirement linkage | PARTIAL / CONTROLLED |
+| Exact case-level acceptance criteria | OPEN where controlled parameter is missing |
+| Execution configuration | OPEN |
+| Actual execution | NOT DONE |
+| Evidence | NOT DONE |
+| Deterministic replay execution | NOT DONE |
+| Certification closure | NOT DONE |
+
+**MT-03 remains BLOCKED.**
+
+The next deterministic work item is case-level requirement/dataset/configuration binding, beginning with `V-M01-01` and `V-M02-01`, without creating additional identities unless a separately proven coverage gap appears.
