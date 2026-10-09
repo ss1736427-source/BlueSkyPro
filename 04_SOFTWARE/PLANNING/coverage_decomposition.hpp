@@ -91,6 +91,8 @@ struct AcquisitionEvent {
     double footprint_width_m{0.0};
     double footprint_height_m{0.0};
     double trigger_interval_s{0.0};
+    double frontal_overlap_ratio{0.0};
+    double side_overlap_ratio{0.0};
     bool sensor_state_valid{false};
     bool trigger_state_valid{false};
 };
@@ -129,6 +131,35 @@ class AcquisitionEventValidator final {
 public:
     static AcquisitionEventResult generate(
         const AcquisitionEventInput& input);
+};
+
+struct MappingQualityInput {
+    std::vector<GeoPoint> aoi;
+    CoverageDecompositionResult decomposition;
+    CoverageTrackResult tracks;
+    AcquisitionEventResult events;
+    AcquisitionGeometryResult geometry;
+    std::string calculation_version;
+};
+
+struct MappingQualityResult {
+    bool valid{false};
+    std::string failure_code;
+    std::string dependency_identity;
+    double aoi_area_m2{0.0};
+    double estimated_covered_area_m2{0.0};
+    double coverage_ratio{0.0};
+    double min_gsd_m_per_px{0.0};
+    double max_gsd_m_per_px{0.0};
+    double min_frontal_overlap_ratio{0.0};
+    double min_side_overlap_ratio{0.0};
+    std::size_t invalid_event_count{0};
+    bool gate_passed{false};
+};
+
+class MappingQualityEngine final {
+public:
+    static MappingQualityResult evaluate(const MappingQualityInput& input);
 };
 
 } // namespace bluesky::planning
