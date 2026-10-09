@@ -122,6 +122,14 @@ int main() {
     auto clipped_quality_input=quality_input;
     clipped_quality_input.aoi={
         {59.0,30.0},{59.0,30.0005},{59.0005,30.0005},{59.0005,30.0}};
+    SpatialRestriction quality_restriction;
+    quality_restriction.restriction_id="QUALITY-EXCLUSION";
+    quality_restriction.geometry_type=RestrictionGeometryType::Polygon;
+    quality_restriction.polygon={
+        {59.0001,30.0001},{59.0001,30.0002},
+        {59.0002,30.0002},{59.0002,30.0001}};
+    clipped_quality_input.environment.complete=true;
+    clipped_quality_input.environment.restrictions={quality_restriction};
     const auto clipped_quality=MappingQualityEngine::evaluate(clipped_quality_input);
     assert(clipped_quality.valid);
     assert(clipped_quality.footprint_union_area_m2>0.0);
@@ -130,6 +138,16 @@ int main() {
     assert(!clipped_quality.uncovered_geometry.empty());
     assert(clipped_quality.uncovered_area_m2>=0.0);
     assert(clipped_quality.uncovered_area_m2 < clipped_quality.aoi_area_m2);
+    assert(!clipped_quality.uncovered_components.empty());
+    bool has_supported_classification=false;
+    for(const auto& component:clipped_quality.uncovered_components) {
+        assert(component.classification==UncoveredGeometryClassification::BoundaryGap ||
+               component.classification==UncoveredGeometryClassification::ExclusionInduced ||
+               component.classification==UncoveredGeometryClassification::UnclassifiedSourceNotBound);
+        if(component.classification==UncoveredGeometryClassification::ExclusionInduced)
+            has_supported_classification=true;
+    }
+    assert(has_supported_classification);
 
     return 0;
 }
