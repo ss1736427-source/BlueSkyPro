@@ -3438,6 +3438,7 @@ The first implementation shall map the algorithm specification to explicit backe
 | mission/context validation | MissionContextValidator |
 | coordinate/geometry normalization | GeometryNormalizer |
 | airspace/restriction filtering | SpatialConstraintEngine |
+| MT-01 acquisition geometry | AcquisitionGeometryEngine |
 | MT-01 decomposition | CoverageDecompositionEngine |
 | MT-01 track generation | CoverageTrackGenerator |
 | MT-02 target discretisation | TargetDiscretizationEngine |
@@ -3884,3 +3885,1064 @@ An item may be marked DEFINED only when purpose, inputs, outputs, units, depende
 - [ ] executed verification evidence.
 
 Conclusion: the algorithmic specification is sufficiently formal to begin implementation design, but MT-01/MT-02 are not yet verification-closed or certification-closed.
+
+
+## 44. MT-01 / MT-02 Authoritative Requirement Allocation — Controlled Review Result
+
+This section records the next controlled reconciliation step using the actual requirement records and existing traceability material. It does not promote candidate SRS identifiers to authoritative requirements and does not create new requirement IDs.
+
+### 44.1 Allocation rule
+
+Only the following dispositions are permitted:
+
+- **DIRECT DEPENDENCY** — the requirement explicitly constrains or is consumed by planning behaviour;
+- **SUPPORTING** — the requirement affects planning indirectly or through a shared system mechanism;
+- **CROSS-CUTTING** — the requirement constrains the planning implementation/runtime but is not a planning functional requirement;
+- **OPEN ALLOCATION** — the requirement identity or exact scope is not sufficiently established;
+- **NOT ALLOCATED** — no defensible MT-01/MT-02 relationship has been established.
+
+Candidate families such as `NAV-REQ-*`, `RTE-REQ-*`, `WP-REQ-*`, `MIS-REQ-*`, `MUL-REQ-*`, `RDY-REQ-*`, `C2-REQ-*` remain candidate records and are not treated as authoritative identities.
+
+### 44.2 Confirmed allocation
+
+| Requirement | MT-01 | MT-02 | Allocation basis |
+|---|---|---|---|
+| SYS-REQ-080 | SUPPORTING | SUPPORTING | Dynamic task/reallocation affects multi-UAV planning and task redistribution. |
+| SYS-REQ-081 | SUPPORTING | SUPPORTING | UAV failure tolerance consumes valid planning/resource state and can require continuation or reassignment. |
+| SYS-REQ-082 | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Safe completion explicitly depends on UAV state, resources, energy, communications, risks and safe return/landing/emergency behaviour. |
+| SYS-REQ-083 | DIRECT | DIRECT | Mission/planning logic is required to remain platform-independent and use adapter/capability boundaries. |
+| SYS-REQ-084 | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Planning requires reservation/availability of relevant compute, communication and system resources. |
+| SYS-REQ-085 | CROSS-CUTTING | CROSS-CUTTING | Safety-critical functions, including navigation/C2, have priority over optimisation and lower-priority workloads. |
+| SYS-REQ-086 | SUPPORTING | SUPPORTING | Controlled degradation/replanning/resource reallocation constrains behaviour when planning dependencies degrade. |
+| SYS-REQ-091 | SUPPORTING | SUPPORTING | Critical latency affects validity/usability of safety-significant planning inputs and services; exact planning-specific limits remain lower-level allocation work. |
+| SYS-REQ-093 | SUPPORTING | SUPPORTING | Controlled recovery constrains recovery/replanning and protection of critical functions after resource degradation. |
+
+The allocation above is a **dependency allocation**, not a verification result. Existing architecture coverage being marked PARTIAL remains PARTIAL and is not upgraded by this section.
+
+### 44.3 Requirement-specific interpretation
+
+**SYS-REQ-082 — Safe Mission Completion**
+
+The controlled requirement text states that safe completion considers UAV state, task criticality, available resources, energy, communications and risks, and may require return, landing, reserve mode, result preservation and unfinished-task recording. Therefore MT-01/MT-02 planning must expose sufficient validated state and plan outputs to support the safe-completion chain. The planning algorithm does not itself become the authority for emergency execution.
+
+**SYS-REQ-083 — Platform Independence**
+
+The requirement explicitly requires mission-management logic to be independent of a particular manufacturer, autopilot or physical platform, with platform integration through adapters and capability profiles. Therefore MT-01/MT-02 data contracts and planner modules must consume canonical UAV/payload capability models rather than platform-specific assumptions.
+
+**SYS-REQ-084 — Resource Reservation**
+
+The architecture traceability establishes resource reservation and controlled temporal scheduling. Therefore planning computation and mission resource requirements must be compatible with the reservation lifecycle; a planner may not assume unreserved resources are available merely because they are technically present.
+
+**SYS-REQ-085 — Safety-Critical Priority**
+
+The requirement explicitly protects P0/P1 functions, including safety, flight control, navigation and C2. Planning optimisation therefore remains subordinate to safety-critical resource and authority handling.
+
+**SYS-REQ-086 — Graceful Degradation**
+
+The existing architecture allocates controlled continuation, adaptation, resource reallocation, UAV role change, mission-scope reduction, replanning and abort to degradation handling. MT-01/MT-02 incremental recalculation must therefore distinguish a controlled degraded/replanning path from an invalid plan.
+
+**SYS-REQ-091 — Critical Latency**
+
+The requirement concerns controlled latency for critical messages and protective action on threshold exceedance. This establishes a cross-cutting planning dependency, but it does not by itself establish a numerical planner latency target.
+
+**SYS-REQ-093 — Controlled Resource Recovery**
+
+Recovery must be controlled, must not create secondary overload, and must restore critical functions before lower-priority functions. Planning/replanning services therefore remain subject to the recovery state rather than treating recovery as an invisible background event.
+
+### 44.4 SYS-REQ-110 / 111 / 112
+
+The repository confirms these IDs and their titles:
+
+- SYS-REQ-110 — Multi-Agent AI Orchestration;
+- SYS-REQ-111 — AI Agent Authority and Proposal Control;
+- SYS-REQ-112 — Offline AI Operational Continuity.
+
+For MT-01/MT-02 these remain **OPEN ALLOCATION** at requirement level in this review. The algorithm document can define AI as a bounded strategy/parameter/candidate aid, but exact allocation to these authoritative records requires inspection of their controlled requirement text and existing capability traceability before a direct relationship is asserted.
+
+No AI requirement is created by this section.
+
+### 44.5 Candidate SRS families
+
+The following remain unbaselined candidate families:
+
+- NAV-REQ-001..009;
+- RTE-REQ-001..004;
+- WP-REQ-001..003;
+- MIS-REQ-001..003;
+- RET-REQ-001..004;
+- COL-REQ-001..004;
+- C2-REQ-001..003;
+- MUL-REQ-001..003;
+- RDY-REQ-001..002.
+
+They are not silently mapped to MT-01/MT-02 as authoritative requirements.
+
+Their role in the algorithm specification is currently **candidate derived allocation** pending exact wording comparison against existing authoritative records.
+
+### 44.6 Allocation status after this review
+
+| Allocation area | Status |
+|---|---|
+| Existing SYS-REQ-080..086 | ALLOCATED / dependency relationship defined |
+| SYS-REQ-091 | ALLOCATED / supporting dependency |
+| SYS-REQ-093 | ALLOCATED / supporting dependency |
+| SYS-REQ-110..112 | OPEN ALLOCATION |
+| Candidate NAV/RTE/WP/MIS/RET/COL/C2/MUL/RDY families | CANDIDATE / NOT BASELINED |
+| Airspace / NOTAM | OPEN ALLOCATION |
+| Weather / wind | OPEN ALLOCATION |
+| Terrain / DEM | OPEN ALLOCATION |
+| GNSS / RTK / PPK / NTRIP | OPEN ALLOCATION |
+| Payload compatibility | OPEN ALLOCATION |
+| Readiness aggregation | OPEN ALLOCATION |
+| Contingency execution authority | OPEN ALLOCATION |
+| AI authority | OPEN ALLOCATION |
+| Executed verification evidence | NOT DONE |
+
+### 44.7 Gate consequence
+
+This review closes the **structural allocation** for the confirmed existing SYS-REQ dependencies above, but it does not close the overall MT-01/MT-02 gate.
+
+The remaining blockers are:
+
+1. exact allocation of SYS-REQ-110..112;
+2. controlled consolidation of candidate SRS families;
+3. allocation of external/environmental dependencies;
+4. controlled numerical parameter values;
+5. executable verification and evidence.
+
+MT-03 remains blocked.
+
+
+## 45. MT-01 / MT-02 Allocation — SYS-REQ-110..112 Controlled Resolution
+
+The previous Section 44 disposition of SYS-REQ-110..112 as wholly OPEN ALLOCATION is superseded by this controlled review result.
+
+Repository traceability explicitly links:
+
+`ARCH-DEC-046 → SYS-REQ-110 → capability → agent/orchestrator → proposal → validation → Safety Gate → C++ Core → execution`
+
+and the reverse chain explicitly links ARCH-DEC-046 to SYS-REQ-110, SYS-REQ-111 and SYS-REQ-112.
+
+### 45.1 SYS-REQ-110 — Multi-Agent AI Orchestration
+
+**Allocation: SUPPORTING / DIRECT DEPENDENCY when AI-assisted planning is active.**
+
+Basis:
+- SYS-REQ-110 explicitly covers AI orchestration for analysis and planning;
+- required capabilities include task assignment, controlled context, result aggregation, conflict handling and traceability;
+- ARCH-DEC-046 defines the corresponding orchestration architecture;
+- MT-01/MT-02 already define AI as an optional bounded strategy/parameter/candidate aid rather than an authority.
+
+Planning consequence:
+
+`AI ANALYSIS / PROPOSAL → PLANNING VALIDATION → SAFETY / AUTHORITY GATES`
+
+AI orchestration may assist generation or comparison of candidates, but it does not replace the deterministic planner, hard-constraint gates or final validation.
+
+### 45.2 SYS-REQ-111 — AI Agent Authority and Proposal Control
+
+**Allocation: DIRECT DEPENDENCY.**
+
+This requirement is directly relevant to MT-01/MT-02 because the planning architecture permits AI-assisted strategy, parameter and candidate selection.
+
+The authoritative execution chain remains:
+
+`AI AGENT → PROPOSAL → VALIDATION → SAFETY GATE → AUTHORIZATION → C++ CORE → EXECUTION`
+
+Therefore:
+- AI cannot modify authoritative mission state directly;
+- AI cannot bypass planner validation;
+- AI cannot weaken hard constraints;
+- AI cannot convert a rejected candidate into an executable plan;
+- AI-generated planning recommendations require the same mandatory validation boundary as non-AI planning proposals.
+
+### 45.3 SYS-REQ-112 — Offline AI Operational Continuity
+
+**Allocation: SUPPORTING / CONDITIONAL DEPENDENCY.**
+
+This requirement applies when AI assistance is enabled and the planning system operates without external AI/network services.
+
+The requirement requires local/authorised AI capability and preservation of:
+- Mission Validation;
+- Safety Engine;
+- Safety Gate;
+- mandatory safety constraints;
+- operator approval;
+- C++ Core execution authority.
+
+Planning consequence:
+
+Loss of external AI capability may reduce AI-assisted optimisation/recommendation capability, but it shall not invalidate the deterministic planning core merely because an external AI service is unavailable. If a required local planning dependency is genuinely unavailable, the planner follows the existing BLOCKED_INPUT / controlled-degradation rules and records provenance.
+
+### 45.4 Controlled allocation table
+
+| Requirement | MT-01 | MT-02 | Status |
+|---|---|---|---|
+| SYS-REQ-110 | SUPPORTING / conditional direct dependency | SUPPORTING / conditional direct dependency | ALLOCATED |
+| SYS-REQ-111 | DIRECT DEPENDENCY | DIRECT DEPENDENCY | ALLOCATED |
+| SYS-REQ-112 | SUPPORTING / conditional dependency | SUPPORTING / conditional dependency | ALLOCATED |
+
+This allocation does not claim that the requirements themselves are baselined or verified. It establishes their relationship to MT-01/MT-02 using the existing controlled requirement and architecture records.
+
+### 45.5 Remaining requirement-allocation blockers
+
+After this resolution, the remaining allocation work is:
+
+1. candidate SRS-family reconciliation against authoritative SYS-REQ/SAF-REQ records;
+2. exact allocation of airspace/NOTAM, weather, terrain/DEM, GNSS/RTK/PPK/NTRIP, payload compatibility and readiness dependencies;
+3. controlled numerical parameter approval;
+4. executable verification/evidence.
+
+SYS-REQ-110..112 are no longer treated as unresolved merely because their detailed lower-level verification is pending.
+
+MT-03 remains blocked.
+
+## 46. Candidate SRS Family Reconciliation — Controlled Result
+
+This section records the family-level reconciliation of candidate SRS identifiers against the authoritative requirement records actually present in the repository. It does not promote candidate IDs to authoritative identities and does not create new IDs.
+
+### 46.1 Reconciliation rule
+
+- **CONSOLIDATE** — substantial overlap with existing authoritative requirements; use existing IDs plus lower-level derived allocation.
+- **DERIVED** — lower-level functional decomposition of existing requirements.
+- **CLARIFYING** — clarification of an existing safety/authority requirement; not an independent baseline.
+- **ENGINEERING** — engineering-level candidate, not automatically a system certification requirement.
+- **OPEN ALLOCATION** — controlled wording/source comparison is still insufficient for one-to-one allocation.
+
+This is a reconciliation disposition, not a baseline or verification result.
+
+### 46.2 Controlled family reconciliation
+
+| Candidate family | Disposition | Existing authoritative overlap / basis |
+|---|---|---|
+| NAV-REQ-001..009 | DERIVED / OPEN ALLOCATION | Navigation-specific decomposition is not represented by an independent authoritative family. SYS-REQ-016, SYS-REQ-076, SYS-REQ-083 and SYS-REQ-085 constrain navigation-related planning inputs/capabilities. |
+| RTE-REQ-001..004 | DERIVED | Overlaps mission planning/compiler through SYS-REQ-004, SYS-REQ-005, SYS-REQ-010, SYS-REQ-022 and SYS-REQ-023. |
+| WP-REQ-001..003 | DERIVED | Waypoint concepts are lower-level manifestations of SYS-REQ-004, SYS-REQ-022 and SYS-REQ-023. |
+| MIS-REQ-001..003 | CONSOLIDATE | Strong overlap with SYS-REQ-001, SYS-REQ-002, SYS-REQ-004, SYS-REQ-005, SYS-REQ-022, SYS-REQ-023 and SYS-REQ-035. |
+| RET-REQ-001..004 | CONSOLIDATE / DERIVED | Return and safe completion overlap SYS-REQ-012, SYS-REQ-081, SYS-REQ-082, SYS-REQ-086 and SYS-REQ-093. |
+| COL-REQ-001..004 | CONSOLIDATE / DERIVED | Conflict resolution is SYS-REQ-009; multi-UAV execution/reallocation is covered by SYS-REQ-075..082. |
+| C2-REQ-001..003 | CONSOLIDATE / DERIVED | Strong overlap with SYS-REQ-016, SYS-REQ-067..074, SYS-REQ-085 and SYS-REQ-091. |
+| MUL-REQ-001..003 | CONSOLIDATE | Strong overlap with SYS-REQ-032 and SYS-REQ-075..078, plus SYS-REQ-080..082. |
+| RDY-REQ-001..002 | CONSOLIDATE | SYS-REQ-008 already defines Mission Readiness; Readiness remains distinct from Safety Gate and operator approval. |
+| SAF-REQ-019..020 | CLARIFYING | Master Register explicitly keeps these as candidate derived/clarifying records pending comparison with SYS-REQ-082, SYS-REQ-085 and ARCH-DEC-007/016/017. |
+| AUTH-REQ-001..002 | CLARIFYING | Existing authority chain and SYS-REQ-007, SYS-REQ-015, SYS-REQ-082 and SYS-REQ-085 already define the authority boundary. |
+| HMI-REQ-001..002 | DERIVED | SYS-REQ-026 defines UI architecture; HMI cannot bypass validation, safety or approval. |
+| AI-REQ-001..003 | CONSOLIDATE / DERIVED | Existing coverage spans SYS-REQ-005, 013, 014, 017..019, 025, 087, 088, 094..104, 107, 108 and 110..112. |
+| DATA-REQ-001..002 | DERIVED | Data/technical-data coverage exists in SYS-REQ-022, SYS-REQ-029, SYS-REQ-030, SYS-REQ-094 and SYS-REQ-104. |
+| CFG-REQ-001..003 | DERIVED | SYS-REQ-028 is the existing Configuration Management requirement; SYS-REQ-076 also constrains machine-readable capability profiles. |
+| SW-REQ-001..003 | ENGINEERING | SRS explicitly identifies these as preliminary engineering requirements, not automatically software certification assurance requirements. |
+| HW-REQ-001..002 | ENGINEERING | SRS explicitly identifies these as preliminary engineering requirements, not automatically hardware certification assurance requirements. |
+
+### 46.3 Controlled conclusion
+
+The candidate SRS is **not a second independent requirement baseline**.
+
+The strongest overlap groups are MIS, RET, COL, C2, MUL, RDY and AI. NAV, RTE, WP, HMI, DATA and CFG are more appropriately treated as derived lower-level decomposition, subject to exact wording/source allocation before agreement. SAF-REQ-019..020 and AUTH-REQ-001..002 remain clarifying candidates and must not establish a competing authority chain. SW-REQ-* and HW-REQ-* remain engineering candidates.
+
+### 46.4 Gate status after reconciliation
+
+| Gate | Status |
+|---|---|
+| Candidate SRS family-level overlap analysis | **COMPLETED** |
+| Candidate IDs promoted to authoritative baseline | **NO** |
+| Existing SYS-REQ / SAF-REQ identities preserved | **YES** |
+| Exact individual candidate wording consolidation | **OPEN** |
+| External/environmental dependency allocation | **OPEN** |
+| Controlled numerical parameter approval | **OPEN** |
+| Executable verification/evidence | **NOT DONE** |
+
+The family-level reconciliation blocker is therefore closed. MT-01/MT-02 remain incomplete because exact individual candidate wording, external/environmental dependencies, numerical parameters and executable evidence are still open.
+
+MT-03 remains blocked.
+
+## 47. External / Environmental Planning Dependency Allocation — Controlled Review
+
+The next allocation gate was reviewed against the current Master Requirements Register, the derived SRS, and the existing authoritative SYS-REQ records. No new requirement IDs are created.
+
+### 47.1 Current authoritative coverage
+
+| Dependency | Current controlled evidence | MT-01 / MT-02 status |
+|---|---|---|
+| Airspace / NOTAM / operational restrictions | The algorithm contract requires airspace/authorization/restriction handling, but the current Master Register does not identify a dedicated authoritative requirement ID for this planning dependency. | **OPEN ALLOCATION** |
+| Weather / wind | Wind is an explicit algorithm input and performance dependency; no dedicated authoritative requirement ID was established by the current controlled register review. | **OPEN ALLOCATION** |
+| Terrain / DEM / obstacles | Terrain and obstacle constraints are explicit algorithm inputs and hard feasibility gates; a dedicated authoritative requirement ID was not established by the current controlled register review. | **OPEN ALLOCATION** |
+| GNSS / RTK / PPK / NTRIP | These are identified as navigation/data dependencies, but the current controlled register/SRS does not provide a verified one-to-one authoritative allocation. | **OPEN ALLOCATION** |
+| Payload / sensor compatibility | SYS-REQ-035 establishes task-to-capability mapping and SYS-REQ-076 provides machine-readable capability-profile linkage; exact payload-planning allocation remains lower-level. | **PARTIAL / OPEN ALLOCATION** |
+| Mission readiness aggregation | SYS-REQ-008 is authoritative for Mission Readiness; exact allocation of the planner's readiness inputs/state aggregation remains lower-level. | **ALLOCATED at system level / OPEN at planning detail** |
+| Contingency execution authority | Existing authority chain and SYS-REQ-082/085 constrain execution; planning may prepare alternatives but does not own emergency execution authority. | **ALLOCATED at authority level / OPEN at planning interface detail** |
+
+### 47.2 Controlled interpretation
+
+The absence of a dedicated ID is not evidence that the dependency is missing from the system. It means only that the present controlled register does not establish a unique one-to-one requirement identity for the specific planning dependency.
+
+Therefore the algorithm specification shall continue to model these dependencies as mandatory inputs/constraints, while traceability records use OPEN ALLOCATION until an exact authoritative source record is identified.
+
+No numerical value is introduced by this review.
+
+In particular, this review does not establish:
+- a specific NOTAM/airspace rule;
+- a specific wind threshold;
+- a terrain/obstacle clearance value;
+- GNSS/RTK/PPK accuracy thresholds;
+- payload compatibility thresholds;
+- readiness timing thresholds;
+- contingency execution authority values.
+
+Such values require controlled source, engineering basis, or approved requirement allocation.
+
+### 47.3 Gate status
+
+| Gate | Status |
+|---|---|
+| External/environmental dependency identification | **COMPLETED** |
+| Exact authoritative ID allocation | **OPEN** |
+| Numerical parameter approval | **OPEN** |
+| Regulatory/source clause mapping | **OPEN** |
+| Executable verification/evidence | **NOT DONE** |
+
+This review closes the identification sub-step but deliberately does not close the allocation sub-step.
+
+MT-03 remains blocked.
+
+
+## 48. External / Environmental Dependency Allocation — Controlled Resolution
+
+Section 47 identified the dependency classes but intentionally stopped short of allocation. This section records the exact existing project records and external source clauses that can now be allocated without inventing new requirement IDs.
+
+### 48.1 Airspace / NOTAM / operational restrictions
+
+The repository contains existing authoritative system-level records that explicitly cover the required information flow and readiness/validation boundary:
+
+- **SYS-REQ-008 — Mission Readiness**: Airspace is an explicit readiness area.
+- **SYS-REQ-067 — HUB to PILOT Interface**: HUB provides PILOT with Airspace and Regulatory Constraints.
+- **SYS-REQ-068 — HUB to PRO Interface**: HUB provides PRO with Airspace, NOTAM and Regulatory State.
+- **ARCH-DEC-007 — Mission Validation and Safety Gate**: readiness includes Airspace and execution is blocked by prohibited airspace/geofence conditions.
+- **ARCH-026** provides the corresponding HUB interface contract.
+
+Therefore the dependency is no longer correctly described as having *no existing authoritative coverage*. The controlled allocation is:
+
+| Dependency | MT-01 | MT-02 | Allocation |
+|---|---|---|---|
+| Airspace / restrictions | DIRECT DEPENDENCY | DIRECT DEPENDENCY | SYS-REQ-008 + ARCH-DEC-007 |
+| Airspace / NOTAM data interface | SUPPORTING INPUT | SUPPORTING INPUT | SYS-REQ-067 / SYS-REQ-068 + ARCH-026 |
+| Authorization state | DIRECT DEPENDENCY | DIRECT DEPENDENCY | ARCH-DEC-007 authority/readiness boundary; exact lower-level requirement wording remains OPEN |
+
+The project records do **not** yet establish a unique lower-level requirement ID specifically for the planner's airspace-data schema, NOTAM freshness model, authorization-data validity model, or exact restriction-resolution algorithm. Those remain **OPEN ALLOCATION at planning/interface detail**, not at system-level dependency existence.
+
+External regulatory basis requiring controlled applicability mapping includes the current Federal Rules for Use of Airspace, approved by Government Resolution No. 138 of 11 March 2010. The current text contains UAV-specific provisions including flight-plan/airspace-use permission conditions and publication of UAV-route information in aeronautical information documents. The rules were amended by Government Resolution No. 1253 of 29 September 2026; the project must use the applicable current revision when the regulatory trace is baselined.
+
+**Regulatory clause mapping status: OPEN.** No clause is promoted into a BlueSky requirement until applicability, exact wording and compliance method are controlled in the requirements register.
+
+### 48.2 Weather / wind
+
+Existing project coverage is also identifiable:
+
+- **SYS-REQ-008 — Mission Readiness** explicitly includes Weather.
+- **SYS-REQ-016 — Communication and C2** does not define weather, so it is not used as the weather requirement allocation.
+- **SYS-REQ-067 / SYS-REQ-068** provide Weather through the HUB interfaces.
+- **ARCH-DEC-007** requires Weather in validation/readiness and identifies changes in weather as conditions that may invalidate prior validation/readiness.
+
+For MT-01/MT-02:
+
+| Dependency | MT-01 | MT-02 | Allocation |
+|---|---|---|---|
+| Weather readiness state | DIRECT DEPENDENCY | DIRECT DEPENDENCY | SYS-REQ-008 + ARCH-DEC-007 |
+| Weather data availability/interface | SUPPORTING INPUT | SUPPORTING INPUT | SYS-REQ-067 / SYS-REQ-068 |
+| Wind as planning/performance input | DIRECT ALGORITHM INPUT | DIRECT ALGORITHM INPUT | Existing algorithm contract; lower-level numerical/source allocation remains OPEN |
+
+A current external source is **Order of the Ministry of Transport of Russia No. 49 dated 05.02.2026**, establishing the Federal Aviation Rules for provision of meteorological information for aircraft operations. The rules explicitly provide meteorological information to operators of unmanned aviation systems and external pilots, including METAR/SPECI, TAF, GAMET/AIRMET, SIGMET, SIGWX and upper-level wind/temperature forecasts.
+
+This source supports the existence and categories of meteorological information required for the planning data chain. It does **not** by itself establish BlueSky-specific wind limits, UAV performance thresholds, mission cancellation criteria or energy penalties.
+
+**Regulatory/source-clause mapping status: OPEN.** Exact applicability to each MT-01/MT-02 data field and compliance method must be controlled before baseline.
+
+### 48.3 Terrain / DEM / obstacles
+
+The repository provides system-level allocation through:
+
+- **SYS-REQ-007 — Mission Validation Engine**: mission validation covers mandatory operational and safety constraints and includes UAV/altitude/geofence/emergency-recovery validation.
+- **SYS-REQ-008 — Mission Readiness**: Terrain is an explicit readiness area.
+- **SYS-REQ-011 — Simulation / Digital Twin**: Terrain is an explicit simulation input.
+- **ARCH-DEC-007**: Mission Validation/Readiness includes Terrain; unacceptable terrain conditions can block execution.
+- Existing capability traceability identifies obstacle-avoidance capability as a supporting capability where applicable.
+
+For MT-01/MT-02 the controlled allocation is:
+
+| Dependency | MT-01 | MT-02 | Allocation |
+|---|---|---|---|
+| Terrain / elevation state | DIRECT DEPENDENCY | DIRECT DEPENDENCY | SYS-REQ-008 + ARCH-DEC-007 |
+| Terrain in validation | DIRECT DEPENDENCY | DIRECT DEPENDENCY | SYS-REQ-007 + ARCH-DEC-007 |
+| Terrain in simulation/replay | SUPPORTING | SUPPORTING | SYS-REQ-011 |
+| Obstacles / obstacle state | DIRECT ALGORITHM INPUT | DIRECT ALGORITHM INPUT | Algorithm contract; exact system-level requirement identity remains OPEN |
+| Obstacle-avoidance capability | SUPPORTING | SUPPORTING | Existing capability traceability; not promoted to a new requirement |
+
+The controlled records therefore establish Terrain as a system-level dependency, but do not yet establish a dedicated authoritative requirement for the **source, resolution, vertical datum, freshness, integrity, obstacle classification or update procedure** of DEM/obstacle data.
+
+Those lower-level data-contract properties remain **OPEN ALLOCATION** and must not be filled with assumed values.
+
+### 48.4 Result of the controlled resolution
+
+| Dependency class | Previous Section 47 status | Current status |
+|---|---|---|
+| Airspace / restrictions | OPEN ALLOCATION | **ALLOCATED at system level; planning-data detail OPEN** |
+| NOTAM / regulatory state | OPEN ALLOCATION | **ALLOCATED as interface/supporting input; exact planner schema/validity OPEN** |
+| Weather | OPEN ALLOCATION | **ALLOCATED at system/readiness/interface level; planning detail OPEN** |
+| Wind | OPEN ALLOCATION | **ALLOCATED as explicit algorithm input; numerical limits/source mapping OPEN** |
+| Terrain / DEM | OPEN ALLOCATION | **ALLOCATED at system/readiness/validation level; data-contract detail OPEN** |
+| Obstacles | OPEN ALLOCATION | **Algorithm dependency confirmed; authoritative lower-level requirement OPEN** |
+
+### 48.5 Controlled boundary
+
+This resolution does **not** create new requirement IDs and does not claim regulatory compliance.
+
+It establishes the following controlled rule:
+
+`EXISTING SYSTEM REQUIREMENT / ARCHITECTURE`
+→ `MT-01 / MT-02 ALGORITHM DEPENDENCY`
+→ `LOWER-LEVEL DATA / INTERFACE REQUIREMENT`
+→ `VERIFICATION`
+→ `EVIDENCE`
+
+The lower-level requirement/data-contract layer remains open where the repository does not yet contain a unique authoritative record.
+
+### 48.6 Gate status after Section 48
+
+| Gate | Status |
+|---|---|
+| Existing system-level allocation for airspace / weather / terrain | **RESOLVED** |
+| Existing interface allocation for Airspace / NOTAM / Weather | **RESOLVED** |
+| Dedicated planner data-contract IDs | **OPEN** |
+| Obstacles dedicated requirement identity | **OPEN** |
+| Regulatory clause applicability mapping | **OPEN** |
+| Numerical parameter approval | **OPEN** |
+| Executable verification/evidence | **NOT DONE** |
+
+**MT-03 remains blocked.**
+
+The next deterministic allocation class is **GNSS / RTK / PPK / NTRIP and navigation-data provenance**, followed by payload/sensor compatibility and readiness/contingency lower-level interfaces.
+
+## 49. GNSS / RTK / PPK / NTRIP and Navigation-Data Provenance — Controlled Resolution
+
+Section 48 identified GNSS/RTK/PPK/NTRIP as the next allocation class. The repository review found that Navigation already has a substantial controlled engineering and verification chain. The correct action is therefore allocation and reconciliation, not creation of a parallel navigation requirement database.
+
+### 49.1 Existing controlled navigation basis
+
+The current project records establish the following:
+- **CAP-001 — Navigation** is the reusable navigation capability. It consumes position, velocity, heading, altitude, route, waypoints, spatial/environmental information and UAV state, and produces navigation state, estimated position/motion, route-relative state and navigation validity.
+- **Navigation State Model** separates PLANNED, ACTUAL, DERIVED and QUALITY layers.
+- **Navigation Knowledge Map** requires provenance for critical values: source, timestamp, freshness, validity, confidence.
+- **Navigation Algorithm** requires source validation and classifies critical navigation data as VALID, DEGRADED, STALE, INVALID or UNAVAILABLE.
+- **Navigation Verification Model** verifies source/quality, reference frame, timestamp, freshness, validity and confidence before calculation and safety decision.
+- **NAVIGATION_REQUIREMENT_ALLOCATION_001** already allocates existing SYS-REQ records to Navigation without treating them as new Navigation requirements.
+- **NAVIGATION_SYSREQ_CONTENT_RECONCILIATION_PASS_003** explicitly retains SYS-REQ-081/082/085/086/091/093 and allocates them rather than replacing them with NAV-REQ records.
+- The repository also contains an evidence chain for Navigation / GNSS / RTK / NTRIP (EC-03) and a source category GNSS_RTK_NTRIP.
+
+### 49.2 Authoritative system-level allocation
+
+| Existing requirement | Navigation relationship | MT-01 / MT-02 consequence |
+|---|---|---|
+| SYS-REQ-081 | SUPPORTING — navigation state/quality contributes to failure-tolerant continuation | Navigation validity is an input to candidate feasibility and safe continuation |
+| SYS-REQ-082 | DIRECT DEPENDENCY / SUPPORTING at system level — safe completion consumes validated navigation state | Return/recovery feasibility cannot use unvalidated navigation state |
+| SYS-REQ-085 | SUPPORTING / CROSS-CUTTING — Navigation is explicitly P0/P1 | Navigation-related processing cannot be displaced by lower-priority workload |
+| SYS-REQ-086 | DIRECT | Navigation degradation states must remain within controlled degradation behaviour |
+| SYS-REQ-091 | SUPPORTING / INDIRECT | Navigation freshness/latency matters; exact navigation thresholds remain lower-level |
+| SYS-REQ-093 | PENDING_WORDING for Navigation-specific ownership | Do not allocate more strongly without full requirement wording review |
+
+This allocation is already represented by the project's Navigation traceability/verification records and is not being duplicated here.
+
+### 49.3 GNSS / RTK / PPK / NTRIP classification
+
+| Dependency | MT-01 | MT-02 | Current allocation |
+|---|---|---|---|
+| GNSS position/navigation source | DIRECT INPUT | DIRECT INPUT | CAP-001 Navigation + existing Navigation State/Algorithm |
+| RTK correction state | DIRECT INPUT when used by selected navigation configuration | DIRECT INPUT when used | GNSS/RTK/NTRIP evidence/interface chain; exact requirement wording OPEN |
+| NTRIP correction stream | SUPPORTING INPUT when RTK/NTRIP configuration is selected | SUPPORTING INPUT when selected | Existing GNSS_RTK_NTRIP source/interface records; exact planner dependency OPEN |
+| PPK status/data | SUPPORTING INPUT where post-processed navigation is part of dataset/planning provenance | SUPPORTING INPUT where applicable | Existing dataset/provenance model; exact planner requirement OPEN |
+| Navigation quality | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Existing Navigation State/Algorithm/Verification chain |
+| Freshness / timestamp | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Existing Navigation State/Verification chain; quantitative thresholds OPEN |
+| Reference frame / coordinate semantics | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Navigation State/Rules/Algorithm; unresolved conventions remain OPEN |
+| Source conflict / source selection | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Navigation Algorithm/Verification; source hierarchy/fusion rule remains OPEN |
+
+### 49.4 Critical boundary: RTK is not automatically a planning requirement
+
+The presence of RTK/NTRIP in the architecture or evidence chain does **not** mean that every MT-01/MT-02 mission requires RTK.
+
+The planning dependency is conditional on the selected UAV/navigation/payload configuration and mission-quality requirements.
+
+MISSION REQUIREMENT / QUALITY PROFILE → REQUIRED NAVIGATION QUALITY → SELECTED NAVIGATION CONFIGURATION → GNSS / RTK / PPK / NTRIP AVAILABILITY → VALIDATION → PLAN CANDIDATE
+
+The planner shall not invent an RTK requirement merely because an RTK-capable configuration exists. Likewise, absence of RTK shall not automatically be classified as failure unless the applicable mission, payload, quality, safety or configuration requirement makes that capability mandatory.
+
+### 49.5 Provenance contract
+
+For navigation data used by MT-01/MT-02, the existing project knowledge chain establishes the minimum provenance concepts:
+- source;
+- timestamp;
+- freshness;
+- validity;
+- confidence;
+- reference frame;
+- units;
+- configuration context.
+
+For RTK/PPK/NTRIP-specific data, the exact fields and acceptance rules are **not yet baselined**. The project records support the existence of the data category but do not authorize invention of RTK fix thresholds, positional accuracy thresholds, correction age limits, NTRIP latency limits, PPK quality thresholds, GNSS satellite-count thresholds, HDOP/VDOP limits, covariance limits or source-fusion weights.
+
+These remain **OPEN numerical/data-contract parameters** until allocated to an authoritative requirement, approved engineering parameter, or controlled external source.
+
+### 49.6 Candidate NAV-REQ family disposition
+
+NAV-REQ-001..009 remains a candidate/derived family.
+
+The current evidence is sufficient to state:
+- do **not** promote NAV-REQ-001..009 to an independent baseline;
+- retain the existing SYS-REQ identities;
+- use Navigation State / Rules / Algorithm / Verification as the lower-level engineering decomposition;
+- use NAV-REQ records only as derived/reconciliation records until exact controlled wording and source allocation are completed.
+
+This preserves the project rule:
+
+ONE REQUIREMENT → ONE STABLE ID → ONE CONTROLLED WORDING → MANY RELATIONSHIPS
+
+### 49.7 Regulatory allocation status
+
+The current project review does not establish a verified one-to-one Russian regulatory clause requiring a specific GNSS/RTK/PPK/NTRIP performance value for MT-01/MT-02.
+
+Therefore no such value is introduced.
+
+The regulatory chain remains:
+
+OFFICIAL SOURCE → APPLICABILITY → REQUIREMENT → NAVIGATION / PLANNING ALLOCATION → VERIFICATION → EVIDENCE
+
+The existing navigation source-review records also explicitly distinguish technical navigation knowledge from regulatory authority. This distinction is retained.
+
+### 49.8 Gate status after Section 49
+
+| Gate | Status |
+|---|---|
+| Existing Navigation capability allocation | **RESOLVED** |
+| Existing SYS-REQ navigation relationships | **RESOLVED / CONTROLLED** |
+| GNSS / RTK / NTRIP dependency existence | **RESOLVED** |
+| PPK dependency/provenance | **IDENTIFIED; detailed allocation OPEN** |
+| Navigation provenance concepts | **RESOLVED at conceptual level** |
+| Exact RTK/PPK/NTRIP data contract | **OPEN** |
+| Navigation numerical thresholds | **OPEN** |
+| Regulatory performance clause mapping | **OPEN** |
+| Executable verification/evidence | **NOT DONE** |
+
+**MT-03 remains blocked.**
+
+The next deterministic allocation class is **payload / sensor compatibility**, using the existing capability mapping and payload-related system records before considering any new requirement identity.
+
+## 50. Payload / Sensor Compatibility — Controlled Resolution
+
+Section 49 identified payload / sensor compatibility as the next deterministic allocation class. The repository review confirms that this dependency is already represented by existing system requirements and a controlled vehicle/equipment capability architecture. The correct action is therefore to allocate those existing records to MT-01/MT-02 without introducing a separate Payload requirement identity.
+
+### 50.1 Existing authoritative requirement basis
+
+The controlled requirement records establish the following:
+
+- SYS-REQ-035 — Task to Capability Mapping requires the system to transform a task into the necessary capability set, including task type, required capabilities, suitable vehicle types, required payload, principal algorithms, autonomy, communication requirements and success criteria.
+- SYS-REQ-076 — UAV Capability Profile requires each connected UAV to have a machine-readable capability/limitation profile including payload capabilities and sensing capabilities, alongside flight, navigation, communication, energy, health and mission-load state.
+- ARCH-027 — Heterogeneous UAV Fleet and Mission Coordination establishes that UAVs are heterogeneous execution resources with different capabilities, limitations, payloads and states; task allocation must consider capability match, current state, energy, range, time, payload, communication, airspace constraints, risks and task priority.
+- Vehicle / Equipment Capability Model defines the controlled bridge from mission objective to required capabilities, fleet capability registry, capability matching and a concrete UAV + autopilot + equipment + C2 + battery configuration.
+- Canonical Vehicle / Equipment Schema 001 defines Equipment and EquipmentProfile as the canonical domain objects. The schema explicitly states that it contains no separate Payload object; external payload terminology may be retained only as source/protocol metadata when needed for interoperability.
+- Vehicle / Payload Integration Architecture defines payloads as independent capability objects associated with a vehicle configuration and requires capability matching before route optimization.
+- Equipment Integration Specification defines versioned equipment profiles, aircraft compatibility, configuration/calibration state, capability checks and a pre-flight equipment compatibility gate.
+
+### 50.2 Controlled allocation to MT-01 / MT-02
+
+| Existing record / dependency | MT-01 | MT-02 | Allocation |
+|---|---|---|---|
+| SYS-REQ-035 — Task to Capability Mapping | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Task requirements must be translated into required payload/sensor capabilities before planning |
+| SYS-REQ-076 — UAV Capability Profile | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Active UAV configuration must expose machine-readable payload/sensing capabilities and limits |
+| ARCH-027 — heterogeneous capability matching | SUPPORTING / DIRECT for multi-UAV allocation | SUPPORTING / DIRECT for multi-UAV allocation | Capability-based allocation, not platform-ID matching |
+| Equipment capability / compatibility state | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Candidate vehicle/equipment combination must be compatible before route/coverage optimization |
+| Payload/sensor operating modes | DIRECT ALGORITHM INPUT where mission quality depends on them | DIRECT ALGORITHM INPUT | Sensor mode constrains acquisition geometry and quality evaluation |
+| Calibration/configuration state | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Unvalidated or invalidated configuration cannot silently be treated as valid |
+| Power / mass / equipment effects | DIRECT INPUT to performance/energy models | DIRECT INPUT | Active equipment configuration affects feasibility and energy/performance |
+| Data-output / storage capability | DIRECT for missions requiring recorded products | DIRECT for missions requiring recorded products | Required mission product must be representable and recordable |
+| Gimbal / pointing / stabilization capability | CONDITIONAL DIRECT INPUT | DIRECT INPUT where oblique/viewpoint acquisition is required | Planner must use actual supported pointing capability |
+| Camera / sensor geometry | DIRECT INPUT | DIRECT INPUT | FOV, resolution/GSD-related parameters and acquisition constraints enter quality/trajectory calculation where applicable |
+
+### 50.3 Canonical terminology boundary
+
+The project currently has two legitimate contexts for the word payload:
+
+1. Mission/integration terminology — payload means mission equipment such as RGB, thermal, multispectral, LiDAR, gimbal or delivery equipment.
+2. Canonical domain schema — the normalized object is Equipment / EquipmentProfile, with capability sets and compatibility state.
+
+Therefore MT-01/MT-02 algorithm contracts shall use the normalized capability/equipment representation rather than create a parallel Payload domain object.
+
+Controlled mapping:
+
+MISSION REQUIREMENT → REQUIRED CAPABILITIES → VEHICLE + EQUIPMENT CONFIGURATION → COMPATIBILITY / VERIFICATION → PLANNING INPUT
+
+This is consistent with the existing capability architecture and avoids duplicate domain identity.
+
+### 50.4 Hard capability gate
+
+Payload/sensor compatibility is a pre-planning feasibility gate when the mission requires a mandatory capability.
+
+The controlled sequence is:
+
+TASK → REQUIRED CAPABILITIES → CANDIDATE VEHICLE/EQUIPMENT CONFIGURATION → CAPABILITY CHECK → CONFIGURATION / CALIBRATION CHECK → COMPATIBILITY CHECK → PLANNING CANDIDATE
+
+A candidate is rejected before route optimization when a mandatory capability is absent, unsupported, incompatible, invalid or otherwise not available for the selected configuration.
+
+Soft capability preferences may influence ranking among otherwise admissible configurations.
+
+The optimizer must not compensate for a missing mandatory sensor capability by changing route geometry, energy objective or another unrelated parameter.
+
+### 50.5 MT-01 consequences
+
+For mapping, the payload/equipment layer can directly constrain:
+
+- required GSD and image geometry;
+- sensor footprint/FOV;
+- frontal and side overlap feasibility;
+- acquisition/trigger capability;
+- camera orientation and stabilization;
+- operating altitude/speed range where controlled by the equipment profile;
+- recording/storage capability;
+- configuration/calibration validity;
+- mass/power effects used by vehicle performance and energy models.
+
+The MT-01 quality gate therefore consumes the validated active equipment configuration, not a nominal camera catalogue entry.
+
+No new threshold is introduced here. Existing algorithm parameters remain controlled through the parameter registry and must be sourced from the applicable payload profile, requirement, approved engineering data or controlled external source.
+
+### 50.6 MT-02 consequences
+
+For 3D reconstruction, the equipment layer additionally constrains:
+
+- required observation geometry;
+- FOV and sensor resolution;
+- pointing/gimbal capability;
+- oblique/side-looking acquisition where supported;
+- required multi-view observation;
+- acquisition timing;
+- sensor-specific reconstruction quality;
+- LiDAR swath, scan-angle and point-density parameters where the selected sensor model provides them.
+
+A sensor that cannot provide the required observation mode is not made admissible by changing the viewpoint planner alone.
+
+### 50.7 Configuration and invalidation rule
+
+The existing integration architecture establishes that changes to:
+
+- payload/equipment;
+- battery;
+- propulsion;
+- firmware/autopilot;
+- mass/centre-of-gravity;
+- equipment installation;
+- calibration/configuration;
+
+may alter the performance model or mission feasibility and therefore require recalculation or validation.
+
+For MT-01/MT-02 this maps into the dependency graph as:
+
+EQUIPMENT / CONFIGURATION CHANGE → CAPABILITY VALIDATION → ACQUISITION GEOMETRY / PERFORMANCE → ENERGY → TRAJECTORY → QUALITY → FINAL VALIDATION
+
+If the changed property cannot affect a downstream stage, the existing incremental-planning policy permits reuse of unaffected results. The dependency must be explicit; no blanket full recalculation is required.
+
+### 50.8 Compatibility and verification state
+
+The canonical schema distinguishes:
+
+SUPPORTED ≠ VERIFIED
+
+and:
+
+COMPATIBLE ≠ AUTHORIZED
+
+It also defines compatibility states:
+
+UNKNOWN | COMPATIBLE | NOT_COMPATIBLE | NEEDS_REVIEW
+
+and verification states:
+
+NOT_VERIFIED | VERIFIED | EXPIRED | INVALIDATED
+
+Accordingly, MT-01/MT-02 planning shall not infer operational readiness from capability existence alone.
+
+The algorithm may consume a configuration only when the applicable capability, compatibility and verification conditions required by the mission are satisfied.
+
+### 50.9 Candidate requirement family disposition
+
+The existing candidate SRS requirement families concerning payload/task capability are not promoted to new authoritative IDs by this review.
+
+The controlled requirement chain remains:
+
+SYS-REQ-035 / SYS-REQ-076 → capability/equipment architecture → MT-01/MT-02 algorithm rule → verification case → evidence
+
+Where a future lower-level payload/equipment data contract requires a distinct requirement, its identity must be established through the Master Requirements Register rather than invented in the algorithm document.
+
+### 50.10 Numerical / data-contract boundary
+
+The repository establishes the existence of payload/equipment parameters but does not provide a complete authoritative numerical set for all mission classes.
+
+Therefore this section deliberately does not establish:
+
+- universal camera resolution thresholds;
+- universal GSD limits;
+- universal overlap limits;
+- sensor-specific altitude limits;
+- universal minimum/maximum operating speed;
+- universal gimbal accuracy;
+- universal LiDAR point-density threshold;
+- universal storage/data-rate threshold;
+- universal power-consumption value;
+- universal payload mass limit.
+
+Such values remain controlled parameters whose source must be the active equipment profile, mission requirement/quality profile, validated engineering model or controlled external source.
+
+### 50.11 Gate status after Section 50
+
+| Gate | Status |
+|---|---|
+| Existing task-to-capability allocation (SYS-REQ-035) | RESOLVED |
+| Existing UAV capability-profile allocation (SYS-REQ-076) | RESOLVED |
+| Existing heterogeneous capability architecture (ARCH-027) | RESOLVED |
+| Canonical equipment/payload terminology boundary | RESOLVED |
+| Compatibility as pre-planning feasibility gate | RESOLVED |
+| Configuration/calibration invalidation relationship | RESOLVED at architecture level |
+| Exact lower-level payload/equipment data-contract requirement IDs | OPEN |
+| Equipment-specific numerical parameters | OPEN |
+| Regulatory/source-clause mapping for equipment performance | OPEN |
+| Executable verification/evidence for MT-01/MT-02 | NOT DONE |
+
+MT-03 remains blocked.
+
+The next deterministic allocation class is readiness and contingency lower-level interfaces, using existing SYS-REQ-008, SYS-REQ-081/082/086/093 and the established Safety Gate/authority architecture before considering any new requirement identity.
+
+## 51. Readiness / Contingency Lower-Level Interfaces — Controlled Resolution
+
+Section 50 closed the payload/sensor allocation gate. The next deterministic review is the lower-level relationship between MT-01/MT-02 planning, Mission Readiness, contingency preparation, Safety Gate and runtime recovery. The repository contains sufficient existing authoritative material to allocate the system-level dependency without creating a parallel readiness or contingency requirement set.
+
+### 51.1 Existing authoritative basis
+
+The controlled records establish:
+
+- SYS-REQ-008 — Mission Readiness: readiness is a consolidated pre-approval assessment based on validation and current conditions. It explicitly includes Airspace, Terrain, Geofence, Weather, C2 Coverage, Fleet Coordination, Energy and Contingency.
+- SYS-REQ-081 — UAV Failure Tolerance: loss of an individual UAV must not automatically destroy the mission when remaining resources can continue or safely complete it; critical tasks may be transferred to a reserve executor where defined by the mission profile.
+- SYS-REQ-082 — Safe Mission Completion: when full completion becomes impossible, the system must provide safe completion based on UAV state, task criticality, resources, energy, communication and risks. Return, validated landing, emergency behaviour, task transfer and result preservation are possible paths subject to UAV capability and Safety Engine constraints.
+- SYS-REQ-086 — Graceful Degradation: resource shortage shall cause controlled degradation by priority; P0/P1 remain protected and P2 is retained to the extent required for safe mission execution.
+- SYS-REQ-093 — Controlled Resource Recovery: after overload removal, restricted services recover in a controlled order without secondary overload; degradation/recovery state is recorded.
+- ARCH-DEC-007 — Mission Validation and Safety Gate establishes the mandatory path MISSION PLAN → VALIDATION → READINESS → SAFETY GATE → APPROVAL → EXECUTION and states that unresolved contingency, energy, C2 or other critical conditions can block execution.
+- ARCH-DEC-016 — Safety Architecture and Execution Gate makes the Safety Gate authoritative for safety-critical execution and explicitly includes contingency, energy, communication, fleet and emergency conditions.
+- ARCH-DEC-017 — Error Handling / Recovery / Contingency Architecture defines DETECT → CLASSIFY → ASSESS → RESPOND → REVALIDATE → RECOVER / ADAPT / REPLAN / ABORT, including contingency activation, emergency return/landing, resource replacement, UAV/payload reassignment and Mission Readiness recalculation.
+- ARCH-DEC-038 — Mission Execution Orchestration requires current readiness, configuration, resources, capabilities, communication and safety state before execution and requires revalidation after material runtime changes.
+- AUTHORIZATION_READINESS_GATE_001 already provides a lower-level deterministic authorization/readiness contract and explicitly states that it does not replace spatial, safety, weather, insurance, technical or other readiness gates.
+
+### 51.2 Controlled allocation to MT-01 / MT-02
+
+| Existing record / dependency | MT-01 | MT-02 | Allocation |
+|---|---|---|---|
+| SYS-REQ-008 — Mission Readiness | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Planning result must provide the inputs required for consolidated readiness |
+| SYS-REQ-081 — UAV Failure Tolerance | SUPPORTING / DIRECT for multi-UAV | SUPPORTING / DIRECT for multi-UAV | Candidate plan must expose task/resource relationships needed for failure impact and possible reassignment |
+| SYS-REQ-082 — Safe Mission Completion | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Plan must support safe-completion feasibility inputs; execution authority remains outside planner |
+| SYS-REQ-086 — Graceful Degradation | SUPPORTING / CROSS-CUTTING | SUPPORTING / CROSS-CUTTING | Planning/resource decisions must respect priority-based degradation and protected safety functions |
+| SYS-REQ-093 — Controlled Resource Recovery | SUPPORTING / CROSS-CUTTING | SUPPORTING / CROSS-CUTTING | Planner consumes current resource/readiness state; recovery authority remains in runtime architecture |
+| Safety Gate / Mission Validation | DIRECT GATE | DIRECT GATE | No selected plan becomes executable without validation/readiness/safety/approval path |
+| Contingency alternatives | DIRECT PLANNING INPUT/OUTPUT where applicable | DIRECT PLANNING INPUT/OUTPUT where applicable | Planner may prepare alternate routes, landing locations, reserve allocations or fallback mission variants |
+| Runtime contingency activation | NOT PLANNER AUTHORITY | NOT PLANNER AUTHORITY | Activation is owned by Safety/Execution architecture |
+| Revalidation after material change | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Changed environment/resource/mission state invalidates affected planning/readiness results |
+| Authorization readiness | DIRECT DEPENDENCY | DIRECT DEPENDENCY | Valid authorization state is an input to the constrained planning domain where applicable |
+
+### 51.3 Readiness is an input/output boundary, not a planning authority
+
+The controlled architecture establishes a strict separation:
+
+PLANNING → VALIDATION → READINESS → SAFETY GATE → APPROVAL → EXECUTION
+
+Therefore MT-01/MT-02 may calculate feasibility and prepare the information required by readiness, but they shall not set the authoritative mission to READY, approve execution or bypass the Safety Gate.
+
+The planner may report a plan-level feasibility result such as feasible, infeasible, blocked, degraded or contingency-required, but the authoritative system readiness state remains owned by the existing Mission Readiness architecture.
+
+This preserves the distinction already established by SYS-REQ-008 and ARCH-DEC-007.
+
+### 51.4 Contingency planning boundary
+
+The planning layer may prepare contingency candidates when required by the mission profile. Existing architecture explicitly permits reserve UAVs, reserve energy, alternate routes, alternate landing locations, communication relay alternatives, payload alternatives, fallback mission objectives and emergency procedures.
+
+For MT-01/MT-02, these are planning artefacts or feasibility inputs. Their activation is not owned by the planner.
+
+Controlled boundary:
+
+CONTINGENCY CANDIDATE → VALIDATION → READINESS → SAFETY GATE → APPROVAL WHERE REQUIRED → EXECUTION
+
+The planner shall never convert a contingency candidate directly into an execution command.
+
+### 51.5 Failure and resource-loss consequences
+
+For MT-01/MT-02, the dependency graph shall distinguish at least:
+
+UAV LOSS → affected task/candidate identification → capability/resource reassessment → possible reassignment/replanning → validation → readiness → safety gate
+
+ENERGY DEGRADATION → affected trajectory/energy feasibility → candidate invalidation or recovery alternative → validation → readiness → safety gate
+
+C2 DEGRADATION → communication-dependent feasibility assessment → affected candidate invalidation/adaptation → validation → readiness → safety gate
+
+PAYLOAD/CAPABILITY LOSS → affected acquisition/task quality → candidate invalidation or task reassignment → validation → readiness → safety gate
+
+These are dependency rules, not new execution authorities.
+
+### 51.6 Safe completion inputs
+
+SYS-REQ-082 and ARCH-DEC-017 establish that safe completion depends on current UAV state, task criticality, available resources, energy, communication, navigation, environmental/spatial conditions, UAV-specific return/landing/emergency capabilities and Safety Engine decisions.
+
+MT-01/MT-02 shall therefore expose sufficient planning state to evaluate return/recovery feasibility where applicable, but shall not hard-code universal emergency behaviour into the mapping/reconstruction planners.
+
+UAV-specific emergency procedures remain capability/configuration controlled.
+
+### 51.7 Graceful degradation and priority
+
+SYS-REQ-086 establishes priority-based degradation, with P0/P1 protected and P2 retained as required for safe mission execution.
+
+Accordingly, an optimization candidate shall not trade away mandatory safety/C2/navigation capability merely to preserve lower-priority mission quality, time or resource objectives.
+
+Where degradation removes a mission capability, the planning layer may reduce mission scope, reassign tasks, select a lower-complexity candidate, generate a fallback plan or declare the requested mission infeasible; the resulting state must pass the existing validation/readiness/safety path.
+
+### 51.8 Controlled recovery and incremental planning
+
+SYS-REQ-093 governs controlled restoration of restricted services after overload. It does not grant the planner authority to restore runtime services.
+
+For planning purposes:
+
+RESOURCE STATE CHANGE → DEPENDENCY GRAPH → INVALIDATE AFFECTED RESULTS → RECOMPUTE MINIMUM REQUIRED STAGES
+
+Unchanged planning results may be retained when their dependency set remains valid. Recovery of a runtime service is separately governed by the runtime architecture.
+
+### 51.9 Lower-level readiness records
+
+The repository already contains lower-level readiness mechanisms, including the authorization readiness gate and dynamic readiness-action graph. These should be treated as implementation/decomposition artefacts beneath the existing system-level readiness requirement, not as independent replacement requirements.
+
+No new readiness requirement ID is introduced by this section.
+
+The same rule applies to contingency/recovery implementation artefacts: existing architecture and software contracts are lower-level realizations of the authoritative system requirements.
+
+### 51.10 Numerical / authority boundary
+
+This review deliberately does not establish universal readiness thresholds, universal contingency trigger thresholds, universal return-energy thresholds, universal C2 degradation limits, universal recovery timing, universal emergency landing criteria, universal reserve UAV rules or universal degradation percentages.
+
+Those values remain controlled by the applicable requirement, safety policy, UAV configuration, mission profile, validated engineering model or authoritative external source.
+
+### 51.11 Candidate requirement family disposition
+
+Candidate readiness, return/recovery, authorization and degradation families are not promoted to independent authoritative IDs by this review.
+
+The controlled chain remains:
+
+SYS-REQ-008 / SYS-REQ-081 / SYS-REQ-082 / SYS-REQ-086 / SYS-REQ-093 → ARCH-DEC-007 / 016 / 017 / 038 → MT-01 / MT-02 planning rules → verification → evidence
+
+Where a lower-level requirement is genuinely missing, its identity must be established through the Master Requirements Register after controlled gap analysis.
+
+### 51.12 Gate status after Section 51
+
+| Gate | Status |
+|---|---|
+| Mission Readiness system-level allocation | RESOLVED |
+| Safe-completion allocation | RESOLVED |
+| UAV failure / reassignment allocation | RESOLVED |
+| Graceful degradation allocation | RESOLVED |
+| Controlled resource recovery allocation | RESOLVED |
+| Safety Gate / authority boundary | RESOLVED |
+| Contingency planning boundary | RESOLVED |
+| Lower-level readiness implementation relationship | RESOLVED at architecture level |
+| Exact lower-level readiness/contingency requirement IDs | OPEN |
+| Numerical readiness/contingency parameters | OPEN |
+| Regulatory/safety clause mapping for quantitative triggers | OPEN |
+| Executable verification/evidence for MT-01/MT-02 | NOT DONE |
+
+MT-03 remains blocked.
+
+The next deterministic allocation class is the verification/evidence linkage for the resolved MT-01/MT-02 dependencies, beginning with existing verification identities and controlled datasets rather than creating new verification IDs.
+
+
+## 52. MT-01 / MT-02 Verification and Evidence Linkage — Controlled Resolution
+
+Section 51 identified verification/evidence linkage as the next deterministic gate. The repository was first reconciled against the existing Verification Register and verification tree.
+
+### 52.1 Existing verification identity reconciliation
+
+The current branch contains controlled verification identities for Navigation (`NAV-V01..NAV-V20`, `NAV-TV-001..010`) and C2 (`C2-V01..V08`), but no existing `V-M01-*` or `V-M02-*` identity family.
+
+Therefore:
+
+- existing NAV/C2 identities are retained for their existing scopes;
+- they are not silently reused as MT planning cases;
+- no duplicate legacy MT identity exists to link;
+- a real MT-specific verification decomposition gap was confirmed.
+
+### 52.2 Controlled MT verification identities
+
+The confirmed gap is now closed at the **identity/decomposition level** by the controlled case definition:
+
+`05_VERIFICATION/PLANNING/MT01_MT02_VERIFICATION_CASES_001.md`
+
+Controlled identities:
+
+```
+MT-01: V-M01-01 … V-M01-10
+MT-02: V-M02-01 … V-M02-11
+```
+
+The cases are derived directly from the already-defined MT-01/MT-02 verification scenarios and algorithm stages. They do not introduce new requirements.
+
+### 52.3 Controlled test datasets
+
+The case-to-dataset definitions are controlled in:
+
+`05_VERIFICATION/PLANNING/MT01_MT02_TEST_DATASETS_001.md`
+
+Dataset families:
+
+```
+MT-01: MT01-T01 … MT01-T09
+MT-02: MT02-T21 … MT02-T31
+```
+
+The dataset definitions establish scenario intent and required provenance fields. They do not claim that the actual datasets have already been captured.
+
+### 52.4 Requirement / verification linkage
+
+The current controlled requirement allocation established in Sections 44–51 provides the requirement/design basis for the first verification pass.
+
+The principal allocation is:
+
+| Planning dependency | MT-01 / MT-02 verification consequence |
+|---|---|
+| SYS-REQ-035 / SYS-REQ-076 | capability/equipment feasibility cases |
+| SYS-REQ-080 / 081 / 082 / 084 / 085 / 086 / 091 / 093 | resource, safety, navigation, degradation and safe-completion consequences |
+| SYS-REQ-110 / 111 / 112 | AI-assisted planning authority/offline continuity cases where AI is active |
+| SYS-REQ-008 | readiness-input and blocking-state consequences |
+| SYS-REQ-067 / SYS-REQ-068 | external airspace/weather data interface dependencies |
+| ARCH-DEC-007 / 016 / 017 / 038 | validation, Safety Gate, contingency and runtime revalidation boundary |
+| Navigation State / Algorithm / Verification records | navigation quality, freshness, reference-frame and degradation inputs |
+
+This is a **basis allocation**, not a claim that every case has a one-to-one requirement closure. Lower-level candidate requirement families remain governed by the Master Requirements Register.
+
+### 52.5 Existing verification reuse rule
+
+Existing verification identities shall be linked only where their controlled scope actually covers the MT algorithm objective.
+
+Examples:
+
+- `NAV-V05` may support the wind-change/navigation dependency but does not replace `V-M01-06` or `V-M02-08`.
+- `NAV-V08/V09/V12` may support stale/invalid/degraded navigation inputs but do not replace the complete MT planning cases.
+- `NAV-V19` may support multi-UAV navigation behavior but does not replace `V-M02-10`.
+- C2 cases remain C2-specific and are not relabeled as MT cases.
+
+This prevents verification coverage inflation by semantic overlap.
+
+### 52.6 Evidence state
+
+Current state after controlled decomposition:
+
+| Layer | State |
+|---|---|
+| Requirement/design basis | CONTROLLED / PARTIAL by allocation class |
+| Verification identity | CONTROLLED |
+| Verification definition | DEFINED |
+| Dataset identity | CONTROLLED |
+| Actual dataset package | OPEN |
+| Execution configuration | OPEN |
+| Execution result | NOT EXECUTED |
+| Evidence | OPEN |
+| Certification closure | OPEN |
+
+A case cannot become `PASSED` or `VERIFIED` from documentation alone.
+
+### 52.7 Next deterministic verification action
+
+The next step is **not** to create more requirement IDs or more verification IDs.
+
+It is to bind each `V-M01-*` / `V-M02-*` case to:
+
+1. the exact existing authoritative requirement/design basis;
+2. the exact dataset version;
+3. the execution configuration;
+4. objective acceptance criteria from the already-controlled algorithm/parameter registry;
+5. the resulting evidence record.
+
+Where a requirement or acceptance criterion is still OPEN, the case remains OPEN rather than receiving an invented value.
+
+### 52.8 Gate after Section 52
+
+| Gate | Status |
+|---|---|
+| Existing verification identity search | RESOLVED |
+| MT-01 verification identity/decomposition | RESOLVED |
+| MT-02 verification identity/decomposition | RESOLVED |
+| Dataset identity/decomposition | RESOLVED |
+| Requirement linkage | PARTIAL / CONTROLLED |
+| Exact case-level acceptance criteria | OPEN where controlled parameter is missing |
+| Execution configuration | OPEN |
+| Actual execution | NOT DONE |
+| Evidence | NOT DONE |
+| Deterministic replay execution | NOT DONE |
+| Certification closure | NOT DONE |
+
+**MT-03 remains BLOCKED.**
+
+The next deterministic work item is case-level requirement/dataset/configuration binding, beginning with `V-M01-01` and `V-M02-01`, without creating additional identities unless a separately proven coverage gap appears.
+
+
+## 53. MT-01 Transition Graph — First Implementation Slice
+
+The first MT-01 transition-graph implementation is controlled as an isolated planning component:
+
+- input: generated coverage tracks, constrained-environment snapshot, calculation version;
+- transition: directed connector from the end of one track to the start of another track;
+- admissibility: connector must pass the existing constrained-segment validator at the source track altitude;
+- cost policy for this slice: `DISTANCE_ONLY`, therefore `cost_m = distance_m`;
+- deterministic dependency identity is retained;
+- invalid track input fails closed;
+- rejected connectors are counted explicitly.
+
+No unvalidated weights are introduced for turn cost, wind, energy, risk, vehicle dynamics or alternative connector geometry.
+
+The next deterministic MT-01 implementation step is **route candidate refinement/integration**: additional admissible orderings, then wind/vehicle/energy/trajectory evaluation. Full transition-cost refinement remains downstream of the first candidate-generation slice.
+
+
+### 53.1 Bounded route-candidate refinement
+
+The route-candidate generator now evaluates a bounded deterministic family rather than only one fixed start track:
+
+1. each generated track is considered as a possible starting track;
+2. for each start, the same distance-only greedy expansion is applied;
+3. incomplete routes are rejected;
+4. complete candidates are sorted by total transition cost;
+5. equal-cost candidates are ordered lexicographically by their track-ID sequence;
+6. `max_candidates` bounds the retained candidate set.
+
+This remains a **candidate-generation** stage. It does not claim global optimality and does not yet include wind, vehicle performance, energy, turn dynamics, trajectory feasibility or risk costs.
+
+
+### 53.2 Route-candidate → wind/performance integration boundary
+
+Route candidates are now convertible into the existing `Route` model and evaluated through the established `WindPerformanceTrajectory` component.
+
+The integration layer:
+
+- preserves candidate track order and transition geometry;
+- creates explicit route segment identities;
+- carries candidate lineage into the generated route;
+- invokes the existing wind/performance/energy evaluator;
+- retains its fail-closed findings, including missing wind, invalid wind, wind tolerance, unavailable ground speed and insufficient reserve.
+
+The integration layer does **not** duplicate wind or energy calculations and does not invent environmental or UAV parameters.
+
+A candidate with missing required wind samples remains `INFEASIBLE` through the existing evaluator; this is an expected controlled outcome, not execution evidence.
+
+
+### 53.3 Hard-feasibility selection boundary
+
+After wind/performance evaluation, MT-01 route candidates are converted to the existing `CandidateSolution` contract and passed to `CandidateComparator`.
+
+The controlled order is:
+
+`candidate generation → wind/performance feasibility → reject infeasible candidates → objective comparison → deterministic selection`.
+
+The selector does not treat infeasibility as a soft penalty and does not invent an objective. Objective priorities remain an explicit mission input. If no candidate is feasible, selection fails with `NO_FEASIBLE_ROUTE_CANDIDATE`.
