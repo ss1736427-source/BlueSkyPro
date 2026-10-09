@@ -61,15 +61,10 @@ bool validPoint(const GeoPoint&p) {
 
 CoverageCellConstraintState classify(const std::vector<GeoPoint>& cell,
                                      const CoverageDecompositionInput& i) {
-    if(i.environment.restrictions.empty()) return CoverageCellConstraintState::Open;
-    const double altitude=(i.minimum_altitude_m+i.maximum_altitude_m)*0.5;
-    for(std::size_t n=0;n<cell.size();++n) {
-        SpatialEdge edge{cell[n],cell[(n+1)%cell.size()],altitude,
-                         i.minimum_altitude_m,i.maximum_altitude_m};
-        if(!ConstrainedOpenSpace::evaluateSegment(i.environment,edge).allowed)
-            return CoverageCellConstraintState::Constrained;
-    }
-    return CoverageCellConstraintState::Open;
+    return ConstrainedOpenSpace::evaluatePolygon(
+        i.environment, cell, i.minimum_altitude_m, i.maximum_altitude_m).allowed
+        ? CoverageCellConstraintState::Open
+        : CoverageCellConstraintState::Constrained;
 }
 }
 CoverageDecompositionResult CoverageDecompositionEngine::decompose(const CoverageDecompositionInput&i) {
@@ -146,6 +141,7 @@ CoverageTrackResult CoverageTrackGenerator::generate(const CoverageTrackInput& i
         std::to_string(input.altitude_m);
 
     for(const auto& cell : input.decomposition.cells) {
+        if(cell.constraint_state == CoverageCellConstraintState::Constrained) continue;
         if(cell.polygon.size() < 3) {
             result.failure_code="INVALID_CELL_GEOMETRY";
             return result;
