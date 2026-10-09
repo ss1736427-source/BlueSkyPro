@@ -40,6 +40,8 @@ jobs:
       - name: Install Qt 6.11.2 MinGW and required modules
         uses: jurplel/install-qt-action@v4
         with:
+          # Match the aqtinstall source pinned by upstream MapLibre's Qt 6.11.2 workflow.
+          aqtsource: git+https://github.com/miurahr/aqtinstall.git@076e1659807d0b362a3ed684d54c2e9c775eb9c7
           version: '6.11.2'
           host: 'windows'
           target: 'desktop'
