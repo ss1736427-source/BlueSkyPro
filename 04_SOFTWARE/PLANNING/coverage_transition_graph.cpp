@@ -42,3 +42,68 @@ CoverageTransitionGraphResult CoverageTransitionGraphBuilder::build(const Covera
     return result;
 }
 } // namespace bluesky::planning
+
+
+CoverageRouteCandidateResult CoverageRouteCandidateBuilder::generate(
+    const CoverageRouteCandidateInput& input) {
+    CoverageRouteCandidateResult result;
+    if (!input.graph.valid) {
+        result.failure_code = "INVALID_TRANSITION_GRAPH";
+        return result;
+    }
+    if (input.graph.track_ids.empty()) {
+        result.failure_code = "NO_COVERAGE_TRACK";
+        return result;
+    }
+    if (input.max_candidates == 0) {
+        result.failure_code = "INVALID_CANDIDATE_LIMIT";
+        return result;
+    }
+
+    result.dependency_identity =
+        input.graph.dependency_identity + "|ROUTES|" + input.calculation_version;
+
+    const std::string& start = input.graph.track_ids.front();
+    CoverageRouteCandidate candidate;
+    candidate.track_ids.push_back(start);
+
+    std::vector<bool> used(input.graph.track_ids.size(), false);
+    used[0] = true;
+
+    while (candidate.track_ids.size() < input.graph.track_ids.size()) {
+        const std::string& current = candidate.track_ids.back();
+        const CoverageTransitionEdge* best = nullptr;
+        std::size_t best_index = 0;
+
+        for (const auto& edge : input.graph.edges) {
+            if (edge.from_track_id != current) continue;
+            std::size_t target_index = input.graph.track_ids.size();
+            for (std::size_t i = 0; i < input.graph.track_ids.size(); ++i) {
+                if (input.graph.track_ids[i] == edge.to_track_id) {
+                    target_index = i;
+                    break;
+                }
+            }
+            if (target_index >= used.size() || used[target_index]) continue;
+            if (!best || edge.cost_m < best->cost_m ||
+                (edge.cost_m == best->cost_m && edge.to_track_id < best->to_track_id)) {
+                best = &edge;
+                best_index = target_index;
+            }
+        }
+
+        if (!best) {
+            result.failure_code = "NO_COMPLETE_ROUTE_CANDIDATE";
+            return result;
+        }
+
+        candidate.transitions.push_back(*best);
+        candidate.transition_cost_m += best->cost_m;
+        candidate.track_ids.push_back(best->to_track_id);
+        used[best_index] = true;
+    }
+
+    result.candidates.push_back(candidate);
+    result.valid = true;
+    return result;
+}
