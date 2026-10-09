@@ -321,7 +321,7 @@ AcquisitionEventResult AcquisitionEventValidator::generate(
         event.position=track.start;
         event.camera_ground_distance_m =
             input.geometry.footprint_height_m > 0.0
-                ? input.geometry.focal_length_m
+                ? input.geometry.camera_ground_distance_m
                 : 0.0;
         event.gsd_width_m_per_px=input.geometry.gsd_width_m_per_px;
         event.gsd_height_m_per_px=input.geometry.gsd_height_m_per_px;
