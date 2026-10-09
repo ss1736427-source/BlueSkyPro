@@ -4935,3 +4935,14 @@ The integration layer:
 The integration layer does **not** duplicate wind or energy calculations and does not invent environmental or UAV parameters.
 
 A candidate with missing required wind samples remains `INFEASIBLE` through the existing evaluator; this is an expected controlled outcome, not execution evidence.
+
+
+### 53.3 Hard-feasibility selection boundary
+
+After wind/performance evaluation, MT-01 route candidates are converted to the existing `CandidateSolution` contract and passed to `CandidateComparator`.
+
+The controlled order is:
+
+`candidate generation → wind/performance feasibility → reject infeasible candidates → objective comparison → deterministic selection`.
+
+The selector does not treat infeasibility as a soft penalty and does not invent an objective. Objective priorities remain an explicit mission input. If no candidate is feasible, selection fails with `NO_FEASIBLE_ROUTE_CANDIDATE`.
