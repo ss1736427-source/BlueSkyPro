@@ -30,6 +30,8 @@ struct AcquisitionGeometryResult {
     std::string dependency_identity;
 
     double camera_ground_distance_m{0.0};
+    double frontal_overlap_ratio{0.0};
+    double side_overlap_ratio{0.0};
     double footprint_width_m{0.0};
     double footprint_height_m{0.0};
     double gsd_width_m_per_px{0.0};
