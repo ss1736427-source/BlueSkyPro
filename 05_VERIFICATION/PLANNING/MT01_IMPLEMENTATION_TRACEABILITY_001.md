@@ -21,7 +21,7 @@ This document distinguishes implemented reusable infrastructure, partial impleme
 | 1. Constrained open space | Build feasible spatial domain from restrictions, altitude, terrain/obstacle, UAV and safety constraints | constrained_open_space.*, constrained_planning_graph.*, notam_prohibited_zone_validator.* | corresponding unit tests | PARTIAL / REUSABLE |
 | 2. Acquisition geometry | Derive GSD, footprint, track spacing, image spacing, trigger/frame requirements from controlled camera model | `acquisition_geometry.*` implements controlled sensor geometry, GSD, footprint, spacing and trigger timing with fail-closed input validation | `acquisition_geometry_test.cpp` | IMPLEMENTED — first implementation slice |
 | 3. Terrain following | Maintain controlled camera-to-surface distance under terrain/obstacle/altitude/vehicle constraints | flight_profile.*, vertical/route infrastructure exists; no photogrammetry terrain-following planner found | flight-profile / vertical tests | PARTIAL |
-| 4. Orientation candidates | Generate and evaluate bounded survey orientations using coverage/turn/wind/energy/terrain criteria | no MT-01 orientation-search module found | none identified | GAP |
+| 4. Orientation candidates | Generate and evaluate bounded survey orientations using controlled geometry/search parameters | `coverage_orientation.*` generates deterministic bounded orientation candidates, projected width and estimated track count; downstream wind/energy evaluation remains separate | `coverage_orientation_test.cpp` | IMPLEMENTED — first generation slice |
 | 5. Cellular decomposition | Decompose AOI into planning cells where required | no MT-01 coverage decomposition engine found | none identified | GAP |
 | 6. Coverage tracks | Generate parallel acquisition tracks, clip to geometry, enforce footprint coverage and endpoints | no MT-01 coverage-track generator found | none identified | GAP |
 | 7. Edge coverage | Deliberately validate/repair boundary and corner acquisition coverage | no dedicated edge-coverage implementation found | none identified | GAP |
@@ -75,9 +75,13 @@ Remaining integration work: bind the engine to the canonical mission/equipment c
 
 ### GAP-MT01-002 — Coverage Orientation Generator
 
-Required: bounded candidate orientation generation, deterministic ordering, and objective inputs for coverage, turns, wind, energy and terrain complexity.
+Status: **CLOSED FOR FIRST GENERATION SLICE; EVALUATION/INTEGRATION REMAINS OPEN.**
 
-Current state: not identified.
+Implemented in `04_SOFTWARE/PLANNING/coverage_orientation.hpp/.cpp` and registered in `CMakeLists.txt`, with `coverage_orientation_test.cpp`.
+
+The generator validates AOI and acquisition geometry, consumes an explicit controlled angle range and step, emits deterministic candidate IDs/order, calculates projected AOI width and estimated track count from controlled track spacing, and records dependency identity.
+
+Wind, energy, turn-cost and terrain-complexity scoring are intentionally not embedded in this generator; those belong to subsequent candidate evaluation stages.
 
 ### GAP-MT01-003 — Coverage Decomposition Engine
 
@@ -154,10 +158,10 @@ No MT-01 execution result shall be claimed yet.
 
 ## 8. Next deterministic implementation step
 
-`GAP-MT01-001` is now closed for its first implementation slice. The next dependency is **GAP-MT01-002 — Coverage Orientation Generator**.
+`GAP-MT01-001` and `GAP-MT01-002` are closed for their first implementation slices. The next dependency is **GAP-MT01-003 — Coverage Decomposition Engine**.
 
-The next implementation must consume the acquisition-geometry result and generate bounded, deterministic survey orientations without introducing universal hard-coded acceptance values.
+The next implementation must consume the controlled AOI, constrained spatial domain and selected orientation candidates, and produce deterministic planning cells without introducing universal hard-coded acceptance values.
 
-Remaining dependency order: MT01-002 → MT01-003 → MT01-004 → MT01-005 → MT01-006 → MT01-007.
+Remaining dependency order: MT01-003 → MT01-004 → MT01-005 → MT01-006 → MT01-007.
 
 MT-02 and MT-03 remain outside this step.
