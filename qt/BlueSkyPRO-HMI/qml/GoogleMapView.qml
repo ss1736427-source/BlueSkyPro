@@ -8,7 +8,8 @@ Item {
     property real centerLongitude: 37.6176
     property int zoomLevel: 10
     readonly property bool useMapTiler: typeof mapTilerApiKey !== "undefined" && mapTilerApiKey.length > 0
-    property string attribution: useMapTiler ? "MapTiler" : "Yandex Maps"
+    readonly property bool useCartoDark: !useMapTiler && typeof cartoApiKey !== "undefined" && cartoApiKey.length > 0
+    property string attribution: useMapTiler ? "© MapTiler © OpenStreetMap contributors" : (useCartoDark ? "© OpenStreetMap contributors, © CARTO" : "Yandex Maps")
     property string mapStatus: "INITIALIZING"
     // No preview route: only verified Planning Core geometry may be rendered.
     property var routeCoordinates: []
@@ -58,7 +59,7 @@ Item {
 
         loadedTileCount = 0
         failedTileCount = 0
-        if (!useMapTiler && yandexMapsApiKey.length === 0) {
+        if (!useMapTiler && !useCartoDark && yandexMapsApiKey.length === 0) {
             mapStatus = "API KEY REQUIRED"
             tiles = []
             return
@@ -86,16 +87,20 @@ Item {
                     ty: ty,
                     x: tx * tileSize - cx + width / 2 + panOffsetX,
                     y: ty * tileSize - cy + height / 2 + panOffsetY,
-                    key: (useMapTiler ? "maptiler/dataviz-dark/" : "yandex/future_map/web_mercator/") +
+                    key: (useMapTiler ? "maptiler/dataviz-dark/" : (useCartoDark ? "carto/dark_all/" : "yandex/future_map/web_mercator/")) +
                          zoomLevel + "/" + wrappedX + "/" + ty,
                     url: useMapTiler
                          ? "https://api.maptiler.com/maps/dataviz-dark/256/" +
                            zoomLevel + "/" + wrappedX + "/" + ty + ".png?key=" +
                            encodeURIComponent(mapTilerApiKey)
-                         : "https://tiles.api-maps.yandex.ru/v1/tiles/?x=" +
-                           wrappedX + "&y=" + ty + "&z=" + zoomLevel +
-                           "&lang=en_US&l=map&maptype=future_map&projection=web_mercator&apikey=" +
-                           encodeURIComponent(yandexMapsApiKey),
+                         : (useCartoDark
+                            ? "https://basemaps.cartocdn.com/rastertiles/dark_all/" +
+                              zoomLevel + "/" + wrappedX + "/" + ty + ".png?key=" +
+                              encodeURIComponent(cartoApiKey)
+                            : "https://tiles.api-maps.yandex.ru/v1/tiles/?x=" +
+                              wrappedX + "&y=" + ty + "&z=" + zoomLevel +
+                              "&lang=en_US&l=map&maptype=future_map&projection=web_mercator&apikey=" +
+                              encodeURIComponent(yandexMapsApiKey)),
                     source: ""
                 })
             }
@@ -191,7 +196,7 @@ Item {
         anchors.fill: parent
         z: 10
         color: "#071321"
-        opacity: root.useMapTiler ? 0.12 : 0.58
+        opacity: (root.useMapTiler || root.useCartoDark) ? 0.12 : 0.58
         visible: true
     }
 
@@ -337,7 +342,7 @@ Item {
         Text {
             id: statusText
             anchors.centerIn: parent
-            text: (!root.useMapTiler && yandexMapsApiKey.length === 0)
+            text: (!root.useMapTiler && !root.useCartoDark && yandexMapsApiKey.length === 0)
                   ? "MAP API KEY REQUIRED"
                   : root.attribution.toUpperCase() + ": " + root.mapStatus
             color: "#FFD43B"
