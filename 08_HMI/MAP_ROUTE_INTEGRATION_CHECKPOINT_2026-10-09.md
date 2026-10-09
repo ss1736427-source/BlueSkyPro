@@ -50,7 +50,7 @@ Do not create placeholder fleet, performance, trajectory, safety, or minimum-sep
 - It preserves lineage/order, builds adjacent segments with great-circle distances, marks graph start/goal mandatory, and rejects missing/duplicate nodes, invalid WGS84, non-finite altitude, missing lineage, fewer than two points, wrong endpoints, and missing/invalid directed edges.
 - Tests cover successful mapping and invalid/disconnected route cases.
 - `qt/BlueSkyPRO-HMI/tests/SelectedRouteMapHandoffTest.cpp` covers ordered WGS84 output, preservation of existing request inputs, graph mismatch, and infeasible-candidate rejection without request mutation.
-- `qt/BlueSkyPRO-HMI/tests/RouteGeometrySerializerTest.cpp` covers geometry serialization and invalid-request/route rejection.
+- `qt/BlueSkyPRO-HMI/tests/RouteGeometrySerializerTest.cpp` covers geometry serialization and invalid-request/route rejection. Commit `02bd4114` adds fail-closed checks for the Planning Core request's required `zoneStatus`, `assignmentStatus`, non-empty `routes`, `performance`, `trajectories`, and `minimums.horizontalM/verticalM` before attaching geometry. Commit `a27c50a7` updates the contract fixture and adds tests that incomplete requests are rejected without mutation. This prevents the HMI handoff from knowingly submitting a request missing schema-required planning inputs; it does not supply those inputs.
 - HMI CMake registers both contract tests and compiles the new `SelectedRoutePlanningService`.
 
 ## Verification state
@@ -61,13 +61,15 @@ Do not create placeholder fleet, performance, trajectory, safety, or minimum-sep
 - The `SelectedRoutePlanningService` is included in HMI commit `7f52818ccc4038bbe399835c42d992a3424566cf`. HMI Qt Build run [37918167417](https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37918167417) completed successfully, including Configure, Build, and HMI contract tests. Planning Benchmark run [37918167525](https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37918167525) also completed successfully, including Build and Test. Multi-UAV Validator and journal-service CI runs for the same commit completed successfully.
 - Commit `62adf13d3d2480e50500b275cacea62442899d64` removes the synchronous `waitForBytesWritten(1000)` from `PlanningBridge::sendRequest()` so sending a planning request does not explicitly wait up to one second on the caller thread. HMI Qt Build run [37918697314](https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37918697314) completed successfully, including Configure, Build, and HMI contract tests. Planning Benchmark run [37918697253](https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37918697253) completed successfully, including Build and Test. Multi-UAV Validator run [37918697235](https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37918697235) and journal-service CI run [37918697281](https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37918697281) also completed successfully.
 - A recursive inventory of the current branch's HMI sources confirms the HMI has `main.cpp`, `PlanningBridge`, route serializer/handoff/service, and QML files, but no HMI-side `AlgorithmOrchestrator`, `MissionProblem`/`PlanningGraph` owner, or full request-input provider file. The orchestration/domain code exists outside the HMI target; there is no current caller joining it to the HMI service.
+- CI for the request completeness guard and new negative tests is pending/not yet confirmed.
 - Local Windows build/runtime has not been verified.
 - End-to-end selected route -> complete request -> JSONL Planning Core -> `PlanningBridge.result` -> QML map remains **NOT IMPLEMENTED / NOT VERIFIED**.
 
 ## Next deterministic work item
 
-1. Design the missing application-level integration owner only after identifying authoritative APIs for candidate selection, graph lifetime, and complete request inputs. The current HMI source inventory contains no such owner/provider; adding a guessed `main.cpp` construction would fabricate mission state.
-2. Define the interface that supplies the already validated full request alongside the exact selected candidate and graph, including route/input version identity for change-triggered submission.
-3. Connect `SelectedRoutePlanningService::submitSelectedRoute(...)` at that owner, triggered by a changed selected route or relevant calculation inputs—not by every QML refresh.
-4. Extend integration coverage to assert route geometry survives the JSONL adapter and is accepted by `PlanningBridge`, then reaches the QML map binding.
-5. Verify the existing Windows project build and a real selected-route scenario. Do not claim integration complete before this passes.
+1. Confirm CI for commits `02bd4114` and `a27c50a7`; fix only demonstrated failures.
+2. Design the missing application-level integration owner only after identifying authoritative APIs for candidate selection, graph lifetime, and complete request inputs. The current HMI source inventory contains no such owner/provider; adding a guessed `main.cpp` construction would fabricate mission state.
+3. Define the interface that supplies the already validated full request alongside the exact selected candidate and graph, including route/input version identity for change-triggered submission.
+4. Connect `SelectedRoutePlanningService::submitSelectedRoute(...)` at that owner, triggered by a changed selected route or relevant calculation inputs—not by every QML refresh.
+5. Extend integration coverage to assert route geometry survives the JSONL adapter and is accepted by `PlanningBridge`, then reaches the QML map binding.
+6. Verify the existing Windows project build and a real selected-route scenario. Do not claim integration complete before this passes.
