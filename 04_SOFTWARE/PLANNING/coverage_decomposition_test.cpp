@@ -127,6 +127,9 @@ int main() {
     assert(clipped_quality.footprint_union_area_m2>0.0);
     assert(clipped_quality.footprint_union_area_m2<=clipped_quality.aoi_area_m2);
     assert(clipped_quality.coverage_ratio<=1.0);
+    assert(!clipped_quality.uncovered_geometry.empty());
+    assert(clipped_quality.uncovered_area_m2>=0.0);
+    assert(clipped_quality.uncovered_area_m2 < clipped_quality.aoi_area_m2);
 
     return 0;
 }
