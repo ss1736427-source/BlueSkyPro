@@ -337,4 +337,61 @@ AcquisitionEventResult AcquisitionEventValidator::generate(
     return result;
 }
 
+
+namespace {
+double polygon_area_geo(const std::vector<GeoPoint>& polygon) {
+    if(polygon.size()<3) return 0.0;
+    const double lat=polygon.front().latitude_deg*kPi/180.0;
+    std::vector<XY> p;
+    p.reserve(polygon.size());
+    for(const auto& point:polygon) p.push_back(project(point,polygon.front().latitude_deg));
+    return area(p);
+}
+}
+MappingQualityResult MappingQualityEngine::evaluate(const MappingQualityInput& input) {
+    MappingQualityResult result;
+    if(input.aoi.size()<3) { result.failure_code="INVALID_AOI"; return result; }
+    if(!input.decomposition.valid) { result.failure_code="INVALID_DECOMPOSITION"; return result; }
+    if(!input.tracks.valid) { result.failure_code="INVALID_TRACKS"; return result; }
+    if(!input.events.valid) { result.failure_code="INVALID_EVENTS"; return result; }
+    if(!input.geometry.valid) { result.failure_code="INVALID_GEOMETRY"; return result; }
+    if(input.events.events.empty()) { result.failure_code="NO_ACQUISITION_EVENTS"; return result; }
+
+    result.dependency_identity=input.decomposition.dependency_identity+"|"+
+        input.tracks.dependency_identity+"|"+input.events.dependency_identity+"|"+
+        input.geometry.dependency_identity+"|"+input.calculation_version;
+    result.aoi_area_m2=polygon_area_geo(input.aoi);
+    if(!(result.aoi_area_m2>0.0) || !std::isfinite(result.aoi_area_m2)) {
+        result.failure_code="INVALID_AOI_AREA"; return result;
+    }
+
+    double covered=0.0;
+    for(const auto& track:input.tracks.tracks) {
+        covered += track.length_m * input.geometry.footprint_width_m;
+    }
+    result.estimated_covered_area_m2=std::min(result.aoi_area_m2,covered);
+    result.coverage_ratio=result.estimated_covered_area_m2/result.aoi_area_m2;
+
+    result.min_gsd_m_per_px=std::numeric_limits<double>::infinity();
+    result.max_gsd_m_per_px=0.0;
+    result.min_frontal_overlap_ratio=std::numeric_limits<double>::infinity();
+    result.min_side_overlap_ratio=std::numeric_limits<double>::infinity();
+
+    for(const auto& event:input.events.events) {
+        if(!event.sensor_state_valid || !event.trigger_state_valid) ++result.invalid_event_count;
+        result.min_gsd_m_per_px=std::min(result.min_gsd_m_per_px,
+                                         std::min(event.gsd_width_m_per_px,event.gsd_height_m_per_px));
+        result.max_gsd_m_per_px=std::max(result.max_gsd_m_per_px,
+                                         std::max(event.gsd_width_m_per_px,event.gsd_height_m_per_px));
+    }
+    result.min_frontal_overlap_ratio=input.geometry.frontal_overlap_ratio;
+    result.min_side_overlap_ratio=input.geometry.side_overlap_ratio;
+    result.gate_passed=result.invalid_event_count==0 &&
+        result.coverage_ratio>0.0 &&
+        std::isfinite(result.min_gsd_m_per_px) &&
+        std::isfinite(result.max_gsd_m_per_px);
+    result.valid=true;
+    return result;
+}
+
 } // namespace bluesky::planning
