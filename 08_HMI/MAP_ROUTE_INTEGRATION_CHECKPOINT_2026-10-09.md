@@ -56,6 +56,9 @@ Do not synthesize a geographic `Route` from `SelectedRouteSet.route_elements` al
 - `qt/BlueSkyPRO-HMI/src/PlanningBridge.cpp`: validates result route geometry before publishing it.
 - QML: route geometry can flow from `planningBridge.result` through `MissionProfileWindow` and `FlightChart` to `GoogleMapView`.
 - `qt/BlueSkyPRO-HMI/src/RouteGeometrySerializer.h/.cpp`: converts canonical `Route` into `routeGeometry` and attaches it to an already assembled `planning.request`, preserving existing request inputs and rejecting invalid envelopes/routes without modifying the request.
+- `qt/BlueSkyPRO-HMI/src/SelectedRouteMapHandoff.h/.cpp`: adds the missing domain-to-request handoff function. It accepts a selected candidate, the exact authoritative graph, mission metadata, and an already assembled request; rejects graph identity mismatch or non-feasible candidates; resolves `SelectedRouteSet` -> canonical `Route`; then attaches WGS84 geometry without inventing request inputs.
+- `qt/BlueSkyPRO-HMI/tests/SelectedRouteMapHandoffTest.cpp`: verifies ordered graph-node IDs become ordered WGS84 points, existing authoritative inputs are preserved, and graph mismatch / infeasible candidate fail without mutating the request.
+- `qt/BlueSkyPRO-HMI/CMakeLists.txt`: compiles the handoff and planning-domain resolver into HMI and registers `selected_route_map_handoff_contract`.
 - `qt/BlueSkyPRO-HMI/tests/RouteGeometrySerializerTest.cpp`: contract test covers serialization, preservation of existing inputs, and rejection cases.
 - `.github/workflows/bluesky-pro-hmi.yml`: runs CTest after the HMI build.
 - `qt/BlueSkyPRO-HMI/CMakeLists.txt`: includes serializer in HMI target and registers its contract test.
@@ -70,10 +73,16 @@ Do not synthesize a geographic `Route` from `SelectedRouteSet.route_elements` al
 - Local Windows runtime has not been verified.
 - End-to-end canonical Route -> request -> Planning Core -> PlanningBridge -> map remains **NOT IMPLEMENTED / NOT VERIFIED**.
 
+## Selected-route request handoff contract — follow-up
+
+- Added `attachSelectedRouteGeometryToRequest(...)` as a reusable C++ integration seam. It requires the `MissionProblem` to reference the exact `PlanningGraph` supplied to the resolver and requires a feasible selected candidate. It does not build placeholder performance, safety, or fleet inputs.
+- Added an HMI CTest contract test for successful route resolution/serialization and negative cases. CI is running for the change; the test result must be checked before this checkpoint is treated as verified.
+- This closes the **reusable handoff function** gap but does not create a runtime caller: no discovered application owner currently supplies both the selected candidate/graph and complete authoritative Planning Core request, and no call to `PlanningBridge.sendRequest()` was added. Therefore the live map route remains NOT IMPLEMENTED / NOT VERIFIED end to end.
+
 ## Next deterministic work item
 
-1. Run CI for `CanonicalRouteBuilder`; fix only failures demonstrated by the build/tests.
-2. Identify the owner that assembles the complete Planning Core request and give it access to the selected route's authoritative `PlanningGraph` and `SelectedRouteSet`; resolve the canonical `Route` there using the new builder.
-3. At that request owner, call `attachRouteGeometryToRequest()` and send the JSONL through `PlanningBridge.sendRequest()`.
-4. Add an integration test that exercises the request through the JSONL adapter and verifies `result.routeGeometry` reaches the QML map binding.
+1. Check CI for `selected_route_map_handoff_contract` and the HMI build; fix only demonstrated failures.
+2. Identify the runtime owner that assembles the complete Planning Core request and give it access to the selected candidate and its authoritative `PlanningGraph`.
+3. At that owner, call `attachSelectedRouteGeometryToRequest(...)`, then send the validated request through `PlanningBridge.sendRequest()`.
+4. Add an integration test through the JSONL adapter and verify `result.routeGeometry` reaches the QML map binding.
 5. Verify on the Windows project build. Do not claim map integration complete until a real selected route is exercised end to end.
