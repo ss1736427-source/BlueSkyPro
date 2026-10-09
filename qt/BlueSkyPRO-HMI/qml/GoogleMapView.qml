@@ -133,13 +133,13 @@ Item {
         model: root.tiles
 
         delegate: Image {
-            x: modelData.x
-            y: modelData.y
+            x: modelData.x + root.panOffsetX
+            y: modelData.y + root.panOffsetY
             width: root.tileSize
             height: root.tileSize
             source: modelData.url
             asynchronous: true
-            cache: false
+            cache: true
             fillMode: Image.Stretch
             property int lastStatus: Image.Null
             onStatusChanged: {
@@ -241,8 +241,8 @@ Item {
         onWheel: function(event) {
             // Panel wheel events can propagate through transparent/overlay controls.
             // Consume them here without changing the map zoom.
-            if (event.position.x < root.leftPanelWidth ||
-                    event.position.x >= root.width - root.rightPanelWidth) {
+            if (event.x < root.leftPanelWidth ||
+                    event.x >= root.width - root.rightPanelWidth) {
                 event.accepted = true
                 return
             }
