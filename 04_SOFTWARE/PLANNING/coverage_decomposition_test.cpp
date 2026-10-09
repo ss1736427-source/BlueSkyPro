@@ -119,5 +119,14 @@ int main() {
     assert(quality.footprint_union_area_m2 > 0.0);
     assert(quality.coverage_ratio > 0.0);
 
+    auto clipped_quality_input=quality_input;
+    clipped_quality_input.aoi={
+        {59.0,30.0},{59.0,30.0005},{59.0005,30.0005},{59.0005,30.0}};
+    const auto clipped_quality=MappingQualityEngine::evaluate(clipped_quality_input);
+    assert(clipped_quality.valid);
+    assert(clipped_quality.footprint_union_area_m2>0.0);
+    assert(clipped_quality.footprint_union_area_m2<=clipped_quality.aoi_area_m2);
+    assert(clipped_quality.coverage_ratio<=1.0);
+
     return 0;
 }
