@@ -123,11 +123,11 @@ The current slice does not yet model camera orientation/gimbal state, individual
 
 ### GAP-MT01-008 — Constrained-Domain Integration
 
-Status: **CLOSED FOR FIRST CONSTRAINED-CELL INTEGRATION SLICE; FULL CLIPPING/SPLITTING REMAINS OPEN.**
+Status: **CLOSED FOR FIRST SWEEP-LINE RESTRICTION-SPLITTING SLICE; FULL POLYGON CLIPPING REMAINS OPEN.**
 
-The first integration pass now uses `ConstrainedOpenSpace::evaluatePolygon(...)` rather than checking only cell boundary segments. A restriction fully contained inside a planning cell is therefore detected as a constrained cell. `CoverageTrackGenerator` excludes constrained cells from acquisition-track generation rather than generating tracks through known restricted geometry.
+The first integration pass now uses `ConstrainedOpenSpace::evaluatePolygon(...)` for cell-level detection and `CoverageTrackGenerator` splits sweep-line intervals at intersections with active polygon/circle restrictions. Each resulting free interval is independently checked through `ConstrainedOpenSpace::evaluateSegment(...)`, so the unrestricted remainder of a constrained cell can continue to generate acquisition tracks.
 
-This is intentionally a fail-safe coarse exclusion: the constrained cell is not subdivided around the restriction. Exact polygon clipping/splitting, preservation of the unrestricted remainder, and footprint-level clearance remain open.
+This is a controlled sweep-line splitting slice, not a general polygon-difference engine. Arbitrary polygon clipping, multi-level decomposition, footprint-level clearance and full terrain/obstacle clipping remain open.
 
 ### GAP-MT01-007 — Mapping Quality Engine
 
@@ -186,6 +186,6 @@ No MT-01 execution result shall be claimed yet.
 
 The remaining MT-01 integration order is:
 
-`exact constrained-domain clipping/splitting → complete coverage-footprint union → acquisition-event expansion/validation → transition graph → route candidates → wind/energy/trajectory integration → full mapping-quality gate`.
+`general polygon clipping/splitting → complete coverage-footprint union → acquisition-event expansion/validation → transition graph → route candidates → wind/energy/trajectory integration → full mapping-quality gate`.
 
 The current constrained-domain slice must not be represented as exact clipping or full spatial-coverage compliance. MT-02 and MT-03 remain outside this step.
