@@ -26,6 +26,13 @@ Do not convert the adapter's local `x/y` values into latitude/longitude by renam
 
 Do not synthesize a geographic `Route` from `SelectedRouteSet.route_elements` alone: those are string references, not coordinates. The integration point must obtain the canonical route object from the authoritative route-generation/selection lifecycle, or introduce an explicit, tested resolver from selected route elements to that object.
 
+## Map preview-route correction
+
+- Found a misleading visual fallback: `GoogleMapView.qml` contained five hardcoded Moscow-area coordinates, and `MissionProfileWindow.qml` fell back to the design-time table coordinates whenever Planning Core geometry was absent.
+- Removed both paths from map rendering. The map now receives an empty route until `planningResult.result.routeGeometry` contains at least two valid WGS84 points.
+- The mission profile's design-time table fixture remains a UI preview only; it is no longer promoted to the geographic map as if it were the selected mission route.
+- This is a correctness fix, not proof of live end-to-end route integration. The map may now correctly show no route until the request owner is wired to send canonical geometry.
+
 ## Latest planning-domain hand-off work
 
 - Added `04_SOFTWARE/PLANNING/canonical_route_builder.hpp/.cpp`: resolves `SelectedRouteSet.route_elements` against the authoritative `PlanningGraph` node IDs and constructs the canonical geographic `Route` from each node's `GeoPoint` and altitude.
