@@ -2,7 +2,7 @@
 
 ## Status
 
-**IN PROGRESS — canonical Route geometry serializer is implemented; real selected-route request wiring is still missing.**
+**IN PROGRESS — canonical Route geometry serialization and request attachment are implemented; real selected-route runtime wiring is still missing.**
 
 ## Branch
 
@@ -29,22 +29,23 @@ Do not convert the adapter's local `x/y` values into latitude/longitude by renam
 - `schemas/validator/planning_bridge_contract.py`: validates and serializes route ID/version, WGS84 coordinates, altitude and mandatory flags.
 - `qt/BlueSkyPRO-HMI/src/PlanningBridge.cpp`: validates result route geometry before publishing it.
 - QML: route geometry can flow from `planningBridge.result` through `MissionProfileWindow` and `FlightChart` to `GoogleMapView`.
-- `qt/BlueSkyPRO-HMI/src/RouteGeometrySerializer.h/.cpp`: new serializer converts canonical `Route` into the request's `routeGeometry` object; preserves order, IDs, route version, WGS84 coordinates, altitude and mandatory flags; rejects missing route identity, fewer than two points, empty/duplicate waypoint IDs, invalid coordinates and non-finite altitude.
-- `qt/BlueSkyPRO-HMI/tests/RouteGeometrySerializerTest.cpp`: contract test for serialization and rejection cases.
+- `qt/BlueSkyPRO-HMI/src/RouteGeometrySerializer.h/.cpp`: converts canonical `Route` into `routeGeometry` and can attach it to an already assembled `planning.request`; preserves existing request inputs and rejects an invalid envelope or invalid route geometry without modifying the output/request.
+- `qt/BlueSkyPRO-HMI/tests/RouteGeometrySerializerTest.cpp`: contract test covers serialization, preservation of pre-existing authoritative request inputs, and rejection cases.
+- `.github/workflows/bluesky-pro-hmi.yml`: runs CTest after the HMI build so the new contract test is executed in CI.
 - `qt/BlueSkyPRO-HMI/CMakeLists.txt`: includes serializer in the HMI target and registers the contract test with CTest.
 
 ## Verification status
 
 - Request and result schema structure was inspected.
-- Serializer and test sources are committed, but **the new C++ test has not yet been run in the project environment**.
-- Qt build and runtime have not been verified after these commits.
-- CI for the latest commits is not yet confirmed.
+- The preceding commit's HMI build passed, but it predates the latest request-attachment helper and the new CTest workflow step.
+- CI for the latest commits is pending; check the HMI workflow for both build and CTest results.
+- Local Windows runtime has not been verified.
 - End-to-end canonical Route -> request -> Planning Core -> PlanningBridge -> map remains **NOT IMPLEMENTED / NOT VERIFIED**.
 
 ## Next deterministic work item
 
 1. Find or define the runtime owner of the selected canonical `Route` and its lifecycle in the mission workflow.
-2. At that owner, call `serializeRouteGeometry()`, merge the resulting object into a complete schema-valid `planning.request` under `inputs.routeGeometry`, and send the request via `PlanningBridge.sendRequest()`.
+2. At that owner, call `attachRouteGeometryToRequest()` on the complete request assembled by the authoritative planning pipeline, then send the resulting JSONL via `PlanningBridge.sendRequest()`.
 3. Do not invent other required Planning Core inputs; source them from the existing authoritative planning pipeline.
 4. Add an integration test exercising the request through the JSONL adapter and assert that the returned `result.routeGeometry` reaches the map.
-5. Run CMake build, CTest and CI. Do not claim map integration complete until a real selected route is exercised end to end.
+5. Confirm CI build and CTest, then verify on the Windows project build. Do not claim map integration complete until a real selected route is exercised end to end.
