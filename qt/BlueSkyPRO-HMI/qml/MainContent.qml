@@ -172,6 +172,7 @@ Item {
             id: missionProfileWindow
             visible: root.missionProfileOpen
             missionId: root.missionId
+            planningResult: root.planningResult
             missionSummary: root.missionSummary
             missionReviewState: root.missionReviewState
             missionTemplateIndices: root.missionTemplateIndices
