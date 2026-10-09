@@ -115,11 +115,15 @@ The current slice is diagnostic only. It does not silently repair gaps, does not
 
 ### GAP-MT01-006 — Acquisition Event Model / Validator
 
-Status: **CLOSED FOR FIRST EVENT-MODEL SLICE; FULL EVENT VALIDATION REMAINS OPEN.**
+Status: **CLOSED FOR FIRST DETERMINISTIC EVENT-SEQUENCE SLICE; FULL EVENT VALIDATION REMAINS OPEN.**
 
-Implemented as `AcquisitionEventValidator` in the existing planning module. It consumes controlled track output and `AcquisitionGeometryResult`, creates stable `MT01-EVENT-<index>` identities, preserves track identity, camera-ground distance, GSD, footprint and trigger timing, and records sensor/trigger state.
+Implemented as `AcquisitionEventValidator` in the existing planning module. It consumes controlled track output and `AcquisitionGeometryResult`, requires valid `image_spacing_m` and `trigger_interval_s`, creates stable `MT01-EVENT-<index>` identities, and generates deterministic acquisition events along each track from the track start to the track end using the controlled image spacing. The final track endpoint is explicitly preserved even when the remaining segment is shorter than the nominal spacing.
 
-The current slice does not yet model camera orientation/gimbal state, individual acquisition positions along the track, overlap validation per event, or terrain-following surface distance. Those remain open and belong to subsequent integration/quality stages.
+Each event preserves track identity, position, camera-ground distance, GSD, footprint, frontal/side overlap values from the controlled geometry result, trigger timing and sensor/trigger state. Invalid acquisition spacing/timing fails closed.
+
+Regression coverage now includes a long track with multiple evenly ordered events, a short track with deterministic start/end events, deterministic replay of event IDs/positions, and invalid-spacing rejection.
+
+The current slice still does not model camera orientation/gimbal state, terrain-following surface distance, event-specific sensor state transitions, or an independent per-event overlap/footprint quality gate. Those remain open and belong to subsequent integration/quality stages.
 
 ### GAP-MT01-008 — Constrained-Domain Integration
 
