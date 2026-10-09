@@ -38,8 +38,12 @@ int main()
         {"missionId", "MISSION-001"},
         {"resultId", "RESULT-001"},
         {"inputs", QJsonObject{
-            {"zoneStatus", "READY"},
+            {"zoneStatus", "VERIFIED"},
+            {"assignmentStatus", "VERIFIED"},
             {"routes", QJsonArray{QJsonObject{{"routeId", "ROUTE-001"}}}},
+            {"performance", QJsonArray{}},
+            {"trajectories", QJsonArray{}},
+            {"minimums", QJsonObject{{"horizontalM", 20.0}, {"verticalM", 10.0}}},
             {"authoritativeInputMarker", "preserve-me"}
         }}
     };
@@ -77,5 +81,21 @@ int main()
     invalidEnvelope.insert("messageType", "planning.result");
     assert(!attachRouteGeometryToRequest(route, invalidEnvelope, &error));
     assert(error == "INVALID_PLANNING_REQUEST_ENVELOPE");
+
+    QJsonObject incompleteRequest = request;
+    QJsonObject incompleteInputs = incompleteRequest.value("inputs").toObject();
+    incompleteInputs.remove("trajectories");
+    incompleteRequest.insert("inputs", incompleteInputs);
+    const QJsonObject incompleteBeforeFailure = incompleteRequest;
+    assert(!attachRouteGeometryToRequest(route, incompleteRequest, &error));
+    assert(error == "PLANNING_REQUEST_REQUIRED_INPUTS_INVALID");
+    assert(incompleteRequest == incompleteBeforeFailure);
+
+    incompleteRequest = request;
+    incompleteInputs = incompleteRequest.value("inputs").toObject();
+    incompleteInputs.insert("minimums", QJsonObject{{"horizontalM", 20.0}});
+    incompleteRequest.insert("inputs", incompleteInputs);
+    assert(!attachRouteGeometryToRequest(route, incompleteRequest, &error));
+    assert(error == "PLANNING_REQUEST_MINIMUMS_INVALID");
     return 0;
 }
