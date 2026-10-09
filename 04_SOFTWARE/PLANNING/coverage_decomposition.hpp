@@ -80,6 +80,34 @@ struct CoverageEdgeResult {
     std::vector<CoverageTrack> evaluated_tracks;
 };
 
+struct AcquisitionEvent {
+    std::size_t generation_index{0};
+    std::string event_id;
+    std::string track_id;
+    GeoPoint position;
+    double camera_ground_distance_m{0.0};
+    double gsd_width_m_per_px{0.0};
+    double gsd_height_m_per_px{0.0};
+    double footprint_width_m{0.0};
+    double footprint_height_m{0.0};
+    double trigger_interval_s{0.0};
+    bool sensor_state_valid{false};
+    bool trigger_state_valid{false};
+};
+
+struct AcquisitionEventInput {
+    CoverageTrackResult tracks;
+    AcquisitionGeometryResult geometry;
+    std::string calculation_version;
+};
+
+struct AcquisitionEventResult {
+    bool valid{false};
+    std::string failure_code;
+    std::string dependency_identity;
+    std::vector<AcquisitionEvent> events;
+};
+
 class CoverageDecompositionEngine final {
 public:
     static CoverageDecompositionResult decompose(const CoverageDecompositionInput& input);
@@ -95,6 +123,12 @@ public:
     static CoverageEdgeResult evaluate(
         const CoverageTrackInput& input,
         const CoverageTrackResult& tracks);
+};
+
+class AcquisitionEventValidator final {
+public:
+    static AcquisitionEventResult generate(
+        const AcquisitionEventInput& input);
 };
 
 } // namespace bluesky::planning
