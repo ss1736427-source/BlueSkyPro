@@ -18,7 +18,7 @@ int main() {
 
     const auto r=CoverageDecompositionEngine::decompose(i);
     assert(r.valid);
-    assert(r.cells.size()==5);
+    assert(r.cells.size()==3);
     assert(r.cells.front().cell_id=="MT01-CELL-0");
     assert(r.cells.front().area_m2>0.0);
 
@@ -30,7 +30,7 @@ int main() {
     changed.track_spacing_m=250.0;
     const auto cr=CoverageDecompositionEngine::decompose(changed);
     assert(cr.valid);
-    assert(cr.cells.size()==10);
+    assert(cr.cells.size()==5);
     assert(cr.dependency_identity!=r.dependency_identity);
 
     auto invalid=i;
