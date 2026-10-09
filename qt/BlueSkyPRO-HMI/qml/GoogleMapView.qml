@@ -178,6 +178,17 @@ Item {
         }
     }
 
+    // Dark Aviation treatment: keep provider tiles intact and apply a restrained
+    // navy tint above the basemap, below the authoritative route geometry.
+    Rectangle {
+        id: aviationMapTint
+        anchors.fill: parent
+        z: 10
+        color: "#071321"
+        opacity: 0.48
+        enabled: false
+    }
+
     Canvas {
         id: routeCanvas
         anchors.fill: parent
@@ -214,7 +225,7 @@ Item {
                 ctx.lineTo(point.x, point.y)
             }
 
-            ctx.strokeStyle = "#00D9FF"
+            ctx.strokeStyle = "#FF32C8"
             ctx.lineWidth = 3
             ctx.lineJoin = "round"
             ctx.stroke()
@@ -222,15 +233,26 @@ Item {
             for (var j = 0; j < root.routeCoordinates.length; ++j) {
                 var marker = pointForCoordinate(root.routeCoordinates[j])
                 ctx.beginPath()
-                ctx.arc(marker.x, marker.y,
-                        j === 0 || j === root.routeCoordinates.length - 1 ? 6 : 4,
-                        0, Math.PI * 2)
-                ctx.fillStyle = j === 0 ? "#64FF00" :
-                                j === root.routeCoordinates.length - 1 ? "#FFD43B" : "#00D9FF"
-                ctx.fill()
-                ctx.strokeStyle = "#FFFFFF"
-                ctx.lineWidth = 2
-                ctx.stroke()
+                if (j === 0 || j === root.routeCoordinates.length - 1) {
+                    ctx.arc(marker.x, marker.y, 7, 0, Math.PI * 2)
+                    ctx.fillStyle = j === 0 ? "#64FF00" : "#FF4658"
+                    ctx.fill()
+                    ctx.strokeStyle = j === 0 ? "#B7FF8A" : "#FFB0B8"
+                    ctx.lineWidth = 2
+                    ctx.stroke()
+                } else {
+                    // Aviation-chart waypoint diamond, similar to the reference UI.
+                    ctx.moveTo(marker.x, marker.y - 6)
+                    ctx.lineTo(marker.x + 6, marker.y)
+                    ctx.lineTo(marker.x, marker.y + 6)
+                    ctx.lineTo(marker.x - 6, marker.y)
+                    ctx.closePath()
+                    ctx.fillStyle = "#FF9F43"
+                    ctx.fill()
+                    ctx.strokeStyle = "#FFD3A3"
+                    ctx.lineWidth = 1
+                    ctx.stroke()
+                }
             }
         }
     }
