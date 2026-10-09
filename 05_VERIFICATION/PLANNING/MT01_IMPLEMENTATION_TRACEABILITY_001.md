@@ -131,11 +131,11 @@ This is a controlled sweep-line splitting slice, not a general polygon-differenc
 
 ### GAP-MT01-007 — Mapping Quality Engine
 
-Status: **CLOSED FOR FIRST QUALITY-EVALUATION SLICE; FULL MAPPING QUALITY GATE REMAINS OPEN.**
+Status: **CLOSED FOR FIRST EXACT COVERAGE + UNCOVERED-GEOMETRY SLICE; FULL MAPPING QUALITY GATE REMAINS OPEN.**
 
 Implemented as `MappingQualityEngine` in the existing planning module. It validates upstream decomposition, tracks, acquisition events and acquisition geometry; calculates AOI area, a deterministic exact union area for the generated rectangular sweep footprints in the common orientation coordinate system, retains the prior track-footprint estimate for comparison, derives the current bounded coverage ratio from the exact footprint union, and calculates GSD minimum/maximum, controlled overlap minima and invalid-event count.
 
-Uncovered-geometry classification, mandatory-area coverage, corner footprint union, terrain-following quality and complete sensor-compliance gating remain open. No hidden raster resolution or universal acceptance threshold was introduced.
+Uncovered-geometry cause classification, mandatory-area coverage, corner footprint union, terrain-following quality and complete sensor-compliance gating remain open. No hidden raster resolution or universal acceptance threshold was introduced.
 
 ## 5. Non-substitution rule
 
