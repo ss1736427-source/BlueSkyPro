@@ -66,7 +66,179 @@ CoverageCellConstraintState classify(const std::vector<GeoPoint>& cell,
         ? CoverageCellConstraintState::Open
         : CoverageCellConstraintState::Constrained;
 }
+
+struct ScanInterval { double low; double high; };
+
+std::vector<ScanInterval> scan_intervals(
+    const std::vector<XY>& polygon, double x) {
+    std::vector<double> ys;
+    if(polygon.size()<3) return {};
+    for(std::size_t i=0;i<polygon.size();++i) {
+        const XY a=polygon[i];
+        const XY b=polygon[(i+1)%polygon.size()];
+        if((a.x<=x && b.x>x) || (b.x<=x && a.x>x)) {
+            const double t=(x-a.x)/(b.x-a.x);
+            ys.push_back(a.y+t*(b.y-a.y));
+        }
+    }
+    std::sort(ys.begin(),ys.end());
+    ys.erase(std::unique(ys.begin(),ys.end(),
+        [](double a,double b){ return std::abs(a-b)<1e-8; }),ys.end());
+    std::vector<ScanInterval> result;
+    for(std::size_t i=0;i+1<ys.size();i+=2) {
+        if(ys[i+1]>ys[i]) result.push_back({ys[i],ys[i+1]});
+    }
+    return result;
 }
+
+std::vector<ScanInterval> subtract_intervals(
+    const std::vector<ScanInterval>& subject,
+    const std::vector<ScanInterval>& restriction) {
+    std::vector<ScanInterval> result;
+    for(const auto& source:subject) {
+        std::vector<ScanInterval> remaining{source};
+        for(const auto& cut:restriction) {
+            std::vector<ScanInterval> next;
+            for(const auto& part:remaining) {
+                if(cut.high<=part.low || cut.low>=part.high) {
+                    next.push_back(part);
+                    continue;
+                }
+                if(cut.low>part.low)
+                    next.push_back({part.low,std::min(cut.low,part.high)});
+                if(cut.high<part.high)
+                    next.push_back({std::max(cut.high,part.low),part.high});
+            }
+            remaining=std::move(next);
+            if(remaining.empty()) break;
+        }
+        for(const auto& part:remaining)
+            if(part.high>part.low) result.push_back(part);
+    }
+    return result;
+}
+
+bool segment_intersection_x(const XY& a,const XY& b,
+                            const XY& c,const XY& d,double& x) {
+    const double r_x=b.x-a.x, r_y=b.y-a.y;
+    const double s_x=d.x-c.x, s_y=d.y-c.y;
+    const double denom=r_x*s_y-r_y*s_x;
+    const double q_x=c.x-a.x, q_y=c.y-a.y;
+    if(std::abs(denom)<1e-10) return false;
+    const double t=(q_x*s_y-q_y*s_x)/denom;
+    const double u=(q_x*r_y-q_y*r_x)/denom;
+    if(t<0.0 || t>1.0 || u<0.0 || u>1.0) return false;
+    x=a.x+t*r_x;
+    return std::isfinite(x);
+}
+
+bool valid_polygon_xy(const std::vector<XY>& polygon) {
+    return polygon.size()>=3 && area(polygon)>1e-6;
+}
+}
+
+CoveragePolygonSplitResult CoveragePolygonSplitter::split(
+    const CoveragePolygonSplitInput& input) {
+    CoveragePolygonSplitResult result;
+    result.dependency_identity =
+        input.restriction_id+"|"+input.source_id+"|"+input.calculation_version;
+
+    if(input.subject_polygon.size()<3) {
+        result.failure_code="INVALID_SUBJECT_POLYGON";
+        return result;
+    }
+    if(input.restriction_polygon.size()<3) {
+        result.failure_code="INVALID_RESTRICTION_POLYGON";
+        return result;
+    }
+
+    const double reference_lat=input.subject_polygon.front().latitude_deg;
+    std::vector<XY> subject, restriction;
+    subject.reserve(input.subject_polygon.size());
+    restriction.reserve(input.restriction_polygon.size());
+    for(const auto& p:input.subject_polygon)
+        subject.push_back(project(p,reference_lat));
+    for(const auto& p:input.restriction_polygon)
+        restriction.push_back(project(p,reference_lat));
+    if(!valid_polygon_xy(subject) || !valid_polygon_xy(restriction)) {
+        result.failure_code="DEGENERATE_POLYGON";
+        return result;
+    }
+
+    std::vector<double> xs;
+    for(const auto& p:subject) xs.push_back(p.x);
+    for(const auto& p:restriction) xs.push_back(p.x);
+    for(std::size_t i=0;i<subject.size();++i) {
+        const auto a=subject[i], b=subject[(i+1)%subject.size()];
+        for(std::size_t j=0;j<restriction.size();++j) {
+            const auto c=restriction[j], d=restriction[(j+1)%restriction.size()];
+            double x=0.0;
+            if(segment_intersection_x(a,b,c,d,x)) xs.push_back(x);
+        }
+    }
+    std::sort(xs.begin(),xs.end());
+    xs.erase(std::unique(xs.begin(),xs.end(),
+        [](double a,double b){ return std::abs(a-b)<1e-7; }),xs.end());
+
+    const auto unproject_piece=[&](const std::vector<XY>& polygon) {
+        std::vector<GeoPoint> out;
+        out.reserve(polygon.size());
+        for(const auto& p:polygon) out.push_back(unproject(p,reference_lat));
+        return out;
+    };
+
+    bool split_occurred=false;
+    for(std::size_t i=0;i+1<xs.size();++i) {
+        const double x0=xs[i], x1=xs[i+1];
+        if(!(x1>x0)) continue;
+        const double xm=(x0+x1)*0.5;
+        const auto subject_mid=scan_intervals(subject,xm);
+        const auto restriction_mid=scan_intervals(restriction,xm);
+        const auto remaining_mid=subtract_intervals(subject_mid,restriction_mid);
+        if(remaining_mid.empty()) continue;
+
+        const auto subject_left=scan_intervals(subject,x0);
+        const auto restriction_left=scan_intervals(restriction,x0);
+        const auto remaining_left=subtract_intervals(subject_left,restriction_left);
+        const auto subject_right=scan_intervals(subject,x1);
+        const auto restriction_right=scan_intervals(restriction,x1);
+        const auto remaining_right=subtract_intervals(subject_right,restriction_right);
+
+        if(remaining_left.size()!=remaining_mid.size() ||
+           remaining_right.size()!=remaining_mid.size()) {
+            result.failure_code="SPLIT_TOPOLOGY_AMBIGUOUS";
+            return result;
+        }
+
+        for(std::size_t n=0;n<remaining_mid.size();++n) {
+            const auto& l=remaining_left[n];
+            const auto& r=remaining_right[n];
+            std::vector<XY> piece{
+                {x0,l.low},{x1,r.low},{x1,r.high},{x0,l.high}};
+            if(!valid_polygon_xy(piece)) continue;
+            CoveragePolygonSplitPiece out;
+            out.polygon=unproject_piece(piece);
+            out.restriction_id=input.restriction_id;
+            out.source_id=input.source_id;
+            result.pieces.push_back(std::move(out));
+        }
+        if(remaining_mid.size()!=subject_mid.size()) split_occurred=true;
+    }
+
+    if(result.pieces.empty()) {
+        result.failure_code="NO_SPLIT_PIECES";
+        return result;
+    }
+
+    if(!split_occurred) {
+        const auto original=unproject_piece(subject);
+        result.pieces.clear();
+        result.pieces.push_back({original,"",""});
+    }
+    result.valid=true;
+    return result;
+}
+
 CoverageDecompositionResult CoverageDecompositionEngine::decompose(const CoverageDecompositionInput&i) {
     if(i.aoi.size()<3) return fail(i,"INVALID_AOI");
     for(const auto&p:i.aoi) if(!validPoint(p)) return fail(i,"INVALID_AOI_COORDINATE");
