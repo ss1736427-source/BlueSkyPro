@@ -4228,7 +4228,7 @@ Therefore the dependency is no longer correctly described as having *no existing
 
 The project records do **not** yet establish a unique lower-level requirement ID specifically for the planner's airspace-data schema, NOTAM freshness model, authorization-data validity model, or exact restriction-resolution algorithm. Those remain **OPEN ALLOCATION at planning/interface detail**, not at system-level dependency existence.
 
-External regulatory basis requiring controlled applicability mapping includes the current Federal Rules for Use of Airspace, approved by Government Resolution No. 138 of 11 March 2010. The current text contains UAV-specific provisions including flight-plan/airspace-use permission conditions and publication of UAV-route information in aeronautical information documents. The rules were amended by Government Resolution No. 1253 of 29 September 2026; the project must use the applicable current revision when the regulatory trace is baselined. citeturn1search4turn3search0
+External regulatory basis requiring controlled applicability mapping includes the current Federal Rules for Use of Airspace, approved by Government Resolution No. 138 of 11 March 2010. The current text contains UAV-specific provisions including flight-plan/airspace-use permission conditions and publication of UAV-route information in aeronautical information documents. The rules were amended by Government Resolution No. 1253 of 29 September 2026; the project must use the applicable current revision when the regulatory trace is baselined.
 
 **Regulatory clause mapping status: OPEN.** No clause is promoted into a BlueSky requirement until applicability, exact wording and compliance method are controlled in the requirements register.
 
@@ -4249,7 +4249,7 @@ For MT-01/MT-02:
 | Weather data availability/interface | SUPPORTING INPUT | SUPPORTING INPUT | SYS-REQ-067 / SYS-REQ-068 |
 | Wind as planning/performance input | DIRECT ALGORITHM INPUT | DIRECT ALGORITHM INPUT | Existing algorithm contract; lower-level numerical/source allocation remains OPEN |
 
-A current external source is **Order of the Ministry of Transport of Russia No. 49 dated 05.02.2026**, establishing the Federal Aviation Rules for provision of meteorological information for aircraft operations. The rules explicitly provide meteorological information to operators of unmanned aviation systems and external pilots, including METAR/SPECI, TAF, GAMET/AIRMET, SIGMET, SIGWX and upper-level wind/temperature forecasts. citeturn2search0
+A current external source is **Order of the Ministry of Transport of Russia No. 49 dated 05.02.2026**, establishing the Federal Aviation Rules for provision of meteorological information for aircraft operations. The rules explicitly provide meteorological information to operators of unmanned aviation systems and external pilots, including METAR/SPECI, TAF, GAMET/AIRMET, SIGMET, SIGWX and upper-level wind/temperature forecasts.
 
 This source supports the existence and categories of meteorological information required for the planning data chain. It does **not** by itself establish BlueSky-specific wind limits, UAV performance thresholds, mission cancellation criteria or energy penalties.
 
