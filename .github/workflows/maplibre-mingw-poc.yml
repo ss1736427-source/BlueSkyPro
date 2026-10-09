@@ -138,6 +138,8 @@ jobs:
           $env:PATH = "$install\bin;$qtBin;$env:PATH"
           $env:QML2_IMPORT_PATH = "$install\qml"
           $env:QT_PLUGIN_PATH = "$install\plugins;$env:QT_ROOT_DIR\plugins"
+          $stdout = Join-Path $env:RUNNER_TEMP 'maplibre-render-probe.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'maplibre-render-probe.stderr.log'
           @'
           import QtQuick 6.5
           import MapLibre 4.0
