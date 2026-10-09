@@ -217,4 +217,73 @@ CoverageTrackResult CoverageTrackGenerator::generate(const CoverageTrackInput& i
     return result;
 }
 
+
+namespace {
+double point_segment_distance(const GeoPoint& p,const GeoPoint& a,const GeoPoint& b) {
+    const double lat=(a.latitude_deg+b.latitude_deg+p.latitude_deg)*kPi/540.0;
+    const double scale_x=kM*std::cos(lat);
+    const double px=p.longitude_deg*scale_x, py=p.latitude_deg*kM;
+    const double ax=a.longitude_deg*scale_x, ay=a.latitude_deg*kM;
+    const double bx=b.longitude_deg*scale_x, by=b.latitude_deg*kM;
+    const double dx=bx-ax, dy=by-ay;
+    const double denom=dx*dx+dy*dy;
+    double t=denom>0.0?((px-ax)*dx+(py-ay)*dy)/denom:0.0;
+    t=std::max(0.0,std::min(1.0,t));
+    const double qx=ax+t*dx, qy=ay+t*dy;
+    const double ex=px-qx, ey=py-qy;
+    return std::sqrt(ex*ex+ey*ey);
+}
+double boundary_distance(const GeoPoint& p,const CoveragePlanningCell& cell) {
+    double best=std::numeric_limits<double>::infinity();
+    for(std::size_t i=0;i<cell.polygon.size();++i)
+        best=std::min(best,point_segment_distance(p,cell.polygon[i],
+                                                   cell.polygon[(i+1)%cell.polygon.size()]));
+    return best;
+}
+}
+
+CoverageEdgeResult CoverageEdgeEngine::evaluate(
+    const CoverageTrackInput& input,const CoverageTrackResult& tracks) {
+    CoverageEdgeResult result;
+    if(!input.decomposition.valid || !tracks.valid) {
+        result.failure_code="INVALID_TRACK_INPUT";
+        return result;
+    }
+    if(!std::isfinite(input.footprint_width_m) || !std::isfinite(input.footprint_height_m) ||
+       input.footprint_width_m<=0.0 || input.footprint_height_m<=0.0) {
+        result.failure_code="INVALID_FOOTPRINT";
+        return result;
+    }
+
+    result.dependency_identity=tracks.dependency_identity+"|EDGE|"+
+        std::to_string(input.footprint_width_m)+"|"+
+        std::to_string(input.footprint_height_m);
+
+    for(const auto& track:tracks.tracks) {
+        const auto cell_it=std::find_if(
+            input.decomposition.cells.begin(),input.decomposition.cells.end(),
+            [&](const CoveragePlanningCell& c){return c.cell_id==track.cell_id;});
+        if(cell_it==input.decomposition.cells.end()) {
+            result.failure_code="TRACK_CELL_NOT_FOUND";
+            return result;
+        }
+
+        CoverageEdgeGap gap;
+        gap.cell_id=track.cell_id;
+        gap.track_id=track.track_id;
+        gap.start_margin_m=boundary_distance(track.start,*cell_it);
+        gap.end_margin_m=boundary_distance(track.end,*cell_it);
+
+        const double required_margin=input.footprint_height_m*0.5;
+        gap.start_gap=gap.start_margin_m>required_margin;
+        gap.end_gap=gap.end_margin_m>required_margin;
+        if(gap.start_gap || gap.end_gap) result.gaps.push_back(gap);
+
+        result.repaired_tracks.push_back(track);
+    }
+
+    result.valid=true;
+    return result;
+}
+
 } // namespace bluesky::planning
