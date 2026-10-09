@@ -4153,3 +4153,52 @@ The strongest overlap groups are MIS, RET, COL, C2, MUL, RDY and AI. NAV, RTE, W
 The family-level reconciliation blocker is therefore closed. MT-01/MT-02 remain incomplete because exact individual candidate wording, external/environmental dependencies, numerical parameters and executable evidence are still open.
 
 MT-03 remains blocked.
+
+## 47. External / Environmental Planning Dependency Allocation — Controlled Review
+
+The next allocation gate was reviewed against the current Master Requirements Register, the derived SRS, and the existing authoritative SYS-REQ records. No new requirement IDs are created.
+
+### 47.1 Current authoritative coverage
+
+| Dependency | Current controlled evidence | MT-01 / MT-02 status |
+|---|---|---|
+| Airspace / NOTAM / operational restrictions | The algorithm contract requires airspace/authorization/restriction handling, but the current Master Register does not identify a dedicated authoritative requirement ID for this planning dependency. | **OPEN ALLOCATION** |
+| Weather / wind | Wind is an explicit algorithm input and performance dependency; no dedicated authoritative requirement ID was established by the current controlled register review. | **OPEN ALLOCATION** |
+| Terrain / DEM / obstacles | Terrain and obstacle constraints are explicit algorithm inputs and hard feasibility gates; a dedicated authoritative requirement ID was not established by the current controlled register review. | **OPEN ALLOCATION** |
+| GNSS / RTK / PPK / NTRIP | These are identified as navigation/data dependencies, but the current controlled register/SRS does not provide a verified one-to-one authoritative allocation. | **OPEN ALLOCATION** |
+| Payload / sensor compatibility | SYS-REQ-035 establishes task-to-capability mapping and SYS-REQ-076 provides machine-readable capability-profile linkage; exact payload-planning allocation remains lower-level. | **PARTIAL / OPEN ALLOCATION** |
+| Mission readiness aggregation | SYS-REQ-008 is authoritative for Mission Readiness; exact allocation of the planner's readiness inputs/state aggregation remains lower-level. | **ALLOCATED at system level / OPEN at planning detail** |
+| Contingency execution authority | Existing authority chain and SYS-REQ-082/085 constrain execution; planning may prepare alternatives but does not own emergency execution authority. | **ALLOCATED at authority level / OPEN at planning interface detail** |
+
+### 47.2 Controlled interpretation
+
+The absence of a dedicated ID is not evidence that the dependency is missing from the system. It means only that the present controlled register does not establish a unique one-to-one requirement identity for the specific planning dependency.
+
+Therefore the algorithm specification shall continue to model these dependencies as mandatory inputs/constraints, while traceability records use OPEN ALLOCATION until an exact authoritative source record is identified.
+
+No numerical value is introduced by this review.
+
+In particular, this review does not establish:
+- a specific NOTAM/airspace rule;
+- a specific wind threshold;
+- a terrain/obstacle clearance value;
+- GNSS/RTK/PPK accuracy thresholds;
+- payload compatibility thresholds;
+- readiness timing thresholds;
+- contingency execution authority values.
+
+Such values require controlled source, engineering basis, or approved requirement allocation.
+
+### 47.3 Gate status
+
+| Gate | Status |
+|---|---|
+| External/environmental dependency identification | **COMPLETED** |
+| Exact authoritative ID allocation | **OPEN** |
+| Numerical parameter approval | **OPEN** |
+| Regulatory/source clause mapping | **OPEN** |
+| Executable verification/evidence | **NOT DONE** |
+
+This review closes the identification sub-step but deliberately does not close the allocation sub-step.
+
+MT-03 remains blocked.
