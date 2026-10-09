@@ -247,96 +247,70 @@ Item {
     // This also runs while positions are locked: locking disables manual drag,
     // not automatic collision avoidance after content changes.
     function reflowPanelPositions() {
-        // Do not clamp or persist coordinates against partial startup geometry.
         if (!panelLayoutReady || root.height <= bottomInset + 120 || draggingPanel !== "")
             return
 
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
         var top = 54
         var bottomLimit = Math.max(top, root.height - bottomInset - 8)
-        var positions = {}
+        var gap = 4
         var nextPreferred = Object.assign({}, preferredPanelPositions)
         var nextTemporary = Object.assign({}, temporaryPanelPositions)
+        var items = []
+
         for (var i = 0; i < keys.length; ++i) {
             var key = keys[i]
-            if (panelVisible(key)) {
-                var h = panelHeight(key)
-                var preferredY = nextPreferred[key] !== undefined ? nextPreferred[key] : panelPositionY(key)
-                positions[key] = Math.max(top, Math.min(bottomLimit - h, preferredY))
-            }
-        }
-
-        // Resolve from top to bottom, but only move a panel when it collides.
-        var items = []
-        for (var j = 0; j < keys.length; ++j) {
-            var itemKey = keys[j]
-            if (positions[itemKey] !== undefined)
-                items.push({ key: itemKey, y: positions[itemKey], h: panelHeight(itemKey) })
-        }
-        items.sort(function(a, b) { return a.y - b.y })
-
-        var gap = 4
-        for (var k = 1; k < items.length; ++k) {
-            var previous = items[k - 1]
-            var current = items[k]
-            if (current.y < previous.y + previous.h + gap) {
-                if (nextTemporary[current.key] === undefined)
-                    nextTemporary[current.key] = nextPreferred[current.key] !== undefined
-                            ? nextPreferred[current.key] : current.y
-                var moved = nearestFreePanelY(current.key, previous.y + previous.h + gap, positions)
-                if (moved >= 0) {
-                    current.y = moved
-                    positions[current.key] = moved
-                }
-            }
-        }
-
-        // If a lower collision cannot be resolved downward, search upward for
-        // the nearest available slot rather than leaving cards overlapping.
-        for (var n = 0; n < items.length; ++n) {
-            var card = items[n]
-            var maxY = Math.max(top, bottomLimit - card.h)
-            if (card.y > maxY)
-                card.y = maxY
-            positions[card.key] = card.y
-        }
-
-        var normalized = []
-        for (var p = 0; p < keys.length; ++p) {
-            var normalizedKey = keys[p]
-            if (positions[normalizedKey] !== undefined)
-                normalized.push({ key: normalizedKey, y: positions[normalizedKey], h: panelHeight(normalizedKey) })
-        }
-        // Restore temporary displacements when their preferred slots become free.
-        for (var r = 0; r < normalized.length; ++r) {
-            var restoreItem = normalized[r]
-            if (nextTemporary[restoreItem.key] === undefined)
+            if (!panelVisible(key))
                 continue
-            var preferredY = nextPreferred[restoreItem.key]
-            if (preferredY === undefined)
-                continue
-            var candidateY = Math.max(top, Math.min(bottomLimit - restoreItem.h, preferredY))
-            var free = true
-            for (var o = 0; o < normalized.length; ++o) {
-                var otherItem = normalized[o]
-                if (otherItem.key === restoreItem.key)
-                    continue
-                if (candidateY < otherItem.y + otherItem.h + gap &&
-                        candidateY + restoreItem.h + gap > otherItem.y) {
-                    free = false
-                    break
+            var h = panelHeight(key)
+            var pref = nextPreferred[key] !== undefined ? nextPreferred[key] : panelPositionY(key)
+            items.push({ key: key, preferredY: Math.max(top, Math.min(bottomLimit - h, pref)), y: 0, h: h })
+        }
+
+        // Start from preferred coordinates, but resolve the complete visible
+        // layout in one pass so no card can remain overlapped by a stale slot.
+        items.sort(function(a, b) { return a.preferredY - b.preferredY })
+        var cursor = top
+        for (var j = 0; j < items.length; ++j) {
+            var item = items[j]
+            item.y = Math.max(item.preferredY, cursor)
+            if (item.y + item.h > bottomLimit) {
+                // Preserve the bottom-aligned ATC anchor when possible; otherwise
+                // pack the preceding cards upward to make the full stack fit.
+                item.y = bottomLimit - item.h
+                for (var back = j - 1; back >= 0; --back) {
+                    var prev = items[back]
+                    prev.y = Math.min(prev.y, item.y - gap - prev.h)
+                    item.y = prev.y
                 }
+                if (items.length > 0 && items[0].y < top) {
+                    // Not enough vertical room for all content: panels stay
+                    // inside bounds and their own Flickables handle overflow.
+                    var shift = top - items[0].y
+                    for (var shiftIndex = 0; shiftIndex < items.length; ++shiftIndex)
+                        items[shiftIndex].y += shift
+                }
+                break
             }
-            if (free) {
-                restoreItem.y = candidateY
-                positions[restoreItem.key] = candidateY
-                delete nextTemporary[restoreItem.key]
+            cursor = item.y + item.h + gap
+        }
+
+        var nextPositions = Object.assign({}, panelPositions)
+        for (var k = 0; k < items.length; ++k) {
+            var card = items[k]
+            nextPositions[card.key] = Math.round(card.y)
+            if (Math.abs(card.y - card.preferredY) > 1) {
+                if (nextTemporary[card.key] === undefined)
+                    nextTemporary[card.key] = nextPreferred[card.key] !== undefined
+                            ? nextPreferred[card.key] : card.preferredY
+            } else {
+                delete nextTemporary[card.key]
             }
         }
 
-        preferredPanelPositions = nextPreferred
+        panelPositions = nextPositions
         temporaryPanelPositions = nextTemporary
-        saveNormalizedPositions(normalized)
+        savePanelPositions()
     }
 
     // Drop at the actual mouse position. The dragged card keeps that position
