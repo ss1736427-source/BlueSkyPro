@@ -34,8 +34,9 @@ Use a dedicated map-engine adapter behind the existing map-view contract. Keep t
 
 - Current developer environment is Qt 6.11.2 with MinGW 13.1. Qt's current WebEngine platform notes state that Qt WebEngine does not compile with MinGW; therefore a Qt WebEngine-based implementation is incompatible with the established local toolchain unless the toolchain changes.
 - Current HMI CI is `.github/workflows/bluesky-pro-hmi.yml`: Ubuntu 24.04, Qt 6.8.3 Linux GCC, and only `qtshadertools` as an additional module. It does not install WebEngine, test Windows, or package a deployable application.
-- Qt WebView can use native WebView2 on Windows, but uses Qt WebEngine on Linux. This may preserve a Windows-native route but does not by itself solve the existing Linux CI dependency/deployment gate.
-- Do not add Qt WebEngine to CMake or the workflow speculatively. The viable implementation route must preserve the user's Windows MinGW workflow, provide a real supported Linux CI build, and package the browser runtime correctly.
+- Qt's current Qt WebView configuration enables its native WebView2 plugin only when `WIN32 AND MSVC AND WebView2_FOUND`; this does not support assuming WebView2 is available in the existing Windows MinGW kit. Qt WebView also documents that overlapping WebView content with QML components is unsupported/unpredictable, which conflicts with BlueSky PRO's map-first UI and map overlays.
+- Qt WebEngine is not a viable drop-in dependency for the established MinGW toolchain, and the current Linux CI does not install it or package its runtime.
+- Therefore, **do not select Qt WebView/WebEngine as the map host under the current toolchain**. Do not change the project's compiler or add browser dependencies merely to enable the map SDK. Keep the tested-in-source raster renderer as the stable fallback while evaluating a native vector-rendering route against Windows MinGW, Linux CI, QML overlays, route geometry, performance, and packaging.
 - External sources: Qt WebEngine deployment documentation; Qt WebEngine platform notes; Qt WebView platform documentation; `jurplel/install-qt-action` module documentation.
 
 The adapter must preserve:
@@ -46,15 +47,17 @@ The adapter must preserve:
 5. Map attribution and explicit loading/error states.
 6. A clear distinction between 2D Hybrid, 3D terrain, and 3D buildings. Each capability must be independently enabled and tested.
 
-## Dependency gate
+## Dependency gate and selected next step
 
-Before writing the WebEngine QML adapter:
-1. Inspect the active HMI workflow on the current branch and identify its Qt version, modules, and deployment packaging.
-2. Confirm that the required Qt WebEngine module is available for the supported Windows Qt kit and CI kit.
-3. Update the build/deployment workflow and CMake dependency in the same logical change; do not leave the application dependent on a locally installed module absent from CI.
-4. Add a minimal embedded-page smoke test before adding terrain/building overlays.
-5. Pin a supported MapTiler SDK JS version and load it in a way consistent with the project's online/offline and security requirements.
-6. Verify current commit SHA, diff, CI for that exact SHA, then run the Windows app and test the live map.
+The Qt WebView/WebEngine route is **rejected for the current toolchain** unless future evidence demonstrates a supported, maintainable configuration without disrupting Windows MinGW and Linux CI.
+
+Next deterministic step:
+1. Preserve the existing raster map and Yandex fallback; do not replace or regress current pan/zoom, tile cache, panel wheel isolation, provider selection, attribution, or authoritative route overlay.
+2. Evaluate a native vector map engine/plugin that can be built with Qt 6.11.2 MinGW on Windows and the existing Qt/Linux CI. Confirm upstream maintenance, supported Qt version/compiler matrix, license, data-source compatibility, and deployable runtime before integrating.
+3. Create a minimal isolated proof of concept only after compatibility is demonstrated. It must display a vector basemap, accept center/zoom updates, render the authoritative WGS84 route, and coexist with QML panels without relying on unsupported overlays.
+4. Treat pitch, terrain, and 3D buildings as separate capabilities. Do not claim or implement them until the chosen engine and data source demonstrably support them.
+5. Keep API keys runtime-supplied; pin dependencies and document online/offline limitations.
+6. Verify the exact commit SHA, diff, CI, and Windows runtime before promoting the new engine beyond an experimental adapter.
 
 ## Verification state
 
@@ -69,6 +72,6 @@ Before writing the WebEngine QML adapter:
 ## Next work item and decision gate
 
 1. Existing raster provider implementation has HMI CI evidence from run #188 for source commit `5aaa5ee9ffc5b56b6f07f201d88e2c260f2a5665` (Configure, Build, and HMI contract tests passed). The subsequent commit `fb8e4cb122666625b4d984ff0506684689c2b672` changes only this checkpoint document; no HMI source changed. Windows runtime remains unverified; test all three provider choices, key-missing states, cached tile separation, and retained Yandex loading.
-2. Dependency gate is now investigated: the currently proposed Qt WebEngine adapter conflicts with the project's MinGW toolchain, and the current Linux CI does not install WebEngine or package a Windows application. Do not implement the SDK adapter until the cross-platform browser/runtime route is selected.
-3. Once the dependency route is approved, add the SDK vector renderer behind a separate adapter and keep raster/Yandex as fallback. Add terrain and building extrusion only after the embedded SDK map passes its smoke test.
+2. Dependency gate is now investigated: Qt WebView's WebView2 backend is configured for MSVC, QML overlays over WebView are unsupported/unpredictable, and Qt WebEngine does not fit the established MinGW workflow. Do not implement an SDK-in-WebView adapter under the current toolchain.
+3. The selected next step is a compatibility assessment of native vector-rendering engines. Keep the current raster/Yandex renderer as the stable fallback. Only create an isolated proof of concept after compiler, Qt, CI, QML-overlay, license, and packaging compatibility are established; terrain and building extrusion remain later, separately verified capabilities.
 4. Keep all route overlays sourced from authoritative WGS84 route geometry; do not touch route authority or synthesize coordinates.
