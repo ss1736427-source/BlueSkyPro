@@ -508,6 +508,98 @@ double exact_footprint_union_intersection_area(
 }
 
 
+std::vector<std::vector<XY>> subtract_rect_from_polygons(
+    const std::vector<std::vector<XY>>& input,
+    double x0,double x1,double y0,double y1) {
+    std::vector<std::vector<XY>> output;
+    auto clip=[&](const std::vector<XY>& polygon,double boundary,int axis,bool minimum) {
+        std::vector<XY> out;
+        if(polygon.empty()) return out;
+        auto inside=[&](const XY& q) {
+            const double value=axis==0?q.x:q.y;
+            return minimum ? value>=boundary : value<=boundary;
+        };
+        for(std::size_t i=0;i<polygon.size();++i) {
+            const XY current=polygon[i];
+            const XY previous=polygon[(i+polygon.size()-1)%polygon.size()];
+            const bool ci=inside(current), pi=inside(previous);
+            if(ci!=pi) {
+                const double pv=axis==0?previous.x:previous.y;
+                const double cv=axis==0?current.x:current.y;
+                const double denominator=cv-pv;
+                const double t=denominator==0.0 ? 0.0 : (boundary-pv)/denominator;
+                out.push_back({previous.x+t*(current.x-previous.x),
+                               previous.y+t*(current.y-previous.y)});
+            }
+            if(ci) out.push_back(current);
+        }
+        return out;
+    };
+    for(const auto& polygon:input) {
+        auto add=[&](std::vector<XY> p) {
+            if(p.size()>=3 && area(p)>0.0) output.push_back(std::move(p));
+        };
+        add(clip(polygon,x0,0,false));
+        add(clip(polygon,x1,0,true));
+        auto middle=clip(polygon,x0,0,true);
+        middle=clip(middle,x1,0,false);
+        add(clip(middle,y0,1,false));
+        add(clip(middle,y1,1,true));
+    }
+    return output;
+}
+
+std::vector<std::vector<GeoPoint>> exact_uncovered_geometry(
+    const std::vector<GeoPoint>& aoi,
+    const std::vector<CoverageTrack>& tracks,
+    double footprint_width_m,
+    double footprint_height_m,
+    double orientation_deg) {
+    if(aoi.size()<3) return {};
+    const double reference_lat=aoi.front().latitude_deg;
+    const double angle=orientation_deg*kPi/180.0;
+    const double c=std::cos(-angle), s=std::sin(-angle);
+    const auto rotate_local=[&](const GeoPoint& p) {
+        const XY q=project(p,reference_lat);
+        return XY{c*q.x-s*q.y,s*q.x+c*q.y};
+    };
+    const auto unrotate_geo=[&](const XY& p) {
+        const double cc=std::cos(angle), ss=std::sin(angle);
+        const XY q{cc*p.x-ss*p.y,ss*p.x+cc*p.y};
+        return unproject(q,reference_lat);
+    };
+
+    std::vector<std::vector<XY>> uncovered;
+    std::vector<XY> aoi_local;
+    aoi_local.reserve(aoi.size());
+    for(const auto& point:aoi) aoi_local.push_back(rotate_local(point));
+    uncovered.push_back(std::move(aoi_local));
+
+    if(!(footprint_width_m>0.0) || !(footprint_height_m>0.0) || tracks.empty())
+        return {{aoi}};
+
+    for(const auto& track:tracks) {
+        const XY a=rotate_local(track.start);
+        const XY z=rotate_local(track.end);
+        const double x0=std::min(a.x,z.x)-footprint_height_m*0.5;
+        const double x1=std::max(a.x,z.x)+footprint_height_m*0.5;
+        const double y0=std::min(a.y,z.y)-footprint_width_m*0.5;
+        const double y1=std::max(a.y,z.y)+footprint_width_m*0.5;
+        if(x1>x0 && y1>y0)
+            uncovered=subtract_rect_from_polygons(uncovered,x0,x1,y0,y1);
+        if(uncovered.empty()) break;
+    }
+
+    std::vector<std::vector<GeoPoint>> result;
+    for(const auto& polygon:uncovered) {
+        std::vector<GeoPoint> geo;
+        geo.reserve(polygon.size());
+        for(const auto& point:polygon) geo.push_back(unrotate_geo(point));
+        if(geo.size()>=3 && polygon_area_geo(geo)>0.0) result.push_back(std::move(geo));
+    }
+    return result;
+}
+
 double polygon_area_geo(const std::vector<GeoPoint>& polygon) {
     if(polygon.size()<3) return 0.0;
     const double lat=polygon.front().latitude_deg*kPi/180.0;
@@ -547,6 +639,15 @@ MappingQualityResult MappingQualityEngine::evaluate(const MappingQualityInput& i
             ? 0.0 : input.decomposition.cells.front().orientation_deg);
     result.footprint_union_area_m2=union_area;
     result.coverage_ratio=std::min(result.aoi_area_m2,union_area)/result.aoi_area_m2;
+    result.uncovered_geometry=exact_uncovered_geometry(
+        input.aoi,
+        input.tracks.tracks,
+        input.geometry.footprint_width_m,
+        input.geometry.footprint_height_m,
+        input.decomposition.cells.empty()
+            ? 0.0 : input.decomposition.cells.front().orientation_deg);
+    for(const auto& polygon:result.uncovered_geometry)
+        result.uncovered_area_m2+=polygon_area_geo(polygon);
 
     result.min_gsd_m_per_px=std::numeric_limits<double>::infinity();
     result.max_gsd_m_per_px=0.0;
