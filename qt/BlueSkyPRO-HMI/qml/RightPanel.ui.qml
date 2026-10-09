@@ -71,8 +71,13 @@ Item {
         lastAtcPanelHeight = newHeight
         // Ignore transient height changes while QML is constructing the
         // first layout. Saved positions must not be shifted during startup.
-        if (!panelLayoutReady || previousHeight < 0 || !panelsLocked || draggingPanel !== "")
+        if (!panelLayoutReady || previousHeight < 0 || draggingPanel !== "")
             return
+
+        if (!panelsLocked) {
+            Qt.callLater(root.reflowPanelPositions)
+            return
+        }
 
         var positions = Object.assign({}, panelPositions)
         var currentY = positions["ATC"] !== undefined
@@ -83,8 +88,6 @@ Item {
         positions["ATC"] = Math.max(54, Math.min(maxY, currentY + previousHeight - newHeight))
         panelPositions = positions
         savePanelPositions()
-        if (!panelsLocked)
-            Qt.callLater(root.reflowPanelPositions)
     }
 
     function loadPanelPositions() {
@@ -259,7 +262,7 @@ Item {
         var bottomLimit = Math.max(top, root.height - bottomInset - 8)
         var h = panelHeight(key)
         var desired = Math.max(top, Math.min(bottomLimit - h, dragVisualY))
-        var gap = 10
+        var gap = 4
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
         var obstacles = []
 
