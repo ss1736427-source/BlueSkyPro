@@ -199,5 +199,71 @@ int main() {
         assert(out.pieces.size()>=3);
     }
 
+    {
+        CoverageTrackResult event_tracks;
+        event_tracks.valid=true;
+        event_tracks.dependency_identity="TRACKS-EVENT-SEQ";
+        CoverageTrack event_track;
+        event_track.track_id="MT01-TRACK-EVENT-SEQ";
+        event_track.cell_id="MT01-CELL-EVENT-SEQ";
+        event_track.start={59.0,30.0};
+        event_track.end={59.0,30.001};
+        event_track.length_m=25.0;
+        event_tracks.tracks={event_track};
+
+        AcquisitionGeometryResult event_geometry;
+        event_geometry.valid=true;
+        event_geometry.dependency_identity="GEOM-EVENT-SEQ";
+        event_geometry.camera_ground_distance_m=100.0;
+        event_geometry.footprint_width_m=100.0;
+        event_geometry.footprint_height_m=100.0;
+        event_geometry.gsd_width_m_per_px=0.02;
+        event_geometry.gsd_height_m_per_px=0.02;
+        event_geometry.image_spacing_m=10.0;
+        event_geometry.trigger_interval_s=1.0;
+        event_geometry.frontal_overlap_ratio=0.75;
+        event_geometry.side_overlap_ratio=0.60;
+
+        AcquisitionEventInput event_input;
+        event_input.tracks=event_tracks;
+        event_input.geometry=event_geometry;
+        event_input.calculation_version="MT01-EVENT-SEQ-1";
+        const auto sequence=AcquisitionEventValidator::generate(event_input);
+        assert(sequence.valid);
+        assert(sequence.events.size()==4);
+        assert(sequence.events.front().position.latitude_deg==event_track.start.latitude_deg);
+        assert(sequence.events.front().position.longitude_deg==event_track.start.longitude_deg);
+        assert(sequence.events.back().position.latitude_deg==event_track.end.latitude_deg);
+        assert(sequence.events.back().position.longitude_deg==event_track.end.longitude_deg);
+        assert(sequence.events[0].event_id=="MT01-EVENT-0");
+        assert(sequence.events[3].event_id=="MT01-EVENT-3");
+        assert(sequence.events[0].position.longitude_deg < sequence.events[1].position.longitude_deg);
+        assert(sequence.events[1].position.longitude_deg < sequence.events[2].position.longitude_deg);
+
+        const auto replay=AcquisitionEventValidator::generate(event_input);
+        assert(replay.valid);
+        assert(replay.events.size()==sequence.events.size());
+        for(std::size_t i=0;i<sequence.events.size();++i) {
+            assert(replay.events[i].event_id==sequence.events[i].event_id);
+            assert(replay.events[i].track_id==sequence.events[i].track_id);
+            assert(replay.events[i].position.latitude_deg==sequence.events[i].position.latitude_deg);
+            assert(replay.events[i].position.longitude_deg==sequence.events[i].position.longitude_deg);
+        }
+
+        auto invalid_spacing=event_input;
+        invalid_spacing.geometry.image_spacing_m=0.0;
+        const auto invalid_spacing_result=AcquisitionEventValidator::generate(invalid_spacing);
+        assert(!invalid_spacing_result.valid);
+        assert(invalid_spacing_result.failure_code=="INVALID_ACQUISITION_SPACING");
+
+        auto short_track=event_input;
+        short_track.tracks.tracks.front().length_m=5.0;
+        const auto short_sequence=AcquisitionEventValidator::generate(short_track);
+        assert(short_sequence.valid);
+        assert(short_sequence.events.size()==2);
+        assert(short_sequence.events.front().position.latitude_deg==event_track.start.latitude_deg);
+        assert(short_sequence.events.back().position.latitude_deg==event_track.end.latitude_deg);
+    }
+
     return 0;
 }
