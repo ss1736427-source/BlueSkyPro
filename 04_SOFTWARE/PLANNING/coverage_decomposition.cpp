@@ -1026,6 +1026,44 @@ MappingQualityResult MappingQualityEngine::evaluate(const MappingQualityInput& i
     result.coverage_ratio=
         std::min(result.aoi_area_m2,result.footprint_union_area_m2) /
         result.aoi_area_m2;
+
+    result.mandatory_coverage_passed=true;
+    for(const auto& mandatory:input.mandatory_areas) {
+        MandatoryCoverageResult mandatory_result;
+        mandatory_result.area_id=mandatory.area_id;
+        if(mandatory.area_id.empty() || mandatory.polygon.size()<3) {
+            result.failure_code="INVALID_MANDATORY_COVERAGE_AREA";
+            return result;
+        }
+
+        mandatory_result.area_m2=polygon_area_geo(mandatory.polygon);
+        if(!(mandatory_result.area_m2>0.0) || !std::isfinite(mandatory_result.area_m2)) {
+            result.failure_code="INVALID_MANDATORY_COVERAGE_AREA";
+            return result;
+        }
+
+        const auto mandatory_uncovered=exact_uncovered_geometry(
+            mandatory.polygon,
+            input.tracks.tracks,
+            input.geometry.footprint_width_m,
+            input.geometry.footprint_height_m,
+            input.decomposition.cells.empty()
+                ? 0.0 : input.decomposition.cells.front().orientation_deg);
+
+        double uncovered_m2=0.0;
+        for(const auto& polygon:mandatory_uncovered)
+            uncovered_m2+=polygon_area_geo(polygon);
+
+        mandatory_result.covered_area_m2=
+            std::max(0.0,mandatory_result.area_m2-uncovered_m2);
+        mandatory_result.coverage_ratio=
+            mandatory_result.covered_area_m2/mandatory_result.area_m2;
+        mandatory_result.fully_covered=mandatory_uncovered.empty();
+
+        if(!mandatory_result.fully_covered)
+            result.mandatory_coverage_passed=false;
+        result.mandatory_coverage.push_back(std::move(mandatory_result));
+    }
     result.uncovered_geometry=exact_uncovered_geometry(
         input.aoi,
         input.tracks.tracks,
