@@ -14,7 +14,7 @@ This record defines the controlled input/evidence chain required to execute `V-M
 
 The execution is deliberately **blocked**. The repository contains algorithm specifications and a manufacturer-reference catalogue, but the reviewed project data does not provide a complete, versioned operational Area of Interest (AOI), environment snapshot, aircraft instance/readiness state, camera calibration instance, mission quality profile and execution configuration for this case.
 
-No synthetic AOI, assumed CRS, invented wind, placeholder battery state, arbitrary target GSD or fabricated restriction set may be substituted. Manufacturer maximums are not current vehicle state or mission-specific limits. A test fixture is not evidence that a real mission is ready to fly.
+No synthetic AOI, assumed CRS, invented wind, placeholder battery state, arbitrary target GSD or fabricated restriction set may be substituted for the operational dataset. A separately identified representative simulation fixture is now permitted to exercise the software chain, provided each assumption is labelled and the simulation evidence is not represented as real operational evidence. Manufacturer maximums are not current vehicle state or mission-specific limits. A test fixture is not evidence that a real mission is ready to fly.
 
 ## 2. Controlled requirement and design basis
 
