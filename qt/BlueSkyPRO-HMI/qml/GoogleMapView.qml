@@ -86,7 +86,7 @@ Item {
                     ty: ty,
                     x: tx * tileSize - cx + width / 2 + panOffsetX,
                     y: ty * tileSize - cy + height / 2 + panOffsetY,
-                    key: (useMapTiler ? "maptiler/dataviz-dark/" : "yandex/map/web_mercator/") +
+                    key: (useMapTiler ? "maptiler/dataviz-dark/" : "yandex/future_map/web_mercator/") +
                          zoomLevel + "/" + wrappedX + "/" + ty,
                     url: useMapTiler
                          ? "https://api.maptiler.com/maps/dataviz-dark/256/" +
@@ -94,7 +94,7 @@ Item {
                            encodeURIComponent(mapTilerApiKey)
                          : "https://tiles.api-maps.yandex.ru/v1/tiles/?x=" +
                            wrappedX + "&y=" + ty + "&z=" + zoomLevel +
-                           "&lang=en_US&l=map&projection=web_mercator&apikey=" +
+                           "&lang=en_US&l=map&maptype=future_map&projection=web_mercator&apikey=" +
                            encodeURIComponent(yandexMapsApiKey),
                     source: ""
                 })
@@ -191,7 +191,7 @@ Item {
         anchors.fill: parent
         z: 10
         color: "#071321"
-        opacity: root.useMapTiler ? 0.12 : 0.48
+        opacity: root.useMapTiler ? 0.12 : 0.38
         enabled: false
     }
 
