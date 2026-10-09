@@ -121,6 +121,14 @@ Implemented as `AcquisitionEventValidator` in the existing planning module. It c
 
 The current slice does not yet model camera orientation/gimbal state, individual acquisition positions along the track, overlap validation per event, or terrain-following surface distance. Those remain open and belong to subsequent integration/quality stages.
 
+### GAP-MT01-008 — Constrained-Domain Integration
+
+Status: **CLOSED FOR FIRST CONSTRAINED-CELL INTEGRATION SLICE; FULL CLIPPING/SPLITTING REMAINS OPEN.**
+
+The first integration pass now uses `ConstrainedOpenSpace::evaluatePolygon(...)` rather than checking only cell boundary segments. A restriction fully contained inside a planning cell is therefore detected as a constrained cell. `CoverageTrackGenerator` excludes constrained cells from acquisition-track generation rather than generating tracks through known restricted geometry.
+
+This is intentionally a fail-safe coarse exclusion: the constrained cell is not subdivided around the restriction. Exact polygon clipping/splitting, preservation of the unrestricted remainder, and footprint-level clearance remain open.
+
 ### GAP-MT01-007 — Mapping Quality Engine
 
 Status: **CLOSED FOR FIRST QUALITY-EVALUATION SLICE; FULL MAPPING QUALITY GATE REMAINS OPEN.**
@@ -174,10 +182,10 @@ No MT-01 execution result shall be claimed yet.
 
 ## 8. Next deterministic implementation step
 
-`GAP-MT01-001` through `GAP-MT01-006` are closed only for their first implementation/evaluation slices. The next dependency is **GAP-MT01-007 — Mapping Quality Engine**.
+`GAP-MT01-001` through `GAP-MT01-008` are closed only for their first implementation/evaluation slices. The constrained-domain integration now detects internal restricted geometry at cell level and prevents constrained cells from producing acquisition tracks.
 
-The next implementation must consume the controlled AOI, constrained spatial domain and selected orientation candidates, and produce deterministic planning cells without introducing universal hard-coded acceptance values. GAP-MT01-003 is now closed only for the first geometric decomposition slice; full constrained-domain integration remains open and must not be represented as verification-complete.
+The remaining MT-01 integration order is:
 
-Remaining dependency order: MT01-007.
+`exact constrained-domain clipping/splitting → complete coverage-footprint union → acquisition-event expansion/validation → transition graph → route candidates → wind/energy/trajectory integration → full mapping-quality gate`.
 
-MT-02 and MT-03 remain outside this step.
+The current constrained-domain slice must not be represented as exact clipping or full spatial-coverage compliance. MT-02 and MT-03 remain outside this step.
