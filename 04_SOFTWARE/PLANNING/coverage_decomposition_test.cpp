@@ -112,8 +112,14 @@ int main() {
     const auto quality=MappingQualityEngine::evaluate(quality_input);
     assert(quality.valid);
     assert(quality.footprint_union_area_m2>0.0);
+    assert(!quality.covered_geometry.empty());
+    double covered_geometry_area=0.0;
+    for(const auto& polygon:quality.covered_geometry) {
+        assert(polygon.size()>=3);
+        covered_geometry_area+=polygon_area_test(polygon);
+    }
+    assert(std::abs(covered_geometry_area-quality.footprint_union_area_m2)<1e-6);
     assert(quality.footprint_union_area_m2 < 2.0 * 57.0 * 100.0);
-    assert(quality.footprint_union_area_m2 > 0.0);
     assert(quality.coverage_ratio > 0.0);
 
     auto clipped_quality_input=quality_input;
