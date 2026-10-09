@@ -279,7 +279,7 @@ CoverageEdgeResult CoverageEdgeEngine::evaluate(
         gap.end_gap=gap.end_margin_m>required_margin;
         if(gap.start_gap || gap.end_gap) result.gaps.push_back(gap);
 
-        result.repaired_tracks.push_back(track);
+        result.evaluated_tracks.push_back(track);
     }
 
     result.valid=true;
