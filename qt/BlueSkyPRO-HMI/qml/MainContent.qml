@@ -151,6 +151,7 @@ Item {
             missionVisible: root.missionVisible
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
+            routeCoordinates: missionProfileWindow.routeCoordinates
             useExternalMapState: true
             mapPanX: root.mapPanX
             mapPanY: root.mapPanY
