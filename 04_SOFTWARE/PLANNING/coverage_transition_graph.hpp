@@ -1,6 +1,7 @@
 #pragma once
 #include "constrained_open_space.hpp"
 #include "coverage_decomposition.hpp"
+#include "wind_performance_trajectory.hpp"
 #include <string>
 #include <vector>
 namespace bluesky::planning {
@@ -52,4 +53,26 @@ class CoverageTransitionGraphBuilder final {
 public:
     static CoverageTransitionGraphResult build(const CoverageTransitionGraphInput& input);
 };
+
+
+struct CoverageRoutePerformanceInput {
+    CoverageTrackResult tracks;
+    CoverageRouteCandidateResult candidates;
+    TrajectoryPerformanceInput performance;
+    std::string calculation_version;
+};
+
+struct CoverageRoutePerformanceResult {
+    bool valid{false};
+    std::string failure_code;
+    std::string dependency_identity;
+    std::vector<TrajectoryResult> evaluations;
+};
+
+class CoverageRoutePerformanceEvaluator final {
+public:
+    static CoverageRoutePerformanceResult evaluate(
+        const CoverageRoutePerformanceInput& input);
+};
+
 } // namespace bluesky::planning
