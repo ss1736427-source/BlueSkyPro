@@ -7,6 +7,9 @@ Item {
     property real centerLatitude: 55.7558
     property real centerLongitude: 37.6176
     property int zoomLevel: 10
+    // Widths of side panels overlaid by MainContent on top of the map.
+    property real leftPanelWidth: 0
+    property real rightPanelWidth: 0
     property string attribution: "Yandex Maps"
     property string mapStatus: "INITIALIZING"
     property var routeCoordinates: [
@@ -130,13 +133,13 @@ Item {
         model: root.tiles
 
         delegate: Image {
-            x: modelData.x
-            y: modelData.y
+            x: modelData.x + root.panOffsetX
+            y: modelData.y + root.panOffsetY
             width: root.tileSize
             height: root.tileSize
             source: modelData.url
             asynchronous: true
-            cache: false
+            cache: true
             fillMode: Image.Stretch
             property int lastStatus: Image.Null
             onStatusChanged: {
@@ -236,6 +239,14 @@ Item {
         acceptedModifiers: Qt.NoModifier
 
         onWheel: function(event) {
+            // Panel wheel events can propagate through transparent/overlay controls.
+            // Consume them here without changing the map zoom.
+            if (event.x < root.leftPanelWidth ||
+                    event.x >= root.width - root.rightPanelWidth) {
+                event.accepted = true
+                return
+            }
+
             if (event.angleDelta.y === 0)
                 return
 

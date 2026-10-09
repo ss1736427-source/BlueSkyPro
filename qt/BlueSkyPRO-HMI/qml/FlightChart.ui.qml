@@ -21,6 +21,9 @@ Item {
     property real mapPanX: 0
     property real mapPanY: 0
     property real mapZoom: 1.0
+    // Side panels overlay the map; wheel zoom must be disabled beneath them.
+    property real leftPanelWidth: 0
+    property real rightPanelWidth: 0
     signal mapViewChangeRequested(real panX, real panY, real zoom)
 
     function setMapView(panX, panY, zoom) {
@@ -65,6 +68,8 @@ Item {
         id: googleMap
         anchors.fill: parent
         z: 1
+        leftPanelWidth: root.leftPanelWidth
+        rightPanelWidth: root.rightPanelWidth
         routeCoordinates: [
             { lat: 55.7600, lon: 37.6000 },
             { lat: 55.7350, lon: 37.6250 },
