@@ -234,4 +234,3 @@ CoverageRouteCandidateResult CoverageRouteCandidateBuilder::generate(
     result.valid = true;
     return result;
 }}
-} // namespace bluesky::planning
