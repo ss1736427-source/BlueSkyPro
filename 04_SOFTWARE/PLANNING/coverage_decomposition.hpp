@@ -148,6 +148,7 @@ struct MappingQualityResult {
     std::string dependency_identity;
     double aoi_area_m2{0.0};
     double estimated_covered_area_m2{0.0};
+    double footprint_union_area_m2{0.0};
     double coverage_ratio{0.0};
     double min_gsd_m_per_px{0.0};
     double max_gsd_m_per_px{0.0};
