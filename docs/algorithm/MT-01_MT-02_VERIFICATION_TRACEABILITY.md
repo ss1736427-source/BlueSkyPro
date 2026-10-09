@@ -37,7 +37,7 @@ Reviewed file: `schemas/validator/test_three_d_mapping_adapter.py`.
 | `test_rejects_inverted_time_range` | Rejects an inverted aggregate time range | Does not validate per-UAV sequencing or synchronization |
 | `test_unknown_release_status_does_not_mark_result_verified` | Ensures an unknown status such as `PENDING` does not set the adapter's `verified` flag | Does not make the adapter an independent release authority |
 
-Eight additional adapter-guard tests were added in the current PR branch, bringing this file to ten test functions. They test the adapter's existing contract; they do **not** implement or verify the MT-01/MT-02 acquisition algorithms.
+Eight additional adapter-guard tests were added in the current PR branch, bringing this file to ten test functions. The CI workflow executes each `test_*.py` file directly with Python rather than invoking pytest, so a `main()` runner was added to explicitly execute all ten adapter test functions under that workflow. They test the adapter's existing contract; they do **not** implement or verify the MT-01/MT-02 acquisition algorithms.
 
 Other related tests inspected:
 - `test_constrained_space.py`: verifies a nominal constrained-space result and confirms unsupported polygon subtraction fails explicitly; it does not demonstrate successful clipping around a restricted zone.
