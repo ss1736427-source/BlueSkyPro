@@ -510,6 +510,98 @@ double exact_footprint_union_intersection_area(
 
 double polygon_area_geo(const std::vector<GeoPoint>& polygon);
 
+bool point_in_polygon(const GeoPoint& p,const std::vector<GeoPoint>& polygon) {
+    bool inside=false;
+    if(polygon.size()<3) return false;
+    for(std::size_t i=0,j=polygon.size()-1;i<polygon.size();j=i++) {
+        const auto& a=polygon[i];
+        const auto& b=polygon[j];
+        if((a.latitude_deg>p.latitude_deg)!=(b.latitude_deg>p.latitude_deg)) {
+            const double x=a.longitude_deg+
+                (b.longitude_deg-a.longitude_deg)*
+                (p.latitude_deg-a.latitude_deg)/(b.latitude_deg-a.latitude_deg);
+            if(p.longitude_deg<x) inside=!inside;
+        }
+    }
+    return inside;
+}
+
+double point_segment_distance_m(const GeoPoint& p,const GeoPoint& a,const GeoPoint& b) {
+    const double lat=(a.latitude_deg+b.latitude_deg+p.latitude_deg)*kPi/540.0;
+    const double sx=kM*std::cos(lat);
+    const double px=p.longitude_deg*sx, py=p.latitude_deg*kM;
+    const double ax=a.longitude_deg*sx, ay=a.latitude_deg*kM;
+    const double bx=b.longitude_deg*sx, by=b.latitude_deg*kM;
+    const double dx=bx-ax, dy=by-ay;
+    const double d2=dx*dx+dy*dy;
+    double t=d2>0.0?((px-ax)*dx+(py-ay)*dy)/d2:0.0;
+    t=std::max(0.0,std::min(1.0,t));
+    const double ex=px-(ax+t*dx), ey=py-(ay+t*dy);
+    return std::sqrt(ex*ex+ey*ey);
+}
+
+bool touches_boundary(const std::vector<GeoPoint>& component,
+                      const std::vector<GeoPoint>& aoi) {
+    constexpr double kBoundaryToleranceM=0.05;
+    for(const auto& p:component)
+        for(std::size_t i=0;i<aoi.size();++i)
+            if(point_segment_distance_m(
+                   p,aoi[i],aoi[(i+1)%aoi.size()])<=kBoundaryToleranceM)
+                return true;
+    return false;
+}
+
+bool overlaps_polygon_restriction(const std::vector<GeoPoint>& component,
+                                   const std::vector<GeoPoint>& restriction) {
+    if(component.size()<3||restriction.size()<3) return false;
+    for(const auto& p:component)
+        if(point_in_polygon(p,restriction)) return true;
+    for(const auto& p:restriction)
+        if(point_in_polygon(p,component)) return true;
+    return false;
+}
+
+bool overlaps_circle_restriction(const std::vector<GeoPoint>& component,
+                                  const SpatialRestriction& restriction) {
+    if(component.size()<3||restriction.radius_m<=0.0) return false;
+    for(const auto& p:component) {
+        const double lat=(p.latitude_deg+restriction.center.latitude_deg)*0.5*kPi/180.0;
+        const double dx=(p.longitude_deg-restriction.center.longitude_deg)*
+            kM*std::cos(lat);
+        const double dy=(p.latitude_deg-restriction.center.latitude_deg)*kM;
+        if(std::sqrt(dx*dx+dy*dy)<=restriction.radius_m) return true;
+    }
+    if(point_in_polygon(restriction.center,component)) return true;
+    for(std::size_t i=0;i<component.size();++i)
+        if(point_segment_distance_m(
+               restriction.center,component[i],
+               component[(i+1)%component.size()])<=restriction.radius_m)
+            return true;
+    return false;
+}
+
+UncoveredGeometryClassification classify_uncovered_component(
+    const std::vector<GeoPoint>& component,
+    const std::vector<GeoPoint>& aoi,
+    const ConstrainedEnvironmentSnapshot& environment,
+    std::vector<std::string>& source_ids) {
+    for(const auto& restriction:environment.restrictions) {
+        if(!restriction.active) continue;
+        bool overlap=false;
+        if(restriction.geometry_type==RestrictionGeometryType::Polygon)
+            overlap=overlaps_polygon_restriction(component,restriction.polygon);
+        else if(restriction.geometry_type==RestrictionGeometryType::Circle)
+            overlap=overlaps_circle_restriction(component,restriction);
+        if(overlap) {
+            source_ids.push_back(restriction.restriction_id);
+            return UncoveredGeometryClassification::ExclusionInduced;
+        }
+    }
+    if(touches_boundary(component,aoi))
+        return UncoveredGeometryClassification::BoundaryGap;
+    return UncoveredGeometryClassification::UnclassifiedSourceNotBound;
+}
+
 std::vector<std::vector<XY>> subtract_rect_from_polygons(
     const std::vector<std::vector<XY>>& input,
     double x0,double x1,double y0,double y1) {
@@ -648,8 +740,16 @@ MappingQualityResult MappingQualityEngine::evaluate(const MappingQualityInput& i
         input.geometry.footprint_height_m,
         input.decomposition.cells.empty()
             ? 0.0 : input.decomposition.cells.front().orientation_deg);
-    for(const auto& polygon:result.uncovered_geometry)
-        result.uncovered_area_m2+=polygon_area_geo(polygon);
+    for(const auto& polygon:result.uncovered_geometry) {
+        const double polygon_area=polygon_area_geo(polygon);
+        result.uncovered_area_m2+=polygon_area;
+        UncoveredGeometryComponent component;
+        component.polygon=polygon;
+        component.area_m2=polygon_area;
+        component.classification=classify_uncovered_component(
+            polygon,input.aoi,input.environment,component.source_ids);
+        result.uncovered_components.push_back(std::move(component));
+    }
 
     result.min_gsd_m_per_px=std::numeric_limits<double>::infinity();
     result.max_gsd_m_per_px=0.0;
