@@ -67,4 +67,30 @@ bool serializeRouteGeometry(const Route &route, QJsonObject &output, QString *er
     return true;
 }
 
+bool attachRouteGeometryToRequest(const Route &route,
+                                  QJsonObject &request,
+                                  QString *error)
+{
+    if (request.value(QStringLiteral("schemaVersion")).toString() != QLatin1String("1.0")
+        || request.value(QStringLiteral("messageType")).toString() != QLatin1String("planning.request")
+        || request.value(QStringLiteral("missionId")).toString().isEmpty()
+        || request.value(QStringLiteral("resultId")).toString().isEmpty()) {
+        return reject(error, QStringLiteral("INVALID_PLANNING_REQUEST_ENVELOPE"));
+    }
+
+    QJsonObject inputs = request.value(QStringLiteral("inputs")).toObject();
+    if (inputs.isEmpty())
+        return reject(error, QStringLiteral("PLANNING_REQUEST_INPUTS_REQUIRED"));
+
+    QJsonObject geometry;
+    if (!serializeRouteGeometry(route, geometry, error))
+        return false;
+
+    inputs.insert(QStringLiteral("routeGeometry"), geometry);
+    request.insert(QStringLiteral("inputs"), inputs);
+    if (error)
+        error->clear();
+    return true;
+}
+
 } // namespace bluesky::planning
