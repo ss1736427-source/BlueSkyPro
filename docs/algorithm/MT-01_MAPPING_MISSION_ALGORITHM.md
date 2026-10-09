@@ -333,3 +333,20 @@ MT-01 planning is `RELEASE_ELIGIBLE` only when:
 MT-01 is `COMPLETE` only when the post-flight quality criteria required by the mission have evidence-backed results. A mission can be safely flown but remain incomplete if the required mapping product is not demonstrated to meet its acceptance criteria.
 
 **Verification status:** This document defines the intended algorithm and minimum verification scenarios. It does not itself prove that software implementation, automated tests, CI, HIL or real-UAV performance has passed.
+
+## 11. Current implementation boundary: mapping acquisition
+
+The current validator modules reviewed for this algorithm provide useful lower-level components, including constrained-space geometry, route containment, wind/performance evaluation, trajectory checks and the 3D summary adapter. That does **not** establish that the MT-01 acquisition algorithm is implemented.
+
+In the targeted review of the current `schemas/validator` planning/geometry/performance modules, no dedicated production implementation was identified for the following MT-01 functions:
+
+- camera/sensor-aware GSD calculation with unit normalization and calibration provenance;
+- ground-footprint derivation from camera geometry, attitude and surface distance;
+- overlap-to-image-step and line-spacing calculation;
+- camera trigger scheduling against ground speed and payload limits;
+- coverage-track orientation, edge/corner coverage and coverage-cell progress;
+- image-sequence completeness, achieved overlap and product-specific post-flight QA.
+
+The new geometry regression tests cover constrained-space subtraction and the route-containment boundary when a route segment crosses a clipped exclusion. They do not implement coverage generation, camera acquisition planning or candidate route search.
+
+**Integration requirement:** implement these as explicit, versioned MT-01 acquisition components with deterministic inputs/outputs and stable diagnostics, then link each component to its scenario IDs in `MT-01_MT-02_VERIFICATION_TRACEABILITY.md`. Do not add a parallel route planner: acquisition geometry must continue to use the canonical constrained-open-space and route pipeline. Until direct implementation and verification evidence exists, MT-01 GSD, coverage, trigger and post-flight QA scenarios remain unverified.
