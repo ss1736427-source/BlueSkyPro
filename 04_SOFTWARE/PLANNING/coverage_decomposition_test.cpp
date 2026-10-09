@@ -265,5 +265,59 @@ int main() {
         assert(short_sequence.events.back().position.latitude_deg==event_track.end.latitude_deg);
     }
 
+    {
+        CoverageTrackResult invalid_tracks;
+        invalid_tracks.valid=true;
+        invalid_tracks.dependency_identity="TRACKS-EVENT-INVALID";
+        CoverageTrack t;
+        t.track_id="MT01-TRACK-EVENT-INVALID";
+        t.cell_id="MT01-CELL-EVENT-INVALID";
+        t.start={59.0,30.0};
+        t.end={59.0,30.001};
+        t.length_m=20.0;
+        invalid_tracks.tracks={t};
+
+        AcquisitionGeometryResult geometry;
+        geometry.valid=true;
+        geometry.dependency_identity="GEOM-EVENT-INVALID";
+        geometry.camera_ground_distance_m=100.0;
+        geometry.footprint_width_m=100.0;
+        geometry.footprint_height_m=100.0;
+        geometry.gsd_width_m_per_px=0.02;
+        geometry.gsd_height_m_per_px=0.02;
+        geometry.image_spacing_m=10.0;
+        geometry.trigger_interval_s=1.0;
+        geometry.frontal_overlap_ratio=0.75;
+        geometry.side_overlap_ratio=0.60;
+
+        AcquisitionEventInput input;
+        input.tracks=invalid_tracks;
+        input.geometry=geometry;
+        input.calculation_version="MT01-EVENT-VALIDATE-1";
+        const auto generated=AcquisitionEventValidator::generate(input);
+        assert(generated.valid);
+        assert(generated.events.size()==3);
+
+        auto invalid_event=generated;
+        invalid_event.events.front().gsd_width_m_per_px=0.0;
+        MappingQualityInput quality_input;
+        quality_input.aoi={{59.0,30.0},{59.0,30.002},{59.002,30.002},{59.002,30.0}};
+        quality_input.decomposition.valid=true;
+        quality_input.decomposition.dependency_identity="DECOMP-EVENT-VALIDATE";
+        quality_input.decomposition.cells.push_back({});
+        quality_input.tracks=invalid_tracks;
+        quality_input.events=invalid_event;
+        quality_input.geometry=geometry;
+        quality_input.calculation_version="MT01-EVENT-VALIDATE-1";
+        const auto quality=MappingQualityEngine::evaluate(quality_input);
+        assert(quality.valid);
+        assert(quality.invalid_event_count>0);
+
+        auto duplicate=generated;
+        duplicate.events[1].position=duplicate.events[0].position;
+        duplicate.valid=true;
+        assert(duplicate.events[1].event_id!=duplicate.events[0].event_id);
+    }
+
     return 0;
 }
