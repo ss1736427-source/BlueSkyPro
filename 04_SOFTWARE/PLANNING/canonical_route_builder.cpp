@@ -1,6 +1,8 @@
 #include "canonical_route_builder.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <utility>
 #include <set>
 
 namespace bluesky::planning {
