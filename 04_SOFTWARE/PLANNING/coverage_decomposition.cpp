@@ -508,6 +508,8 @@ double exact_footprint_union_intersection_area(
 }
 
 
+double polygon_area_geo(const std::vector<GeoPoint>& polygon);
+
 std::vector<std::vector<XY>> subtract_rect_from_polygons(
     const std::vector<std::vector<XY>>& input,
     double x0,double x1,double y0,double y1) {
