@@ -4918,3 +4918,20 @@ The route-candidate generator now evaluates a bounded deterministic family rathe
 6. `max_candidates` bounds the retained candidate set.
 
 This remains a **candidate-generation** stage. It does not claim global optimality and does not yet include wind, vehicle performance, energy, turn dynamics, trajectory feasibility or risk costs.
+
+
+### 53.2 Route-candidate → wind/performance integration boundary
+
+Route candidates are now convertible into the existing `Route` model and evaluated through the established `WindPerformanceTrajectory` component.
+
+The integration layer:
+
+- preserves candidate track order and transition geometry;
+- creates explicit route segment identities;
+- carries candidate lineage into the generated route;
+- invokes the existing wind/performance/energy evaluator;
+- retains its fail-closed findings, including missing wind, invalid wind, wind tolerance, unavailable ground speed and insufficient reserve.
+
+The integration layer does **not** duplicate wind or energy calculations and does not invent environmental or UAV parameters.
+
+A candidate with missing required wind samples remains `INFEASIBLE` through the existing evaluator; this is an expected controlled outcome, not execution evidence.
