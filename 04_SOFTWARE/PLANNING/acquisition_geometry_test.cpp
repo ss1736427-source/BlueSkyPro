@@ -23,14 +23,20 @@ int main() {
         AcquisitionGeometryEngine::calculate(input, "TEST-CALC-1");
 
     assert(result.valid);
-    assert(result.gsd_width_m_per_px > 0.0);
-    assert(result.gsd_height_m_per_px > 0.0);
-    assert(result.footprint_width_m > 0.0);
-    assert(result.footprint_height_m > 0.0);
-    assert(result.track_spacing_m > 0.0);
-    assert(result.image_spacing_m > 0.0);
-    assert(result.trigger_interval_s > 0.0);
-    assert(result.trigger_rate_hz > 0.0);
+
+    // Independent expected values derived from this existing unit-test fixture.
+    // These are formula regression expectations, not controlled mission inputs.
+    const auto near = [](double actual, double expected) {
+        return std::abs(actual - expected) <= 1e-12;
+    };
+    assert(near(result.gsd_width_m_per_px, 150.0 / input.image_width_px));
+    assert(near(result.gsd_height_m_per_px, 100.0 / input.image_height_px));
+    assert(near(result.footprint_width_m, 150.0));
+    assert(near(result.footprint_height_m, 100.0));
+    assert(near(result.track_spacing_m, 60.0));
+    assert(near(result.image_spacing_m, 25.0));
+    assert(near(result.trigger_interval_s, 2.5));
+    assert(near(result.trigger_rate_hz, 0.4));
     assert(!result.dependency_identity.empty());
 
     auto missing = input;
