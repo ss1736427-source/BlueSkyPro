@@ -178,6 +178,7 @@ def process_request(request: dict[str, Any]) -> dict[str, Any]:
         result_id=result_id,
         pipeline_result=result,
         three_d_mapping=mapping,
+        route_geometry=raw.get("routeGeometry"),
         planner_version=source.get("plannerVersion"),
         configuration_version=source.get("configurationVersion"),
         run_id=source.get("runId"),
