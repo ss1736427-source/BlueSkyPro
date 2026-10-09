@@ -51,7 +51,7 @@ Before writing the WebEngine QML adapter:
 ## Verification state
 
 - Existing raster map and zoom controls: source present in baseline commit; runtime behavior for commit `50f8765994289b610807864513ce2b635b79d700` is not confirmed by this checkpoint.
-- Selectable Yandex + MapTiler Hybrid v4 raster basemaps: **IMPLEMENTED IN SOURCE / CI UNVERIFIED FOR CURRENT SHA `2b3219c3c8b2e360ed7a3f6d2d30f00af7b769ac` / WINDOWS RUNTIME UNVERIFIED**.
+- Selectable Yandex + MapTiler Hybrid v4 raster basemaps: **IMPLEMENTED IN SOURCE / HMI CI PASS for commit `5aaa5ee9ffc5b56b6f07f201d88e2c260f2a5665` (workflow `BlueSky PRO HMI Qt Build`, run #188; Configure, Build, and HMI contract tests succeeded) / WINDOWS RUNTIME UNVERIFIED**.
 - MapTiler SDK JS embedded in Qt: **NOT IMPLEMENTED / NOT VERIFIED**.
 - Hybrid v4 vector rendering: **NOT IMPLEMENTED**.
 - 3D terrain: **NOT IMPLEMENTED**.
@@ -60,7 +60,7 @@ Before writing the WebEngine QML adapter:
 
 ## Next deterministic work item
 
-1. Verify the exact provider-integration commit in CI and Windows runtime; test all three provider choices, key-missing states, cached tile separation, and retained Yandex loading.
+1. CI for current checkpoint commit `5aaa5ee9ffc5b56b6f07f201d88e2c260f2a5665` is confirmed by HMI workflow run #188 (Configure, Build, and HMI contract tests succeeded). Windows runtime remains unverified; test all three provider choices, key-missing states, cached tile separation, and retained Yandex loading.
 2. Inspect the exact current-branch HMI CI workflow and Qt deployment/package process. Resolve the WebEngine availability/deployment gate before adding SDK UI code.
 3. Add the SDK vector renderer behind a separate adapter, keeping the raster/Yandex view as fallback. Add terrain and building extrusion only after the embedded SDK map passes its smoke test.
 4. Keep all route overlays sourced from authoritative WGS84 route geometry; do not touch route authority or synthesize coordinates.
