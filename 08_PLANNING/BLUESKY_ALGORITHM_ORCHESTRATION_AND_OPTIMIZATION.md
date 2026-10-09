@@ -4904,3 +4904,17 @@ The first MT-01 transition-graph implementation is controlled as an isolated pla
 No unvalidated weights are introduced for turn cost, wind, energy, risk, vehicle dynamics or alternative connector geometry.
 
 The next deterministic MT-01 implementation step is **route candidate refinement/integration**: additional admissible orderings, then wind/vehicle/energy/trajectory evaluation. Full transition-cost refinement remains downstream of the first candidate-generation slice.
+
+
+### 53.1 Bounded route-candidate refinement
+
+The route-candidate generator now evaluates a bounded deterministic family rather than only one fixed start track:
+
+1. each generated track is considered as a possible starting track;
+2. for each start, the same distance-only greedy expansion is applied;
+3. incomplete routes are rejected;
+4. complete candidates are sorted by total transition cost;
+5. equal-cost candidates are ordered lexicographically by their track-ID sequence;
+6. `max_candidates` bounds the retained candidate set.
+
+This remains a **candidate-generation** stage. It does not claim global optimality and does not yet include wind, vehicle performance, energy, turn dynamics, trajectory feasibility or risk costs.
