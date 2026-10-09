@@ -30,6 +30,7 @@ Do not synthesize a geographic `Route` from `SelectedRouteSet.route_elements` al
 
 - Added `04_SOFTWARE/PLANNING/canonical_route_builder.hpp/.cpp`: resolves `SelectedRouteSet.route_elements` against the authoritative `PlanningGraph` node IDs and constructs the canonical geographic `Route` from each node's `GeoPoint` and altitude.
 - The resolver preserves mission/candidate lineage and selected route order, creates adjacent segments with great-circle distances, marks graph start/goal points mandatory, and rejects missing/duplicate nodes, invalid WGS84 coordinates, non-finite altitude, missing lineage and routes shorter than two points.
+- Follow-up hardening also requires selected endpoints to match the graph start/goal and every adjacent waypoint pair to have a directed, finite, non-negative graph edge. Tests cover disconnected edges and mismatched endpoints.
 - Added `canonical_route_builder_test.cpp` for successful mapping and negative cases; registered source and test executable in `04_SOFTWARE/PLANNING/CMakeLists.txt`.
 - This closes the domain-level conversion from a selected candidate's graph-node IDs into canonical route geometry. It does **not** yet connect a live selected route into the HMI or PlanningBridge request path.
 
@@ -50,7 +51,7 @@ Do not synthesize a geographic `Route` from `SelectedRouteSet.route_elements` al
 - HMI build and HMI contract tests passed: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37913107681.
 - Planning benchmark build/tests passed: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37913107679.
 - Multi-UAV validator regression checks passed: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37913107676.
-- The new canonical-route-builder commits are awaiting CI; check run IDs 37914900962, 37914894184 and 37914894166. Earlier passing CI does not cover these new files.
+- The initial canonical-route-builder commits passed Planning Benchmark and Multi-UAV Validator at SHA `517e19f1fa35df7d4aacd6cc3d1bbcedcecffea2`; the HMI Qt Build was still running at last check. Subsequent endpoint/connectivity hardening at SHA `6992729c73ff31f0fdf20873c1b961d44bf89881` has new CI runs pending/in progress (for example 37915287102, 37915277546, 37915277378). Do not treat the latest tests as passed until these runs finish.
 - These CI results verify builds and automated tests, not a live mission route flowing to the map.
 - Local Windows runtime has not been verified.
 - End-to-end canonical Route -> request -> Planning Core -> PlanningBridge -> map remains **NOT IMPLEMENTED / NOT VERIFIED**.
