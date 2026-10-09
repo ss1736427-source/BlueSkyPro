@@ -115,3 +115,24 @@ The published artifact `maplibre-native-qt-6.11.2-mingw-poc` (artifact ID `11621
 
 This confirms the **presence of expected package/plugin files in the installed artifact**, not that Windows can load the plugins or render a map. The official standalone QML example was configured and built successfully in workflow run `37970467018` (https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37970467018), associated with BlueSky PRO commit `e464f318248ffb6c2bba1fbc05a0bfb92d94e8fd`. All workflow steps passed, including `Configure official QML standalone example` and `Build official QML standalone example`. Artifact `maplibre-native-qt-6.11.2-mingw-poc`, ID `11636674464`, size 6,215,965 bytes, SHA-256 `632d2515821ad0ed5108deaa8c02e52bcb380e614b0ef134fdb82f772fc6d30a`, expires 2026-10-16. This closes the isolated compile/configure gate for the upstream library and official example with Qt 6.11.2 MinGW. It does not prove that the example launches, loads QML plugins at runtime, fetches style/tiles, or displays a map. Runtime rendering, route overlay integration, Windows deployment, licensing, and data attribution remain unverified.
 
+### MapLibre QML startup smoke-test — result 2026-10-09
+
+**RESULT: CI PASS for native library build, install, official standalone QML example build, and limited process-liveness smoke test. Actual map rendering remains UNVERIFIED.**
+
+Tested BlueSky PRO commit: `2fb71f6bc8665e40a549d726b81715597246361c` (workflow change only).
+
+Evidence:
+- Push workflow run: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37979000144 — completed successfully on 2026-10-09; job `113984425140`.
+- Pull-request workflow run: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37979007701 — completed successfully on 2026-10-09; job `113984451094`.
+- Both runs passed: native library configure/build/install, official QML standalone example configure/build, `Runtime smoke test — QML startup`, compiler/Qt version recording, and artifact upload.
+- Experimental install artifact from push run: `maplibre-native-qt-6.11.2-mingw-poc`, artifact ID `11639848814`, size 6,215,968 bytes.
+- Experimental install artifact from pull-request run: `maplibre-native-qt-6.11.2-mingw-poc`, artifact ID `11641123350`, size 6,215,966 bytes.
+- Both artifacts were available when checked; retention is governed by the workflow's 7-day policy.
+
+Interpretation and limitations:
+- The smoke test checks that the GUI process remains alive for 15 seconds. The upstream example exits with an error if QML root objects are empty, so process liveness is a useful limited startup signal.
+- The smoke test does **not** verify visible map pixels, successful style or tile network requests, QML plugin load diagnostics beyond process liveness, center/zoom interaction, or route overlays.
+- This closes the isolated MinGW build/install and official-example build gate and passes the configured startup smoke test. It does **not** approve production integration and does not change the existing MapTiler/Yandex raster renderer.
+- Still required before production integration: controlled visual/runtime evidence that the vector basemap actually renders, style/data-source and attribution review, QML bindings licensing review, deployable runtime/package validation, Linux CI compatibility, and a test adapter preserving authoritative WGS84 route geometry and existing UI interactions.
+
+Next deterministic step: establish a stronger render-level proof of concept that records an objective signal of successful style/map rendering (prefer an automated screenshot/pixel or explicit renderer/style-loaded signal) without changing the production renderer. Keep API credentials outside source control and do not treat this smoke test as evidence of map rendering.
