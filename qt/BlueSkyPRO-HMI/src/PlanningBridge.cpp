@@ -87,13 +87,21 @@ bool PlanningBridge::sendRequest(const QString &json)
         return false;
     }
 
-    const QByteArray payload = json.toUtf8();
+    QByteArray payload = json.toUtf8();
     if (!payload.endsWith('\n'))
-        m_process.write(payload + '\n');
-    else
-        m_process.write(payload);
+        payload.append('\n');
 
-    return m_process.waitForBytesWritten(1000);
+    // Queue the JSONL frame and return immediately. Waiting synchronously for
+    // bytes to leave QProcess can block the caller (normally the GUI thread).
+    // QProcess drains its write buffer asynchronously; report only whether
+    // the frame was accepted into that buffer.
+    const qint64 queued = m_process.write(payload);
+    if (queued != payload.size()) {
+        emit bridgeError(QStringLiteral("PLANNING_REQUEST_QUEUE_FAILED"));
+        return false;
+    }
+
+    return true;
 }
 
 bool PlanningBridge::publishJson(const QString &json)
