@@ -82,6 +82,24 @@ bool attachRouteGeometryToRequest(const Route &route,
     if (inputs.isEmpty())
         return reject(error, QStringLiteral("PLANNING_REQUEST_INPUTS_REQUIRED"));
 
+    // Fail closed before adding geometry or sending a request that the JSONL
+    // adapter will reject for missing mandatory planning inputs.
+    if (!inputs.value(QStringLiteral("zoneStatus")).isString()
+        || !inputs.value(QStringLiteral("assignmentStatus")).isString()
+        || !inputs.value(QStringLiteral("routes")).isArray()
+        || inputs.value(QStringLiteral("routes")).toArray().isEmpty()
+        || !inputs.value(QStringLiteral("performance")).isArray()
+        || !inputs.value(QStringLiteral("trajectories")).isArray()
+        || !inputs.value(QStringLiteral("minimums")).isObject()) {
+        return reject(error, QStringLiteral("PLANNING_REQUEST_REQUIRED_INPUTS_INVALID"));
+    }
+
+    const QJsonObject minimums = inputs.value(QStringLiteral("minimums")).toObject();
+    if (!minimums.value(QStringLiteral("horizontalM")).isDouble()
+        || !minimums.value(QStringLiteral("verticalM")).isDouble()) {
+        return reject(error, QStringLiteral("PLANNING_REQUEST_MINIMUMS_INVALID"));
+    }
+
     QJsonObject geometry;
     if (!serializeRouteGeometry(route, geometry, error))
         return false;
