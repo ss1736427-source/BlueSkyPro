@@ -151,6 +151,9 @@ Item {
             missionVisible: root.missionVisible
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
+            // Side panels overlay the map; wheel zoom is disabled beneath them.
+            leftPanelWidth: root.leftPanelOpen ? root.leftWidth : 0
+            rightPanelWidth: root.rightPanelOpen ? root.rightWidth : 0
             routeCoordinates: missionProfileWindow.routeCoordinates
             useExternalMapState: true
             mapPanX: root.mapPanX
