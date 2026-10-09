@@ -105,6 +105,8 @@ AcquisitionGeometryResult AcquisitionGeometryEngine::calculate(
 
     result.trigger_rate_hz =
         1.0 / result.trigger_interval_s;
+    result.frontal_overlap_ratio = input.frontal_overlap_ratio;
+    result.side_overlap_ratio = input.side_overlap_ratio;
 
     if (!finite_positive(result.trigger_interval_s) ||
         !finite_positive(result.trigger_rate_hz))
