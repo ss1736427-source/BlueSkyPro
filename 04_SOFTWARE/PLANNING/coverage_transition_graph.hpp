@@ -18,6 +18,31 @@ struct CoverageTransitionGraphResult {
     std::vector<CoverageTransitionEdge> edges;
     std::size_t rejected_edges{0};
 };
+
+struct CoverageRouteCandidate {
+    std::vector<std::string> track_ids;
+    std::vector<CoverageTransitionEdge> transitions;
+    double transition_cost_m{0.0};
+};
+
+struct CoverageRouteCandidateResult {
+    bool valid{false};
+    std::string failure_code;
+    std::string dependency_identity;
+    std::vector<CoverageRouteCandidate> candidates;
+};
+
+struct CoverageRouteCandidateInput {
+    CoverageTransitionGraphResult graph;
+    std::size_t max_candidates{1};
+    std::string calculation_version;
+};
+
+class CoverageRouteCandidateBuilder final {
+public:
+    static CoverageRouteCandidateResult generate(const CoverageRouteCandidateInput& input);
+};
+
 struct CoverageTransitionGraphInput {
     CoverageTrackResult tracks;
     ConstrainedEnvironmentSnapshot environment;
