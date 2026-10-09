@@ -137,6 +137,7 @@ Item {
 
     onWidthChanged: rebuildTiles()
     onHeightChanged: rebuildTiles()
+    onRouteCoordinatesChanged: routeCanvas.requestPaint()
     onCenterLatitudeChanged: { rebuildTiles(); routeCanvas.requestPaint() }
     onCenterLongitudeChanged: { rebuildTiles(); routeCanvas.requestPaint() }
     onZoomLevelChanged: { rebuildTiles(); routeCanvas.requestPaint() }
