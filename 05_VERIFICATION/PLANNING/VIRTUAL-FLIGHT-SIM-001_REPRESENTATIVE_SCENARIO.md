@@ -19,7 +19,7 @@ This is a simulation/UI integration fixture. It is not flight evidence and does 
 - AOI corners: (59.0000, 30.0000), (59.0000, 30.0014), (59.0009, 30.0014), (59.0009, 30.0000).
 - Flat synthetic terrain reference: 25 m; nominal camera-to-surface distance: 100 m; synthetic datum altitude: 125 m.
 - These are test coordinates and assumptions, not a surveyed or operational site.
-- Route polyline points come from the selected candidate's calculated coverage tracks. Straight connecting segments between tracks are display connectors; this fixture does not claim obstacle-aware transit geometry between tracks.
+- Route polyline points come from the selected candidate's calculated coverage tracks and preserve the same endpoint order used by the planner's route builder. Inter-track connectors are direct segments checked by the transition graph against the supplied environment. Because the synthetic restriction is outside the AOI, this scenario does not demonstrate avoidance of an intersecting restriction or detour generation.
 
 ## Synthetic weather profile
 
