@@ -20,6 +20,10 @@ qt_add_executable(appBlueSkyPRO
     src/PlanningBridge.h
     src/RouteGeometrySerializer.cpp
     src/RouteGeometrySerializer.h
+    src/SelectedRouteMapHandoff.cpp
+    src/SelectedRouteMapHandoff.h
+    ../..//04_SOFTWARE/PLANNING/selected_route_set.cpp
+    ../../04_SOFTWARE/PLANNING/canonical_route_builder.cpp
     src/TileCacheManager.cpp
     src/TileCacheManager.h
 )
@@ -75,3 +79,13 @@ add_executable(route_geometry_serializer_test
 )
 target_link_libraries(route_geometry_serializer_test PRIVATE Qt6::Quick)
 add_test(NAME route_geometry_serializer_contract COMMAND route_geometry_serializer_test)
+
+add_executable(selected_route_map_handoff_test
+    tests/SelectedRouteMapHandoffTest.cpp
+    src/SelectedRouteMapHandoff.cpp
+    src/RouteGeometrySerializer.cpp
+    ../../04_SOFTWARE/PLANNING/selected_route_set.cpp
+    ../../04_SOFTWARE/PLANNING/canonical_route_builder.cpp
+)
+target_link_libraries(selected_route_map_handoff_test PRIVATE Qt6::Quick)
+add_test(NAME selected_route_map_handoff_contract COMMAND selected_route_map_handoff_test)
