@@ -3,6 +3,8 @@
 #include "coverage_orientation.hpp"
 #include "coverage_transition_graph.hpp"
 
+#include <algorithm>
+
 #include <cassert>
 #include <cmath>
 #include <iomanip>
