@@ -52,7 +52,17 @@ Other related tests inspected:
 
 These are **related component tests**, not direct evidence that all 36 template-specific scenarios pass. The register below therefore retains the template-level rows as unverified until a direct test ID is linked to each required behavior. This is a targeted review of the listed validator files, not a claim that no other relevant tests exist elsewhere in the repository.
 
-## 3. MT-01 — area mapping scenarios
+## 3. Controlled execution package status
+
+The first controlled execution package is documented in `docs/algorithm/MT01-T01_CONTROLLED_EXECUTION_PACKAGE.md`.
+
+| Verification case | Dataset/package | Requirement allocation | Current state | Reason |
+|---|---|---|---|---|
+| `V-M01-01` | `MT01-T01` | `SYS-REQ-008`, `SYS-REQ-035`, `SYS-REQ-076` | `BLOCKED_MISSING_CONTROLLED_INPUTS` / `NOT_EXECUTED` | No complete versioned AOI/CRS, terrain, restrictions, time-matched weather/wind, selected aircraft/readiness, installed camera calibration, mission quality profile, C2/launch-recovery data and execution configuration were found in the reviewed project data. Manufacturer reference facts alone are insufficient. |
+
+This is a package-readiness finding, not a failed algorithm execution. The test remains unexecuted until the missing controlled artifacts are supplied. No synthetic AOI or invented operational values may be substituted.
+
+## 4. MT-01 — area mapping scenarios
 
 | ID | Minimum scenario | Required observable result | Evidence status in this review |
 |---|---|---|---|
@@ -75,7 +85,7 @@ These are **related component tests**, not direct evidence that all 36 template-
 | MT01-V17 | Multi-sortie/multi-UAV partition | Deliberate stitching overlap and common references preserved | Unverified in this review |
 | MT01-V18 | Material input change | Only dependent artifacts invalidated; unrelated artifacts retained | Unverified in this review |
 
-## 4. MT-02 — 3D reconstruction scenarios
+## 5. MT-02 — 3D reconstruction scenarios
 
 | ID | Minimum scenario | Required observable result | Evidence status in this review |
 |---|---|---|---|
@@ -98,7 +108,7 @@ These are **related component tests**, not direct evidence that all 36 template-
 | MT02-V17 | Stale environment/authorization snapshot | Release blocked until the snapshot is refreshed and revalidated | Unverified in this review |
 | MT02-V18 | Material input change | Only dependent surface, viewpoint, route and performance artifacts invalidated | Unverified in this review |
 
-## 5. Cross-cutting verification obligations
+## 6. Cross-cutting verification obligations
 
 The scenario suites must additionally verify the contracts that span both templates:
 
@@ -111,7 +121,7 @@ The scenario suites must additionally verify the contracts that span both templa
 7. Multi-UAV plans preserve individual vehicle/payload/performance/energy checks and parent-mission traceability.
 8. Failure cases produce stable diagnostic identifiers suitable for automated assertions and operational explanation.
 
-## 6. Exit criteria for closing a row
+## 7. Exit criteria for closing a row
 
 A scenario is not closed merely because its specification exists or CI is green. Each row requires:
 - a stable automated test ID and deterministic fixture;
