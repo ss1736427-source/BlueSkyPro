@@ -646,6 +646,42 @@ AcquisitionEventResult AcquisitionEventValidator::generate(
         }
     }
 
+    if(result.events.empty()) {
+        result.failure_code="NO_GENERATED_EVENTS";
+        return result;
+    }
+    std::size_t track_begin=0;
+    while(track_begin<result.events.size()) {
+        const std::string& track_id=result.events[track_begin].track_id;
+        std::size_t track_end=track_begin;
+        while(track_end<result.events.size() && result.events[track_end].track_id==track_id) {
+            const auto& event=result.events[track_end];
+            if(event.track_id.empty() ||
+               !std::isfinite(event.position.latitude_deg) || !std::isfinite(event.position.longitude_deg) ||
+               !std::isfinite(event.camera_ground_distance_m) || !(event.camera_ground_distance_m>0.0) ||
+               !std::isfinite(event.gsd_width_m_per_px) || !(event.gsd_width_m_per_px>0.0) ||
+               !std::isfinite(event.gsd_height_m_per_px) || !(event.gsd_height_m_per_px>0.0) ||
+               !std::isfinite(event.footprint_width_m) || !(event.footprint_width_m>0.0) ||
+               !std::isfinite(event.footprint_height_m) || !(event.footprint_height_m>0.0) ||
+               !std::isfinite(event.trigger_interval_s) || !(event.trigger_interval_s>0.0) ||
+               !std::isfinite(event.frontal_overlap_ratio) || event.frontal_overlap_ratio<0.0 || event.frontal_overlap_ratio>=1.0 ||
+               !std::isfinite(event.side_overlap_ratio) || event.side_overlap_ratio<0.0 || event.side_overlap_ratio>=1.0 ||
+               !event.sensor_state_valid || !event.trigger_state_valid) {
+                result.failure_code="INVALID_GENERATED_EVENT";
+                return result;
+            }
+            if(track_end>track_begin) {
+                const auto& previous=result.events[track_end-1];
+                if(event.position.latitude_deg==previous.position.latitude_deg && event.position.longitude_deg==previous.position.longitude_deg) {
+                    result.failure_code="DUPLICATE_EVENT_POSITION";
+                    return result;
+                }
+            }
+            ++track_end;
+        }
+        ++track_begin;
+    }
+
     result.valid=true;
     return result;
 }
