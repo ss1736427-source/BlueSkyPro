@@ -1123,6 +1123,7 @@ MappingQualityResult MappingQualityEngine::evaluate(const MappingQualityInput& i
         event_metrics_valid &&
         geometry_metrics_valid &&
         acquisition_metrics_valid &&
+        result.mandatory_coverage_passed &&
         result.coverage_ratio>0.0;
     result.valid=true;
     return result;
