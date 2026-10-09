@@ -141,7 +141,6 @@ CoverageTrackResult CoverageTrackGenerator::generate(const CoverageTrackInput& i
         std::to_string(input.altitude_m);
 
     for(const auto& cell : input.decomposition.cells) {
-        if(cell.constraint_state == CoverageCellConstraintState::Constrained) continue;
         if(cell.polygon.size() < 3) {
             result.failure_code="INVALID_CELL_GEOMETRY";
             return result;
