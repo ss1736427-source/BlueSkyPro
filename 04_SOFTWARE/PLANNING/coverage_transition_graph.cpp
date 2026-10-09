@@ -44,7 +44,7 @@ CoverageTransitionGraphResult CoverageTransitionGraphBuilder::build(const Covera
 } // namespace bluesky::planning
 
 
-CoverageRouteCandidateResult CoverageRouteCandidateBuilder::generate(
+bluesky::planning::CoverageRouteCandidateResult bluesky::planning::CoverageRouteCandidateBuilder::generate(
     const CoverageRouteCandidateInput& input) {
     CoverageRouteCandidateResult result;
     if (!input.graph.valid) {
