@@ -40,5 +40,33 @@ int main() {
     auto incomplete=i;
     incomplete.environment.complete=false;
     assert(!CoverageDecompositionEngine::decompose(incomplete).valid);
+    auto restricted=i;
+    SpatialRestriction zone;
+    zone.restriction_id="TEST-INTERNAL";
+    zone.geometry_type=RestrictionGeometryType::Polygon;
+    zone.polygon={{59.0030,30.0095},{59.0030,30.0120},{59.0070,30.0120},{59.0070,30.0095}};
+    zone.minimum_altitude_m=50.0;
+    zone.maximum_altitude_m=150.0;
+    restricted.environment.restrictions={zone};
+
+    const auto restricted_result=CoverageDecompositionEngine::decompose(restricted);
+    assert(restricted_result.valid);
+    std::size_t constrained=0;
+    for(const auto& cell:restricted_result.cells)
+        if(cell.constraint_state==CoverageCellConstraintState::Constrained) ++constrained;
+    assert(constrained==1);
+
+    CoverageTrackInput restricted_tracks_input;
+    restricted_tracks_input.decomposition=restricted_result;
+    restricted_tracks_input.altitude_m=100.0;
+    restricted_tracks_input.footprint_width_m=100.0;
+    restricted_tracks_input.footprint_height_m=100.0;
+    restricted_tracks_input.calculation_version="TEST-TRACK-1";
+    const auto restricted_tracks=CoverageTrackGenerator::generate(restricted_tracks_input);
+    assert(restricted_tracks.valid);
+    assert(restricted_tracks.tracks.size()==2);
+    for(const auto& track:restricted_tracks.tracks)
+        assert(track.cell_id!="MT01-CELL-1");
+
     return 0;
 }
