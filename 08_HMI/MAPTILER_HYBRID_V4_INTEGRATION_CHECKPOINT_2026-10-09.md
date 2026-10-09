@@ -2,14 +2,18 @@
 
 ## Status
 
-**IN PROGRESS — SDK integration not implemented.** The existing map view is a custom Qt Quick raster-tile renderer. It cannot provide the MapTiler SDK's vector rendering, camera pitch, 3D terrain, or extruded building layers merely by changing the tile URL.
+**IN PROGRESS — selectable 2D raster basemaps implemented; MapTiler SDK vector rendering and 3D remain unimplemented.** The existing map view is a custom Qt Quick raster-tile renderer. It cannot provide vector rendering, camera pitch, 3D terrain, or extruded building layers merely by changing the tile URL.
 
 ## Current baseline
 
 - Working branch: `fix/hmi-map-tile-loading-2026-10-09`.
-- Baseline commit: `50f8765994289b610807864513ce2b635b79d700` (`feat(map): add compact map zoom controls`).
+- Baseline before provider integration: `50f8765994289b610807864513ce2b635b79d700` (`feat(map): add compact map zoom controls`).
+- Provider integration commit: `432cca3dc75f8f35bf48842ace62727ef6e56946` (`feat(map): add selectable Yandex and MapTiler Hybrid basemaps`).
 - `qt/BlueSkyPRO-HMI/qml/GoogleMapView.qml` uses a custom `Image` tile repeater, QML coordinate-to-world calculations, `Canvas` route rendering, `DragHandler`, and `WheelHandler`.
-- MapTiler currently supplies raster `dataviz-dark` tiles. Provider selection and tile caching are handled in QML/C++.
+- `GoogleMapView.qml` now offers an on-map selector for `MapTiler Hybrid v4`, `MapTiler Hybrid v4 Dark`, and `Яндекс Карты`.
+- When `BLUESKY_MAPTILER_API_KEY` exists, MapTiler Hybrid v4 is the initial selection. Without that key, Yandex is the initial selection.
+- MapTiler Hybrid styles are currently requested through the documented raster XYZ endpoint; this is a 2D raster integration, not the MapTiler SDK vector renderer.
+- Tile cache keys include the selected MapTiler style identity to prevent cross-style tile collisions. Yandex remains selectable and uses its existing endpoint.
 - `qt/BlueSkyPRO-HMI/CMakeLists.txt` currently finds Qt Quick and Network and does not declare a Qt WebEngine dependency.
 - `qt/BlueSkyPRO-HMI/src/main.cpp` supplies API keys to QML through environment variables. The key must remain outside source control.
 - The existing route overlay must continue to consume only authoritative WGS84 geometry; no preview or synthetic coordinates may be introduced.
@@ -46,12 +50,16 @@ Before writing the WebEngine QML adapter:
 ## Verification state
 
 - Existing raster map and zoom controls: source present in baseline commit; runtime behavior for commit `50f8765994289b610807864513ce2b635b79d700` is not confirmed by this checkpoint.
+- Selectable Yandex + MapTiler Hybrid v4 raster basemaps: **IMPLEMENTED IN SOURCE / CI UNVERIFIED / WINDOWS RUNTIME UNVERIFIED**.
 - MapTiler SDK JS embedded in Qt: **NOT IMPLEMENTED / NOT VERIFIED**.
-- Hybrid v4: **NOT IMPLEMENTED**.
+- Hybrid v4 vector rendering: **NOT IMPLEMENTED**.
 - 3D terrain: **NOT IMPLEMENTED**.
 - 3D buildings: **NOT IMPLEMENTED**.
 - Windows packaging and runtime: **UNVERIFIED**.
 
 ## Next deterministic work item
 
-Inspect the exact current-branch HMI CI workflow and Qt deployment/package process. Resolve the WebEngine availability/deployment gate before adding any SDK UI code. Keep the change isolated to map integration and its tests; do not touch planning route authority or synthesize route geometry.
+1. Verify the exact provider-integration commit in CI and Windows runtime; test all three provider choices, key-missing states, cached tile separation, and retained Yandex loading.
+2. Inspect the exact current-branch HMI CI workflow and Qt deployment/package process. Resolve the WebEngine availability/deployment gate before adding SDK UI code.
+3. Add the SDK vector renderer behind a separate adapter, keeping the raster/Yandex view as fallback. Add terrain and building extrusion only after the embedded SDK map passes its smoke test.
+4. Keep all route overlays sourced from authoritative WGS84 route geometry; do not touch route authority or synthesize coordinates.
