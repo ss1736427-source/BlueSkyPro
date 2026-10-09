@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <cstring>
 #include <vector>
 
 using namespace bluesky::planning;
@@ -37,7 +38,7 @@ bool near(double actual, double expected, double tolerance = 1e-9) {
 }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     const auto aoi = representativeAoi();
 
     // Published DJI Mavic 3E model-level camera dimensions. This is not an
@@ -81,8 +82,21 @@ int main() {
     environment.snapshot_version = "1";
     environment.calculation_input_version = "SIM-INPUTS-001";
     environment.complete = true;
-    // No restriction is asserted to be absent in the real world. This is an
-    // intentionally open synthetic test environment, not NOTAM clearance.
+    // Synthetic NOTAM-like polygon outside the AOI: included in the planning
+    // snapshot, but not a statement about actual airspace or clearance.
+    SpatialRestriction simulatedNotam;
+    simulatedNotam.restriction_id = "SIM-NOTAM-001";
+    simulatedNotam.source_id = "VIRTUAL-FLIGHT-SYNTHETIC";
+    simulatedNotam.snapshot_version = "1";
+    simulatedNotam.geometry_type = RestrictionGeometryType::Polygon;
+    simulatedNotam.polygon = {
+        {59.00005, 30.00148}, {59.00005, 30.00162},
+        {59.00020, 30.00162}, {59.00020, 30.00148}
+    };
+    simulatedNotam.minimum_altitude_m = 0.0;
+    simulatedNotam.maximum_altitude_m = 500.0;
+    simulatedNotam.active = true;
+    environment.restrictions.push_back(simulatedNotam);
 
     CoverageDecompositionInput decompositionInput;
     decompositionInput.aoi = aoi;
@@ -201,11 +215,14 @@ int main() {
     assert(!selection.selected_route_id.empty());
 
     bool selectedTrajectoryFound = false;
+    std::size_t selectedCandidateIndex = 0;
     TrajectoryResult selectedTrajectory;
-    for (const auto& evaluation : routePerformance.evaluations) {
+    for (std::size_t i = 0; i < routePerformance.evaluations.size(); ++i) {
+        const auto& evaluation = routePerformance.evaluations[i];
         if (evaluation.route_id == selection.selected_route_id &&
             evaluation.status == TrajectoryStatus::Feasible) {
             selectedTrajectory = evaluation;
+            selectedCandidateIndex = i;
             selectedTrajectoryFound = true;
             break;
         }
@@ -214,6 +231,75 @@ int main() {
     assert(selectedTrajectory.remaining_energy_wh >= performance.reserve_requirement_wh);
 
     std::cout << std::fixed << std::setprecision(4);
+    const bool jsonMode = argc > 1 && std::strcmp(argv[1], "--json") == 0;
+    if (jsonMode) {
+        // Display polyline derived from the selected coverage candidate. The
+        // straight connector between tracks is illustrative; no obstacle-aware
+        // transit path is claimed by this representative simulation.
+        std::vector<GeoPoint> routePoints;
+        if (selectedCandidateIndex < candidates.candidates.size()) {
+            const auto& selectedCandidate = candidates.candidates[selectedCandidateIndex];
+            for (const auto& trackId : selectedCandidate.track_ids) {
+                const auto found = std::find_if(tracks.tracks.begin(), tracks.tracks.end(),
+                    [&](const CoverageTrack& track) { return track.track_id == trackId; });
+                if (found == tracks.tracks.end()) continue;
+                GeoPoint start = found->start;
+                GeoPoint end = found->end;
+                if (!routePoints.empty()) {
+                    const auto& last = routePoints.back();
+                    const double ds = std::pow(last.latitude_deg - start.latitude_deg, 2.0)
+                                    + std::pow(last.longitude_deg - start.longitude_deg, 2.0);
+                    const double de = std::pow(last.latitude_deg - end.latitude_deg, 2.0)
+                                    + std::pow(last.longitude_deg - end.longitude_deg, 2.0);
+                    if (de < ds) std::swap(start, end);
+                }
+                routePoints.push_back(start);
+                routePoints.push_back(end);
+            }
+        }
+        std::cout << std::fixed << std::setprecision(8);
+        std::cout << "{\"schemaVersion\":\"1.0\","
+                  << "\"messageType\":\"planning.result\","
+                  << "\"missionId\":\"V-M01-01-SIM-001\","
+                  << "\"resultId\":\"MT01-T01-SIM-001-RESULT-001\","
+                  << "\"verification\":{\"releaseStatus\":\"BLOCKED\","
+                  << "\"finalGateStatus\":\"PASS\",\"verified\":false},"
+                  << "\"executionClass\":\"REPRESENTATIVE_SIMULATION_NOT_FLIGHT_EVIDENCE\","
+                  << "\"uav\":{\"id\":\"DJI-MAVIC-3E-REFERENCE-SIM\","
+                  << "\"name\":\"DJI Mavic 3 Enterprise (reference model)\","
+                  << "\"camera\":\"4/3 CMOS; 5280x3956; mechanical shutter\"},"
+                  << "\"environment\":{\"weatherModel\":\"SYNTHETIC_AVERAGE\","
+                  << "\"temperatureC\":15.0,\"windNorthMps\":0.0,"
+                  << "\"windEastMps\":1.5,\"windVerticalMps\":0.0,"
+                  << "\"precipitationMmPerHour\":0.0,\"notamId\":\"SIM-NOTAM-001\","
+                  << "\"notamStatus\":\"SYNTHETIC_OUTSIDE_AOI_NOT_OPERATIONAL_CLEARANCE\"},"
+                  << "\"metrics\":{"
+                  << "\"aoiAreaM2\":" << quality.aoi_area_m2 << ","
+                  << "\"gsdWidthMPerPx\":" << geometry.gsd_width_m_per_px << ","
+                  << "\"gsdHeightMPerPx\":" << geometry.gsd_height_m_per_px << ","
+                  << "\"trackSpacingM\":" << geometry.track_spacing_m << ","
+                  << "\"triggerIntervalS\":" << geometry.trigger_interval_s << ","
+                  << "\"coverageRatio\":" << quality.coverage_ratio << ","
+                  << "\"uncoveredAreaM2\":" << quality.uncovered_area_m2 << ","
+                  << "\"coverageTracks\":" << tracks.tracks.size() << ","
+                  << "\"acquisitionEvents\":" << events.events.size() << ","
+                  << "\"edgeGaps\":" << edgeResult.gaps.size() << ","
+                  << "\"routeCandidates\":" << candidates.candidates.size() << ","
+                  << "\"selectedRouteId\":\"" << selection.selected_route_id << "\","
+                  << "\"selectedRouteTimeS\":" << selectedTrajectory.total_time_s << ","
+                  << "\"selectedRouteEnergyWh\":" << selectedTrajectory.total_energy_wh << ","
+                  << "\"remainingEnergyWh\":" << selectedTrajectory.remaining_energy_wh << "},"
+                  << "\"routeCoordinates\":[";
+        for (std::size_t i = 0; i < routePoints.size(); ++i) {
+            if (i) std::cout << ",";
+            std::cout << "{\"lat\":" << routePoints[i].latitude_deg
+                      << ",\"lon\":" << routePoints[i].longitude_deg << "}";
+        }
+        std::cout << "],\"simulationAcceptance\":\"PASS\","
+                  << "\"operationalStatus\":\"BLOCKED_NOT_EXECUTED\"}\n";
+        return 0;
+    }
+
     std::cout << "scenario_id=V-M01-01-SIM-001\n";
     std::cout << "dataset_id=" << kDatasetId << "\n";
     std::cout << "execution_class=REPRESENTATIVE_SIMULATION_NOT_FLIGHT_EVIDENCE\n";
