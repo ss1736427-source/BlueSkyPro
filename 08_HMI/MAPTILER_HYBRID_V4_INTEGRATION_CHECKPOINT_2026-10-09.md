@@ -105,3 +105,13 @@ Scope limitations:
 
 Next deterministic step: inspect the exact upstream commit used by the successful run and pin it in the experimental workflow; then verify that the installed artifact contains the expected CMake packages, libraries, and QML plugin before attempting a minimal isolated render proof of concept. Production integration remains blocked until the render contract and licensing/deployment gates are addressed.
 
+### Installed MinGW artifact inventory — 2026-10-09
+
+The published artifact `maplibre-native-qt-6.11.2-mingw-poc` (artifact ID `11621352510`) was downloaded and inspected as a ZIP. The archive contains 522 entries and includes:
+- `bin/QMapLibre.dll`, `bin/QMapLibreLocation.dll`, and `bin/QMapLibreQuickPrivate.dll`.
+- `lib/cmake/QMapLibre/QMapLibreConfig.cmake` and related CMake target files.
+- `plugins/geoservices/qtgeoservices_maplibre.dll`.
+- `qml/MapLibre/declarative_maplibre.dll` and `qml/MapLibre/Location/declarative_maplibre_locationplugin.dll`.
+
+This confirms the **presence of expected package/plugin files in the installed artifact**, not that Windows can load the plugins or render a map. The standalone QML example build was added in commit `e464f318248ffb6c2bba1fbc05a0bfb92d94e8fd`; its CI run is still in progress. Runtime, map-style loading, network access, rendering, route overlay integration, and deployment remain unverified.
+
