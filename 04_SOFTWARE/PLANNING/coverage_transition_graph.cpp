@@ -295,3 +295,5 @@ CoverageRouteSelectionResult CoverageRouteSelector::select(
 }
 
 
+
+} // namespace bluesky::planning
