@@ -19,7 +19,7 @@ This document distinguishes implemented reusable infrastructure, partial impleme
 |---|---|---|---|---|
 | 0. Input integrity | Validate mission, geometry, CRS, terrain, equipment, energy, environment and authorization inputs | Mission model and several lower-level validators exist; no complete MT-01 input-integrity orchestrator found | mission_model_contract_test; lower-level tests | PARTIAL |
 | 1. Constrained open space | Build feasible spatial domain from restrictions, altitude, terrain/obstacle, UAV and safety constraints | constrained_open_space.*, constrained_planning_graph.*, notam_prohibited_zone_validator.* | corresponding unit tests | PARTIAL / REUSABLE |
-| 2. Acquisition geometry | Derive GSD, footprint, track spacing, image spacing, trigger/frame requirements from controlled camera model | Equipment capability model has FOV/resolution/GSD fields; no MT-01 acquisition-geometry engine found | no dedicated MT-01 test found | GAP |
+| 2. Acquisition geometry | Derive GSD, footprint, track spacing, image spacing, trigger/frame requirements from controlled camera model | `acquisition_geometry.*` implements controlled sensor geometry, GSD, footprint, spacing and trigger timing with fail-closed input validation | `acquisition_geometry_test.cpp` | IMPLEMENTED — first implementation slice |
 | 3. Terrain following | Maintain controlled camera-to-surface distance under terrain/obstacle/altitude/vehicle constraints | flight_profile.*, vertical/route infrastructure exists; no photogrammetry terrain-following planner found | flight-profile / vertical tests | PARTIAL |
 | 4. Orientation candidates | Generate and evaluate bounded survey orientations using coverage/turn/wind/energy/terrain criteria | no MT-01 orientation-search module found | none identified | GAP |
 | 5. Cellular decomposition | Decompose AOI into planning cells where required | no MT-01 coverage decomposition engine found | none identified | GAP |
@@ -65,9 +65,13 @@ This is the strongest directly reusable MT-01 implementation block currently ide
 
 ### GAP-MT01-001 — Acquisition Geometry Engine
 
-Required: calibrated camera/sensor geometry; camera-ground/surface distance; GSD derivation; image footprint; frontal/side overlap; image spacing; track spacing; trigger/frame-rate derivation; controlled parameter provenance.
+Status: **CLOSED FOR FIRST IMPLEMENTATION SLICE; INTEGRATION REMAINS OPEN.**
 
-Current state: equipment capability fields exist, but no dedicated implementation was identified.
+Implemented in `04_SOFTWARE/PLANNING/acquisition_geometry.hpp/.cpp` with contract test `acquisition_geometry_test.cpp` and registered in `CMakeLists.txt`.
+
+Implemented calculations: GSD width/height, sensor footprint width/height, side-overlap track spacing, frontal-overlap image spacing, trigger interval and trigger rate. Invalid/missing controlled inputs fail closed.
+
+Remaining integration work: bind the engine to the canonical mission/equipment configuration and subsequent coverage-track generation. No universal acceptance thresholds were introduced.
 
 ### GAP-MT01-002 — Coverage Orientation Generator
 
@@ -150,10 +154,10 @@ No MT-01 execution result shall be claimed yet.
 
 ## 8. Next deterministic implementation step
 
-Implement/trace **GAP-MT01-001 Acquisition Geometry Engine** first. It is an upstream dependency for track spacing, image spacing, coverage tracks, edge coverage, acquisition events and mapping quality.
+`GAP-MT01-001` is now closed for its first implementation slice. The next dependency is **GAP-MT01-002 — Coverage Orientation Generator**.
 
-The implementation must consume controlled Equipment/Payload configuration and controlled mission quality parameters. It must not introduce universal hard-coded acceptance values.
+The next implementation must consume the acquisition-geometry result and generate bounded, deterministic survey orientations without introducing universal hard-coded acceptance values.
 
-After GAP-MT01-001 is closed, continue in dependency order: MT01-002 → MT01-003 → MT01-004 → MT01-005 → MT01-006 → MT01-007.
+Remaining dependency order: MT01-002 → MT01-003 → MT01-004 → MT01-005 → MT01-006 → MT01-007.
 
 MT-02 and MT-03 remain outside this step.
