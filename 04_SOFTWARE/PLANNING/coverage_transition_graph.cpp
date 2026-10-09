@@ -1,4 +1,5 @@
 #include "coverage_transition_graph.hpp"
+#include "candidate_comparison.hpp"
 #include <cmath>
 #include <algorithm>
 namespace bluesky::planning {
@@ -234,3 +235,62 @@ CoverageRouteCandidateResult CoverageRouteCandidateBuilder::generate(
     result.valid = true;
     return result;
 }}
+namespace {
+CandidateSolution toCandidate(
+    const TrajectoryResult& trajectory,
+    std::size_t index) {
+    CandidateSolution candidate;
+    candidate.candidate_id = trajectory.route_id.empty()
+        ? "MT01-ROUTE-CANDIDATE-" + std::to_string(index)
+        : trajectory.route_id;
+    candidate.solver_id = "MT01-WIND-PERFORMANCE";
+    candidate.solver_version = trajectory.calculation_version;
+    candidate.estimated_time_s = trajectory.total_time_s;
+    candidate.estimated_energy_wh = trajectory.total_energy_wh;
+    candidate.estimated_reserve_wh = trajectory.remaining_energy_wh;
+    candidate.feasibility =
+        trajectory.status == TrajectoryStatus::Feasible
+            ? Feasibility::Feasible : Feasibility::Infeasible;
+    for (const auto& finding : trajectory.findings)
+        candidate.constraint_violations.push_back(
+            std::to_string(static_cast<int>(finding.code)) + ":" + finding.segment_id);
+    return candidate;
+}
+}
+
+CoverageRouteSelectionResult CoverageRouteSelector::select(
+    const CoverageRoutePerformanceResult& performance,
+    const std::vector<std::string>& objective_priorities,
+    const std::string& calculation_input_version,
+    const std::string& calculation_version) {
+    CoverageRouteSelectionResult result;
+    if (!performance.valid || performance.evaluations.empty()) {
+        result.failure_code = "INVALID_PERFORMANCE_RESULTS";
+        return result;
+    }
+
+    CandidateComparisonInput comparisonInput;
+    comparisonInput.calculation_input_version = calculation_input_version;
+    comparisonInput.objective_priorities = objective_priorities;
+    for (std::size_t i = 0; i < performance.evaluations.size(); ++i)
+        comparisonInput.candidates.push_back(
+            toCandidate(performance.evaluations[i], i));
+
+    const auto comparison =
+        CandidateComparator::compare(comparisonInput, calculation_version);
+    result.dependency_identity =
+        performance.dependency_identity + "|SELECTION|" +
+        calculation_input_version + "|" + calculation_version;
+    result.rejected_route_ids = comparison.rejected_candidate_ids;
+
+    if (!comparison.feasible) {
+        result.failure_code = "NO_FEASIBLE_ROUTE_CANDIDATE";
+        return result;
+    }
+
+    result.selected_route_id = comparison.selected_candidate_id;
+    result.valid = true;
+    return result;
+}
+
+
