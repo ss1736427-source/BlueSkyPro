@@ -174,8 +174,22 @@ struct UncoveredGeometryComponent {
     std::vector<std::string> source_ids;
 };
 
+struct MandatoryCoverageArea {
+    std::string area_id;
+    std::vector<GeoPoint> polygon;
+};
+
+struct MandatoryCoverageResult {
+    std::string area_id;
+    double area_m2{0.0};
+    double covered_area_m2{0.0};
+    double coverage_ratio{0.0};
+    bool fully_covered{false};
+};
+
 struct MappingQualityInput {
     std::vector<GeoPoint> aoi;
+    std::vector<MandatoryCoverageArea> mandatory_areas;
     ConstrainedEnvironmentSnapshot environment;
     CoverageDecompositionResult decomposition;
     CoverageTrackResult tracks;
@@ -192,6 +206,8 @@ struct MappingQualityResult {
     double estimated_covered_area_m2{0.0};
     double footprint_union_area_m2{0.0};
     double coverage_ratio{0.0};
+    std::vector<MandatoryCoverageResult> mandatory_coverage;
+    bool mandatory_coverage_passed{true};
     std::vector<std::vector<GeoPoint>> uncovered_geometry;
     std::vector<UncoveredGeometryComponent> uncovered_components;
     double uncovered_area_m2{0.0};
