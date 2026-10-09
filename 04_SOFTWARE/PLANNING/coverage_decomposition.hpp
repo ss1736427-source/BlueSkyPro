@@ -133,8 +133,23 @@ public:
         const AcquisitionEventInput& input);
 };
 
+enum class UncoveredGeometryClassification {
+    BoundaryGap,
+    ExclusionInduced,
+    UnclassifiedSourceNotBound
+};
+
+struct UncoveredGeometryComponent {
+    std::vector<GeoPoint> polygon;
+    double area_m2{0.0};
+    UncoveredGeometryClassification classification{
+        UncoveredGeometryClassification::UnclassifiedSourceNotBound};
+    std::vector<std::string> source_ids;
+};
+
 struct MappingQualityInput {
     std::vector<GeoPoint> aoi;
+    ConstrainedEnvironmentSnapshot environment;
     CoverageDecompositionResult decomposition;
     CoverageTrackResult tracks;
     AcquisitionEventResult events;
@@ -151,6 +166,7 @@ struct MappingQualityResult {
     double footprint_union_area_m2{0.0};
     double coverage_ratio{0.0};
     std::vector<std::vector<GeoPoint>> uncovered_geometry;
+    std::vector<UncoveredGeometryComponent> uncovered_components;
     double uncovered_area_m2{0.0};
     double min_gsd_m_per_px{0.0};
     double max_gsd_m_per_px{0.0};
