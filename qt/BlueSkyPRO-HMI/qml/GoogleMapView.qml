@@ -4,18 +4,13 @@ import QtQml
 Item {
     id: root
 
-    property real centerLatitude: 55.7558
-    property real centerLongitude: 37.6176
-    property int zoomLevel: 10
+    property real centerLatitude: 59.00045
+    property real centerLongitude: 30.00070
+    property int zoomLevel: 20
     property string attribution: "Yandex Maps"
     property string mapStatus: "INITIALIZING"
-    property var routeCoordinates: [
-        { lat: 55.7600, lon: 37.6000 },
-        { lat: 55.7350, lon: 37.6250 },
-        { lat: 55.7550, lon: 37.6550 },
-        { lat: 55.7800, lon: 37.6400 },
-        { lat: 55.7700, lon: 37.5900 }
-    ]
+    // No demo route is shown before the planner returns a calculated path.
+    property var routeCoordinates: []
 
     readonly property int tileSize: 256
     property real panOffsetX: 0
