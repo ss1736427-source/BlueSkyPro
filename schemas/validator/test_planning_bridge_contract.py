@@ -49,6 +49,39 @@ def main() -> int:
     assert message["result"]["threeDMapping"]["routeLengthM"] == 2500.0
     assert '"missionId":"MISSION-001"' in dumps_result_message(message)
 
+    route_geometry = {
+        "routeId": "ROUTE-001",
+        "routeVersion": "3",
+        "coordinateReference": "WGS84",
+        "points": [
+            {"waypointId": "WP-START", "latitude": 55.75, "longitude": 37.61, "altitudeM": 120.0, "mandatory": True},
+            {"waypointId": "WP-FINISH", "latitude": 55.76, "longitude": 37.63, "altitudeM": 150.0, "mandatory": True},
+        ],
+    }
+    with_route = build_result_message(
+        mission_id="MISSION-001",
+        result_id="PLAN-002",
+        pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")),
+        route_geometry=route_geometry,
+    )
+    published_route = with_route["result"]["routeGeometry"]
+    assert published_route["coordinateReference"] == "WGS84"
+    assert published_route["points"][1]["latitude"] == 55.76
+    assert published_route["points"][1]["altitudeM"] == 150.0
+
+    invalid_route = dict(route_geometry, coordinateReference="LOCAL_XY")
+    try:
+        build_result_message(
+            mission_id="MISSION-001",
+            result_id="PLAN-003",
+            pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")),
+            route_geometry=invalid_route,
+        )
+    except PlanningBridgeContractError as exc:
+        assert str(exc) == "ROUTE_COORDINATE_REFERENCE_MUST_BE_WGS84"
+    else:
+        raise AssertionError("non-geodetic route coordinates must be rejected")
+
     try:
         build_result_message(mission_id="", result_id="PLAN-001", pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")))
     except PlanningBridgeContractError as exc:
