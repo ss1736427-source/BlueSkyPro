@@ -45,6 +45,7 @@ Item {
         property string preferredPositionCsv: ""
         property int freePositionLayoutVersion: 0
         property bool positionsLocked: false
+        property bool atcBottomAnchored: true
     }
 
     property var panelOrder: panelOrderSettings.orderCsv.split(",")
@@ -66,6 +67,7 @@ Item {
     property var temporaryPanelPositions: ({})
     property int lastAtcPanelHeight: -1
     property bool panelLayoutReady: false
+    property bool atcBottomAnchored: panelOrderSettings.atcBottomAnchored
 
     // When the ATC content grows or shrinks while positions are locked,
     // preserve its bottom edge so the card returns to its prior bottom-aligned
@@ -126,6 +128,12 @@ Item {
             result["ATC"] = Math.max(54, root.height - bottomInset - 8 - panelHeight("ATC"))
         }
 
+        // Treat an ATC panel already near the bottom as bottom-anchored.
+        var bottomLimit = Math.max(54, root.height - bottomInset - 8)
+        if (result["ATC"] !== undefined && panelVisible("ATC")
+                && result["ATC"] >= bottomLimit - panelHeight("ATC") - 24)
+            atcBottomAnchored = true
+        panelOrderSettings.atcBottomAnchored = atcBottomAnchored
         panelPositions = result
         preferredPanelPositions = Object.assign({}, result)
         temporaryPanelPositions = ({})
@@ -264,6 +272,8 @@ Item {
                 continue
             var h = panelHeight(key)
             var pref = nextPreferred[key] !== undefined ? nextPreferred[key] : panelPositionY(key)
+            if (key === "ATC" && atcBottomAnchored)
+                pref = bottomLimit - h
             items.push({ key: key, preferredY: Math.max(top, Math.min(bottomLimit - h, pref)), y: 0, h: h })
         }
 
@@ -335,6 +345,9 @@ Item {
         // The dragged panel owns the drop location. Overlapped cards yield.
         nextPositions[key] = Math.round(desired)
         nextPreferred[key] = Math.round(desired)
+        atcBottomAnchored = key === "ATC"
+                && desired >= bottomLimit - h - 24
+        panelOrderSettings.atcBottomAnchored = atcBottomAnchored
         delete nextTemporary[key]
 
         var displaced = []
