@@ -43,7 +43,6 @@ CoverageTransitionGraphResult CoverageTransitionGraphBuilder::build(const Covera
     return result;
 }
 
-namespace bluesky::planning {
 namespace {
 Route buildRoute(
     const CoverageRouteCandidate& candidate,
@@ -151,11 +150,7 @@ CoverageRoutePerformanceResult CoverageRoutePerformanceEvaluator::evaluate(
     result.valid = true;
     return result;
 }
-} // namespace bluesky::planning
 
-
-
-namespace bluesky::planning {
 namespace {
 CoverageRouteCandidate buildGreedyCandidate(
     const CoverageTransitionGraphResult& graph,
@@ -238,5 +233,5 @@ CoverageRouteCandidateResult CoverageRouteCandidateBuilder::generate(
 
     result.valid = true;
     return result;
-}
+}}
 } // namespace bluesky::planning
