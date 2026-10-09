@@ -591,6 +591,13 @@ AcquisitionEventResult AcquisitionEventValidator::generate(
         result.failure_code="NO_TRACKS";
         return result;
     }
+    if(!(input.geometry.image_spacing_m > 0.0) ||
+       !std::isfinite(input.geometry.image_spacing_m) ||
+       !(input.geometry.trigger_interval_s > 0.0) ||
+       !std::isfinite(input.geometry.trigger_interval_s)) {
+        result.failure_code="INVALID_ACQUISITION_SPACING";
+        return result;
+    }
 
     result.dependency_identity =
         input.tracks.dependency_identity + "|" +
@@ -603,23 +610,40 @@ AcquisitionEventResult AcquisitionEventValidator::generate(
             return result;
         }
 
-        AcquisitionEvent event;
-        event.generation_index=result.events.size();
-        event.event_id="MT01-EVENT-"+std::to_string(event.generation_index);
-        event.track_id=track.track_id;
-        event.position=track.start;
-        event.camera_ground_distance_m =
-            input.geometry.footprint_height_m > 0.0
-                ? input.geometry.camera_ground_distance_m
-                : 0.0;
-        event.gsd_width_m_per_px=input.geometry.gsd_width_m_per_px;
-        event.gsd_height_m_per_px=input.geometry.gsd_height_m_per_px;
-        event.footprint_width_m=input.geometry.footprint_width_m;
-        event.footprint_height_m=input.geometry.footprint_height_m;
-        event.trigger_interval_s=input.geometry.trigger_interval_s;
-        event.sensor_state_valid=true;
-        event.trigger_state_valid=true;
-        result.events.push_back(std::move(event));
+        const double spacing=input.geometry.image_spacing_m;
+        const std::size_t interval_count=
+            static_cast<std::size_t>(std::ceil(track.length_m/spacing));
+
+        for(std::size_t interval_index=0;
+            interval_index<=interval_count;
+            ++interval_index) {
+            const double distance_m=
+                std::min(track.length_m,
+                         static_cast<double>(interval_index)*spacing);
+            const double fraction=distance_m/track.length_m;
+
+            AcquisitionEvent event;
+            event.generation_index=result.events.size();
+            event.event_id="MT01-EVENT-"+std::to_string(event.generation_index);
+            event.track_id=track.track_id;
+            event.position.latitude_deg=
+                track.start.latitude_deg+
+                (track.end.latitude_deg-track.start.latitude_deg)*fraction;
+            event.position.longitude_deg=
+                track.start.longitude_deg+
+                (track.end.longitude_deg-track.start.longitude_deg)*fraction;
+            event.camera_ground_distance_m=input.geometry.camera_ground_distance_m;
+            event.gsd_width_m_per_px=input.geometry.gsd_width_m_per_px;
+            event.gsd_height_m_per_px=input.geometry.gsd_height_m_per_px;
+            event.footprint_width_m=input.geometry.footprint_width_m;
+            event.footprint_height_m=input.geometry.footprint_height_m;
+            event.trigger_interval_s=input.geometry.trigger_interval_s;
+            event.frontal_overlap_ratio=input.geometry.frontal_overlap_ratio;
+            event.side_overlap_ratio=input.geometry.side_overlap_ratio;
+            event.sensor_state_valid=true;
+            event.trigger_state_valid=true;
+            result.events.push_back(std::move(event));
+        }
     }
 
     result.valid=true;
