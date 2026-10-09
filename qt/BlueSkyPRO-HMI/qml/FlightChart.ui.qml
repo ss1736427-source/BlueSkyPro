@@ -17,6 +17,8 @@ Item {
     property bool manualCompositionComplete: false
     // Route points are supplied by the mission profile, not hard-coded in the map view.
     property var routeCoordinates: []
+    property real leftPanelWidth: 0
+    property real rightPanelWidth: 0
     // Pan offset for mouse-driven map dragging (visual preview interaction).
     // View state can be owned by MainContent so it survives template/tool changes.
     property bool useExternalMapState: false
@@ -67,6 +69,8 @@ Item {
         id: googleMap
         anchors.fill: parent
         z: 1
+        leftPanelWidth: root.leftPanelWidth
+        rightPanelWidth: root.rightPanelWidth
         routeCoordinates: root.routeCoordinates
     }
 
