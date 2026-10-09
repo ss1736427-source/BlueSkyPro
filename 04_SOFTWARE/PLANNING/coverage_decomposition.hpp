@@ -201,6 +201,7 @@ struct MappingQualityResult {
     double min_side_overlap_ratio{0.0};
     std::size_t invalid_event_count{0};
     bool gate_passed{false};
+    std::vector<std::vector<GeoPoint>> covered_geometry;
 };
 
 class MappingQualityEngine final {
