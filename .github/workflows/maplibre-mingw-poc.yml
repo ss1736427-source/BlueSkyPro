@@ -117,17 +117,115 @@ jobs:
               Get-Content $stderr -ErrorAction SilentlyContinue
               throw "QML example exited during startup with code $($process.ExitCode)."
             }
-            # The upstream example is built with WIN32_EXECUTABLE ON, so qDebug output
-            # is not reliably available through redirected stdout/stderr on Windows.
-            # Its main.cpp returns -1 when QML rootObjects() is empty; staying alive
-            # therefore verifies successful QML root-object creation.
-            Write-Output 'PASS: executable stayed alive for 15 seconds; upstream main.cpp did not report empty QML root objects.'
-            Write-Output 'NOTE: this smoke test does not verify visible map pixels or successful style/tile rendering.'
+            # The upstream main.cpp returns -1 when QML rootObjects() is empty.
+            Write-Output 'PASS: executable stayed alive for 15 seconds; QML root-object creation is plausible.'
           }
           finally {
             if (-not $process.HasExited) {
               Stop-Process -Id $process.Id -Force
             }
+          }
+
+      - name: Runtime smoke test — rendered map pixels
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'build-quick-example\QMapLibreExampleQuickStandalone.exe'
+          $probeQml = Join-Path $env:GITHUB_WORKSPACE 'maplibre-render-probe.qml'
+          $screenshot = Join-Path $env:GITHUB_WORKSPACE 'maplibre-render-probe.png'
+          $install = Join-Path $env:GITHUB_WORKSPACE 'maplibre-install'
+          $qtBin = Join-Path $env:QT_ROOT_DIR 'bin'
+          $env:PATH = "$install\bin;$qtBin;$env:PATH"
+          $env:QML2_IMPORT_PATH = "$install\qml"
+          $env:QT_PLUGIN_PATH = "$install\plugins;$env:QT_ROOT_DIR\plugins"
+          @'
+          import QtQuick 6.5
+          import MapLibre 4.0
+
+          Window {
+              id: window
+              width: 512
+              height: 512
+              visible: true
+              color: "#ff00ff"
+
+              Item {
+                  id: probe
+                  anchors.fill: parent
+
+                  MapLibre {
+                      id: map
+                      anchors.fill: parent
+                      style: "https://demotiles.maplibre.org/style.json"
+                      zoomLevel: 4
+                      coordinate: [59.91, 10.75]
+                      onStyleLoadedChanged: {
+                          if (styleLoaded)
+                              settleTimer.start()
+                      }
+                  }
+
+                  Timer {
+                      id: settleTimer
+                      interval: 8000
+                      onTriggered: {
+                          probe.grabToImage(function(result) {
+                              if (result.saveToFile("maplibre-render-probe.png"))
+                                  Qt.exit(0)
+                              else
+                                  Qt.exit(5)
+                          })
+                      }
+                  }
+
+                  Timer {
+                      interval: 60000
+                      running: true
+                      onTriggered: Qt.exit(4)
+                  }
+              }
+          }
+          '@ | Set-Content -Path $probeQml -Encoding utf8
+
+          $process = Start-Process -FilePath $exe -ArgumentList @($probeQml) -WorkingDirectory $env:GITHUB_WORKSPACE -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          if (-not $process.WaitForExit(70000)) {
+            Stop-Process -Id $process.Id -Force
+            throw 'Render probe timed out before capturing a screenshot.'
+          }
+          if ($process.ExitCode -ne 0) {
+            Get-Content $stdout -ErrorAction SilentlyContinue
+            Get-Content $stderr -ErrorAction SilentlyContinue
+            throw "Render probe exited with code $($process.ExitCode)."
+          }
+          if (-not (Test-Path $screenshot)) {
+            throw 'Render probe exited without creating its screenshot.'
+          }
+
+          Add-Type -AssemblyName System.Drawing
+          $bitmap = [System.Drawing.Bitmap]::new($screenshot)
+          try {
+            $unique = [System.Collections.Generic.HashSet[int]]::new()
+            $nonMagenta = 0
+            $samples = 0
+            for ($y = 0; $y -lt $bitmap.Height; $y += 4) {
+              for ($x = 0; $x -lt $bitmap.Width; $x += 4) {
+                $pixel = $bitmap.GetPixel($x, $y)
+                $rgb = ($pixel.R -shl 16) -bor ($pixel.G -shl 8) -bor $pixel.B
+                [void]$unique.Add($rgb)
+                if (-not ($pixel.R -gt 245 -and $pixel.G -lt 10 -and $pixel.B -gt 245)) {
+                  $nonMagenta++
+                }
+                $samples++
+              }
+            }
+            Write-Output "Rendered screenshot: $($bitmap.Width)x$($bitmap.Height); sampled colors=$($unique.Count); non-background samples=$nonMagenta/$samples"
+            if ($unique.Count -lt 50 -or $nonMagenta -lt [Math]::Ceiling($samples * 0.10)) {
+              throw 'Rendered map pixel check failed: screenshot lacks sufficient visual variation beyond the magenta no-render sentinel.'
+            }
+            Write-Output 'PASS: screenshot contains varied rendered pixels beyond the no-render sentinel.'
+          }
+          finally {
+            $bitmap.Dispose()
           }
 
       - name: Record compiler and Qt versions
