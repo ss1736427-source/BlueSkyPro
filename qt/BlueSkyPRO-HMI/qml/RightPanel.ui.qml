@@ -11,7 +11,9 @@ Item {
 
     // MainContent overlays BottomToolbar on top of the full workspace.
     // Keep reorderable panels inside the visible right-panel work area.
-    property int bottomInset: 54
+    // RightPanel is already anchored to workspace.bottom (above BottomToolbar).
+    // Only the visual clearance belongs here; never subtract the toolbar twice.
+    property int bottomInset: 8
 
     property color bg: "#08111D"
     property color text: "#FFFFFF"
@@ -255,12 +257,14 @@ Item {
     // This also runs while positions are locked: locking disables manual drag,
     // not automatic collision avoidance after content changes.
     function reflowPanelPositions() {
-        if (!panelLayoutReady || root.height <= bottomInset + 120 || draggingPanel !== "")
+        if (!panelLayoutReady || root.height <= 120 || draggingPanel !== "")
             return
 
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
         var top = 54
-        var bottomLimit = Math.max(top, root.height - bottomInset - 8)
+        // root.height already excludes the bottom toolbar because MainContent
+        // anchors RightPanel to workspace.bottom.
+        var bottomLimit = Math.max(top, root.height - 8)
         var gap = 4
         var nextPreferred = Object.assign({}, preferredPanelPositions)
         var nextTemporary = Object.assign({}, temporaryPanelPositions)
@@ -277,37 +281,76 @@ Item {
             items.push({ key: key, preferredY: Math.max(top, Math.min(bottomLimit - h, pref)), y: 0, h: h })
         }
 
-        // Start from preferred coordinates, but resolve the complete visible
-        // layout in one pass so no card can remain overlapped by a stale slot.
         items.sort(function(a, b) { return a.preferredY - b.preferredY })
-        var cursor = top
+
+        // First restore cards that were displaced temporarily when their
+        // original slot is free again. Otherwise place them at their preferred
+        // coordinate and resolve any collision in a deterministic pass.
+        var placed = []
         for (var j = 0; j < items.length; ++j) {
             var item = items[j]
-            item.y = Math.max(item.preferredY, cursor)
-            if (item.y + item.h > bottomLimit) {
-                // Preserve the bottom-aligned ATC anchor when possible; otherwise
-                // pack the preceding cards upward to make the full stack fit.
-                item.y = bottomLimit - item.h
-                for (var back = j - 1; back >= 0; --back) {
-                    var prev = items[back]
-                    var nextCard = items[back + 1]
-                    prev.y = Math.min(prev.y, nextCard.y - gap - prev.h)
+            var candidate = item.preferredY
+            var free = true
+            for (var p = 0; p < placed.length; ++p) {
+                if (candidate < placed[p].y + placed[p].h + gap &&
+                        candidate + item.h + gap > placed[p].y) {
+                    free = false
+                    break
                 }
-                if (items.length > 0 && items[0].y < top) {
-                    // The available viewport is smaller than the combined cards.
-                    // Keep cards ordered and bounded; internal scrollers expose content.
-                    items[0].y = top
-                    for (var fit = 1; fit < items.length; ++fit)
-                        items[fit].y = Math.max(items[fit].y, items[fit - 1].y + items[fit - 1].h + gap)
-                }
-                break
             }
-            cursor = item.y + item.h + gap
+            if (!free) {
+                var candidates = [candidate, top]
+                for (var q = 0; q < placed.length; ++q)
+                    candidates.push(placed[q].y + placed[q].h + gap)
+                var best = -1
+                var distance = Number.POSITIVE_INFINITY
+                for (var r = 0; r < candidates.length; ++r) {
+                    var testY = Math.max(top, Math.min(bottomLimit - item.h, candidates[r]))
+                    var testFree = true
+                    for (var s = 0; s < placed.length; ++s) {
+                        if (testY < placed[s].y + placed[s].h + gap &&
+                                testY + item.h + gap > placed[s].y) {
+                            testFree = false
+                            break
+                        }
+                    }
+                    if (testFree && Math.abs(testY - candidate) < distance) {
+                        best = testY
+                        distance = Math.abs(testY - candidate)
+                    }
+                }
+                if (best >= 0)
+                    candidate = best
+                else
+                    candidate = placed.length > 0
+                            ? placed[placed.length - 1].y + placed[placed.length - 1].h + gap
+                            : top
+            }
+
+            item.y = Math.round(candidate)
+            placed.push(item)
+        }
+
+        // A bottom-anchored ATC is the final anchor. Pack any cards that would
+        // overlap it upward; do not leave a stale hole after content shrinks.
+        var atcIndex = -1
+        for (var a = 0; a < placed.length; ++a)
+            if (placed[a].key === "ATC" && atcBottomAnchored)
+                atcIndex = a
+        if (atcIndex >= 0) {
+            placed[atcIndex].y = Math.round(bottomLimit - placed[atcIndex].h)
+            for (var b = atcIndex - 1; b >= 0; --b)
+                placed[b].y = Math.min(placed[b].y, placed[b + 1].y - gap - placed[b].h)
+            if (placed.length > 0 && placed[0].y < top) {
+                placed[0].y = top
+                for (var f = 1; f < placed.length; ++f)
+                    placed[f].y = Math.max(placed[f].y, placed[f - 1].y + placed[f - 1].h + gap)
+            }
         }
 
         var nextPositions = Object.assign({}, panelPositions)
-        for (var k = 0; k < items.length; ++k) {
-            var card = items[k]
+        for (var k = 0; k < placed.length; ++k) {
+            var card = placed[k]
             nextPositions[card.key] = Math.round(card.y)
             if (Math.abs(card.y - card.preferredY) > 1) {
                 if (nextTemporary[card.key] === undefined)
