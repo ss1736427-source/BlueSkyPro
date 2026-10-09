@@ -398,6 +398,60 @@ AcquisitionEventResult AcquisitionEventValidator::generate(
 
 
 namespace {
+double exact_footprint_union_area(
+    const std::vector<CoverageTrack>& tracks,
+    double footprint_width_m,
+    double footprint_height_m,
+    double orientation_deg) {
+    if(tracks.empty() || !(footprint_width_m>0.0) || !(footprint_height_m>0.0))
+        return 0.0;
+    const double angle=orientation_deg*kPi/180.0;
+    const double c=std::cos(-angle), s=std::sin(-angle);
+    struct Rect { double x0,x1,y0,y1; };
+    std::vector<Rect> rects;
+    std::vector<double> xs,ys;
+    rects.reserve(tracks.size());
+    for(const auto& track:tracks) {
+        const double lat=(track.start.latitude_deg+track.end.latitude_deg)*0.5*kPi/180.0;
+        const double scale_x=kM*std::cos(lat);
+        const double x0=track.start.longitude_deg*scale_x;
+        const double y0=track.start.latitude_deg*kM;
+        const double x1=track.end.longitude_deg*scale_x;
+        const double y1=track.end.latitude_deg*kM;
+        const auto rot=[&](double x,double y){ return XY{c*x-s*y,s*x+c*y}; };
+        const XY a=rot(x0,y0), z=rot(x1,y1);
+        const double minx=std::min(a.x,z.x)-footprint_height_m*0.5;
+        const double maxx=std::max(a.x,z.x)+footprint_height_m*0.5;
+        const double miny=std::min(a.y,z.y)-footprint_width_m*0.5;
+        const double maxy=std::max(a.y,z.y)+footprint_width_m*0.5;
+        if(!(maxx>minx) || !(maxy>miny)) continue;
+        rects.push_back({minx,maxx,miny,maxy});
+        xs.push_back(minx); xs.push_back(maxx);
+        ys.push_back(miny); ys.push_back(maxy);
+    }
+    if(rects.empty()) return 0.0;
+    std::sort(xs.begin(),xs.end()); xs.erase(std::unique(xs.begin(),xs.end()),xs.end());
+    std::sort(ys.begin(),ys.end()); ys.erase(std::unique(ys.begin(),ys.end()),ys.end());
+    double area_sum=0.0;
+    for(std::size_t ix=0;ix+1<xs.size();++ix) {
+        const double xa=xs[ix], xb=xs[ix+1];
+        if(!(xb>xa)) continue;
+        for(std::size_t iy=0;iy+1<ys.size();++iy) {
+            const double ya=ys[iy], yb=ys[iy+1];
+            if(!(yb>ya)) continue;
+            const double cx=(xa+xb)*0.5, cy=(ya+yb)*0.5;
+            bool covered=false;
+            for(const auto& rect:rects) {
+                if(cx>=rect.x0 && cx<=rect.x1 && cy>=rect.y0 && cy<=rect.y1) {
+                    covered=true; break;
+                }
+            }
+            if(covered) area_sum+=(xb-xa)*(yb-ya);
+        }
+    }
+    return area_sum;
+}
+
 double polygon_area_geo(const std::vector<GeoPoint>& polygon) {
     if(polygon.size()<3) return 0.0;
     const double lat=polygon.front().latitude_deg*kPi/180.0;
@@ -425,11 +479,17 @@ MappingQualityResult MappingQualityEngine::evaluate(const MappingQualityInput& i
     }
 
     double covered=0.0;
-    for(const auto& track:input.tracks.tracks) {
+    for(const auto& track:input.tracks.tracks)
         covered += track.length_m * input.geometry.footprint_width_m;
-    }
     result.estimated_covered_area_m2=std::min(result.aoi_area_m2,covered);
-    result.coverage_ratio=result.estimated_covered_area_m2/result.aoi_area_m2;
+    const double union_area=exact_footprint_union_area(
+        input.tracks.tracks,
+        input.geometry.footprint_width_m,
+        input.geometry.footprint_height_m,
+        input.decomposition.cells.empty()
+            ? 0.0 : input.decomposition.cells.front().orientation_deg);
+    result.footprint_union_area_m2=union_area;
+    result.coverage_ratio=std::min(result.aoi_area_m2,union_area)/result.aoi_area_m2;
 
     result.min_gsd_m_per_px=std::numeric_limits<double>::infinity();
     result.max_gsd_m_per_px=0.0;
