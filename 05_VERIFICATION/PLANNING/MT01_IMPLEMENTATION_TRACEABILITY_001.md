@@ -22,7 +22,7 @@ This document distinguishes implemented reusable infrastructure, partial impleme
 | 2. Acquisition geometry | Derive GSD, footprint, track spacing, image spacing, trigger/frame requirements from controlled camera model | `acquisition_geometry.*` implements controlled sensor geometry, GSD, footprint, spacing and trigger timing with fail-closed input validation | `acquisition_geometry_test.cpp` | IMPLEMENTED — first implementation slice |
 | 3. Terrain following | Maintain controlled camera-to-surface distance under terrain/obstacle/altitude/vehicle constraints | flight_profile.*, vertical/route infrastructure exists; no photogrammetry terrain-following planner found | flight-profile / vertical tests | PARTIAL |
 | 4. Orientation candidates | Generate and evaluate bounded survey orientations using controlled geometry/search parameters | `coverage_orientation.*` generates deterministic bounded orientation candidates, projected width and estimated track count; downstream wind/energy evaluation remains separate | `coverage_orientation_test.cpp` | IMPLEMENTED — first generation slice |
-| 5. Cellular decomposition | Decompose AOI into planning cells where required | `coverage_decomposition.*` provides deterministic orientation-aligned strip cells with explicit altitude band and dependency identity; first sweep-line restriction splitting is implemented, while general polygon clipping remains open | `coverage_decomposition_test.cpp` | IMPLEMENTED — first geometric slice |
+| 5. Cellular decomposition | Decompose AOI into planning cells where required | `coverage_decomposition.*` provides deterministic orientation-aligned strip cells with explicit altitude band and dependency identity; controlled polygon splitting for active polygon restrictions is integrated, while terrain/obstacle clipping and full multi-level decomposition remain open | `coverage_decomposition_test.cpp` | IMPLEMENTED — first geometric slice + polygon split
 | 6. Coverage tracks | Generate parallel acquisition tracks, clip to geometry, enforce footprint coverage and endpoints | `CoverageTrackGenerator` generates deterministic sweep-line intervals, splits intervals around active polygon/circle restrictions, preserves cell/orientation identity and records track length/altitude; footprint/endpoint feasibility remains open | `coverage_decomposition_test.cpp` | IMPLEMENTED — first generation slice |
 | 7. Edge coverage | Deliberately validate/repair boundary and corner acquisition coverage | `CoverageEdgeEngine` evaluates track endpoint distance to cell boundary against the controlled half-footprint requirement and retains localized gap diagnostics; repair is not yet claimed | `coverage_decomposition_test.cpp` | IMPLEMENTED — first evaluation slice |
 | 8. Transition graph | Connect acquisition tracks with feasible transition costs | generic planning graph / route infrastructure exists; no MT-01 acquisition-transition graph found | graph/route tests | PARTIAL |
@@ -85,13 +85,13 @@ Wind, energy, turn-cost and terrain-complexity scoring are intentionally not emb
 
 ### GAP-MT01-003 — Coverage Decomposition Engine
 
-Status: **CLOSED FOR FIRST GEOMETRIC DECOMPOSITION SLICE; CONSTRAINT INTEGRATION REMAINS OPEN.**
+Status: **CLOSED FOR FIRST GEOMETRIC DECOMPOSITION SLICE; FULL TERRAIN/OBSTACLE INTEGRATION REMAINS OPEN.**
 
 Implemented in `04_SOFTWARE/PLANNING/coverage_decomposition.hpp/.cpp` with `coverage_decomposition_test.cpp` and registered in `CMakeLists.txt`.
 
 The first slice validates AOI, selected orientation, controlled track spacing and explicit altitude band, then performs deterministic strip decomposition in the selected orientation. Cells receive stable generation order, `MT01-CELL-<index>` identity, polygon geometry, area and dependency identity.
 
-The engine is deliberately not declared a complete exclusion-aware decomposition engine yet. The current constrained-environment classification path is present as a reusable boundary check, but full clipping/splitting around internal restricted geometry and terrain/obstacle-aware decomposition remain open.
+The engine is deliberately not declared a complete terrain/obstacle-aware decomposition engine. Active polygon restrictions are now handled through the controlled `CoveragePolygonSplitter`, including convex and non-convex polygon regression coverage; terrain/obstacle-aware clipping, footprint-level clearance and complete multi-level decomposition remain open.
 
 No universal hard-coded acceptance values were introduced.
 
@@ -123,11 +123,11 @@ The current slice does not yet model camera orientation/gimbal state, individual
 
 ### GAP-MT01-008 — Constrained-Domain Integration
 
-Status: **CLOSED FOR FIRST SWEEP-LINE RESTRICTION-SPLITTING SLICE; FULL POLYGON CLIPPING REMAINS OPEN.**
+Status: **CLOSED FOR CONTROLLED POLYGON-SPLITTING SLICE; FULL CONSTRAINED-DOMAIN INTEGRATION REMAINS OPEN.**
 
 The first integration pass now uses `ConstrainedOpenSpace::evaluatePolygon(...)` for cell-level detection and `CoverageTrackGenerator` splits sweep-line intervals at intersections with active polygon/circle restrictions. Each resulting free interval is independently checked through `ConstrainedOpenSpace::evaluateSegment(...)`, so the unrestricted remainder of a constrained cell can continue to generate acquisition tracks.
 
-This is a controlled sweep-line splitting slice, not a general polygon-difference engine. Arbitrary polygon clipping, multi-level decomposition, footprint-level clearance and full terrain/obstacle clipping remain open.
+The new `CoveragePolygonSplitter` performs deterministic sweep-slab subtraction of active polygon restrictions, handles convex and non-convex restriction geometry, preserves restriction/source provenance in its split result, and fails closed on ambiguous topology. The splitter is integrated into decomposition; fully covered cells are removed without producing invalid geometry. Full footprint-level clearance, terrain/obstacle clipping, circle-geometry polygon splitting and complete multi-level decomposition remain open. Execution of the new regression tests is not claimed here because no runnable CI/test result is available for this branch.
 
 ### GAP-MT01-007 — Mapping Quality Engine
 
