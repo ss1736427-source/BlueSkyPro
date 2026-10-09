@@ -30,7 +30,7 @@ int main(){
         assert(std::abs(replay.edges[i].distance_m-result.edges[i].distance_m)<1e-9);
     }
     CoverageTransitionGraphInput blocked=input;
-    Restriction r; r.active=true; r.restriction_id="R-TRANSITION"; r.source_id="TEST";
+    SpatialRestriction r; r.active=true; r.restriction_id="R-TRANSITION"; r.source_id="TEST";
     r.geometry_type=RestrictionGeometryType::Circle; r.center=p(50.00005,8.00005); r.radius_m=20.0;
     r.minimum_altitude_m=0.0; r.maximum_altitude_m=200.0; blocked.environment.restrictions.push_back(r);
     const auto blockedResult=CoverageTransitionGraphBuilder::build(blocked);
