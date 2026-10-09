@@ -58,6 +58,19 @@ bool validPoint(const GeoPoint&p) {
     return std::isfinite(p.latitude_deg)&&std::isfinite(p.longitude_deg)&&
         p.latitude_deg>=-90&&p.latitude_deg<=90&&p.longitude_deg>=-180&&p.longitude_deg<=180;
 }
+
+CoverageCellConstraintState classify(const std::vector<GeoPoint>& cell,
+                                     const CoverageDecompositionInput& i) {
+    if(i.environment.restrictions.empty()) return CoverageCellConstraintState::Open;
+    const double altitude=(i.minimum_altitude_m+i.maximum_altitude_m)*0.5;
+    for(std::size_t n=0;n<cell.size();++n) {
+        SpatialEdge edge{cell[n],cell[(n+1)%cell.size()],altitude,
+                         i.minimum_altitude_m,i.maximum_altitude_m};
+        if(!ConstrainedOpenSpace::evaluateSegment(i.environment,edge).allowed)
+            return CoverageCellConstraintState::Constrained;
+    }
+    return CoverageCellConstraintState::Open;
+}
 }
 CoverageDecompositionResult CoverageDecompositionEngine::decompose(const CoverageDecompositionInput&i) {
     if(i.aoi.size()<3) return fail(i,"INVALID_AOI");
@@ -93,7 +106,7 @@ CoverageDecompositionResult CoverageDecompositionEngine::decompose(const Coverag
         out.generation_index=r.cells.size();
         out.cell_id="MT01-CELL-"+std::to_string(out.generation_index);
         out.orientation_deg=i.orientation.orientation_deg;
-        out.constraint_state=CoverageCellConstraintState::Open;
+        out.constraint_state=classify(out.polygon,i);
         out.area_m2=area(cell);
         for(const auto&p:cell) out.polygon.push_back(unproject(rotate(p,angle),lat));
         r.cells.push_back(std::move(out));
