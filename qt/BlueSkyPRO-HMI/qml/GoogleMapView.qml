@@ -191,8 +191,8 @@ Item {
         anchors.fill: parent
         z: 10
         color: "#071321"
-        opacity: root.useMapTiler ? 0.12 : 0.38
-        enabled: false
+        opacity: root.useMapTiler ? 0.12 : 0.58
+        visible: true
     }
 
     Canvas {
@@ -284,10 +284,20 @@ Item {
         target: null
         acceptedDevices: PointerDevice.Mouse
         acceptedModifiers: Qt.NoModifier
+        blocking: true
 
         onWheel: function(event) {
-            if (event.angleDelta.y === 0)
+            // Zoom only for wheel events whose pointer is inside the map view.
+            // Events that reach this handler from an overlapping panel must not
+            // alter the geographic zoom.
+            if (!root.contains(event.position)) {
+                event.accepted = true
                 return
+            }
+            if (event.angleDelta.y === 0) {
+                event.accepted = true
+                return
+            }
 
             var direction = event.angleDelta.y > 0 ? 1 : -1
             root.zoomLevel = root.clamp(root.zoomLevel + direction, 2, 20)
