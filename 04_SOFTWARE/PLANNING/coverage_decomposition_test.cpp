@@ -146,7 +146,39 @@ int main() {
     assert(quality.min_side_overlap_ratio >= 0.0);
     assert(quality.min_side_overlap_ratio < 1.0);
     assert(quality.invalid_event_count == 0);
+    assert(quality.mandatory_coverage.empty());
+    assert(quality.mandatory_coverage_passed);
     assert(quality.gate_passed);
+
+    auto mandatory_quality_input=quality_input;
+    MandatoryCoverageArea covered_mandatory;
+    covered_mandatory.area_id="MANDATORY-Q0";
+    covered_mandatory.polygon={
+        {58.99995,29.99990},{58.99995,30.00010},
+        {59.00005,30.00010},{59.00005,29.99990}};
+    mandatory_quality_input.mandatory_areas={covered_mandatory};
+    const auto mandatory_quality=MappingQualityEngine::evaluate(mandatory_quality_input);
+    assert(mandatory_quality.valid);
+    assert(mandatory_quality.mandatory_coverage.size()==1);
+    assert(mandatory_quality.mandatory_coverage.front().fully_covered);
+    assert(mandatory_quality.mandatory_coverage.front().coverage_ratio==1.0);
+    assert(mandatory_quality.mandatory_coverage_passed);
+    assert(mandatory_quality.gate_passed);
+
+    auto uncovered_mandatory_input=quality_input;
+    MandatoryCoverageArea uncovered_mandatory;
+    uncovered_mandatory.area_id="MANDATORY-Q1";
+    uncovered_mandatory.polygon={
+        {59.0090,30.0190},{59.0090,30.0195},
+        {59.0095,30.0195},{59.0095,30.0190}};
+    uncovered_mandatory_input.mandatory_areas={uncovered_mandatory};
+    const auto uncovered_mandatory_result=MappingQualityEngine::evaluate(uncovered_mandatory_input);
+    assert(uncovered_mandatory_result.valid);
+    assert(uncovered_mandatory_result.mandatory_coverage.size()==1);
+    assert(!uncovered_mandatory_result.mandatory_coverage.front().fully_covered);
+    assert(uncovered_mandatory_result.mandatory_coverage.front().coverage_ratio<1.0);
+    assert(!uncovered_mandatory_result.mandatory_coverage_passed);
+    assert(!uncovered_mandatory_result.gate_passed);
 
     auto invalid_quality_input=quality_input;
     invalid_quality_input.events.events.front().sensor_state_valid=false;
