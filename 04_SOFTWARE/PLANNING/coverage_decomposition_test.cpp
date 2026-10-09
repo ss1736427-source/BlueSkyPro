@@ -70,5 +70,54 @@ int main() {
         if(track.cell_id=="MT01-CELL-1") ++restricted_cell_tracks;
     assert(restricted_cell_tracks==2);
 
+    CoverageTrackResult quality_tracks;
+    quality_tracks.valid=true;
+    quality_tracks.dependency_identity="TRACKS-QUALITY";
+    CoverageTrack qt;
+    qt.track_id="MT01-TRACK-Q0";
+    qt.cell_id="MT01-CELL-Q";
+    qt.start={59.0,30.0};
+    qt.end={59.0,30.001};
+    qt.altitude_m=100.0;
+    qt.length_m=57.0;
+    quality_tracks.tracks={qt,qt};
+
+    AcquisitionGeometryResult quality_geometry;
+    quality_geometry.valid=true;
+    quality_geometry.dependency_identity="GEOM-QUALITY";
+    quality_geometry.footprint_width_m=100.0;
+    quality_geometry.footprint_height_m=100.0;
+    quality_geometry.gsd_width_m_per_px=0.02;
+    quality_geometry.gsd_height_m_per_px=0.02;
+    quality_geometry.frontal_overlap_ratio=0.75;
+    quality_geometry.side_overlap_ratio=0.60;
+
+    AcquisitionEventResult quality_events;
+    quality_events.valid=true;
+    quality_events.dependency_identity="EVENTS-QUALITY";
+    AcquisitionEvent qe;
+    qe.event_id="MT01-EVENT-Q0";
+    qe.track_id="MT01-TRACK-Q0";
+    qe.position=qt.start;
+    qe.gsd_width_m_per_px=0.02;
+    qe.gsd_height_m_per_px=0.02;
+    qe.sensor_state_valid=true;
+    qe.trigger_state_valid=true;
+    quality_events.events={qe};
+
+    MappingQualityInput quality_input;
+    quality_input.aoi=i.aoi;
+    quality_input.decomposition=r;
+    quality_input.tracks=quality_tracks;
+    quality_input.events=quality_events;
+    quality_input.geometry=quality_geometry;
+    quality_input.calculation_version="MT01-QUALITY-1";
+    const auto quality=MappingQualityEngine::evaluate(quality_input);
+    assert(quality.valid);
+    assert(quality.footprint_union_area_m2>0.0);
+    assert(quality.footprint_union_area_m2 < 2.0 * 57.0 * 100.0);
+    assert(quality.footprint_union_area_m2 > 0.0);
+    assert(quality.coverage_ratio > 0.0);
+
     return 0;
 }
