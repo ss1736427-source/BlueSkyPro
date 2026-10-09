@@ -12,6 +12,7 @@ Item {
     property string simulationRunnerPath: ""
     property bool simulationRunning: false
     property string simulationError: ""
+    readonly property bool hasSimulationResult: root.planningResult && root.planningResult.simulationAcceptance === "PASS"
     signal runSimulationRequested()
 
     Rectangle {
@@ -150,7 +151,7 @@ Item {
             radius: 2
             Text {
                 anchors.centerIn: parent
-                text: root.simulationRunning ? "SIMULATION RUNNING" : (root.planningResult ? "RUN AGAIN" : "RUN SIMULATION")
+                text: root.simulationRunning ? "SIMULATION RUNNING" : (root.hasSimulationResult ? "RUN AGAIN" : "RUN SIMULATION")
                 color: root.simulationRunning ? "#FFFFFF" : "#07100A"
                 font.family: "B612 Mono"
                 font.pixelSize: 10
@@ -282,7 +283,7 @@ Item {
             width: parent.width - 28
             text: root.simulationError.length > 0
                   ? "RUNNER ERROR: " + root.simulationError
-                  : root.planningResult
+                  : root.hasSimulationResult
                     ? "SIMULATION PASS / RELEASE BLOCKED / " + root.planningResult.operationalStatus
                     : "READY TO RUN / MAP ROUTE WILL COME FROM THE PLANNING ENGINE"
             color: root.simulationError.length > 0 ? "#FF4D5A" : "#FFD339"
