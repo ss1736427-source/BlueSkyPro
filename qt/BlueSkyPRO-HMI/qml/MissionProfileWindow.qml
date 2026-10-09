@@ -11,6 +11,8 @@ Item {
     signal uavSelectionRequested(int index)
     property var routeDataByUav: ({})
     property var mandatoryPointsByUav: ({})
+    // Geographic route projection for map rendering; derived from the selected UAV's route model.
+    property var routeCoordinates: []
     property string loadedUavId: ""
     property string missionSummary: ""
     property string missionReviewState: ""
@@ -120,7 +122,23 @@ Item {
         return Number(point.progress)
     }
 
+    function syncMapRouteCoordinates() {
+        var coordinates = []
+        for (var i = 0; i < routeModel.count; ++i) {
+            var parts = String(routeModel.get(i).coordinates).split(",")
+            if (parts.length < 2)
+                continue
+            var lat = Number(parts[0])
+            var lon = Number(parts[1])
+            if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180)
+                continue
+            coordinates.push({ lat: lat, lon: lon })
+        }
+        root.routeCoordinates = coordinates
+    }
+
     function rebuildTableRows() {
+        root.syncMapRouteCoordinates()
         var rows = []
         var mandatory = root.mandatoryPoints.slice(0)
         var denominator = Math.max(1, routeModel.count - 1)
