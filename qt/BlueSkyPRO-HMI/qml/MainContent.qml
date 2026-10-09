@@ -52,6 +52,7 @@ Item {
     property bool missionProfileOpen: false
     // Planning-core result injected by the application/planning bridge; QML never calculates it.
     property var planningResult: null
+    property string virtualFlightError: ""
     readonly property bool is3DMappingProfile: root.missionTemplateIds.indexOf("3D_MAPPING") >= 0
     // Example current automatic mission composition; supplied by mission/task aggregation in production.
     property var missionTemplateIndices: [0, 1, 7]
@@ -151,6 +152,9 @@ Item {
             missionVisible: root.missionVisible
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
+            routeCoordinates: root.planningResult && root.planningResult.routeCoordinates
+                              ? root.planningResult.routeCoordinates : []
+            virtualFlightActive: root.activeTool === "VIRTUAL FLT"
             useExternalMapState: true
             mapPanX: root.mapPanX
             mapPanY: root.mapPanY
@@ -212,6 +216,16 @@ Item {
             selectedUavIndex: root.selectedUavIndex
             selectedUavId: root.selectedUavId
             contextSubtitle: root.activeTool === "UAV" ? "SELECT UAV / CONTROL / C2 / CONFIGURATION" : root.activeTool === "ADMIN" ? "SYSTEM ADMINISTRATION / ENGINEER / TECHNICIAN" : root.activeTool === "FPV" ? "VIDEO + FLIGHT DATA + CONTROL TRANSFER" : "SIMULATION / VIRTUAL UAV"
+            planningResult: root.planningResult
+            simulationRunnerPath: virtualFlightRunnerPath
+            simulationRunning: planningBridge.running
+            simulationError: root.virtualFlightError
+            onRunSimulationRequested: {
+                root.virtualFlightError = ""
+                planningBridge.clear()
+                if (!planningBridge.startProcess(virtualFlightRunnerPath, ["--json"]))
+                    root.virtualFlightError = "RUNNER_START_FAILED"
+            }
             sections: root.activeTool === "UAV"
                       ? ["UAV SELECTION", "CONTROL / C2", "UAV CONFIGURATION", "NAVIGATION", "ENERGY", "PAYLOAD / EQUIPMENT", "MAINTENANCE", "DIAGNOSTICS"]
                       : root.activeTool === "ADMIN"
@@ -549,6 +563,17 @@ Item {
             z: 30
             onDecisionRequested: root.uavDecisionRequested(decision, uavIndex)
             onContextClosed: root.contextOverlayOpen = false
+        }
+    }
+
+    Connections {
+        target: planningBridge
+        function onResultChanged() {
+            root.planningResult = planningBridge.result
+            root.virtualFlightError = ""
+        }
+        function onBridgeError(code) {
+            root.virtualFlightError = code
         }
     }
 
