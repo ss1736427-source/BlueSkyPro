@@ -9,13 +9,8 @@ Item {
     property int zoomLevel: 10
     property string attribution: "Yandex Maps"
     property string mapStatus: "INITIALIZING"
-    property var routeCoordinates: [
-        { lat: 55.7600, lon: 37.6000 },
-        { lat: 55.7350, lon: 37.6250 },
-        { lat: 55.7550, lon: 37.6550 },
-        { lat: 55.7800, lon: 37.6400 },
-        { lat: 55.7700, lon: 37.5900 }
-    ]
+    // No preview route: only verified Planning Core geometry may be rendered.
+    property var routeCoordinates: []
 
     readonly property int tileSize: 256
     property real panOffsetX: 0
