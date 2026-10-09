@@ -54,6 +54,19 @@ int main() {
     assert(!rejectedShort.valid);
     assert(rejectedShort.error == "SELECTED_ROUTE_REQUIRES_AT_LEAST_TWO_ELEMENTS");
 
+    auto disconnected = selected;
+    graph.edges = {{"A", "B", 1.0}};
+    const auto rejectedEdge = CanonicalRouteBuilder::build(disconnected, graph, "R", "1");
+    assert(!rejectedEdge.valid);
+    assert(rejectedEdge.error == "SELECTED_ROUTE_EDGE_NOT_FOUND:B->C");
+    graph.edges = {{"A", "B", 1.0}, {"B", "C", 1.0}};
+
+    auto wrongEndpoints = selected;
+    wrongEndpoints.route_elements = {"B", "C"};
+    const auto rejectedEndpoints = CanonicalRouteBuilder::build(wrongEndpoints, graph, "R", "1");
+    assert(!rejectedEndpoints.valid);
+    assert(rejectedEndpoints.error == "SELECTED_ROUTE_ENDPOINTS_DO_NOT_MATCH_GRAPH");
+
     graph.nodes[1].position.latitude_deg = 95.0;
     const auto rejectedCoordinate = CanonicalRouteBuilder::build(selected, graph, "R", "1");
     assert(!rejectedCoordinate.valid);
