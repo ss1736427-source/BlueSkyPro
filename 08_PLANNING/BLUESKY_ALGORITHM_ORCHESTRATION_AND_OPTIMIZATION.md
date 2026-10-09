@@ -4887,3 +4887,20 @@ Where a requirement or acceptance criterion is still OPEN, the case remains OPEN
 **MT-03 remains BLOCKED.**
 
 The next deterministic work item is case-level requirement/dataset/configuration binding, beginning with `V-M01-01` and `V-M02-01`, without creating additional identities unless a separately proven coverage gap appears.
+
+
+## 53. MT-01 Transition Graph — First Implementation Slice
+
+The first MT-01 transition-graph implementation is controlled as an isolated planning component:
+
+- input: generated coverage tracks, constrained-environment snapshot, calculation version;
+- transition: directed connector from the end of one track to the start of another track;
+- admissibility: connector must pass the existing constrained-segment validator at the source track altitude;
+- cost policy for this slice: `DISTANCE_ONLY`, therefore `cost_m = distance_m`;
+- deterministic dependency identity is retained;
+- invalid track input fails closed;
+- rejected connectors are counted explicitly.
+
+No unvalidated weights are introduced for turn cost, wind, energy, risk, vehicle dynamics or alternative connector geometry.
+
+The next deterministic MT-01 implementation step is **coverage route candidate generation** from the controlled track/transition graph. Full transition-cost refinement remains downstream of the first candidate-generation slice.
