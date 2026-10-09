@@ -37,8 +37,10 @@ Do not convert the adapter's local `x/y` values into latitude/longitude by renam
 ## Verification status
 
 - Request and result schema structure was inspected.
-- The preceding commit's HMI build passed, but it predates the latest request-attachment helper and the new CTest workflow step.
-- CI for the latest commits is pending; check the HMI workflow for both build and CTest results.
+- HMI build and HMI contract tests passed on the latest checked CI run: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37913107681.
+- Planning benchmark build/tests passed: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37913107679.
+- Multi-UAV validator regression checks passed: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37913107676.
+- These CI results verify the current checked commits' build and automated tests, not a live mission route flowing to the map.
 - Local Windows runtime has not been verified.
 - End-to-end canonical Route -> request -> Planning Core -> PlanningBridge -> map remains **NOT IMPLEMENTED / NOT VERIFIED**.
 
@@ -48,4 +50,4 @@ Do not convert the adapter's local `x/y` values into latitude/longitude by renam
 2. At that owner, call `attachRouteGeometryToRequest()` on the complete request assembled by the authoritative planning pipeline, then send the resulting JSONL via `PlanningBridge.sendRequest()`.
 3. Do not invent other required Planning Core inputs; source them from the existing authoritative planning pipeline.
 4. Add an integration test exercising the request through the JSONL adapter and assert that the returned `result.routeGeometry` reaches the map.
-5. Confirm CI build and CTest, then verify on the Windows project build. Do not claim map integration complete until a real selected route is exercised end to end.
+5. Verify on the Windows project build. Do not claim map integration complete until a real selected route is exercised end to end.
