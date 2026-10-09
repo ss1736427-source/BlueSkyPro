@@ -33,8 +33,9 @@ QString TileCacheManager::cachePath(const QString &key) const
         cacheRoot = QDir::cleanPath(
             QDir(QCoreApplication::applicationDirPath()).absoluteFilePath("../cache"));
     }
-    const QString root = QDir(cacheRoot).filePath(
-        QStringLiteral("tiles/yandex/map/web_mercator"));
+    // Provider/style identity is part of the request key so tiles from different
+    // basemaps cannot collide. The QML key preserves the legacy Yandex path. 
+    const QString root = QDir(cacheRoot).filePath(QStringLiteral("tiles"));
 
     QString relative = key;
     relative.replace(QChar(92), QLatin1Char('/'));
