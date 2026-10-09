@@ -43,9 +43,19 @@ Item {
         property string orderCsv: "Checklist,Flight Conditions,Alerting,ATC"
         property string positionCsv: "Checklist=54,Flight Conditions=293,Alerting=400,ATC=499"
         property int freePositionLayoutVersion: 0
+        property bool positionsLocked: false
     }
 
     property var panelOrder: panelOrderSettings.orderCsv.split(",")
+    property bool panelsLocked: panelOrderSettings.positionsLocked
+
+    function setPanelsLocked(locked) {
+        panelOrderSettings.positionsLocked = locked
+        panelOrderSettings.sync()
+        panelsLocked = locked
+        if (!locked)
+            Qt.callLater(root.reflowPanelPositions)
+    }
     property string draggingPanel: ""
     property real dragVisualY: 0
     property real dragGrabOffsetY: 0
@@ -103,7 +113,7 @@ Item {
     }
 
     function beginPanelDrag(key, pressRootY) {
-        if (!panelVisible(key))
+        if (panelsLocked || !panelVisible(key))
             return
 
         draggingPanel = key
@@ -140,7 +150,7 @@ Item {
     // Preserve operator-selected positions. Only clamp to the visible work area
     // and repair genuine collisions; never repack the whole stack.
     function reflowPanelPositions() {
-        if (draggingPanel !== "")
+        if (panelsLocked || draggingPanel !== "")
             return
 
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
@@ -1170,6 +1180,8 @@ Item {
         width: Math.min(parent.width - 16, Math.max(260, panelSettingsPopup.contentWidth))
         height: Math.min(parent.height - 52, panelSettingsPopup.contentHeight + 30)
         title: "PANEL CONTROL"
+        positionsLocked: root.panelsLocked
+        onPositionsLockToggled: root.setPanelsLocked(locked)
         tools: ["Checklist", "Weather", "NOTAM", "Information", "Readiness", "Validation", "Send Flight Plan", "Start Mission", "Map Alerts"]
         toolGroups: [
             { key: "monitoring", title: "MONITORING", expandedByDefault: true, tools: ["Checklist", "Weather", "NOTAM", "Information"] },
