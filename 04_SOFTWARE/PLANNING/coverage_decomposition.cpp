@@ -154,12 +154,8 @@ CoveragePolygonSplitResult CoveragePolygonSplitter::split(
 
     const double reference_lat=input.subject_polygon.front().latitude_deg;
     std::vector<XY> subject, restriction;
-    subject.reserve(input.subject_polygon.size());
-    restriction.reserve(input.restriction_polygon.size());
-    for(const auto& p:input.subject_polygon)
-        subject.push_back(project(p,reference_lat));
-    for(const auto& p:input.restriction_polygon)
-        restriction.push_back(project(p,reference_lat));
+    for(const auto& p:input.subject_polygon) subject.push_back(project(p,reference_lat));
+    for(const auto& p:input.restriction_polygon) restriction.push_back(project(p,reference_lat));
     if(!valid_polygon_xy(subject) || !valid_polygon_xy(restriction)) {
         result.failure_code="DEGENERATE_POLYGON";
         return result;
@@ -180,9 +176,8 @@ CoveragePolygonSplitResult CoveragePolygonSplitter::split(
     xs.erase(std::unique(xs.begin(),xs.end(),
         [](double a,double b){ return std::abs(a-b)<1e-7; }),xs.end());
 
-    const auto unproject_piece=[&](const std::vector<XY>& polygon) {
+    const auto to_geo=[&](const std::vector<XY>& polygon) {
         std::vector<GeoPoint> out;
-        out.reserve(polygon.size());
         for(const auto& p:polygon) out.push_back(unproject(p,reference_lat));
         return out;
     };
@@ -192,37 +187,51 @@ CoveragePolygonSplitResult CoveragePolygonSplitter::split(
         const double x0=xs[i], x1=xs[i+1];
         if(!(x1>x0)) continue;
         const double xm=(x0+x1)*0.5;
+        const double delta=(x1-x0)*1e-6;
+        const double xl=x0+delta;
+        const double xr=x1-delta;
+
         const auto subject_mid=scan_intervals(subject,xm);
         const auto restriction_mid=scan_intervals(restriction,xm);
         const auto remaining_mid=subtract_intervals(subject_mid,restriction_mid);
         if(remaining_mid.empty()) continue;
 
-        const auto subject_left=scan_intervals(subject,x0);
-        const auto restriction_left=scan_intervals(restriction,x0);
-        const auto remaining_left=subtract_intervals(subject_left,restriction_left);
-        const auto subject_right=scan_intervals(subject,x1);
-        const auto restriction_right=scan_intervals(restriction,x1);
-        const auto remaining_right=subtract_intervals(subject_right,restriction_right);
-
-        if(remaining_left.size()!=remaining_mid.size() ||
-           remaining_right.size()!=remaining_mid.size()) {
+        const auto left=subtract_intervals(
+            scan_intervals(subject,xl),scan_intervals(restriction,xl));
+        const auto right=subtract_intervals(
+            scan_intervals(subject,xr),scan_intervals(restriction,xr));
+        if(left.size()!=remaining_mid.size() || right.size()!=remaining_mid.size()) {
             result.failure_code="SPLIT_TOPOLOGY_AMBIGUOUS";
             return result;
         }
 
+        auto extrapolate=[&](const ScanInterval& sample,
+                             const ScanInterval& middle,
+                             double sample_x,double target_x) {
+            const double denominator=xm-sample_x;
+            const double lower=sample.low+
+                (middle.low-sample.low)*(target_x-sample_x)/denominator;
+            const double upper=sample.high+
+                (middle.high-sample.high)*(target_x-sample_x)/denominator;
+            return ScanInterval{lower,upper};
+        };
+
         for(std::size_t n=0;n<remaining_mid.size();++n) {
-            const auto& l=remaining_left[n];
-            const auto& r=remaining_right[n];
+            const auto left_at_boundary=extrapolate(left[n],remaining_mid[n],xl,x0);
+            const auto right_at_boundary=extrapolate(right[n],remaining_mid[n],xr,x1);
             std::vector<XY> piece{
-                {x0,l.low},{x1,r.low},{x1,r.high},{x0,l.high}};
+                {x0,left_at_boundary.low},{x1,right_at_boundary.low},
+                {x1,right_at_boundary.high},{x0,left_at_boundary.high}};
             if(!valid_polygon_xy(piece)) continue;
             CoveragePolygonSplitPiece out;
-            out.polygon=unproject_piece(piece);
+            out.polygon=to_geo(piece);
             out.restriction_id=input.restriction_id;
             out.source_id=input.source_id;
             result.pieces.push_back(std::move(out));
         }
-        if(remaining_mid.size()!=subject_mid.size()) split_occurred=true;
+
+        if(remaining_mid.size()!=subject_mid.size())
+            split_occurred=true;
     }
 
     if(result.pieces.empty()) {
@@ -231,9 +240,8 @@ CoveragePolygonSplitResult CoveragePolygonSplitter::split(
     }
 
     if(!split_occurred) {
-        const auto original=unproject_piece(subject);
         result.pieces.clear();
-        result.pieces.push_back({original,"",""});
+        result.pieces.push_back({to_geo(subject),"",""});
     }
     result.valid=true;
     return result;
