@@ -57,14 +57,14 @@ Do not create placeholder fleet, performance, trajectory, safety, or minimum-sep
 - Earlier CI passed for route serialization, canonical route validation, graph-connectivity checks, and removal of preview geometry.
 - CI passed on commit `dc2e68a7179e5396daebcc1c3ed29395d30e7dfd` for HMI Qt Build, Planning Benchmark, Multi-UAV Validator, and journal-service CI.
 - CI passed on commit `85d9942719085b3188016fa97b8e8e99a61c2a1a` for HMI Qt Build, Planning Benchmark, Multi-UAV Validator, and journal-service CI.
-- The new `SelectedRoutePlanningService` commits have been pushed to the branch, but their workflow results are not yet available from the commit-run query. Do not mark the new service as CI-verified until a workflow run confirms it.
+- The `SelectedRoutePlanningService` is included in HMI commit `7f52818ccc4038bbe399835c42d992a3424566cf`. HMI Qt Build run [37918167417](https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37918167417) completed successfully, including Configure, Build, and HMI contract tests. Planning Benchmark run [37918167525](https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37918167525) also completed successfully, including Build and Test. Multi-UAV Validator and journal-service CI runs for the same commit completed successfully.
 - Local Windows build/runtime has not been verified.
 - End-to-end selected route -> complete request -> JSONL Planning Core -> `PlanningBridge.result` -> QML map remains **NOT IMPLEMENTED / NOT VERIFIED**.
 
 ## Next deterministic work item
 
-1. Check CI for the new `SelectedRoutePlanningService` and the existing route contract tests; fix only demonstrated failures.
-2. Find or define the authoritative application-level owner that holds the `SolverContext` / `MissionProblem`, selected decision and exact `PlanningGraph`, together with the provider for all required Planning Core request inputs.
-3. Call `SelectedRoutePlanningService::submitSelectedRoute(...)` from that owner only when the selected route or relevant inputs change.
-4. Add an end-to-end integration test through the JSONL adapter and verify the resulting `result.routeGeometry` reaches the QML map binding.
+1. CI for the service and existing HMI route contract tests is now green; no failure-driven fix is indicated.
+2. Continue tracing the authoritative application-level owner for `SolverContext` / `MissionProblem`, selected decision and exact `PlanningGraph`, and the provider for all required Planning Core request inputs.
+3. Connect `SelectedRoutePlanningService::submitSelectedRoute(...)` only at that owner, triggered by a changed selected route or relevant calculation inputs.
+4. Extend integration coverage to assert route geometry survives the JSONL adapter and is accepted by `PlanningBridge`, then reaches the QML map binding.
 5. Verify the existing Windows project build and a real selected-route scenario. Do not claim integration complete before this passes.
