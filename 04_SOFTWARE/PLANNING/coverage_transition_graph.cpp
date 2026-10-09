@@ -234,7 +234,8 @@ CoverageRouteCandidateResult CoverageRouteCandidateBuilder::generate(
 
     result.valid = true;
     return result;
-}}
+}
+
 namespace {
 CandidateSolution toCandidate(
     const TrajectoryResult& trajectory,
