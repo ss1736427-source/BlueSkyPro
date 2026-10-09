@@ -284,7 +284,46 @@ CoverageDecompositionResult CoverageDecompositionEngine::decompose(const Coverag
         out.area_m2=area(cell);
         for(const auto&p:cell) out.polygon.push_back(unproject(rotate(p,angle),lat));
         out.constraint_state=classify(out.polygon,i);
-        r.cells.push_back(std::move(out));
+        std::vector<CoveragePlanningCell> fragments;
+        fragments.push_back(std::move(out));
+        for(const auto& restriction:i.environment.restrictions) {
+            if(!restriction.active ||
+               restriction.geometry_type!=RestrictionGeometryType::Polygon ||
+               restriction.polygon.size()<3) continue;
+            std::vector<CoveragePlanningCell> next;
+            for(const auto& fragment:fragments) {
+                const auto check=ConstrainedOpenSpace::evaluatePolygon(
+                    i.environment,fragment.polygon,
+                    i.minimum_altitude_m,i.maximum_altitude_m);
+                if(check.allowed) { next.push_back(fragment); continue; }
+                CoveragePolygonSplitInput si;
+                si.subject_polygon=fragment.polygon;
+                si.restriction_polygon=restriction.polygon;
+                si.restriction_id=restriction.restriction_id;
+                si.source_id=restriction.source_id;
+                si.calculation_version=i.calculation_version;
+                const auto sr=CoveragePolygonSplitter::split(si);
+                if(!sr.valid) return fail(i,"POLYGON_SPLIT_FAILED");
+                for(const auto& piece:sr.pieces) {
+                    if(piece.polygon.size()<3) continue;
+                    auto cell=fragment;
+                    cell.polygon=piece.polygon;
+                    const double ref=piece.polygon.front().latitude_deg;
+                    std::vector<XY> local;
+                    for(const auto& p:piece.polygon) local.push_back(project(p,ref));
+                    cell.area_m2=area(local);
+                    cell.constraint_state=CoverageCellConstraintState::Open;
+                    next.push_back(std::move(cell));
+                }
+            }
+            fragments=std::move(next);
+            if(fragments.empty()) break;
+        }
+        for(auto& fragment:fragments) {
+            fragment.generation_index=r.cells.size();
+            fragment.cell_id="MT01-CELL-"+std::to_string(fragment.generation_index);
+            r.cells.push_back(std::move(fragment));
+        }
     }
     if(r.cells.empty()) return fail(i,"NO_PLANNING_CELL");
     r.valid=true;
