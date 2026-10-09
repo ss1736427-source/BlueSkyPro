@@ -167,5 +167,18 @@ int main() {
         }
     }
 
+
+    {
+        CoveragePolygonSplitInput in;
+        in.subject_polygon={{59.0,30.0},{59.0,30.012},{59.012,30.012},{59.012,30.0}};
+        in.restriction_polygon={{59.002,30.002},{59.002,30.010},{59.006,30.006},{59.010,30.010},{59.010,30.002}};
+        in.restriction_id="SPLIT-NONCONVEX";
+        in.source_id="TEST-NONCONVEX";
+        in.calculation_version="test-v1";
+        const auto out=CoveragePolygonSplitter::split(in);
+        assert(out.valid);
+        assert(out.pieces.size()>=3);
+    }
+
     return 0;
 }
