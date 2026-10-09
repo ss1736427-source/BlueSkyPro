@@ -183,6 +183,8 @@ CoveragePolygonSplitResult CoveragePolygonSplitter::split(
     };
 
     bool split_occurred=false;
+    bool subject_intersected=false;
+    bool subject_fully_removed=false;
     for(std::size_t i=0;i+1<xs.size();++i) {
         const double x0=xs[i], x1=xs[i+1];
         if(!(x1>x0)) continue;
@@ -194,6 +196,11 @@ CoveragePolygonSplitResult CoveragePolygonSplitter::split(
         const auto subject_mid=scan_intervals(subject,xm);
         const auto restriction_mid=scan_intervals(restriction,xm);
         const auto remaining_mid=subtract_intervals(subject_mid,restriction_mid);
+        if(!subject_mid.empty()) subject_intersected=true;
+        if(!subject_mid.empty() && remaining_mid.empty()) {
+            subject_fully_removed=true;
+            continue;
+        }
         if(remaining_mid.empty()) continue;
 
         const auto left=subtract_intervals(
@@ -235,6 +242,10 @@ CoveragePolygonSplitResult CoveragePolygonSplitter::split(
     }
 
     if(result.pieces.empty()) {
+        if(subject_intersected && subject_fully_removed) {
+            result.valid=true;
+            return result;
+        }
         result.failure_code="NO_SPLIT_PIECES";
         return result;
     }
