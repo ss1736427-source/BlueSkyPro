@@ -135,11 +135,11 @@ The new `CoveragePolygonSplitter` performs deterministic sweep-slab subtraction 
 
 ### GAP-MT01-007 — Mapping Quality Engine
 
-Status: **CLOSED FOR FIRST EXACT COVERAGE/UNCOVERED-GEOMETRY SLICE; FULL MAPPING QUALITY GATE REMAINS OPEN.**
+Status: **CLOSED FOR FIRST STRUCTURAL MAPPING QUALITY GATE SLICE; FULL MAPPING QUALITY GATE REMAINS OPEN.**
 
 Implemented as `MappingQualityEngine` in the existing planning module. It validates upstream decomposition, tracks, acquisition events and acquisition geometry; calculates AOI area, a deterministic exact union area for the generated rectangular sweep footprints in the common orientation coordinate system, retains the prior track-footprint estimate for comparison, derives the current bounded coverage ratio from the exact footprint union, and calculates GSD minimum/maximum, controlled overlap minima and invalid-event count.
 
-Uncovered-geometry cause classification, mandatory-area coverage, corner footprint union, terrain-following quality and complete sensor-compliance gating remain open. No hidden raster resolution or universal acceptance threshold was introduced.
+The gate now fails closed on invalid event metrics, invalid coverage geometry metrics, invalid GSD/overlap ranges and absence of generated covered geometry, while preserving the rule that positive coverage is required for a passing result. Uncovered-geometry cause classification, mandatory-area coverage, corner footprint union, terrain-following quality and complete sensor-compliance gating remain open. No hidden raster resolution or universal acceptance threshold was introduced.
 
 ## 5. Non-substitution rule
 
