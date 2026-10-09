@@ -10,9 +10,28 @@ Item {
     // Side panels overlay this full-width map view.
     property real leftPanelWidth: 0
     property real rightPanelWidth: 0
-    readonly property bool useMapTiler: typeof mapTilerApiKey !== "undefined" && mapTilerApiKey.length > 0
-    readonly property bool useCartoDark: !useMapTiler && typeof cartoApiKey !== "undefined" && cartoApiKey.length > 0
-    property string attribution: useMapTiler ? "© MapTiler © OpenStreetMap contributors" : (useCartoDark ? "© OpenStreetMap contributors, © CARTO" : "Yandex Maps")
+    // Provider selection is user-controlled. MapTiler Hybrid v4 is the default
+    // when its runtime key exists; Yandex remains available as an explicit fallback.
+    property string selectedMapProvider:
+        (typeof mapTilerApiKey !== "undefined" && mapTilerApiKey.length > 0)
+        ? "MAPTILER_HYBRID" : "YANDEX"
+    property bool providerMenuOpen: false
+    readonly property bool mapTilerKeyAvailable:
+        typeof mapTilerApiKey !== "undefined" && mapTilerApiKey.length > 0
+    readonly property bool yandexKeyAvailable:
+        typeof yandexMapsApiKey !== "undefined" && yandexMapsApiKey.length > 0
+    readonly property bool useMapTiler:
+        selectedMapProvider.indexOf("MAPTILER") === 0 && mapTilerKeyAvailable
+    readonly property bool useCartoDark:
+        selectedMapProvider === "CARTO_DARK" &&
+        typeof cartoApiKey !== "undefined" && cartoApiKey.length > 0
+    readonly property string selectedProviderLabel:
+        selectedMapProvider === "MAPTILER_HYBRID" ? "MAPTILER HYBRID V4" :
+        selectedMapProvider === "MAPTILER_HYBRID_DARK" ? "MAPTILER HYBRID DARK" :
+        selectedMapProvider === "CARTO_DARK" ? "CARTO DARK" : "YANDEX MAPS"
+    property string attribution:
+        useMapTiler ? "© MapTiler © OpenStreetMap contributors" :
+        (useCartoDark ? "© OpenStreetMap contributors, © CARTO" : "© Яндекс")
     property string mapStatus: "INITIALIZING"
     // No preview route: only verified Planning Core geometry may be rendered.
     property var routeCoordinates: []
@@ -62,7 +81,10 @@ Item {
 
         loadedTileCount = 0
         failedTileCount = 0
-        if (!useMapTiler && !useCartoDark && yandexMapsApiKey.length === 0) {
+        if ((selectedMapProvider.indexOf("MAPTILER") === 0 && !mapTilerKeyAvailable) ||
+                (selectedMapProvider === "CARTO_DARK" &&
+                 (typeof cartoApiKey === "undefined" || cartoApiKey.length === 0)) ||
+                (selectedMapProvider === "YANDEX" && !yandexKeyAvailable)) {
             mapStatus = "API KEY REQUIRED"
             tiles = []
             return
@@ -90,11 +112,13 @@ Item {
                     ty: ty,
                     x: tx * tileSize - cx + width / 2 + panOffsetX,
                     y: ty * tileSize - cy + height / 2 + panOffsetY,
-                    key: (useMapTiler ? "maptiler/dataviz-dark/" : (useCartoDark ? "carto/dark_all/" : "yandex/future_map/web_mercator/")) +
+                    key: (useMapTiler ? "maptiler/" + selectedMapProvider.toLowerCase() + "/" :
+                          (useCartoDark ? "carto/dark_all/" : "yandex/future_map/web_mercator/")) +
                          zoomLevel + "/" + wrappedX + "/" + ty,
                     url: useMapTiler
-                         ? "https://api.maptiler.com/maps/dataviz-dark/256/" +
-                           zoomLevel + "/" + wrappedX + "/" + ty + ".png?key=" +
+                         ? "https://api.maptiler.com/maps/" +
+                           (selectedMapProvider === "MAPTILER_HYBRID_DARK" ? "hybrid-v4-dark" : "hybrid-v4") +
+                           "/256/" + zoomLevel + "/" + wrappedX + "/" + ty + ".jpg?key=" +
                            encodeURIComponent(mapTilerApiKey)
                          : (useCartoDark
                             ? "https://basemaps.cartocdn.com/rastertiles/dark_all/" +
@@ -199,7 +223,7 @@ Item {
         anchors.fill: parent
         z: 10
         color: "#071321"
-        opacity: (root.useMapTiler || root.useCartoDark) ? 0.12 : 0.58
+        opacity: (root.useMapTiler || root.useCartoDark) ? 0.04 : 0.58
         visible: true
     }
 
@@ -313,6 +337,90 @@ Item {
         }
     }
 
+    // Basemap selector: the providers remain independently selectable.
+    Rectangle {
+        id: providerSelector
+        z: 31
+        anchors.left: parent.left
+        anchors.leftMargin: 12
+        anchors.top: parent.top
+        anchors.topMargin: 12
+        width: Math.max(148, providerLabel.implicitWidth + 28)
+        height: 34
+        radius: 4
+        color: "#08111D"
+        border.color: "#31506A"
+        border.width: 1
+
+        Text {
+            id: providerLabel
+            anchors.centerIn: parent
+            text: root.selectedProviderLabel + "  ▾"
+            color: "#E5F0FA"
+            font.pixelSize: 10
+            font.bold: true
+        }
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.providerMenuOpen = !root.providerMenuOpen
+        }
+    }
+
+    Rectangle {
+        id: providerMenu
+        z: 32
+        visible: root.providerMenuOpen
+        anchors.left: providerSelector.left
+        anchors.top: providerSelector.bottom
+        anchors.topMargin: 4
+        width: 206
+        height: providerOptions.implicitHeight + 12
+        radius: 4
+        color: "#08111D"
+        border.color: "#31506A"
+        border.width: 1
+
+        Column {
+            id: providerOptions
+            anchors.fill: parent
+            anchors.margins: 6
+            spacing: 2
+
+            Repeater {
+                model: [
+                    { id: "MAPTILER_HYBRID", label: "MapTiler Hybrid v4" },
+                    { id: "MAPTILER_HYBRID_DARK", label: "MapTiler Hybrid v4 Dark" },
+                    { id: "YANDEX", label: "Яндекс Карты" }
+                ]
+                delegate: Rectangle {
+                    required property var modelData
+                    width: providerOptions.width
+                    height: 30
+                    radius: 3
+                    color: root.selectedMapProvider === modelData.id ? "#173A53" : "transparent"
+                    Text {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: modelData.label
+                        color: "#E5F0FA"
+                        font.pixelSize: 11
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            root.selectedMapProvider = modelData.id
+                            root.providerMenuOpen = false
+                            root.rebuildTiles()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Compact map zoom controls stay inside the visible map workspace,
     // clear of any side panel layered over this full-width view.
     Rectangle {
@@ -412,8 +520,8 @@ Item {
         Text {
             id: statusText
             anchors.centerIn: parent
-            text: (!root.useMapTiler && !root.useCartoDark && yandexMapsApiKey.length === 0)
-                  ? "MAP API KEY REQUIRED"
+            text: root.mapStatus === "API KEY REQUIRED"
+                  ? root.selectedProviderLabel + ": API KEY REQUIRED"
                   : root.attribution.toUpperCase() + ": " + root.mapStatus
             color: "#FFD43B"
             font.family: "B612 Mono"
