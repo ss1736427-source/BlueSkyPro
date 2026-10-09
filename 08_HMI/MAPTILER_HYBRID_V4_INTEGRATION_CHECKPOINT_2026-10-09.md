@@ -77,3 +77,10 @@ Next deterministic step:
 2. Dependency gate is now investigated: Qt WebView's WebView2 backend is configured for MSVC, QML overlays over WebView are unsupported/unpredictable, and Qt WebEngine does not fit the established MinGW workflow. Do not implement an SDK-in-WebView adapter under the current toolchain.
 3. MapLibre Native for Qt is the first native candidate based on its official Qt 6 QML bindings and Windows/Linux build workflows, but remains an unverified candidate rather than an approved production dependency. The next implementation gate is a separate build/render proof of concept on the exact Windows MinGW kit and compatible Linux CI. Keep the current raster/Yandex renderer as the stable fallback; terrain and building extrusion remain later, separately verified capabilities.
 4. Keep all route overlays sourced from authoritative WGS84 route geometry; do not touch route authority or synthesize coordinates.
+
+
+### Native candidate compatibility check — 2026-10-09
+
+The official MapLibre Native for Qt Windows CI currently builds Qt 6.11.2 with MSVC 2022 (x64/ARM64); it does not establish support for the project's Qt 6.11.2 MinGW 13.1 kit. Therefore MinGW compatibility remains **UNVERIFIED** and the library must not be integrated before an isolated compiler check. The QML integration also requires Qt Location/Positioning and Qt Location private components on Qt 6.9+, while the current HMI CMake project declares only Qt Quick and Network. The upstream core is BSD-2-Clause, but its QML bindings have separate GPL/LGPL licensing options; deployment/compliance needs review before shipping.
+
+Next gate: verify MinGW build compatibility without changing the application's compiler or C++17 setting. If this cannot be established, keep the current raster/Yandex renderer and evaluate another explicitly compatible native approach.
