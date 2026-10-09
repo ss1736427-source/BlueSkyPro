@@ -126,7 +126,7 @@ Item {
         x: 24
         y: 104
         width: Math.max(360, parent.width - 48)
-        height: 218
+        height: 246
         color: "#08111D"
         border.color: "#24384B"
         border.width: 1
@@ -188,7 +188,14 @@ Item {
                 width: 210
                 spacing: 5
                 Text { text: "WEATHER / SYNTHETIC"; color: "#7F7F7F"; font.family: "B612 Mono"; font.pixelSize: 9 }
-                Text { text: "15 C / E 1.5 m/s / precip 0.0 mm/h"; color: "#FFFFFF"; font.family: "B612 Mono"; font.pixelSize: 11 }
+                Text {
+                    text: root.planningResult && root.planningResult.environment
+                          ? Number(root.planningResult.environment.temperatureC).toFixed(0) + " C / E "
+                            + Number(root.planningResult.environment.windEastMps).toFixed(1) + " m/s / precip "
+                            + Number(root.planningResult.environment.precipitationMmPerHour).toFixed(1) + " mm/h"
+                          : "15 C / E 1.5 m/s / precip 0.0 mm/h"
+                    color: "#FFFFFF"; font.family: "B612 Mono"; font.pixelSize: 11
+                }
             }
             Column {
                 width: 280
@@ -238,9 +245,40 @@ Item {
             }
         }
 
+        Row {
+            x: 14
+            y: 164
+            width: parent.width - 28
+            spacing: 22
+            Text {
+                text: root.planningResult && root.planningResult.metrics
+                      ? "TIME " + Number(root.planningResult.metrics.selectedRouteTimeS).toFixed(2) + " s / MODEL"
+                      : "TIME — / MODEL"
+                color: "#FFFFFF"; font.family: "B612 Mono"; font.pixelSize: 10
+            }
+            Text {
+                text: root.planningResult && root.planningResult.metrics
+                      ? "TRIGGER " + Number(root.planningResult.metrics.triggerIntervalS).toFixed(2) + " s"
+                      : "TRIGGER —"
+                color: "#FFFFFF"; font.family: "B612 Mono"; font.pixelSize: 10
+            }
+            Text {
+                text: root.planningResult && root.planningResult.metrics
+                      ? "EVENTS " + root.planningResult.metrics.acquisitionEvents
+                      : "EVENTS —"
+                color: "#FFFFFF"; font.family: "B612 Mono"; font.pixelSize: 10
+            }
+            Text {
+                text: root.planningResult && root.planningResult.metrics
+                      ? "EDGE GAPS " + root.planningResult.metrics.edgeGaps
+                      : "EDGE GAPS —"
+                color: "#FFFFFF"; font.family: "B612 Mono"; font.pixelSize: 10
+            }
+        }
+
         Text {
             x: 14
-            y: 174
+            y: 201
             width: parent.width - 28
             text: root.simulationError.length > 0
                   ? "RUNNER ERROR: " + root.simulationError
