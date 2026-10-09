@@ -123,9 +123,11 @@ The current slice does not yet model camera orientation/gimbal state, individual
 
 ### GAP-MT01-007 — Mapping Quality Engine
 
-Required: area coverage ratio, mandatory-area coverage, uncovered geometry classification, GSD distribution, overlap minima, acquisition-event validity, sensor compliance and terrain-following quality.
+Status: **CLOSED FOR FIRST QUALITY-EVALUATION SLICE; FULL MAPPING QUALITY GATE REMAINS OPEN.**
 
-Current state: not identified.
+Implemented as `MappingQualityEngine` in the existing planning module. It validates upstream decomposition, tracks, acquisition events and acquisition geometry; calculates AOI area, a deterministic track-footprint covered-area estimate, bounded coverage ratio, GSD minimum/maximum, controlled overlap minima and invalid-event count; and produces a first quality gate.
+
+Exact polygon-union coverage, uncovered-geometry classification, mandatory-area coverage, corner footprint union, terrain-following quality and complete sensor-compliance gating remain open. No hidden raster resolution or universal acceptance threshold was introduced.
 
 ## 5. Non-substitution rule
 
