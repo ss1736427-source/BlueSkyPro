@@ -313,10 +313,21 @@ int main() {
         assert(quality.valid);
         assert(quality.invalid_event_count>0);
 
-        auto duplicate=generated;
-        duplicate.events[1].position=duplicate.events[0].position;
-        duplicate.valid=true;
-        assert(duplicate.events[1].event_id!=duplicate.events[0].event_id);
+        auto invalid_camera=geometry;
+        invalid_camera.camera_ground_distance_m=0.0;
+        auto invalid_camera_input=input;
+        invalid_camera_input.geometry=invalid_camera;
+        const auto invalid_camera_result=AcquisitionEventValidator::generate(invalid_camera_input);
+        assert(!invalid_camera_result.valid);
+        assert(invalid_camera_result.failure_code=="INVALID_GENERATED_EVENT");
+
+        auto invalid_overlap=geometry;
+        invalid_overlap.side_overlap_ratio=1.0;
+        auto invalid_overlap_input=input;
+        invalid_overlap_input.geometry=invalid_overlap;
+        const auto invalid_overlap_result=AcquisitionEventValidator::generate(invalid_overlap_input);
+        assert(!invalid_overlap_result.valid);
+        assert(invalid_overlap_result.failure_code=="INVALID_GENERATED_EVENT");
     }
 
     return 0;
