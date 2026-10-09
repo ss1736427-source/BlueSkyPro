@@ -30,7 +30,7 @@ This document distinguishes implemented reusable infrastructure, partial impleme
 | 10. Wind-aware performance | Apply wind/performance model and determine segment time/energy | wind_performance_trajectory.* | wind_performance_trajectory_test.cpp | IMPLEMENTED REUSABLE |
 | 11. Mission energy | Include mission phases, reserve and energy feasibility | energy model/source registers exist; trajectory engine enforces usable energy + reserve; complete MT-01 phase model not found | wind/trajectory tests; NAV tests elsewhere | PARTIAL |
 | 12. 4D trajectory | Produce time-parameterized route/profile with altitude and energy | wind_performance_trajectory.*, flight_profile.*, vertical route infrastructure | corresponding unit tests | PARTIAL / REUSABLE |
-| 13. Acquisition event validation | Validate position, camera-surface distance, orientation, footprint, GSD, overlap and trigger state | no acquisition-event validator/model found | none identified | GAP |
+| 13. Acquisition event validation | Validate position, camera-surface distance, orientation, footprint, GSD, overlap and trigger state | `AcquisitionEventValidator` generates deterministic event records from controlled tracks and `AcquisitionGeometryResult`, preserving camera-ground distance, GSD, footprint and trigger state; orientation/overlap quality gates remain open | `coverage_decomposition_test.cpp` | IMPLEMENTED — first event-model slice |
 | 14. Mapping quality | Coverage ratio, uncovered geometry, GSD, overlap, acquisition validity, terrain following, sensor compliance | no dedicated MT-01 mapping-quality engine found | none identified | GAP |
 | 15. Candidate selection | Hard admissibility first, then objective comparison/tie-break | candidate_comparison.*, orchestrator/* | candidate/orchestrator tests | IMPLEMENTED REUSABLE |
 | 16. Final integrity | Verify mission identity, route/configuration/input lineage | final_planning_integrity.*, mission/compiler infrastructure | final_planning_integrity_test.cpp | IMPLEMENTED REUSABLE |
@@ -115,9 +115,11 @@ The current slice is diagnostic only. It does not silently repair gaps, does not
 
 ### GAP-MT01-006 — Acquisition Event Model / Validator
 
-Required: acquisition event identity, sensor state, camera-ground distance, orientation, footprint, GSD, overlap, trigger validity and quality state.
+Status: **CLOSED FOR FIRST EVENT-MODEL SLICE; FULL EVENT VALIDATION REMAINS OPEN.**
 
-Current state: not identified.
+Implemented as `AcquisitionEventValidator` in the existing planning module. It consumes controlled track output and `AcquisitionGeometryResult`, creates stable `MT01-EVENT-<index>` identities, preserves track identity, camera-ground distance, GSD, footprint and trigger timing, and records sensor/trigger state.
+
+The current slice does not yet model camera orientation/gimbal state, individual acquisition positions along the track, overlap validation per event, or terrain-following surface distance. Those remain open and belong to subsequent integration/quality stages.
 
 ### GAP-MT01-007 — Mapping Quality Engine
 
@@ -170,10 +172,10 @@ No MT-01 execution result shall be claimed yet.
 
 ## 8. Next deterministic implementation step
 
-`GAP-MT01-001` through `GAP-MT01-005` are closed only for their first implementation/evaluation slices. The next dependency is **GAP-MT01-006 — Acquisition Event Model / Validator**.
+`GAP-MT01-001` through `GAP-MT01-006` are closed only for their first implementation/evaluation slices. The next dependency is **GAP-MT01-007 — Mapping Quality Engine**.
 
 The next implementation must consume the controlled AOI, constrained spatial domain and selected orientation candidates, and produce deterministic planning cells without introducing universal hard-coded acceptance values. GAP-MT01-003 is now closed only for the first geometric decomposition slice; full constrained-domain integration remains open and must not be represented as verification-complete.
 
-Remaining dependency order: MT01-006 → MT01-007.
+Remaining dependency order: MT01-007.
 
 MT-02 and MT-03 remain outside this step.
