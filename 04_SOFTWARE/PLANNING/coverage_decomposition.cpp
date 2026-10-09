@@ -279,6 +279,7 @@ CoverageDecompositionResult CoverageDecompositionEngine::decompose(const Coverag
 
     CoverageDecompositionResult r;
     r.dependency_identity=dependency(i);
+    r.environment=i.environment;
     const std::size_t count=static_cast<std::size_t>(
         std::ceil((maxX-minX)/i.track_spacing_m));
 
