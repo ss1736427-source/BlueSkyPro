@@ -42,4 +42,9 @@ jobs:
       - name: Print representative MT-01 simulation metrics
         run: ./build/planning/mt01_t01_representative_simulation_test
 
+      - name: Validate Virtual Flight JSON result contract
+        run: |
+          ./build/planning/mt01_t01_representative_simulation_test --json > build/planning/virtual-flight-sim-001.json
+          python -c "import json,pathlib; d=json.loads(pathlib.Path('build/planning/virtual-flight-sim-001.json').read_text()); assert d['messageType']=='planning.result'; assert d['verification']['releaseStatus']=='BLOCKED'; assert d['verification']['verified'] is False; assert d['simulationAcceptance']=='PASS'; assert d['operationalStatus']=='BLOCKED_NOT_EXECUTED'; assert len(d['routeCoordinates']) >= 2; assert d['environment']['notamId']=='SIM-NOTAM-001'; print('virtual_flight_json_contract=PASS; route_points='+str(len(d['routeCoordinates'])))"
+
 # CI trigger verification for the current main baseline.
