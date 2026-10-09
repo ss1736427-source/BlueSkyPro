@@ -295,7 +295,9 @@ Item {
             // Zoom only for wheel events whose pointer is inside the map view.
             // Events that reach this handler from an overlapping panel must not
             // alter the geographic zoom.
-            if (!root.contains(event.position)) {
+            // QML WheelEvent exposes local x/y coordinates; do not use
+            // event.position here because it is not part of the QML WheelEvent API.
+            if (!root.contains(Qt.point(event.x, event.y))) {
                 event.accepted = true
                 return
             }
