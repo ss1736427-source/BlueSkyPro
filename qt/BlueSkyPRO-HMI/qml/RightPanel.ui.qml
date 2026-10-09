@@ -61,6 +61,7 @@ Item {
     property real dragGrabOffsetY: 0
     property var panelPositions: ({})
     property int lastAtcPanelHeight: -1
+    property bool panelLayoutReady: false
 
     // When the ATC content grows or shrinks while positions are locked,
     // preserve its bottom edge so the card returns to its prior bottom-aligned
@@ -68,7 +69,9 @@ Item {
     function handleAtcPanelHeightChanged(newHeight) {
         var previousHeight = lastAtcPanelHeight
         lastAtcPanelHeight = newHeight
-        if (previousHeight < 0 || !panelsLocked || draggingPanel !== "")
+        // Ignore transient height changes while QML is constructing the
+        // first layout. Saved positions must not be shifted during startup.
+        if (!panelLayoutReady || previousHeight < 0 || !panelsLocked || draggingPanel !== "")
             return
 
         var positions = Object.assign({}, panelPositions)
@@ -314,7 +317,14 @@ Item {
         panelOrder = migratedOrder
         panelOrderSettings.orderCsv = migratedOrder.join(",")
         loadPanelPositions()
-        Qt.callLater(root.reflowPanelPositions)
+        // Establish the baseline only after the first binding/layout pass.
+        // Otherwise startup's initial ATC height changes look like operator
+        // content changes and can incorrectly move the saved panel to the top.
+        Qt.callLater(function() {
+            root.lastAtcPanelHeight = atcWorkArea.height
+            root.panelLayoutReady = true
+            root.reflowPanelPositions()
+        })
     }
 
     function panelVisible(key) {
