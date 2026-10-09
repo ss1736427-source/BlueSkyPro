@@ -23,7 +23,7 @@ This document distinguishes implemented reusable infrastructure, partial impleme
 | 3. Terrain following | Maintain controlled camera-to-surface distance under terrain/obstacle/altitude/vehicle constraints | flight_profile.*, vertical/route infrastructure exists; no photogrammetry terrain-following planner found | flight-profile / vertical tests | PARTIAL |
 | 4. Orientation candidates | Generate and evaluate bounded survey orientations using controlled geometry/search parameters | `coverage_orientation.*` generates deterministic bounded orientation candidates, projected width and estimated track count; downstream wind/energy evaluation remains separate | `coverage_orientation_test.cpp` | IMPLEMENTED — first generation slice |
 | 5. Cellular decomposition | Decompose AOI into planning cells where required | `coverage_decomposition.*` provides deterministic orientation-aligned strip cells with explicit altitude band and dependency identity; constrained-domain clipping remains open | `coverage_decomposition_test.cpp` | IMPLEMENTED — first geometric slice |
-| 6. Coverage tracks | Generate parallel acquisition tracks, clip to geometry, enforce footprint coverage and endpoints | no MT-01 coverage-track generator found | none identified | GAP |
+| 6. Coverage tracks | Generate parallel acquisition tracks, clip to geometry, enforce footprint coverage and endpoints | `CoverageTrackGenerator` generates deterministic sweep-line intervals from decomposed cells, preserves cell/orientation identity and records track length/altitude; footprint/endpoint feasibility remains open | `coverage_decomposition_test.cpp` | IMPLEMENTED — first generation slice |
 | 7. Edge coverage | Deliberately validate/repair boundary and corner acquisition coverage | no dedicated edge-coverage implementation found | none identified | GAP |
 | 8. Transition graph | Connect acquisition tracks with feasible transition costs | generic planning graph / route infrastructure exists; no MT-01 acquisition-transition graph found | graph/route tests | PARTIAL |
 | 9. Route candidates | Generate bounded route candidates from coverage/transition alternatives | Algorithm Orchestrator and solver contract can manage candidates; no MT-01 coverage candidate producer found | orchestrator tests | PARTIAL |
@@ -97,9 +97,13 @@ No universal hard-coded acceptance values were introduced.
 
 ### GAP-MT01-004 — Coverage Track Generator
 
-Required: parallel sweep generation, clipping, sensor-footprint coverage, endpoint/turn feasibility and track provenance.
+Status: **CLOSED FOR FIRST GENERATION SLICE; COVERAGE/ENDPOINT FEASIBILITY INTEGRATION REMAINS OPEN.**
 
-Current state: not identified.
+Implemented as `CoverageTrackGenerator` in the existing `coverage_decomposition.*` planning module. It consumes the controlled decomposition, generates deterministic orientation-aligned scanline intervals per cell, emits stable `MT01-TRACK-<index>` identities, preserves cell identity, calculates track length and records altitude/dependency identity.
+
+The slice does not yet claim sensor-footprint coverage validation, terrain-following endpoint feasibility, turn-radius feasibility or constrained-domain clipping beyond the decomposition input. Those remain downstream integration work.
+
+No universal acceptance thresholds were introduced.
 
 ### GAP-MT01-005 — Edge Coverage Engine
 
@@ -164,10 +168,10 @@ No MT-01 execution result shall be claimed yet.
 
 ## 8. Next deterministic implementation step
 
-`GAP-MT01-001` and `GAP-MT01-002` are closed for their first implementation slices. The next dependency is **GAP-MT01-003 — Coverage Decomposition Engine**.
+`GAP-MT01-001`, `GAP-MT01-002`, `GAP-MT01-003` and `GAP-MT01-004` are closed only for their first implementation slices. The next dependency is **GAP-MT01-005 — Edge Coverage Engine**.
 
 The next implementation must consume the controlled AOI, constrained spatial domain and selected orientation candidates, and produce deterministic planning cells without introducing universal hard-coded acceptance values. GAP-MT01-003 is now closed only for the first geometric decomposition slice; full constrained-domain integration remains open and must not be represented as verification-complete.
 
-Remaining dependency order: MT01-003 → MT01-004 → MT01-005 → MT01-006 → MT01-007.
+Remaining dependency order: MT01-005 → MT01-006 → MT01-007.
 
 MT-02 and MT-03 remain outside this step.
