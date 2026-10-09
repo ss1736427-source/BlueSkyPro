@@ -2,6 +2,8 @@
 
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
+#include <QtMath>
 
 namespace
 {
@@ -135,6 +137,41 @@ bool PlanningBridge::publishJson(const QString &json)
     if (verified != (releaseStatus == QLatin1String("RELEASE_ELIGIBLE"))) {
         emit bridgeError(QStringLiteral("VERIFICATION_STATUS_MISMATCH"));
         return false;
+    }
+
+    const QJsonObject resultObject = object.value(QStringLiteral("result")).toObject();
+    if (resultObject.contains(QStringLiteral("routeGeometry"))) {
+        const QJsonObject route = resultObject.value(QStringLiteral("routeGeometry")).toObject();
+        if (route.value(QStringLiteral("routeId")).toString().isEmpty()
+            || route.value(QStringLiteral("routeVersion")).toString().isEmpty()
+            || route.value(QStringLiteral("coordinateReference")).toString() != QLatin1String("WGS84")) {
+            emit bridgeError(QStringLiteral("INVALID_ROUTE_GEOMETRY_METADATA"));
+            return false;
+        }
+
+        const QJsonArray points = route.value(QStringLiteral("points")).toArray();
+        if (points.size() < 2) {
+            emit bridgeError(QStringLiteral("ROUTE_REQUIRES_AT_LEAST_TWO_POINTS"));
+            return false;
+        }
+
+        for (const QJsonValue &value : points) {
+            if (!value.isObject()) {
+                emit bridgeError(QStringLiteral("INVALID_ROUTE_POINT"));
+                return false;
+            }
+            const QJsonObject point = value.toObject();
+            const double latitude = point.value(QStringLiteral("latitude")).toDouble(qQNaN());
+            const double longitude = point.value(QStringLiteral("longitude")).toDouble(qQNaN());
+            if (point.value(QStringLiteral("waypointId")).toString().isEmpty()
+                || !qIsFinite(latitude) || latitude < -90.0 || latitude > 90.0
+                || !qIsFinite(longitude) || longitude < -180.0 || longitude > 180.0
+                || !point.value(QStringLiteral("altitudeM")).isDouble()
+                || !point.value(QStringLiteral("mandatory")).isBool()) {
+                emit bridgeError(QStringLiteral("INVALID_ROUTE_POINT_FIELDS"));
+                return false;
+            }
+        }
     }
 
     publishResult(object.toVariantMap());
