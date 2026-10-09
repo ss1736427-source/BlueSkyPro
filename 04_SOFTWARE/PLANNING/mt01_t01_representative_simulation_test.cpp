@@ -235,9 +235,9 @@ int main(int argc, char* argv[]) {
     std::cout << std::fixed << std::setprecision(4);
     const bool jsonMode = argc > 1 && std::strcmp(argv[1], "--json") == 0;
     if (jsonMode) {
-        // Display polyline derived from the selected coverage candidate. The
-        // straight connector between tracks is illustrative; no obstacle-aware
-        // transit path is claimed by this representative simulation.
+        // Emit the exact track endpoint order used by buildRoute() for the
+        // selected candidate. The planner's transition graph checks the direct
+        // connectors; this fixture does not model detour waypoints.
         std::vector<GeoPoint> routePoints;
         if (selectedCandidateIndex < candidates.candidates.size()) {
             const auto& selectedCandidate = candidates.candidates[selectedCandidateIndex];
@@ -245,18 +245,8 @@ int main(int argc, char* argv[]) {
                 const auto found = std::find_if(tracks.tracks.begin(), tracks.tracks.end(),
                     [&](const CoverageTrack& track) { return track.track_id == trackId; });
                 if (found == tracks.tracks.end()) continue;
-                GeoPoint start = found->start;
-                GeoPoint end = found->end;
-                if (!routePoints.empty()) {
-                    const auto& last = routePoints.back();
-                    const double ds = std::pow(last.latitude_deg - start.latitude_deg, 2.0)
-                                    + std::pow(last.longitude_deg - start.longitude_deg, 2.0);
-                    const double de = std::pow(last.latitude_deg - end.latitude_deg, 2.0)
-                                    + std::pow(last.longitude_deg - end.longitude_deg, 2.0);
-                    if (de < ds) std::swap(start, end);
-                }
-                routePoints.push_back(start);
-                routePoints.push_back(end);
+                routePoints.push_back(found->start);
+                routePoints.push_back(found->end);
             }
         }
         std::cout << std::fixed << std::setprecision(8);
