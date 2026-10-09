@@ -150,7 +150,7 @@ Item {
     // Preserve operator-selected positions. Only clamp to the visible work area
     // and repair genuine collisions; never repack the whole stack.
     function reflowPanelPositions() {
-        if (panelsLocked || draggingPanel !== "")
+        if (draggingPanel !== "")
             return
 
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
@@ -162,6 +162,19 @@ Item {
             var key = keys[i]
             if (panelVisible(key))
                 items.push({ key: key, y: panelPositionY(key), h: panelHeight(key) })
+        }
+
+        // Locking preserves the operator's arrangement, but a panel whose
+        // content grows must still remain above the fixed bottom toolbar.
+        // Clamp only out-of-bounds cards; do not reorder or resolve collisions
+        // automatically while the layout is locked.
+        if (panelsLocked) {
+            for (var lockedIndex = 0; lockedIndex < items.length; ++lockedIndex) {
+                var lockedMaxY = Math.max(top, bottomLimit - items[lockedIndex].h)
+                items[lockedIndex].y = Math.max(top, Math.min(lockedMaxY, items[lockedIndex].y))
+            }
+            saveNormalizedPositions(items)
+            return
         }
 
         // Clamp saved positions first.
