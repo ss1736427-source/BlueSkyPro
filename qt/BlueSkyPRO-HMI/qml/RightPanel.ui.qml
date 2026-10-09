@@ -42,6 +42,7 @@ Item {
         category: "BlueSkyPRO/RightPanel"
         property string orderCsv: "Checklist,Flight Conditions,Alerting,ATC"
         property string positionCsv: "Checklist=54,Flight Conditions=293,Alerting=400,ATC=499"
+        property string preferredPositionCsv: ""
         property int freePositionLayoutVersion: 0
         property bool positionsLocked: false
     }
@@ -89,7 +90,10 @@ Item {
 
     function loadPanelPositions() {
         var result = {}
-        var entries = panelOrderSettings.positionCsv.split(",")
+        // Use operator-defined coordinates, not temporary collision positions.
+        var savedPositions = panelOrderSettings.preferredPositionCsv !== ""
+                ? panelOrderSettings.preferredPositionCsv : panelOrderSettings.positionCsv
+        var entries = savedPositions.split(",")
         for (var i = 0; i < entries.length; ++i) {
             var parts = entries[i].split("=")
             if (parts.length === 2 && parts[0] !== "")
@@ -125,7 +129,7 @@ Item {
         panelPositions = result
         preferredPanelPositions = Object.assign({}, result)
         temporaryPanelPositions = ({})
-        savePanelPositions()
+        // Persist only after the first complete layout pass.
     }
 
     function savePanelPositions() {
@@ -138,6 +142,19 @@ Item {
                 entries.push(key + "=" + Math.round(value))
         }
         panelOrderSettings.positionCsv = entries.join(",")
+        panelOrderSettings.sync()
+    }
+
+    function savePreferredPanelPositions() {
+        var required = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
+        var entries = []
+        for (var i = 0; i < required.length; ++i) {
+            var key = required[i]
+            var value = preferredPanelPositions[key]
+            if (value !== undefined)
+                entries.push(key + "=" + Math.round(value))
+        }
+        panelOrderSettings.preferredPositionCsv = entries.join(",")
         panelOrderSettings.sync()
     }
 
@@ -230,7 +247,8 @@ Item {
     // This also runs while positions are locked: locking disables manual drag,
     // not automatic collision avoidance after content changes.
     function reflowPanelPositions() {
-        if (draggingPanel !== "")
+        // Do not clamp or persist coordinates against partial startup geometry.
+        if (!panelLayoutReady || root.height <= bottomInset + 120 || draggingPanel !== "")
             return
 
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
@@ -336,69 +354,51 @@ Item {
         var desired = Math.max(top, Math.min(bottomLimit - h, dragVisualY))
         var gap = 4
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
-        var obstacles = []
+        var nextPositions = Object.assign({}, panelPositions)
+        var nextPreferred = Object.assign({}, preferredPanelPositions)
+        var nextTemporary = Object.assign({}, temporaryPanelPositions)
 
+        // The dragged panel owns the drop location. Overlapped cards yield.
+        nextPositions[key] = Math.round(desired)
+        nextPreferred[key] = Math.round(desired)
+        delete nextTemporary[key]
+
+        var displaced = []
         for (var i = 0; i < keys.length; ++i) {
             var other = keys[i]
-            if (other !== key && panelVisible(other))
-                obstacles.push({ key: other, y: panelPositionY(other), h: panelHeight(other) })
+            if (other === key || !panelVisible(other))
+                continue
+            var otherY = panelPositionY(other)
+            var otherH = panelHeight(other)
+            if (desired < otherY + otherH + gap && desired + h + gap > otherY)
+                displaced.push({ key: other, y: otherY })
         }
 
-        function overlaps(y, obstacle) {
-            return y < obstacle.y + obstacle.h + gap &&
-                   y + h + gap > obstacle.y
-        }
-
-        var candidates = [desired, top, bottomLimit - h]
-        for (var j = 0; j < obstacles.length; ++j) {
-            candidates.push(obstacles[j].y - gap - h)
-            candidates.push(obstacles[j].y + obstacles[j].h + gap)
-        }
-
-        var best = desired
-        var bestDistance = Number.POSITIVE_INFINITY
-        for (var k = 0; k < candidates.length; ++k) {
-            var candidate = Math.max(top, Math.min(bottomLimit - h, candidates[k]))
-            var free = true
-            for (var m = 0; m < obstacles.length; ++m) {
-                if (overlaps(candidate, obstacles[m])) {
-                    free = false
-                    break
-                }
-            }
-            if (free) {
-                var distance = Math.abs(candidate - desired)
-                if (distance < bestDistance) {
-                    best = candidate
-                    bestDistance = distance
-                }
-            }
-        }
-
-        // Keep the dragged card at the requested slot. Any card overlapped
-        // by it yields to the nearest free slot in the right-panel work area.
-        var displaced = []
-        for (var d = 0; d < obstacles.length; ++d) {
-            var obstacle = obstacles[d]
-            if (best < obstacle.y + obstacle.h + gap && best + h + gap > obstacle.y)
-                displaced.push({ key: obstacle.key, y: obstacle.y })
-        }
-
-        var nextPositions = Object.assign({}, panelPositions)
-        nextPositions[key] = Math.round(best)
         panelPositions = nextPositions
-        for (var q = 0; q < displaced.length; ++q) {
-            var freeY = nearestFreePanelY(displaced[q].key, displaced[q].y, panelPositions)
+        preferredPanelPositions = nextPreferred
+        temporaryPanelPositions = nextTemporary
+
+        for (var j = 0; j < displaced.length; ++j) {
+            var displacedKey = displaced[j].key
+            if (temporaryPanelPositions[displacedKey] === undefined)
+                temporaryPanelPositions[displacedKey] =
+                        preferredPanelPositions[displacedKey] !== undefined
+                        ? preferredPanelPositions[displacedKey] : displaced[j].y
+
+            var freeY = nearestFreePanelY(displacedKey, displaced[j].y, panelPositions)
             if (freeY >= 0) {
                 var adjusted = Object.assign({}, panelPositions)
-                adjusted[displaced[q].key] = Math.round(freeY)
+                adjusted[displacedKey] = Math.round(freeY)
                 panelPositions = adjusted
             }
         }
+
+        savePreferredPanelPositions()
         savePanelPositions()
         draggingPanel = ""
         dragVisualY = 0
         dragGrabOffsetY = 0
+        Qt.callLater(root.reflowPanelPositions)
     }
 
     function cancelPanelDrag(key) {
