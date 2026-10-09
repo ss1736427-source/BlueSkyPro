@@ -136,3 +136,20 @@ Interpretation and limitations:
 - Still required before production integration: controlled visual/runtime evidence that the vector basemap actually renders, style/data-source and attribution review, QML bindings licensing review, deployable runtime/package validation, Linux CI compatibility, and a test adapter preserving authoritative WGS84 route geometry and existing UI interactions.
 
 Next deterministic step: establish a stronger render-level proof of concept that records an objective signal of successful style/map rendering (prefer an automated screenshot/pixel or explicit renderer/style-loaded signal) without changing the production renderer. Keep API credentials outside source control and do not treat this smoke test as evidence of map rendering.
+
+### Render-level smoke-test — result 2026-10-09
+
+**RESULT: FAIL / actual MapLibre rendering remains UNVERIFIED.** The first automated render-probe attempt exposed a native process crash, not a pixel-threshold failure.
+
+Evidence:
+- Push workflow run: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37982494344 — failed at `Runtime smoke test — rendered map pixels`, job `113996712681`.
+- Pull-request workflow run: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37982503603 — failed at the same step, job `113996753095`.
+- Both runs passed the native dependency build/install and official standalone QML example build before the new probe step.
+- The diagnostic process exited with code `-1073741819` (`0xC0000005`, Windows access violation) before a screenshot could be validated.
+- Available logs do not establish whether the crash originates in graphics-context setup, MapLibre rendering, QML loading, or the screenshot-capture approach. Do not label any one of these as the root cause without additional evidence.
+
+Next diagnostic step:
+1. Keep the production raster/Yandex map unchanged.
+2. Improve crash observability in the isolated proof of concept (capture QML/Qt diagnostics and, if feasible, a Windows crash dump) and separate “custom QML startup” from “map/style initialization” and “screenshot capture” so each can be tested independently.
+3. Re-run the minimal probe on the same pinned MapLibre revision and Qt 6.11.2 MinGW toolchain.
+4. Only after identifying and correcting the failure, re-enable a render assertion. Do not weaken the test to a process-liveness-only check and do not claim visual rendering verified.
