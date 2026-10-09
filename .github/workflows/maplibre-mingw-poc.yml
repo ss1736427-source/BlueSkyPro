@@ -117,11 +117,11 @@ jobs:
               Get-Content $stderr -ErrorAction SilentlyContinue
               throw "QML example exited during startup with code $($process.ExitCode)."
             }
-            $log = (Get-Content $stdout -Raw -ErrorAction SilentlyContinue) + "`n" + (Get-Content $stderr -Raw -ErrorAction SilentlyContinue)
-            if ($log -notmatch 'Root objects loaded successfully') {
-              throw 'QML example process stayed alive, but the expected QML root-object startup marker was not found.'
-            }
-            Write-Output 'PASS: executable stayed alive and QML root objects loaded.'
+            # The upstream example is built with WIN32_EXECUTABLE ON, so qDebug output
+            # is not reliably available through redirected stdout/stderr on Windows.
+            # Its main.cpp returns -1 when QML rootObjects() is empty; staying alive
+            # therefore verifies successful QML root-object creation.
+            Write-Output 'PASS: executable stayed alive for 15 seconds; upstream main.cpp did not report empty QML root objects.'
             Write-Output 'NOTE: this smoke test does not verify visible map pixels or successful style/tile rendering.'
           }
           finally {
