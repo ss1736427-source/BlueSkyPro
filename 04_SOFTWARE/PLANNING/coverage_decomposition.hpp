@@ -38,9 +38,37 @@ struct CoverageDecompositionResult {
     std::vector<CoveragePlanningCell> cells;
 };
 
+struct CoverageTrack {
+    std::size_t generation_index{0};
+    std::string track_id;
+    std::string cell_id;
+    GeoPoint start;
+    GeoPoint end;
+    double altitude_m{0.0};
+    double length_m{0.0};
+};
+
+struct CoverageTrackResult {
+    bool valid{false};
+    std::string failure_code;
+    std::string dependency_identity;
+    std::vector<CoverageTrack> tracks;
+};
+
+struct CoverageTrackInput {
+    CoverageDecompositionResult decomposition;
+    double altitude_m{0.0};
+    std::string calculation_version;
+};
+
 class CoverageDecompositionEngine final {
 public:
     static CoverageDecompositionResult decompose(const CoverageDecompositionInput& input);
+};
+
+class CoverageTrackGenerator final {
+public:
+    static CoverageTrackResult generate(const CoverageTrackInput& input);
 };
 
 } // namespace bluesky::planning
