@@ -74,3 +74,35 @@ Do not create placeholder fleet, performance, trajectory, safety, or minimum-sep
 4. Connect `SelectedRoutePlanningService::submitSelectedRoute(...)` at that owner, triggered by a changed selected route or relevant calculation inputs—not by every QML refresh.
 5. Extend integration coverage to assert route geometry survives the JSONL adapter and is accepted by `PlanningBridge`, then reaches the QML map binding.
 6. Verify the existing Windows project build and a real selected-route scenario. Do not claim integration complete before this passes.
+
+## Application-level integration owner — contract clarified
+
+The next implementation boundary is a single C++ application/domain owner between authoritative planning state and `SelectedRoutePlanningService`. This is a contract for the missing owner, not a claim that the owner already exists.
+
+### Required inputs and ownership
+
+1. **Authoritative planning decision:** the exact `MissionProblem`, the selected feasible `CandidateSolution`, and the same live `PlanningGraph` instance used to produce/validate that candidate. The graph must remain alive and unchanged for the duration of route resolution.
+2. **Authoritative complete request:** a request object already assembled by the existing request-input authority, including every schema-required field and validated route/performance/trajectory/minimum data. The owner must not infer or synthesize these fields from the candidate or QML.
+3. **Stable calculation identity:** mission ID/version, candidate ID, selection version, dependency/input identity, route ID/version, and request/result correlation identity. Reuse existing project identity/version types where present; do not introduce a second route model.
+4. **Submission:** call `SelectedRoutePlanningService::submitSelectedRoute(...)` only after the selected candidate and complete request refer to the same mission/calculation snapshot. Reject stale or mismatched inputs without sending.
+
+### Lifecycle and performance constraints
+
+- Keep the owner outside QML. QML consumes the resulting `PlanningBridge.result`; it must not build planning requests or trigger a send on every binding refresh.
+- Submit on a meaningful selected-candidate or planning-input version change only. Do not add a cache/deduplication key until the project defines which request identity makes two calculations equivalent.
+- Do not perform heavy planning, blocking process I/O, or network I/O on the GUI thread. The bridge send path is asynchronous; result processing and correlation must remain explicit.
+- Preserve fail-closed route and request validation. A queued send is not evidence that Planning Core accepted or completed the request.
+- The owner must not run a second route planner or duplicate the canonical `Route`/Planning Core logic.
+
+### Required integration tests before closure
+
+1. Complete authoritative request + feasible selected candidate + matching graph produces one JSONL request containing ordered WGS84 geometry and preserves all existing request inputs.
+2. Infeasible candidate, graph mismatch, stale identity, or incomplete request sends nothing and leaves the original request unchanged.
+3. JSONL adapter returns the same route geometry in its result; the bridge accepts/correlates that result; QML receives the route and the map draws it in order.
+4. Repeated QML refresh without a calculation identity change produces no additional submission.
+5. CI must run against the exact new commit. A Windows runtime scenario and performance measurements remain separate required evidence; neither can be inferred from unit tests.
+
+### Current blocker
+
+Repository inspection has confirmed the service, route resolver, and serializer, but has not identified an existing authoritative HMI-side provider for both the full request and the live solver context/graph. The implementation must first locate/reuse those providers in the planning/application layers. If no such provider exists, the next safe code change is to define a narrow provider interface and implement it only against real authoritative APIs—not to populate `main.cpp` with fabricated mission state.
+
