@@ -112,6 +112,7 @@ Item {
     onHeightChanged: rebuildTiles()
     onCenterLatitudeChanged: { rebuildTiles(); routeCanvas.requestPaint() }
     onCenterLongitudeChanged: { rebuildTiles(); routeCanvas.requestPaint() }
+    onRouteCoordinatesChanged: routeCanvas.requestPaint()
     onZoomLevelChanged: { rebuildTiles(); routeCanvas.requestPaint() }
     onPanOffsetXChanged: routeCanvas.requestPaint()
     onPanOffsetYChanged: routeCanvas.requestPaint()
