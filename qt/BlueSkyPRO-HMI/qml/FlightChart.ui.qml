@@ -15,6 +15,8 @@ Item {
     property bool manualCreationMode: false
     // The map/mission editor sets this only when the composed mission is complete.
     property bool manualCompositionComplete: false
+    // Route points are supplied by the mission profile, not hard-coded in the map view.
+    property var routeCoordinates: []
     // Pan offset for mouse-driven map dragging (visual preview interaction).
     // View state can be owned by MainContent so it survives template/tool changes.
     property bool useExternalMapState: false
@@ -65,13 +67,7 @@ Item {
         id: googleMap
         anchors.fill: parent
         z: 1
-        routeCoordinates: [
-            { lat: 55.7600, lon: 37.6000 },
-            { lat: 55.7350, lon: 37.6250 },
-            { lat: 55.7550, lon: 37.6550 },
-            { lat: 55.7800, lon: 37.6400 },
-            { lat: 55.7700, lon: 37.5900 }
-        ]
+        routeCoordinates: root.routeCoordinates
     }
 
     Canvas {
