@@ -58,7 +58,26 @@ struct CoverageTrackResult {
 struct CoverageTrackInput {
     CoverageDecompositionResult decomposition;
     double altitude_m{0.0};
+    double footprint_width_m{0.0};
+    double footprint_height_m{0.0};
     std::string calculation_version;
+};
+
+struct CoverageEdgeGap {
+    std::string cell_id;
+    std::string track_id;
+    bool start_gap{false};
+    bool end_gap{false};
+    double start_margin_m{0.0};
+    double end_margin_m{0.0};
+};
+
+struct CoverageEdgeResult {
+    bool valid{false};
+    std::string failure_code;
+    std::string dependency_identity;
+    std::vector<CoverageEdgeGap> gaps;
+    std::vector<CoverageTrack> repaired_tracks;
 };
 
 class CoverageDecompositionEngine final {
@@ -69,6 +88,13 @@ public:
 class CoverageTrackGenerator final {
 public:
     static CoverageTrackResult generate(const CoverageTrackInput& input);
+};
+
+class CoverageEdgeEngine final {
+public:
+    static CoverageEdgeResult evaluate(
+        const CoverageTrackInput& input,
+        const CoverageTrackResult& tracks);
 };
 
 } // namespace bluesky::planning
