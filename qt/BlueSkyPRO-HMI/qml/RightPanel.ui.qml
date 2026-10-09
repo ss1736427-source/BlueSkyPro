@@ -121,7 +121,7 @@ Item {
         // Recover from the earlier locked-layout regression, which could save
         // ATC at the first legal Y coordinate during startup. Only repair this
         // unmistakable top-edge value; leave normal user-defined positions alone.
-        if (panelOrderSettings.positionsLocked && panelVisible("ATC")
+        if (panelVisible("ATC")
                 && result["ATC"] <= 64 && root.height > panelHeight("ATC") + bottomInset + 120) {
             result["ATC"] = Math.max(54, root.height - bottomInset - 8 - panelHeight("ATC"))
         }
