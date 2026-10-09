@@ -135,7 +135,7 @@ Status: **CLOSED FOR FIRST QUALITY-EVALUATION SLICE; FULL MAPPING QUALITY GATE R
 
 Implemented as `MappingQualityEngine` in the existing planning module. It validates upstream decomposition, tracks, acquisition events and acquisition geometry; calculates AOI area, a deterministic exact union area for the generated rectangular sweep footprints in the common orientation coordinate system, retains the prior track-footprint estimate for comparison, derives the current bounded coverage ratio from the exact footprint union, and calculates GSD minimum/maximum, controlled overlap minima and invalid-event count.
 
-Exact union∩AOI coverage, uncovered-geometry classification, mandatory-area coverage, corner footprint union, terrain-following quality and complete sensor-compliance gating remain open. No hidden raster resolution or universal acceptance threshold was introduced.
+Uncovered-geometry classification, mandatory-area coverage, corner footprint union, terrain-following quality and complete sensor-compliance gating remain open. No hidden raster resolution or universal acceptance threshold was introduced.
 
 ## 5. Non-substitution rule
 
