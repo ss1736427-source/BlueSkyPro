@@ -286,4 +286,55 @@ CoverageEdgeResult CoverageEdgeEngine::evaluate(
     return result;
 }
 
+
+AcquisitionEventResult AcquisitionEventValidator::generate(
+    const AcquisitionEventInput& input) {
+    AcquisitionEventResult result;
+    if(!input.tracks.valid) {
+        result.failure_code="INVALID_TRACK_RESULT";
+        return result;
+    }
+    if(!input.geometry.valid) {
+        result.failure_code="INVALID_ACQUISITION_GEOMETRY";
+        return result;
+    }
+    if(input.tracks.tracks.empty()) {
+        result.failure_code="NO_TRACKS";
+        return result;
+    }
+
+    result.dependency_identity =
+        input.tracks.dependency_identity + "|" +
+        input.geometry.dependency_identity + "|" +
+        input.calculation_version;
+
+    for(const auto& track : input.tracks.tracks) {
+        if(!(track.length_m > 0.0) || !std::isfinite(track.length_m)) {
+            result.failure_code="INVALID_TRACK_LENGTH";
+            return result;
+        }
+
+        AcquisitionEvent event;
+        event.generation_index=result.events.size();
+        event.event_id="MT01-EVENT-"+std::to_string(event.generation_index);
+        event.track_id=track.track_id;
+        event.position=track.start;
+        event.camera_ground_distance_m =
+            input.geometry.footprint_height_m > 0.0
+                ? input.geometry.focal_length_m
+                : 0.0;
+        event.gsd_width_m_per_px=input.geometry.gsd_width_m_per_px;
+        event.gsd_height_m_per_px=input.geometry.gsd_height_m_per_px;
+        event.footprint_width_m=input.geometry.footprint_width_m;
+        event.footprint_height_m=input.geometry.footprint_height_m;
+        event.trigger_interval_s=input.geometry.trigger_interval_s;
+        event.sensor_state_valid=true;
+        event.trigger_state_valid=true;
+        result.events.push_back(std::move(event));
+    }
+
+    result.valid=true;
+    return result;
+}
+
 } // namespace bluesky::planning
