@@ -379,6 +379,7 @@ Item {
     }
 
     onSelectedUavIndexChanged: root.loadAircraftData(root.selectedUavIndex)
+    onPlanningResultChanged: root.syncMapRouteCoordinates()
 
     Component.onCompleted: {
         root.recalculateColumnLayout()
