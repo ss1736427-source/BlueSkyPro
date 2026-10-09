@@ -313,6 +313,73 @@ Item {
         }
     }
 
+    // Compact map zoom controls stay inside the visible map workspace,
+    // clear of any side panel layered over this full-width view.
+    Rectangle {
+        id: zoomControls
+        z: 30
+        anchors.right: parent.right
+        anchors.rightMargin: root.rightPanelWidth + 12
+        anchors.top: parent.top
+        anchors.topMargin: 12
+        width: 34
+        height: 68
+        radius: 4
+        color: "#08111D"
+        border.color: "#31506A"
+        border.width: 1
+
+        Rectangle {
+            width: parent.width - 2
+            height: 1
+            x: 1
+            y: parent.height / 2
+            color: "#31506A"
+        }
+
+        Text {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: parent.height / 2
+            text: "+"
+            color: root.zoomLevel < 20 ? "#E5F0FA" : "#607386"
+            font.pixelSize: 24
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+        MouseArea {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: parent.height / 2
+            enabled: root.zoomLevel < 20
+            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: root.zoomLevel = Math.min(20, root.zoomLevel + 1)
+        }
+
+        Text {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: parent.height / 2
+            text: "−"
+            color: root.zoomLevel > 2 ? "#E5F0FA" : "#607386"
+            font.pixelSize: 24
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+        MouseArea {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: parent.height / 2
+            enabled: root.zoomLevel > 2
+            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: root.zoomLevel = Math.max(2, root.zoomLevel - 1)
+        }
+    }
+
     Rectangle {
         anchors.left: parent.left
         anchors.bottom: parent.bottom
