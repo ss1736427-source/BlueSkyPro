@@ -70,8 +70,9 @@ The first controlled execution package is documented in `docs/algorithm/MT01-T01
 | Verification case | Dataset/package | Requirement allocation | Current state | Reason |
 |---|---|---|---|---|
 | `V-M01-01` | `MT01-T01` | `SYS-REQ-008`, `SYS-REQ-035`, `SYS-REQ-076` | `BLOCKED_MISSING_CONTROLLED_INPUTS` / `NOT_EXECUTED` | No complete versioned AOI/CRS, terrain, restrictions, time-matched weather/wind, selected aircraft/readiness, installed camera calibration, mission quality profile, C2/launch-recovery data and execution configuration were found in the reviewed project data. Manufacturer reference facts alone are insufficient. |
+| `V-M01-01-SIM-001` | `MT01-T01-SIM-001` | Supporting simulation only; not an independent requirement-closure claim | `SIMULATION PASS` — [CI run #367](https://github.com/ss1736427-source/BlueSkyPro/actions/runs/37979485939) | Connected C++ representative fixture passed 41/41 CTest tests. The executable reported GSD 0.0268/0.0267 m/px, estimated coverage 1.0000, uncovered area 0 m², two tracks, six acquisition events, two route candidates and selected route MT01-ROUTE-0. Synthetic AOI/terrain/wind/performance assumptions; not real-flight or operational evidence. |
 
-This is a package-readiness finding, not a failed algorithm execution. The test remains unexecuted until the missing controlled artifacts are supplied. No synthetic AOI or invented operational values may be substituted.
+This is a package-readiness finding, not a failed algorithm execution. The **operational** V-M01-01 remains unexecuted until its missing controlled artifacts are supplied. A separately identified simulation subcase is now executed and passed for the representative fixture; it must not be substituted for the real operational dataset or used to claim flight readiness.
 
 ## 4. MT-01 — area mapping scenarios
 
