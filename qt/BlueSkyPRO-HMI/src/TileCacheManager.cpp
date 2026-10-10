@@ -234,10 +234,12 @@ void TileCacheManager::handleFinished(QNetworkReply *reply)
     if (ok) {
         const QByteArray data = reply->readAll();
         const QByteArray cacheControl = reply->rawHeader("Cache-Control");
-        const bool doNotPersist = hasCacheDirective(cacheControl, "no-store")
-            || hasCacheDirective(cacheControl, "no-cache");
         qint64 maxAgeSeconds = 0;
+        const bool hasMaxAgeDirective = hasCacheDirective(cacheControl, "max-age");
         const bool hasMaxAge = parseMaxAge(cacheControl, &maxAgeSeconds);
+        const bool doNotPersist = hasCacheDirective(cacheControl, "no-store")
+            || hasCacheDirective(cacheControl, "no-cache")
+            || (hasMaxAgeDirective && !hasMaxAge);
         const QDateTime now = QDateTime::currentDateTimeUtc();
         QDateTime expiry;
 
