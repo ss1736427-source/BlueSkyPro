@@ -226,6 +226,19 @@ jobs:
           if (-not $process.WaitForExit(10000)) { Stop-Process -Id $process.Id -Force; throw 'MapLibre import-only probe timed out.' }
           if ($process.ExitCode -ne 0) { Get-Content $stdout -ErrorAction SilentlyContinue; Get-Content $stderr -ErrorAction SilentlyContinue; throw "MapLibre import-only probe exited with code $($process.ExitCode)." }
           Write-Output 'PASS: MapLibre QML module imported without constructing a MapLibre object.'
+      - name: Enable Windows crash dumps for MapLibre probe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dumpDir = Join-Path $env:RUNNER_TEMP 'maplibre-crash-dumps'
+          New-Item -ItemType Directory -Path $dumpDir -Force | Out-Null
+          $key = 'HKCU:\\Software\\Microsoft\\Windows\\Windows Error Reporting\\LocalDumps\\QMapLibreExampleQuickStandalone.exe'
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpFolder -Value $dumpDir -PropertyType ExpandString -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpType -Value 2 -PropertyType DWord -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpCount -Value 3 -PropertyType DWord -Force | Out-Null
+          Write-Output "Configured per-user full crash dumps at $dumpDir."
+
       - name: Diagnostic — MapLibre object without style or screenshot
         shell: pwsh
         run: |
@@ -376,4 +389,17 @@ jobs:
           name: maplibre-native-qt-6.11.2-mingw-poc
           path: maplibre-install
           if-no-files-found: error
+          retention-days: 7
+      - name: Upload MapLibre crash diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maplibre-crash-diagnostics
+          path: |
+            ${{ runner.temp }}/maplibre-crash-dumps
+            ${{ runner.temp }}/maplibre-init.stdout.log
+            ${{ runner.temp }}/maplibre-init.stderr.log
+            ${{ runner.temp }}/maplibre-render-probe.stdout.log
+            ${{ runner.temp }}/maplibre-render-probe.stderr.log
+          if-no-files-found: warn
           retention-days: 7
