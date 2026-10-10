@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QDateTime>
 #include <QHash>
 #include <QDirIterator>
 #include <QNetworkAccessManager>
@@ -38,6 +39,8 @@ private:
 
     QString cacheRootPath() const;
     QString cachePath(const QString &key) const;
+    QDateTime cacheExpiry(const QString &tilePath) const;
+    void removeCacheEntry(const QString &tilePath) const;
     void cleanupExpiredCacheBatch();
     static bool isTransientFailure(QNetworkReply *reply);
 
