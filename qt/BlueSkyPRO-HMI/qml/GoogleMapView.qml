@@ -46,6 +46,7 @@ Item {
     property var tiles: []
     // Keep the last complete tile set visible while the next viewport loads.
     property var fallbackTiles: []
+    property var stableTiles: []
     property int loadedTileCount: 0
     property int failedTileCount: 0
 
@@ -105,8 +106,8 @@ Item {
 
         // Preserve the current tile layer until the replacement viewport is
         // fully ready; this avoids clearing the map during network fetches.
-        if (tiles.length > 0)
-            fallbackTiles = tiles
+        if (stableTiles.length > 0)
+            fallbackTiles = stableTiles
 
         // Cancel queued requests from the previous viewport before scheduling
         // the current visible tiles. In-flight requests may still populate cache.
@@ -281,6 +282,7 @@ Item {
                     root.loadedTileCount++
                     if (root.loadedTileCount === root.tiles.length && root.failedTileCount === 0) {
                         root.mapStatus = "READY"
+                        root.stableTiles = root.tiles
                         root.fallbackTiles = []
                     }
                 } else if (status === Image.Error) {
