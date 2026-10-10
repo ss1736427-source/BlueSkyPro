@@ -1,12 +1,18 @@
 #include "../src/TileCacheManager.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
+#include <QEventLoop>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QTemporaryDir>
+#include <QTimer>
 #include <QUrl>
 
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <cassert>
 
 static QString writeCachedTile(const QString &cacheRoot, const QString &key)
@@ -40,6 +46,18 @@ int main(int argc, char *argv[])
     const QString darkPath = writeCachedTile(cache.path(), darkKey);
     assert(lightPath != darkPath);
 
+    const QString expiredKey = QStringLiteral("yandex/future_map/web_mercator/9/10/11");
+    const QString orphanKey = QStringLiteral("yandex/future_map/web_mercator/9/10/12");
+    const QString expiredPath = writeCachedTile(cache.path(), expiredKey);
+    const QString orphanPath = writeCachedTile(cache.path(), orphanKey);
+    const QDateTime expiredTime = QDateTime::currentDateTimeUtc().addDays(-31);
+    for (const QString &path : {expiredPath, orphanPath}) {
+        QFile oldTile(path);
+        assert(oldTile.open(QIODevice::ReadWrite));
+        assert(oldTile.setFileTime(expiredTime, QFileDevice::FileModificationTime));
+        oldTile.close();
+    }
+
     TileCacheManager manager;
     const QString lightSource = manager.requestTile(
         lightKey, QStringLiteral("http://127.0.0.1:1/should-not-be-requested"));
@@ -60,5 +78,17 @@ int main(int argc, char *argv[])
     const QString repeatedSource = manager.requestTile(
         lightKey, QStringLiteral("not-a-network-url"));
     assert(repeatedSource == lightSource);
+
+    // Expired tiles must not be served, and are removed on access.
+    const QString expiredSource = manager.requestTile(
+        expiredKey, QStringLiteral("invalid://expired-cache-miss"));
+    assert(expiredSource.isEmpty());
+    assert(!QFileInfo::exists(expiredPath));
+
+    // Expired entries that are not requested are also removed in bounded batches.
+    QEventLoop loop;
+    QTimer::singleShot(50, &loop, &QEventLoop::quit);
+    loop.exec();
+    assert(!QFileInfo::exists(orphanPath));
     return 0;
 }
