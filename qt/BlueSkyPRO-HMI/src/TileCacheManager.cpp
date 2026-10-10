@@ -18,6 +18,46 @@ constexpr int kRequestSpacingMs = 36; // ~27.8 requests/sec, below the 30 RPS li
 constexpr int kMaxRetries = 1;
 constexpr int kCacheMaxAgeDays = 29;
 constexpr int kCleanupBatchSize = 64;
+
+QString cacheMetadataPath(const QString &tilePath)
+{
+    return tilePath + QStringLiteral(".meta");
+}
+
+bool hasCacheDirective(const QByteArray &header, const QByteArray &directive)
+{
+    const QList<QByteArray> directives = header.toLower().split(',');
+    for (QByteArray item : directives) {
+        item = item.trimmed();
+        const qsizetype equals = item.indexOf('=');
+        if (equals >= 0)
+            item = item.left(equals).trimmed();
+        if (item == directive)
+            return true;
+    }
+    return false;
+}
+
+bool parseMaxAge(const QByteArray &header, qint64 *seconds)
+{
+    const QList<QByteArray> directives = header.toLower().split(',');
+    for (QByteArray item : directives) {
+        item = item.trimmed();
+        if (!item.startsWith("max-age="))
+            continue;
+
+        QByteArray value = item.mid(8).trimmed();
+        if (value.size() >= 2 && value.startsWith('"') && value.endsWith('"'))
+            value = value.mid(1, value.size() - 2);
+        bool ok = false;
+        const qint64 parsed = value.toLongLong(&ok);
+        if (!ok || parsed < 0)
+            return false;
+        *seconds = parsed;
+        return true;
+    }
+    return false;
+}
 }
 
 TileCacheManager::TileCacheManager(QObject *parent)
@@ -64,20 +104,43 @@ QString TileCacheManager::cachePath(const QString &key) const
     return path;
 }
 
+QDateTime TileCacheManager::cacheExpiry(const QString &tilePath) const
+{
+    const QString metadataPath = cacheMetadataPath(tilePath);
+    if (QFileInfo::exists(metadataPath)) {
+        QFile metadata(metadataPath);
+        if (!metadata.open(QIODevice::ReadOnly))
+            return {};
+        const QByteArray value = metadata.readAll().trimmed();
+        const QDateTime expiry = QDateTime::fromString(
+            QString::fromUtf8(value), Qt::ISODateWithMs);
+        return expiry.isValid() ? expiry.toUTC() : QDateTime{};
+    }
+
+    // Backward compatibility for tiles created before expiry metadata existed.
+    const QFileInfo info(tilePath);
+    return info.lastModified().toUTC().addDays(kCacheMaxAgeDays);
+}
+
+void TileCacheManager::removeCacheEntry(const QString &tilePath) const
+{
+    QFile::remove(tilePath);
+    QFile::remove(cacheMetadataPath(tilePath));
+}
+
 void TileCacheManager::cleanupExpiredCacheBatch()
 {
     if (!m_cleanupIterator)
         return;
 
-    const QDateTime cutoff = QDateTime::currentDateTimeUtc().addDays(-kCacheMaxAgeDays);
+    const QDateTime now = QDateTime::currentDateTimeUtc();
     int inspected = 0;
     while (m_cleanupIterator->hasNext() && inspected < kCleanupBatchSize) {
         const QString path = m_cleanupIterator->next();
         const QFileInfo info(path);
-        if (!info.exists() || info.size() <= 0
-                || info.lastModified().toUTC() < cutoff) {
-            QFile::remove(path);
-        }
+        const QDateTime expiry = cacheExpiry(path);
+        if (!info.exists() || info.size() <= 0 || !expiry.isValid() || expiry <= now)
+            removeCacheEntry(path);
         ++inspected;
     }
 
@@ -96,12 +159,14 @@ QString TileCacheManager::requestTile(const QString &key, const QString &url)
     const QString path = cachePath(key);
     const QFileInfo cachedInfo(path);
     if (cachedInfo.exists()) {
-        const QDateTime cutoff = QDateTime::currentDateTimeUtc().addDays(-kCacheMaxAgeDays);
-        if (cachedInfo.size() > 0 && cachedInfo.lastModified().toUTC() >= cutoff)
+        const QDateTime expiry = cacheExpiry(path);
+        if (cachedInfo.size() > 0 && expiry.isValid()
+                && expiry > QDateTime::currentDateTimeUtc()) {
             return QUrl::fromLocalFile(path).toString();
+        }
 
         // Expired or empty cache entries must not be served again.
-        QFile::remove(path);
+        removeCacheEntry(path);
     }
 
     if (!m_pending.contains(key)) {
@@ -131,7 +196,7 @@ void TileCacheManager::pump()
     }
 
     const Request request = m_queue.dequeue();
-    QNetworkRequest networkRequest(QUrl(request.url));
+    QNetworkRequest networkRequest{QUrl(request.url)};
     networkRequest.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                                 QNetworkRequest::NoLessSafeRedirectPolicy);
 
@@ -167,14 +232,53 @@ void TileCacheManager::handleFinished(QNetworkReply *reply)
         && status >= 200 && status < 300;
 
     if (ok) {
-        const QString path = cachePath(request.key);
-        QSaveFile file(path);
-        if (file.open(QIODevice::WriteOnly)) {
-            const QByteArray data = reply->readAll();
-            if (file.write(data) == data.size() && file.commit()) {
+        const QByteArray data = reply->readAll();
+        const QByteArray cacheControl = reply->rawHeader("Cache-Control");
+        const bool doNotPersist = hasCacheDirective(cacheControl, "no-store")
+            || hasCacheDirective(cacheControl, "no-cache");
+        qint64 maxAgeSeconds = 0;
+        const bool hasMaxAge = parseMaxAge(cacheControl, &maxAgeSeconds);
+        const QDateTime now = QDateTime::currentDateTimeUtc();
+        QDateTime expiry;
+
+        if (hasMaxAge) {
+            expiry = now.addSecs(qMin(maxAgeSeconds,
+                                      qint64(kCacheMaxAgeDays) * 24 * 60 * 60));
+        } else if (!reply->rawHeader("Expires").isEmpty()) {
+            expiry = QDateTime::fromString(
+                QString::fromLatin1(reply->rawHeader("Expires")), Qt::RFC2822Date).toUTC();
+        } else {
+            expiry = now.addDays(kCacheMaxAgeDays);
+        }
+
+        // no-cache/no-store and immediately stale responses are delivered for
+        // this request only. A data URL avoids writing a persistent tile file.
+        if (!data.isEmpty() && (doNotPersist || !expiry.isValid() || expiry <= now)) {
+            emit tileReady(request.key,
+                           QStringLiteral("data:image/png;base64,")
+                               + QString::fromLatin1(data.toBase64()));
+        } else if (!data.isEmpty()) {
+            const QString path = cachePath(request.key);
+            QSaveFile file(path);
+            bool saved = false;
+            if (file.open(QIODevice::WriteOnly)
+                    && file.write(data) == data.size() && file.commit()) {
+                QSaveFile metadata(cacheMetadataPath(path));
+                const QByteArray timestamp = expiry.toUTC().toString(Qt::ISODateWithMs).toUtf8();
+                if (metadata.open(QIODevice::WriteOnly)
+                        && metadata.write(timestamp) == timestamp.size()
+                        && metadata.commit()) {
+                    saved = true;
+                }
+            }
+
+            if (saved) {
                 emit tileReady(request.key, QUrl::fromLocalFile(path).toString());
             } else {
-                emit tileFailed(request.key);
+                removeCacheEntry(path);
+                emit tileReady(request.key,
+                               QStringLiteral("data:image/png;base64,")
+                                   + QString::fromLatin1(data.toBase64()));
             }
         } else {
             emit tileFailed(request.key);
