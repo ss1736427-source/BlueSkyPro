@@ -193,7 +193,8 @@ Item {
             source: modelData.source
             asynchronous: true
             retainWhileLoading: true
-            cache: true
+            // Do not retain no-store/data-URL tiles in the Qt Quick image cache.
+            cache: modelData.source.indexOf("data:") !== 0
             fillMode: Image.Stretch
             property int lastStatus: Image.Null
 
