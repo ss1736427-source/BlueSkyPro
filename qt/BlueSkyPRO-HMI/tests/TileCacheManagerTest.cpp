@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
     QCoreApplication app(argc, argv);
     QTemporaryDir cache;
     assert(cache.isValid());
-    qputenv("BLUESKY_TILE_CACHE_DIR", cache.path().toUtf8());
+    qputenv("BLUESKY_TILE_CACHE_DIR", QFile::encodeName(cache.path()));
 
     const QString lightKey = QStringLiteral("maptiler/hybrid-v4/10/3/4");
     const QString darkKey = QStringLiteral("maptiler/hybrid-v4-dark/10/3/4");
