@@ -145,7 +145,6 @@ int main(int argc, char *argv[])
         lightKey, QStringLiteral("not-a-network-url"));
     assert(repeatedSource == lightSource);
     assert(diagnosticEvents.contains(QStringLiteral("cache_hit")));
-    assert(diagnosticEvents.contains(QStringLiteral("cache_hit")));
 
     // Expired tiles must not be served, and are removed on access.
     const QString expiredSource = manager.requestTile(
