@@ -150,25 +150,31 @@ jobs:
               height: 512
               visible: true
               color: "#ff00ff"
-              Rectangle {
+
+              Item {
+                  id: probe
                   anchors.fill: parent
-                  anchors.margins: 32
-                  color: "#00aa44"
-              }
-              Timer {
-                  interval: 1000
-                  running: true
-                  onTriggered: {
-                      if (parent.grabToImage(function(result) {
-                          if (result.saveToFile("qtquick-control-probe.png"))
-                              Qt.exit(0)
-                          else
-                              Qt.exit(5)
-                      }))
-                          return
-                      Qt.exit(6)
+
+                  Rectangle {
+                      anchors.fill: parent
+                      anchors.margins: 32
+                      color: "#00aa44"
+                  }
+
+                  Timer {
+                      interval: 1000
+                      running: true
+                      onTriggered: {
+                          probe.grabToImage(function(result) {
+                              if (result.saveToFile("qtquick-control-probe.png"))
+                                  Qt.exit(0)
+                              else
+                                  Qt.exit(5)
+                          })
+                      }
                   }
               }
+
               Timer {
                   interval: 15000
                   running: true
