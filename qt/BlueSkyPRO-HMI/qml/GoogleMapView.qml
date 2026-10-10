@@ -48,6 +48,8 @@ Item {
     property var fallbackTiles: []
     property var stableTiles: []
     property int loadedTileCount: 0
+    property int loadedVisibleTileCount: 0
+    property int visibleTileCount: 0
     property int failedTileCount: 0
 
     signal viewChanged(real latitude, real longitude, int zoom)
@@ -113,6 +115,8 @@ Item {
         // the current visible tiles. In-flight requests may still populate cache.
         tileCacheManager.beginViewUpdate()
         loadedTileCount = 0
+        loadedVisibleTileCount = 0
+        visibleTileCount = 0
         failedTileCount = 0
         if ((selectedMapProvider.indexOf("MAPTILER") === 0 && !mapTilerKeyAvailable) ||
                 (selectedMapProvider === "CARTO_DARK" &&
@@ -146,12 +150,20 @@ Item {
 
             for (var tx = firstX; tx <= lastX; ++tx) {
                 var wrappedX = ((tx % tileCount) + tileCount) % tileCount
+                var tileX = tx * tileSize - cx + width / 2 + panOffsetX
+                var tileY = ty * tileSize - cy + height / 2 + panOffsetY
+                var isVisible = tileX < width && tileX + tileSize > 0
+                             && tileY < height && tileY + tileSize > 0
+                if (isVisible)
+                    visibleTileCount++
+
                 result.push({
                     tx: tx,
                     ty: ty,
                     tileZoom: zoomLevel,
-                    x: tx * tileSize - cx + width / 2 + panOffsetX,
-                    y: ty * tileSize - cy + height / 2 + panOffsetY,
+                    visible: isVisible,
+                    x: tileX,
+                    y: tileY,
                     key: (useMapTiler ? "maptiler/" + selectedMapProvider.toLowerCase() + "/" :
                           (useCartoDark ? "carto/dark_all/" : "yandex/future_map/web_mercator/")) +
                          zoomLevel + "/" + wrappedX + "/" + ty,
@@ -275,14 +287,31 @@ Item {
 
                 if (status === Image.Ready) {
                     root.loadedTileCount++
-                    if (root.loadedTileCount === root.tiles.length && root.failedTileCount === 0) {
-                        root.mapStatus = "READY"
+                    if (modelData.visible)
+                        root.loadedVisibleTileCount++
+
+                    // The loading state is based on tiles intersecting the
+                    // viewport. Overscan tiles are useful for smooth panning,
+                    // but must not keep the whole map marked LOADING.
+                    if (root.loadedVisibleTileCount >= root.visibleTileCount
+                            && root.visibleTileCount > 0) {
+                        root.mapStatus = root.failedTileCount === 0
+                                ? "READY" : "TILE LOAD ERROR"
                         root.stableTiles = root.tiles
                         root.fallbackTiles = []
                     }
                 } else if (status === Image.Error) {
-                    root.failedTileCount++
-                    root.mapStatus = "TILE LOAD ERROR"
+                    if (modelData.visible) {
+                        root.failedTileCount++
+                        root.mapStatus = "TILE LOAD ERROR"
+                    }
+                    // A failed off-screen overscan tile does not block the
+                    // visible map from becoming READY.
+                    if (root.loadedVisibleTileCount >= root.visibleTileCount
+                            && root.visibleTileCount > 0) {
+                        root.stableTiles = root.tiles
+                        root.fallbackTiles = []
+                    }
                 }
             }
 
