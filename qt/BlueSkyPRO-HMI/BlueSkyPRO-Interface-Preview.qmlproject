@@ -1,0 +1,24 @@
+import QmlProject 1.1
+
+Project {
+    mainFile: "qml/BlueSkyPRO-Interface-Preview.ui.qml"
+
+    QmlFiles {
+        directory: "qml"
+    }
+
+    JavaScriptFiles {
+        directory: "qml"
+    }
+
+    ImageFiles {
+        directory: "qml"
+    }
+
+    Files {
+        filter: "qmldir"
+        directory: "qml"
+    }
+
+    qt6Project: true
+}

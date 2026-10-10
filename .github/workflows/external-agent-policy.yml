@@ -1,0 +1,43 @@
+name: BlueSky External Agent Policy
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '00_PROJECT/EXTERNAL_ORCHESTRATOR/**'
+      - '.github/workflows/external-agent-policy.yml'
+  pull_request:
+    paths:
+      - '00_PROJECT/EXTERNAL_ORCHESTRATOR/**'
+      - '.github/workflows/external-agent-policy.yml'
+
+jobs:
+  policy-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate external-agent policy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          adapter = Path("00_PROJECT/EXTERNAL_ORCHESTRATOR/agent_adapter.ps1").read_text(encoding="utf-8")
+          config = Path("00_PROJECT/EXTERNAL_ORCHESTRATOR/config.example.json").read_text(encoding="utf-8")
+          forbidden = ("codex", "copilot", "openai_api_key")
+
+          for name, text in (("agent_adapter.ps1", adapter), ("config.example.json", config)):
+              lowered = text.lower()
+              hits = [item for item in forbidden if item in lowered]
+              if hits:
+                  raise SystemExit(
+                      f"Forbidden agent dependency reference in {name}: {', '.join(hits)}"
+                  )
+
+          if "BS_AGENT_EXECUTABLE" not in adapter:
+              raise SystemExit("agent_adapter.ps1 must require BS_AGENT_EXECUTABLE")
+
+          print("External-agent policy: PASS")
+          PY

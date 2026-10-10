@@ -1,0 +1,43 @@
+name: AI Runtime Continuity Test
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '04_SOFTWARE/AI/ai_runtime_continuity*'
+      - '04_SOFTWARE/AI/ai_offline_continuity*'
+      - '04_SOFTWARE/AI/ai_orchestrator*'
+      - '04_SOFTWARE/AI/ai_proposal_aggregator*'
+      - '04_SOFTWARE/AI/ai_trace_recorder*'
+      - '.github/workflows/ai-runtime-continuity.yml'
+  pull_request:
+    paths:
+      - '04_SOFTWARE/AI/ai_runtime_continuity*'
+      - '04_SOFTWARE/AI/ai_offline_continuity*'
+      - '04_SOFTWARE/AI/ai_orchestrator*'
+      - '04_SOFTWARE/AI/ai_proposal_aggregator*'
+      - '04_SOFTWARE/AI/ai_trace_recorder*'
+      - '.github/workflows/ai-runtime-continuity.yml'
+
+jobs:
+  runtime-continuity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build runtime continuity test
+        run: |
+          c++ -std=c++20 -Wall -Wextra -Werror -pedantic \
+            -I04_SOFTWARE/AI \
+            04_SOFTWARE/AI/ai_runtime_continuity_test.cpp \
+            04_SOFTWARE/AI/ai_runtime_continuity.cpp \
+            04_SOFTWARE/AI/ai_offline_continuity.cpp \
+            04_SOFTWARE/AI/ai_orchestrator.cpp \
+            04_SOFTWARE/AI/ai_proposal_aggregator.cpp \
+            04_SOFTWARE/AI/ai_trace_recorder.cpp \
+            -o /tmp/ai_runtime_continuity_test
+
+      - name: Run runtime continuity test
+        run: /tmp/ai_runtime_continuity_test

@@ -1,0 +1,9 @@
+{
+  "repo": "ss1736427-source/BlueSky-PRO-Knowledge",
+  "branch": "main",
+  "poll_seconds": 5,
+  "ci_grace_seconds": 5,
+  "agent_exit_code_user_decision": 42,
+  "state_file": ".bluesky_orchestrator_state.json",
+  "agent_command": ""
+}
