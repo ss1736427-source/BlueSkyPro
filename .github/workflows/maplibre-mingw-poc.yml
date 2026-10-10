@@ -198,6 +198,34 @@ jobs:
           }
           Write-Output 'PASS: Qt Quick control window captured a screenshot without importing MapLibre.'
 
+      - name: Diagnostic — import MapLibre QML module only
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'build-quick-example\QMapLibreExampleQuickStandalone.exe'
+          $probeQml = Join-Path $env:GITHUB_WORKSPACE 'maplibre-import-probe.qml'
+          $install = Join-Path $env:GITHUB_WORKSPACE 'maplibre-install'
+          $qtBin = Join-Path $env:QT_ROOT_DIR 'bin'
+          $env:PATH = "$install\bin;$qtBin;$env:PATH"
+          $env:QML2_IMPORT_PATH = "$install\qml"
+          $env:QT_PLUGIN_PATH = "$install\plugins;$env:QT_ROOT_DIR\plugins"
+          $env:QSG_RHI_BACKEND = 'opengl'
+          $stdout = Join-Path $env:RUNNER_TEMP 'maplibre-import.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'maplibre-import.stderr.log'
+          @'
+          import QtQuick 6.5
+          import MapLibre 4.0
+          Window {
+              width: 512
+              height: 512
+              visible: true
+              Timer { interval: 3000; running: true; onTriggered: Qt.exit(0) }
+          }
+          '@ | Set-Content -Path $probeQml -Encoding utf8
+          $process = Start-Process -FilePath $exe -ArgumentList @($probeQml) -WorkingDirectory $env:GITHUB_WORKSPACE -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          if (-not $process.WaitForExit(10000)) { Stop-Process -Id $process.Id -Force; throw 'MapLibre import-only probe timed out.' }
+          if ($process.ExitCode -ne 0) { Get-Content $stdout -ErrorAction SilentlyContinue; Get-Content $stderr -ErrorAction SilentlyContinue; throw "MapLibre import-only probe exited with code $($process.ExitCode)." }
+          Write-Output 'PASS: MapLibre QML module imported without constructing a MapLibre object.'
       - name: Diagnostic — MapLibre object without style or screenshot
         shell: pwsh
         run: |
