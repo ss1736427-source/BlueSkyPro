@@ -43,6 +43,8 @@ Item {
     property real panOffsetX: 0
     property real panOffsetY: 0
     property var tiles: []
+    // Keep the last complete tile set visible while the next viewport loads.
+    property var fallbackTiles: []
     property int loadedTileCount: 0
     property int failedTileCount: 0
 
@@ -100,6 +102,11 @@ Item {
         if (width <= 0 || height <= 0)
             return
 
+        // Preserve the current tile layer until the replacement viewport is
+        // fully ready; this avoids clearing the map during network fetches.
+        if (tiles.length > 0)
+            fallbackTiles = tiles
+
         // Cancel queued requests from the previous viewport before scheduling
         // the current visible tiles. In-flight requests may still populate cache.
         tileCacheManager.beginViewUpdate()
@@ -110,6 +117,7 @@ Item {
                  (typeof cartoApiKey === "undefined" || cartoApiKey.length === 0)) ||
                 (selectedMapProvider === "YANDEX" && !yandexKeyAvailable)) {
             mapStatus = "API KEY REQUIRED"
+            // Keep fallback tiles visible even when a provider key is missing.
             tiles = []
             return
         }
@@ -211,6 +219,25 @@ Item {
         color: "#071321"
     }
 
+    // Previous completed viewport stays underneath the incoming tile set.
+    // It is deliberately not transformed by the new fractional zoom, so it
+    // serves as a stable visual fallback until the new imagery is ready.
+    Repeater {
+        model: root.fallbackTiles
+
+        delegate: Image {
+            x: modelData.x + root.panOffsetX
+            y: modelData.y + root.panOffsetY
+            width: root.tileSize
+            height: root.tileSize
+            source: modelData.source
+            asynchronous: true
+            cache: modelData.source.indexOf("data:") !== 0
+            fillMode: Image.Stretch
+            smooth: true
+        }
+    }
+
     Repeater {
         model: root.tiles
 
@@ -234,8 +261,10 @@ Item {
 
                 if (status === Image.Ready) {
                     root.loadedTileCount++
-                    if (root.loadedTileCount === root.tiles.length && root.failedTileCount === 0)
+                    if (root.loadedTileCount === root.tiles.length && root.failedTileCount === 0) {
                         root.mapStatus = "READY"
+                        root.fallbackTiles = []
+                    }
                 } else if (status === Image.Error) {
                     root.failedTileCount++
                     root.mapStatus = "TILE LOAD ERROR"
