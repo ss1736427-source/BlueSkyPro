@@ -636,8 +636,14 @@ Item {
             }
 
             var current = withReadySource(root.tiles)
-            if (current.changed)
+            if (current.changed) {
                 root.tiles = current.list
+                // The request queue also contains off-screen overscan tiles.
+                // Do not keep the full-map loading banner up while those
+                // background tiles are still downloading.
+                if (root.mapStatus === "LOADING")
+                    root.mapStatus = "READY"
+            }
 
             var stable = withReadySource(root.stableTiles)
             if (stable.changed)
