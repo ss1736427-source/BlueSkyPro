@@ -171,10 +171,10 @@ int main(int argc, char *argv[])
     QString noStoreSource;
     assert(awaitTile(manager, noStoreKey, noStoreUrl, &noStoreSource));
     assert(noStoreSource.startsWith(QStringLiteral("data:image/png;base64,")));
-    const QString noStorePath = writeCachedTile(cache.path(), noStoreKey);
-    QFile::remove(noStorePath);
+    const QString noStorePath = QDir(cache.path()).filePath(
+        QStringLiteral("tiles/test/no-store.png"));
     assert(!QFileInfo::exists(noStorePath));
-    assert(!manager.requestTile(noStoreKey, QStringLiteral("invalid://must-fetch-again"))
-                .isEmpty() == false);
+    assert(manager.requestTile(noStoreKey, QStringLiteral("invalid://must-fetch-again"))
+           .isEmpty());
     return 0;
 }
