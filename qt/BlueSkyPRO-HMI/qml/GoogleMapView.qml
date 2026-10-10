@@ -79,6 +79,9 @@ Item {
         if (width <= 0 || height <= 0)
             return
 
+        // Cancel queued requests from the previous viewport before scheduling
+        // the current visible tiles. In-flight requests may still populate cache.
+        tileCacheManager.beginViewUpdate()
         loadedTileCount = 0
         failedTileCount = 0
         if ((selectedMapProvider.indexOf("MAPTILER") === 0 && !mapTilerKeyAvailable) ||
@@ -343,7 +346,7 @@ Item {
         id: providerSelector
         z: 31
         anchors.left: parent.left
-        anchors.leftMargin: 12
+        anchors.leftMargin: root.leftPanelWidth + 12
         anchors.top: parent.top
         anchors.topMargin: 12
         width: Math.max(148, providerLabel.implicitWidth + 28)
