@@ -41,3 +41,7 @@ jobs:
       - name: Build
         working-directory: qt/BlueSkyPRO-HMI
         run: cmake --build build --parallel
+
+      - name: Test
+        working-directory: qt/BlueSkyPRO-HMI
+        run: ctest --test-dir build --output-on-failure
