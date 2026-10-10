@@ -229,103 +229,62 @@ Item {
         color: "#071321"
     }
 
-    // Previous completed viewport stays underneath the incoming tile set.
-    // It is deliberately not transformed by the new fractional zoom, so it
-    // serves as a stable visual fallback until the new imagery is ready.
-    // Move/scale the tile layers as whole GPU-backed items. Previously every
-    // tile delegate recalculated its own x/y/size on every drag update, forcing
-    // dozens of QML bindings and image geometries through the GUI thread.
-    Item {
-        id: fallbackTileLayer
-        anchors.fill: parent
-        layer.enabled: true
-        transform: [
-            Scale {
-                origin.x: root.width / 2
-                origin.y: root.height / 2
-                xScale: root.visualZoomScale
-                yScale: root.visualZoomScale
-            },
-            Translate {
-                x: root.panOffsetX
-                y: root.panOffsetY
-            }
-        ]
+    // Keep the previous completed viewport underneath while new tiles load.
+    Repeater {
+        model: root.fallbackTiles
 
-        Repeater {
-            model: root.fallbackTiles
-
-            delegate: Image {
-                readonly property real retainedScale: Math.pow(2, root.zoomLevel - modelData.tileZoom)
-                readonly property real retainedCenterX: root.longitudeToWorld(root.centerLongitude)
-                readonly property real retainedCenterY: root.latitudeToWorld(root.centerLatitude)
-                readonly property real retainedTileX: modelData.tx * root.tileSize * retainedScale
-                readonly property real retainedTileY: modelData.ty * root.tileSize * retainedScale
-                x: retainedTileX - retainedCenterX + root.width / 2
-                y: retainedTileY - retainedCenterY + root.height / 2
-                width: root.tileSize * retainedScale
-                height: root.tileSize * retainedScale
-                source: modelData.source
-                asynchronous: true
-                cache: modelData.source.indexOf("data:") !== 0
-                fillMode: Image.Stretch
-                smooth: true
-            }
+        delegate: Image {
+            readonly property real retainedScale: Math.pow(2, root.zoomLevel - modelData.tileZoom)
+            readonly property real retainedCenterX: root.longitudeToWorld(root.centerLongitude)
+            readonly property real retainedCenterY: root.latitudeToWorld(root.centerLatitude)
+            readonly property real retainedTileX: modelData.tx * root.tileSize * retainedScale
+            readonly property real retainedTileY: modelData.ty * root.tileSize * retainedScale
+            x: retainedTileX - retainedCenterX + root.width / 2 + root.panOffsetX
+            y: retainedTileY - retainedCenterY + root.height / 2 + root.panOffsetY
+            width: root.tileSize * retainedScale
+            height: root.tileSize * retainedScale
+            source: modelData.source
+            asynchronous: true
+            cache: modelData.source.indexOf("data:") !== 0
+            fillMode: Image.Stretch
+            smooth: true
         }
     }
 
-    Item {
-        id: currentTileLayer
-        anchors.fill: parent
-        layer.enabled: true
-        transform: [
-            Scale {
-                origin.x: root.width / 2
-                origin.y: root.height / 2
-                xScale: root.visualZoomScale
-                yScale: root.visualZoomScale
-            },
-            Translate {
-                x: root.panOffsetX
-                y: root.panOffsetY
-            }
-        ]
+    Repeater {
+        model: root.tiles
 
-        Repeater {
-            model: root.tiles
+        delegate: Image {
+            x: root.width / 2 + (modelData.x + root.panOffsetX - root.width / 2) * root.visualZoomScale
+            y: root.height / 2 + (modelData.y + root.panOffsetY - root.height / 2) * root.visualZoomScale
+            width: root.tileSize * root.visualZoomScale
+            height: root.tileSize * root.visualZoomScale
+            source: modelData.source
+            asynchronous: true
+            retainWhileLoading: true
+            cache: modelData.source.indexOf("data:") !== 0
+            fillMode: Image.Stretch
+            property int lastStatus: Image.Null
 
-            delegate: Image {
-                x: modelData.x
-                y: modelData.y
-                width: root.tileSize
-                height: root.tileSize
-                source: modelData.source
-                asynchronous: true
-                retainWhileLoading: true
-                cache: modelData.source.indexOf("data:") !== 0
-                fillMode: Image.Stretch
-                property int lastStatus: Image.Null
+            onStatusChanged: {
+                if (status === lastStatus)
+                    return
+                lastStatus = status
 
-                onStatusChanged: {
-                    if (status === lastStatus)
-                        return
-                    lastStatus = status
-
-                    if (status === Image.Ready) {
-                        root.loadedTileCount++
-                        if (root.loadedTileCount === root.tiles.length && root.failedTileCount === 0) {
-                            root.mapStatus = "READY"
-                            root.stableTiles = root.tiles
-                            root.fallbackTiles = []
-                        }
-                    } else if (status === Image.Error) {
-                        root.failedTileCount++
-                        root.mapStatus = "TILE LOAD ERROR"
+                if (status === Image.Ready) {
+                    root.loadedTileCount++
+                    if (root.loadedTileCount === root.tiles.length && root.failedTileCount === 0) {
+                        root.mapStatus = "READY"
+                        root.stableTiles = root.tiles
+                        root.fallbackTiles = []
                     }
+                } else if (status === Image.Error) {
+                    root.failedTileCount++
+                    root.mapStatus = "TILE LOAD ERROR"
                 }
-
-                smooth: true
             }
+
+            smooth: true
         }
     }
 
