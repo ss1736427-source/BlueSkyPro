@@ -42,6 +42,7 @@ Item {
     readonly property int tileSize: 256
     property real panOffsetX: 0
     property real panOffsetY: 0
+    property bool committingPan: false
     property var tiles: []
     // Keep the last complete tile set visible while the next viewport loads.
     property var fallbackTiles: []
@@ -147,6 +148,7 @@ Item {
                 result.push({
                     tx: tx,
                     ty: ty,
+                    tileZoom: zoomLevel,
                     x: tx * tileSize - cx + width / 2 + panOffsetX,
                     y: ty * tileSize - cy + height / 2 + panOffsetY,
                     key: (useMapTiler ? "maptiler/" + selectedMapProvider.toLowerCase() + "/" :
@@ -196,10 +198,17 @@ Item {
     function commitPan() {
         var centerX = longitudeToWorld(centerLongitude) - panOffsetX
         var centerY = latitudeToWorld(centerLatitude) - panOffsetY
-        centerLongitude = worldToLongitude(centerX)
-        centerLatitude = clamp(worldToLatitude(centerY), -85.0, 85.0)
+        var nextLongitude = worldToLongitude(centerX)
+        var nextLatitude = clamp(worldToLatitude(centerY), -85.0, 85.0)
+
+        // Avoid rebuilding twice from the two center property notifications.
+        committingPan = true
         panOffsetX = 0
         panOffsetY = 0
+        centerLongitude = nextLongitude
+        centerLatitude = nextLatitude
+        committingPan = false
+
         rebuildTiles()
         routeCanvas.requestPaint()
         viewChanged(centerLatitude, centerLongitude, zoomLevel)
@@ -208,8 +217,8 @@ Item {
     onWidthChanged: rebuildTiles()
     onHeightChanged: rebuildTiles()
     onRouteCoordinatesChanged: routeCanvas.requestPaint()
-    onCenterLatitudeChanged: { rebuildTiles(); routeCanvas.requestPaint() }
-    onCenterLongitudeChanged: { rebuildTiles(); routeCanvas.requestPaint() }
+    onCenterLatitudeChanged: { if (!committingPan) rebuildTiles(); routeCanvas.requestPaint() }
+    onCenterLongitudeChanged: { if (!committingPan) rebuildTiles(); routeCanvas.requestPaint() }
     onZoomLevelChanged: { rebuildTiles(); routeCanvas.requestPaint() }
     onPanOffsetXChanged: routeCanvas.requestPaint()
     onPanOffsetYChanged: routeCanvas.requestPaint()
@@ -226,10 +235,19 @@ Item {
         model: root.fallbackTiles
 
         delegate: Image {
-            x: modelData.x + root.panOffsetX
-            y: modelData.y + root.panOffsetY
-            width: root.tileSize
-            height: root.tileSize
+            // Reproject the retained tile from its own zoom level into the
+            // current world coordinate system. Keeping stale screen-space x/y
+            // coordinates caused the cross-shaped gaps after pan/zoom.
+            readonly property real retainedScale: Math.pow(2, root.zoomLevel - modelData.tileZoom)
+            readonly property real retainedWorldSize: root.tileSize * Math.pow(2, root.zoomLevel)
+            readonly property real retainedCenterX: root.longitudeToWorld(root.centerLongitude)
+            readonly property real retainedCenterY: root.latitudeToWorld(root.centerLatitude)
+            readonly property real retainedTileX: modelData.tx * root.tileSize * retainedScale
+            readonly property real retainedTileY: modelData.ty * root.tileSize * retainedScale
+            x: retainedTileX - retainedCenterX + root.width / 2 + root.panOffsetX
+            y: retainedTileY - retainedCenterY + root.height / 2 + root.panOffsetY
+            width: root.tileSize * retainedScale
+            height: root.tileSize * retainedScale
             source: modelData.source
             asynchronous: true
             cache: modelData.source.indexOf("data:") !== 0
