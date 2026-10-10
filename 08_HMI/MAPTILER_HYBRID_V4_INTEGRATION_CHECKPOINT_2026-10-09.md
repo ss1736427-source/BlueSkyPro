@@ -153,3 +153,13 @@ Next diagnostic step:
 2. Improve crash observability in the isolated proof of concept (capture QML/Qt diagnostics and, if feasible, a Windows crash dump) and separate “custom QML startup” from “map/style initialization” and “screenshot capture” so each can be tested independently.
 3. Re-run the minimal probe on the same pinned MapLibre revision and Qt 6.11.2 MinGW toolchain.
 4. Only after identifying and correcting the failure, re-enable a render assertion. Do not weaken the test to a process-liveness-only check and do not claim visual rendering verified.
+
+### Render screenshot artifact capture — 2026-10-10
+
+Workflow change commit: `c3e0d272389060855cd24fbfcc0c5cb1ea1f59f6`.
+
+The MapLibre proof-of-concept workflow now has a separate `Upload MapLibre render evidence` step with `if: always()`. It attempts to upload `maplibre-render-probe.png` and the render probe stdout/stderr logs as artifact `maplibre-render-evidence`, retaining the artifact for seven days. Missing files produce a warning rather than masking the primary diagnostic result.
+
+**Verification status: PENDING for commit `c3e0d272389060855cd24fbfcc0c5cb1ea1f59f6`.** The branch and PR head reference this commit; the associated CI checks were still running at the time this note was written. Do not infer that the screenshot artifact was actually produced until the run completes and its artifact list is inspected.
+
+This change only improves diagnostic evidence collection in the isolated experiment. It does not integrate MapLibre into the production HMI and does not change the MapTiler/Yandex raster fallback. Actual geographic map content remains UNVERIFIED until the screenshot is inspected or a reliable content assertion is added.
