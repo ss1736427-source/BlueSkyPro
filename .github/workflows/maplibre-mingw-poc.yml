@@ -232,7 +232,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $dumpDir = Join-Path $env:RUNNER_TEMP 'maplibre-crash-dumps'
           New-Item -ItemType Directory -Path $dumpDir -Force | Out-Null
-          $key = 'HKCU:\\Software\\Microsoft\\Windows\\Windows Error Reporting\\LocalDumps\\QMapLibreExampleQuickStandalone.exe'
+          $key = 'HKCU:\Software\Microsoft\Windows\Windows Error Reporting\LocalDumps\QMapLibreExampleQuickStandalone.exe'
           New-Item -Path $key -Force | Out-Null
           New-ItemProperty -Path $key -Name DumpFolder -Value $dumpDir -PropertyType ExpandString -Force | Out-Null
           New-ItemProperty -Path $key -Name DumpType -Value 2 -PropertyType DWord -Force | Out-Null
