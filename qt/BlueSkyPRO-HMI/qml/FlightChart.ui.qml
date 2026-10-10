@@ -178,7 +178,8 @@ Item {
     }
 
     Text {
-        visible: true
+        // Legacy schematic-only caption; the geographic map now owns this workspace.
+        visible: false
         x: 18
         y: 16
         text: "FLIGHT CHART"
@@ -189,7 +190,8 @@ Item {
     }
 
     Rectangle {
-        visible: true
+        // Do not label the live geographic map as a schematic preview.
+        visible: false
         x: 18
         y: 44
         width: 108
@@ -207,7 +209,8 @@ Item {
     }
 
     Rectangle {
-        visible: true
+        // Placeholder wind data is not authoritative and must not overlay the map.
+        visible: false
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.topMargin: 18
@@ -238,7 +241,8 @@ Item {
     }
 
     Rectangle {
-        visible: true
+        // Legacy schematic legend is unrelated to the live basemap overlay.
+        visible: false
         anchors.left: parent.left
         anchors.bottom: parent.bottom
         anchors.leftMargin: 18
@@ -281,7 +285,8 @@ Item {
     }
 
     Text {
-        visible: true
+        // This warning referred to the hidden schematic canvas, not the live map.
+        visible: false
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 14
