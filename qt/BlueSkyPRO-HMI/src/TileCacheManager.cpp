@@ -179,6 +179,7 @@ void TileCacheManager::cleanupExpiredCacheBatch()
 
 void TileCacheManager::beginViewUpdate()
 {
+    const int discardedQueueCount = m_queue.size();
     m_currentViewKeys.clear();
 
     // Requests not yet started are tied to the previous viewport. Drop them
@@ -197,6 +198,9 @@ void TileCacheManager::beginViewUpdate()
     }
 
     m_pumpTimer.stop();
+    recordDiagnostic(QStringLiteral("viewport_queue_reset"),
+                     {{QStringLiteral("queued_before_reset"), discardedQueueCount},
+                      {QStringLiteral("active_requests"), m_activeCount}});
 }
 
 QString TileCacheManager::requestTile(const QString &key, const QString &url)
@@ -372,7 +376,8 @@ void TileCacheManager::handleFinished(QNetworkReply *reply)
                           {QStringLiteral("http_status"), status},
                           {QStringLiteral("network_error"), static_cast<int>(reply->error())},
                           {QStringLiteral("retry"), request.retryCount + 1}});
-        const Request retry{request.key, request.url, request.retryCount + 1};
+        const Request retry{request.key, request.url, request.retryCount + 1,
+                            QDateTime::currentMSecsSinceEpoch(), 0};
         QTimer::singleShot(1200, this, [this, retry]() {
             // Do not retry a tile after the user has moved to another viewport.
             if (!m_currentViewKeys.contains(retry.key)) {
@@ -381,6 +386,9 @@ void TileCacheManager::handleFinished(QNetworkReply *reply)
                 return;
             }
             m_queue.prepend(retry);
+            recordDiagnostic(QStringLiteral("retry_queued"),
+                             {{QStringLiteral("queued_requests"), m_queue.size()},
+                              {QStringLiteral("retry"), retry.retryCount}});
             pump();
         });
     } else {
