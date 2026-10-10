@@ -218,6 +218,16 @@ void TileCacheManager::pump()
         return;
     }
 
+    // Before spending a network slot, discard requests that no longer belong
+    // to the latest viewport. beginViewUpdate() normally clears the queue, but
+    // this guard also handles retries and rapid view changes safely.
+    while (!m_queue.isEmpty() && !m_currentViewKeys.contains(m_queue.head().key)) {
+        const Request obsolete = m_queue.dequeue();
+        m_pending.remove(obsolete.key);
+    }
+    if (m_queue.isEmpty())
+        return;
+
     const Request request = m_queue.dequeue();
     QNetworkRequest networkRequest{QUrl(request.url)};
     networkRequest.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
