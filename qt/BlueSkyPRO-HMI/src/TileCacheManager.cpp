@@ -154,6 +154,28 @@ void TileCacheManager::cleanupExpiredCacheBatch()
     m_cleanupTimer.start(1);
 }
 
+void TileCacheManager::beginViewUpdate()
+{
+    ++m_viewGeneration;
+
+    // Requests not yet started are tied to the previous viewport. Drop them
+    // so rapid zooming/panning cannot leave a long FIFO backlog of obsolete tiles.
+    while (!m_queue.isEmpty()) {
+        const Request queued = m_queue.dequeue();
+        bool isActive = false;
+        for (auto it = m_activeRequests.cbegin(); it != m_activeRequests.cend(); ++it) {
+            if (it.value().key == queued.key) {
+                isActive = true;
+                break;
+            }
+        }
+        if (!isActive)
+            m_pending.remove(queued.key);
+    }
+
+    m_pumpTimer.stop();
+}
+
 QString TileCacheManager::requestTile(const QString &key, const QString &url)
 {
     const QString path = cachePath(key);
@@ -171,7 +193,7 @@ QString TileCacheManager::requestTile(const QString &key, const QString &url)
 
     if (!m_pending.contains(key)) {
         m_pending.insert(key);
-        enqueue(Request{key, url, 0});
+        enqueue(Request{key, url, 0, m_viewGeneration});
     }
 
     return {};
@@ -287,8 +309,15 @@ void TileCacheManager::handleFinished(QNetworkReply *reply)
         }
         m_pending.remove(request.key);
     } else if (request.retryCount < kMaxRetries && isTransientFailure(reply)) {
-        const Request retry{request.key, request.url, request.retryCount + 1};
+        const Request retry{request.key, request.url, request.retryCount + 1,
+                            request.viewGeneration};
         QTimer::singleShot(1200, this, [this, retry]() {
+            // Do not retry a tile after the user has moved to another viewport.
+            if (retry.viewGeneration != m_viewGeneration) {
+                m_pending.remove(retry.key);
+                pump();
+                return;
+            }
             m_queue.prepend(retry);
             pump();
         });
