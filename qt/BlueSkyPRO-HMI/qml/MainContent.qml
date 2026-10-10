@@ -51,7 +51,7 @@ Item {
     ]
     property bool missionProfileOpen: false
     // Planning-core result injected by the application/planning bridge; QML never calculates it.
-    property var planningResult: null
+    property var planningResult: planningBridge.result
     readonly property bool is3DMappingProfile: root.missionTemplateIds.indexOf("3D_MAPPING") >= 0
     // Example current automatic mission composition; supplied by mission/task aggregation in production.
     property var missionTemplateIndices: [0, 1, 7]
@@ -151,6 +151,10 @@ Item {
             missionVisible: root.missionVisible
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
+            // Side panels overlay the map; wheel zoom is disabled beneath them.
+            leftPanelWidth: root.leftPanelOpen ? root.leftWidth : 0
+            rightPanelWidth: root.rightPanelOpen ? root.rightWidth : 0
+            routeCoordinates: missionProfileWindow.routeCoordinates
             useExternalMapState: true
             mapPanX: root.mapPanX
             mapPanY: root.mapPanY
@@ -171,6 +175,7 @@ Item {
             id: missionProfileWindow
             visible: root.missionProfileOpen
             missionId: root.missionId
+            planningResult: root.planningResult
             missionSummary: root.missionSummary
             missionReviewState: root.missionReviewState
             missionTemplateIndices: root.missionTemplateIndices

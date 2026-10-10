@@ -11,6 +11,8 @@ Item {
     property int rowHeight: 30
     property int groupHeaderHeight: 30
     property var enabledTools: root.tools.slice()
+    property bool positionsLocked: false
+    signal positionsLockToggled(bool locked)
     signal toolToggled(string tool, bool enabled)
 
     function syncEnabledTools(toolsList) {
@@ -81,7 +83,7 @@ Item {
 
     readonly property real contentWidth: Math.max(toolLabelMetrics.width + 64, 260)
     readonly property bool directToolsMode: toolGroups.length === 0 && tools.length > 0
-    readonly property real contentHeight: 64 + (directToolsMode ? tools.length * 34 : visibleRowCount() * 34)
+    readonly property real contentHeight: 64 + (directToolsMode ? tools.length * 34 : visibleRowCount() * 34) + 36
 
     visible: root.open
     clip: true
@@ -231,6 +233,55 @@ Item {
                             MouseArea { anchors.fill: parent; onClicked: root.toggleTool(toolKey); cursorShape: Qt.PointingHandCursor }
                         }
                     }
+                }
+            }
+
+            Rectangle {
+                width: settingsColumn.width
+                height: 32
+                radius: 4
+                color: "#0C1725"
+                border.color: "#263748"
+                border.width: 1
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 8
+                    anchors.right: lockSwitch.left
+                    anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "LOCK PANEL POSITIONS"
+                    color: "#FFFFFF"
+                    font.family: "B612"
+                    font.pixelSize: 10
+                    font.bold: true
+                    elide: Text.ElideRight
+                }
+
+                Rectangle {
+                    id: lockSwitch
+                    anchors.right: parent.right
+                    anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 38
+                    height: 20
+                    radius: 10
+                    color: root.positionsLocked ? "#64FF00" : "#263748"
+                    border.color: root.positionsLocked ? "#64FF00" : "#536273"
+                    Rectangle {
+                        width: 14
+                        height: 14
+                        radius: 7
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: root.positionsLocked ? parent.width - width - 3 : 3
+                        color: root.positionsLocked ? "#08111D" : "#BFBFBF"
+                    }
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.positionsLockToggled(!root.positionsLocked)
                 }
             }
         }

@@ -93,6 +93,31 @@ def test_stdio_adapter_emits_planning_result() -> None:
     assert message["verification"]["finalGateStatus"] == "PASS"
     assert message["verification"]["releaseStatus"] == "RELEASE_ELIGIBLE"
 
+    request = _request()
+    request["inputs"]["routeGeometry"] = {
+        "routeId": "CANONICAL-ROUTE-001",
+        "routeVersion": "4",
+        "coordinateReference": "WGS84",
+        "points": [
+            {"waypointId": "WP-001", "latitude": 55.75, "longitude": 37.61, "altitudeM": 120.0, "mandatory": True},
+            {"waypointId": "WP-002", "latitude": 55.76, "longitude": 37.63, "altitudeM": 145.0, "mandatory": False},
+        ],
+    }
+    proc_with_route = subprocess.run(
+        [sys.executable, str(ADAPTER)],
+        input=json.dumps(request) + "\n",
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert not proc_with_route.stderr
+    message_with_route = json.loads(proc_with_route.stdout.strip())
+    geometry = message_with_route["result"]["routeGeometry"]
+    assert geometry["routeId"] == "CANONICAL-ROUTE-001"
+    assert geometry["routeVersion"] == "4"
+    assert geometry["points"][1]["longitude"] == 37.63
+    assert geometry["points"][1]["altitudeM"] == 145.0
+
 
 if __name__ == "__main__":
     test_stdio_adapter_emits_planning_result()

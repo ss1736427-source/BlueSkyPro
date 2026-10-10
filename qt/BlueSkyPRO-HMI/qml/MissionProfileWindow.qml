@@ -4,6 +4,7 @@ import QtCore
 Item {
     id: root
     property string missionId: ""
+    property var planningResult: null
     property var uavModel: []
     // Assignment result supplied by mission planning; the HMI does not infer task allocation.
     property var missionAssignments: []
@@ -11,6 +12,8 @@ Item {
     signal uavSelectionRequested(int index)
     property var routeDataByUav: ({})
     property var mandatoryPointsByUav: ({})
+    // Geographic route projection for map rendering; derived from the selected UAV's route model.
+    property var routeCoordinates: []
     property string loadedUavId: ""
     property string missionSummary: ""
     property string missionReviewState: ""
@@ -120,7 +123,33 @@ Item {
         return Number(point.progress)
     }
 
+    function syncMapRouteCoordinates() {
+        var coordinates = []
+        var result = root.planningResult && root.planningResult.result
+                     ? root.planningResult.result : null
+        var route = result && result.routeGeometry ? result.routeGeometry : null
+        if (route && route.coordinateReference === "WGS84"
+                && Array.isArray(route.points) && route.points.length >= 2) {
+            for (var p = 0; p < route.points.length; ++p) {
+                var plannedPoint = route.points[p]
+                var lat = Number(plannedPoint.latitude)
+                var lon = Number(plannedPoint.longitude)
+                if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+                    coordinates = []
+                    break
+                }
+                coordinates.push({ lat: lat, lon: lon })
+            }
+        }
+
+        // Never draw the editable table's design-time example coordinates as a
+        // real mission route. The map is route-empty until verified WGS84
+        // geometry arrives from Planning Core.
+        root.routeCoordinates = coordinates.length >= 2 ? coordinates : []
+    }
+
     function rebuildTableRows() {
+        root.syncMapRouteCoordinates()
         var rows = []
         var mandatory = root.mandatoryPoints.slice(0)
         var denominator = Math.max(1, routeModel.count - 1)
@@ -339,6 +368,7 @@ Item {
     }
 
     onSelectedUavIndexChanged: root.loadAircraftData(root.selectedUavIndex)
+    onPlanningResultChanged: root.syncMapRouteCoordinates()
 
     Component.onCompleted: {
         root.recalculateColumnLayout()

@@ -11,7 +11,9 @@ Item {
 
     // MainContent overlays BottomToolbar on top of the full workspace.
     // Keep reorderable panels inside the visible right-panel work area.
-    property int bottomInset: 54
+    // RightPanel is already anchored to workspace.bottom (above BottomToolbar).
+    // Only the visual clearance belongs here; never subtract the toolbar twice.
+    property int bottomInset: 8
 
     property color bg: "#08111D"
     property color text: "#FFFFFF"
@@ -42,18 +44,60 @@ Item {
         category: "BlueSkyPRO/RightPanel"
         property string orderCsv: "Checklist,Flight Conditions,Alerting,ATC"
         property string positionCsv: "Checklist=54,Flight Conditions=293,Alerting=400,ATC=499"
+        property string preferredPositionCsv: ""
         property int freePositionLayoutVersion: 0
+        property bool positionsLocked: false
+        property bool atcBottomAnchored: true
     }
 
     property var panelOrder: panelOrderSettings.orderCsv.split(",")
+    property bool panelsLocked: panelOrderSettings.positionsLocked
+
+    function setPanelsLocked(locked) {
+        panelOrderSettings.positionsLocked = locked
+        panelOrderSettings.sync()
+        panelsLocked = locked
+        if (!locked)
+            Qt.callLater(root.reflowPanelPositions)
+    }
     property string draggingPanel: ""
     property real dragVisualY: 0
     property real dragGrabOffsetY: 0
     property var panelPositions: ({})
+    // User-defined positions are kept separately from temporary collision avoidance.
+    property var preferredPanelPositions: ({})
+    property var temporaryPanelPositions: ({})
+    property int lastAtcPanelHeight: -1
+    property bool panelLayoutReady: false
+    property bool atcBottomAnchored: panelOrderSettings.atcBottomAnchored
+
+    // When the ATC content grows or shrinks while positions are locked,
+    // preserve its bottom edge so the card returns to its prior bottom-aligned
+    // location after a temporary action button disappears.
+    function handleAtcPanelHeightChanged(newHeight) {
+        var previousHeight = lastAtcPanelHeight
+        lastAtcPanelHeight = newHeight
+        // Ignore transient height changes while QML is constructing the
+        // first layout. Saved positions must not be shifted during startup.
+        if (!panelLayoutReady || previousHeight < 0 || draggingPanel !== "")
+            return
+
+        if (!panelsLocked) {
+            Qt.callLater(root.reflowPanelPositions)
+            return
+        }
+
+        // Keep the preferred ATC coordinate unchanged; reflow uses the new
+        // measured height and temporarily moves only cards involved in collisions.
+        Qt.callLater(root.reflowPanelPositions)
+    }
 
     function loadPanelPositions() {
         var result = {}
-        var entries = panelOrderSettings.positionCsv.split(",")
+        // Use operator-defined coordinates, not temporary collision positions.
+        var savedPositions = panelOrderSettings.preferredPositionCsv !== ""
+                ? panelOrderSettings.preferredPositionCsv : panelOrderSettings.positionCsv
+        var entries = savedPositions.split(",")
         for (var i = 0; i < entries.length; ++i) {
             var parts = entries[i].split("=")
             if (parts.length === 2 && parts[0] !== "")
@@ -67,7 +111,7 @@ Item {
             var key = required[j]
             if (result[key] === undefined) {
                 result[key] = y
-                y += panelHeight(key) + 10
+                y += panelHeight(key) + 4
             }
         }
         // One-time migration: place ATC at the true lower edge instead of
@@ -78,8 +122,24 @@ Item {
             panelOrderSettings.freePositionLayoutVersion = 2
         }
 
+        // Recover from the earlier locked-layout regression, which could save
+        // ATC at the first legal Y coordinate during startup. Only repair this
+        // unmistakable top-edge value; leave normal user-defined positions alone.
+        if (panelVisible("ATC")
+                && result["ATC"] <= 64 && root.height > panelHeight("ATC") + bottomInset + 120) {
+            result["ATC"] = Math.max(54, root.height - bottomInset - 8 - panelHeight("ATC"))
+        }
+
+        // Treat an ATC panel already near the bottom as bottom-anchored.
+        var bottomLimit = Math.max(54, root.height - bottomInset - 8)
+        if (result["ATC"] !== undefined && panelVisible("ATC")
+                && result["ATC"] >= bottomLimit - panelHeight("ATC") - 24)
+            atcBottomAnchored = true
+        panelOrderSettings.atcBottomAnchored = atcBottomAnchored
         panelPositions = result
-        savePanelPositions()
+        preferredPanelPositions = Object.assign({}, result)
+        temporaryPanelPositions = ({})
+        // Persist only after the first complete layout pass.
     }
 
     function savePanelPositions() {
@@ -95,6 +155,19 @@ Item {
         panelOrderSettings.sync()
     }
 
+    function savePreferredPanelPositions() {
+        var required = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
+        var entries = []
+        for (var i = 0; i < required.length; ++i) {
+            var key = required[i]
+            var value = preferredPanelPositions[key]
+            if (value !== undefined)
+                entries.push(key + "=" + Math.round(value))
+        }
+        panelOrderSettings.preferredPositionCsv = entries.join(",")
+        panelOrderSettings.sync()
+    }
+
     function panelPositionY(key) {
         var value = panelPositions[key]
         if (value === undefined)
@@ -103,7 +176,7 @@ Item {
     }
 
     function beginPanelDrag(key, pressRootY) {
-        if (!panelVisible(key))
+        if (panelsLocked || !panelVisible(key))
             return
 
         draggingPanel = key
@@ -134,59 +207,163 @@ Item {
         savePanelPositions()
     }
 
-    // Keep all visible panels separated by a fixed gap while preserving
-    // their current vertical order. The available area ends above the
-    // overlaid BottomToolbar.
-    // Preserve operator-selected positions. Only clamp to the visible work area
-    // and repair genuine collisions; never repack the whole stack.
+    // Find the nearest vertical slot for a panel that must yield space.
+    // Other visible cards are treated as obstacles; the panel's current slot
+    // is preferred when it is still free.
+    function nearestFreePanelY(key, desiredY, reservedY) {
+        var top = 54
+        var bottomLimit = Math.max(top, root.height - bottomInset - 8)
+        var h = panelHeight(key)
+        var gap = 4
+        var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
+        var obstacles = []
+        for (var i = 0; i < keys.length; ++i) {
+            var other = keys[i]
+            if (other === key || !panelVisible(other))
+                continue
+            var otherY = reservedY && reservedY[other] !== undefined
+                    ? reservedY[other] : panelPositionY(other)
+            obstacles.push({ key: other, y: otherY, h: panelHeight(other) })
+        }
+
+        var candidates = [desiredY, top, bottomLimit - h]
+        for (var j = 0; j < obstacles.length; ++j) {
+            candidates.push(obstacles[j].y - gap - h)
+            candidates.push(obstacles[j].y + obstacles[j].h + gap)
+        }
+
+        var best = -1
+        var bestDistance = Number.POSITIVE_INFINITY
+        for (var k = 0; k < candidates.length; ++k) {
+            var candidate = Math.max(top, Math.min(bottomLimit - h, candidates[k]))
+            var free = true
+            for (var m = 0; m < obstacles.length; ++m) {
+                if (candidate < obstacles[m].y + obstacles[m].h + gap &&
+                        candidate + h + gap > obstacles[m].y) {
+                    free = false
+                    break
+                }
+            }
+            if (free && Math.abs(candidate - desiredY) < bestDistance) {
+                best = candidate
+                bestDistance = Math.abs(candidate - desiredY)
+            }
+        }
+        return best
+    }
+
+    // Resolve collisions locally: keep existing positions whenever possible
+    // and move only cards that overlap another card or exceed the work area.
+    // This also runs while positions are locked: locking disables manual drag,
+    // not automatic collision avoidance after content changes.
     function reflowPanelPositions() {
-        if (draggingPanel !== "")
+        if (!panelLayoutReady || root.height <= 120 || draggingPanel !== "")
             return
 
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
         var top = 54
-        var bottomLimit = Math.max(top, root.height - bottomInset - 8)
+        // root.height already excludes the bottom toolbar because MainContent
+        // anchors RightPanel to workspace.bottom.
+        var bottomLimit = Math.max(top, root.height - 8)
+        var gap = 4
+        var nextPreferred = Object.assign({}, preferredPanelPositions)
+        var nextTemporary = Object.assign({}, temporaryPanelPositions)
         var items = []
 
         for (var i = 0; i < keys.length; ++i) {
             var key = keys[i]
-            if (panelVisible(key))
-                items.push({ key: key, y: panelPositionY(key), h: panelHeight(key) })
+            if (!panelVisible(key))
+                continue
+            var h = panelHeight(key)
+            var pref = nextPreferred[key] !== undefined ? nextPreferred[key] : panelPositionY(key)
+            if (key === "ATC" && atcBottomAnchored)
+                pref = bottomLimit - h
+            items.push({ key: key, preferredY: Math.max(top, Math.min(bottomLimit - h, pref)), y: 0, h: h })
         }
 
-        // Clamp saved positions first.
-        for (var j = 0; j < items.length; ++j)
-            items[j].y = Math.max(top, Math.min(bottomLimit - items[j].h, items[j].y))
+        items.sort(function(a, b) { return a.preferredY - b.preferredY })
 
-        // Repair only real overlaps, keeping the existing order and free gaps.
-        items.sort(function(a, b) { return a.y - b.y })
-        var gap = 10
-        for (var k = 1; k < items.length; ++k) {
-            var requiredY = items[k - 1].y + items[k - 1].h + gap
-            if (items[k].y < requiredY)
-                items[k].y = requiredY
-        }
-
-        // If the repaired stack exceeds the bottom, move only the affected
-        // lower cards upward as far as possible; do not repack the entire stack.
-        if (items.length > 0) {
-            var lastBottom = items[items.length - 1].y + items[items.length - 1].h
-            if (lastBottom > bottomLimit) {
-                for (var m = items.length - 1; m >= 0 && lastBottom > bottomLimit; --m) {
-                    var maxY = bottomLimit - items[m].h
-                    if (items[m].y > maxY)
-                        items[m].y = maxY
-                    if (m > 0) {
-                        var maxPrev = items[m].y - gap - items[m - 1].h
-                        if (items[m - 1].y > maxPrev)
-                            items[m - 1].y = Math.max(top, maxPrev)
-                    }
-                    lastBottom = items[items.length - 1].y + items[items.length - 1].h
+        // First restore cards that were displaced temporarily when their
+        // original slot is free again. Otherwise place them at their preferred
+        // coordinate and resolve any collision in a deterministic pass.
+        var placed = []
+        for (var j = 0; j < items.length; ++j) {
+            var item = items[j]
+            var candidate = item.preferredY
+            var free = true
+            for (var p = 0; p < placed.length; ++p) {
+                if (candidate < placed[p].y + placed[p].h + gap &&
+                        candidate + item.h + gap > placed[p].y) {
+                    free = false
+                    break
                 }
+            }
+            if (!free) {
+                var candidates = [candidate, top]
+                for (var q = 0; q < placed.length; ++q)
+                    candidates.push(placed[q].y + placed[q].h + gap)
+                var best = -1
+                var distance = Number.POSITIVE_INFINITY
+                for (var r = 0; r < candidates.length; ++r) {
+                    var testY = Math.max(top, Math.min(bottomLimit - item.h, candidates[r]))
+                    var testFree = true
+                    for (var s = 0; s < placed.length; ++s) {
+                        if (testY < placed[s].y + placed[s].h + gap &&
+                                testY + item.h + gap > placed[s].y) {
+                            testFree = false
+                            break
+                        }
+                    }
+                    if (testFree && Math.abs(testY - candidate) < distance) {
+                        best = testY
+                        distance = Math.abs(testY - candidate)
+                    }
+                }
+                if (best >= 0)
+                    candidate = best
+                else
+                    candidate = placed.length > 0
+                            ? placed[placed.length - 1].y + placed[placed.length - 1].h + gap
+                            : top
+            }
+
+            item.y = Math.round(candidate)
+            placed.push(item)
+        }
+
+        // A bottom-anchored ATC is the final anchor. Pack any cards that would
+        // overlap it upward; do not leave a stale hole after content shrinks.
+        var atcIndex = -1
+        for (var a = 0; a < placed.length; ++a)
+            if (placed[a].key === "ATC" && atcBottomAnchored)
+                atcIndex = a
+        if (atcIndex >= 0) {
+            placed[atcIndex].y = Math.round(bottomLimit - placed[atcIndex].h)
+            for (var b = atcIndex - 1; b >= 0; --b)
+                placed[b].y = Math.min(placed[b].y, placed[b + 1].y - gap - placed[b].h)
+            if (placed.length > 0 && placed[0].y < top) {
+                placed[0].y = top
+                for (var f = 1; f < placed.length; ++f)
+                    placed[f].y = Math.max(placed[f].y, placed[f - 1].y + placed[f - 1].h + gap)
             }
         }
 
-        saveNormalizedPositions(items)
+        var nextPositions = Object.assign({}, panelPositions)
+        for (var k = 0; k < placed.length; ++k) {
+            var card = placed[k]
+            nextPositions[card.key] = Math.round(card.y)
+            if (Math.abs(card.y - card.preferredY) > 1) {
+                if (nextTemporary[card.key] === undefined)
+                    nextTemporary[card.key] = nextPreferred[card.key] !== undefined
+                            ? nextPreferred[card.key] : card.preferredY
+            } else {
+                delete nextTemporary[card.key]
+            }
+        }
+
+        panelPositions = nextPositions
+        temporaryPanelPositions = nextTemporary
+        savePanelPositions()
     }
 
     // Drop at the actual mouse position. The dragged card keeps that position
@@ -202,52 +379,56 @@ Item {
         var bottomLimit = Math.max(top, root.height - bottomInset - 8)
         var h = panelHeight(key)
         var desired = Math.max(top, Math.min(bottomLimit - h, dragVisualY))
-        var gap = 10
+        var gap = 4
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
-        var obstacles = []
+        var nextPositions = Object.assign({}, panelPositions)
+        var nextPreferred = Object.assign({}, preferredPanelPositions)
+        var nextTemporary = Object.assign({}, temporaryPanelPositions)
 
+        // The dragged panel owns the drop location. Overlapped cards yield.
+        nextPositions[key] = Math.round(desired)
+        nextPreferred[key] = Math.round(desired)
+        atcBottomAnchored = key === "ATC"
+                && desired >= bottomLimit - h - 24
+        panelOrderSettings.atcBottomAnchored = atcBottomAnchored
+        delete nextTemporary[key]
+
+        var displaced = []
         for (var i = 0; i < keys.length; ++i) {
             var other = keys[i]
-            if (other !== key && panelVisible(other))
-                obstacles.push({ key: other, y: panelPositionY(other), h: panelHeight(other) })
+            if (other === key || !panelVisible(other))
+                continue
+            var otherY = panelPositionY(other)
+            var otherH = panelHeight(other)
+            if (desired < otherY + otherH + gap && desired + h + gap > otherY)
+                displaced.push({ key: other, y: otherY })
         }
 
-        function overlaps(y, obstacle) {
-            return y < obstacle.y + obstacle.h + gap &&
-                   y + h + gap > obstacle.y
-        }
+        panelPositions = nextPositions
+        preferredPanelPositions = nextPreferred
+        temporaryPanelPositions = nextTemporary
 
-        var candidates = [desired, top, bottomLimit - h]
-        for (var j = 0; j < obstacles.length; ++j) {
-            candidates.push(obstacles[j].y - gap - h)
-            candidates.push(obstacles[j].y + obstacles[j].h + gap)
-        }
+        for (var j = 0; j < displaced.length; ++j) {
+            var displacedKey = displaced[j].key
+            if (temporaryPanelPositions[displacedKey] === undefined)
+                temporaryPanelPositions[displacedKey] =
+                        preferredPanelPositions[displacedKey] !== undefined
+                        ? preferredPanelPositions[displacedKey] : displaced[j].y
 
-        var best = desired
-        var bestDistance = Number.POSITIVE_INFINITY
-        for (var k = 0; k < candidates.length; ++k) {
-            var candidate = Math.max(top, Math.min(bottomLimit - h, candidates[k]))
-            var free = true
-            for (var m = 0; m < obstacles.length; ++m) {
-                if (overlaps(candidate, obstacles[m])) {
-                    free = false
-                    break
-                }
-            }
-            if (free) {
-                var distance = Math.abs(candidate - desired)
-                if (distance < bestDistance) {
-                    best = candidate
-                    bestDistance = distance
-                }
+            var freeY = nearestFreePanelY(displacedKey, displaced[j].y, panelPositions)
+            if (freeY >= 0) {
+                var adjusted = Object.assign({}, panelPositions)
+                adjusted[displacedKey] = Math.round(freeY)
+                panelPositions = adjusted
             }
         }
 
-        panelPositions[key] = Math.round(best)
+        savePreferredPanelPositions()
         savePanelPositions()
         draggingPanel = ""
         dragVisualY = 0
         dragGrabOffsetY = 0
+        Qt.callLater(root.reflowPanelPositions)
     }
 
     function cancelPanelDrag(key) {
@@ -270,7 +451,14 @@ Item {
         panelOrder = migratedOrder
         panelOrderSettings.orderCsv = migratedOrder.join(",")
         loadPanelPositions()
-        Qt.callLater(root.reflowPanelPositions)
+        // Establish the baseline only after the first binding/layout pass.
+        // Otherwise startup's initial ATC height changes look like operator
+        // content changes and can incorrectly move the saved panel to the top.
+        Qt.callLater(function() {
+            root.lastAtcPanelHeight = atcWorkArea.height
+            root.panelLayoutReady = true
+            root.reflowPanelPositions()
+        })
     }
 
     function panelVisible(key) {
@@ -312,7 +500,7 @@ Item {
             if (current === key)
                 return y
             if (panelVisible(current))
-                y += panelHeight(current) + 10
+                y += panelHeight(current) + 4
         }
         return y
     }
@@ -995,7 +1183,7 @@ Item {
         border.width: 1
         antialiasing: true
         z: root.draggingPanel === "ATC" ? 200 : 1
-        onHeightChanged: Qt.callLater(root.reflowPanelPositions)
+        onHeightChanged: root.handleAtcPanelHeightChanged(height)
     }
 
     // Header is a filled band, not a separate bordered card.
@@ -1170,6 +1358,8 @@ Item {
         width: Math.min(parent.width - 16, Math.max(260, panelSettingsPopup.contentWidth))
         height: Math.min(parent.height - 52, panelSettingsPopup.contentHeight + 30)
         title: "PANEL CONTROL"
+        positionsLocked: root.panelsLocked
+        onPositionsLockToggled: root.setPanelsLocked(locked)
         tools: ["Checklist", "Weather", "NOTAM", "Information", "Readiness", "Validation", "Send Flight Plan", "Start Mission", "Map Alerts"]
         toolGroups: [
             { key: "monitoring", title: "MONITORING", expandedByDefault: true, tools: ["Checklist", "Weather", "NOTAM", "Information"] },

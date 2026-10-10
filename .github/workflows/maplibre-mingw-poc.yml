@@ -1,0 +1,421 @@
+name: MapLibre Native Qt — MinGW compatibility gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/hmi-map-tile-loading-2026-10-09
+    paths:
+      - '.github/workflows/maplibre-mingw-poc.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/maplibre-mingw-poc.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maplibre-mingw-poc-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-maplibre-qt:
+    name: Build MapLibre Native Qt with Qt 6.11.2 MinGW
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - name: Enable long paths for upstream submodules
+        shell: pwsh
+        run: git config --global core.longpaths true
+
+      - name: Checkout MapLibre Native for Qt with submodules
+        uses: actions/checkout@v4
+        with:
+          repository: maplibre/maplibre-native-qt
+          # Pin the upstream revision that was current during the successful MinGW build.
+          ref: c3485f3a9590081c7be8edbc542341e688f6663d
+          path: maplibre-native-qt
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Record pinned upstream revision
+        shell: pwsh
+        working-directory: maplibre-native-qt
+        run: git rev-parse HEAD
+
+      - name: Install Qt 6.11.2 MinGW and required modules
+        uses: jurplel/install-qt-action@v4
+        with:
+          # Match the aqtinstall source pinned by upstream MapLibre's Qt 6.11.2 workflow.
+          aqtsource: git+https://github.com/miurahr/aqtinstall.git@076e1659807d0b362a3ed684d54c2e9c775eb9c7
+          version: '6.11.2'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_mingw'
+          modules: 'qtlocation qtpositioning'
+          tools: 'tools_mingw1310'
+
+      - name: Configure native library
+        shell: pwsh
+        working-directory: maplibre-native-qt
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cmake -S . -B build-mingw -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" `
+            -DCMAKE_INSTALL_PREFIX="$env:GITHUB_WORKSPACE\maplibre-install" `
+            -DMLN_WITH_OPENGL=ON `
+            -DMLN_QT_WITH_WIDGETS=OFF `
+            -DMLN_QT_WITH_CLANG_TIDY=OFF
+
+      - name: Build native library
+        shell: pwsh
+        working-directory: maplibre-native-qt
+        run: cmake --build build-mingw --parallel 2
+
+      - name: Install native library
+        shell: pwsh
+        working-directory: maplibre-native-qt
+        run: cmake --install build-mingw
+
+      - name: Configure official QML standalone example
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $prefixPath = "$env:GITHUB_WORKSPACE\maplibre-install;$env:QT_ROOT_DIR"
+          cmake -S maplibre-native-qt/examples/quick-standalone -B build-quick-example -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            "-DCMAKE_PREFIX_PATH=$prefixPath"
+
+      - name: Build official QML standalone example
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cmake --build build-quick-example --parallel 2
+          if (-not (Test-Path 'build-quick-example/QMapLibreExampleQuickStandalone.exe')) {
+            throw 'Standalone QML example executable was not produced.'
+          }
+      - name: Runtime smoke test — QML startup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'build-quick-example\QMapLibreExampleQuickStandalone.exe'
+          $install = Join-Path $env:GITHUB_WORKSPACE 'maplibre-install'
+          $qtBin = Join-Path $env:QT_ROOT_DIR 'bin'
+          $env:PATH = "$install\bin;$qtBin;$env:PATH"
+          $env:QML2_IMPORT_PATH = "$install\qml"
+          $env:QT_PLUGIN_PATH = "$install\plugins;$env:QT_ROOT_DIR\plugins"
+          $env:QT_DEBUG_PLUGINS = '1'
+          $stdout = Join-Path $env:RUNNER_TEMP 'maplibre-example.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'maplibre-example.stderr.log'
+          $process = Start-Process -FilePath $exe -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            Start-Sleep -Seconds 15
+            $process.Refresh()
+            if ($process.HasExited) {
+              Get-Content $stdout -ErrorAction SilentlyContinue
+              Get-Content $stderr -ErrorAction SilentlyContinue
+              throw "QML example exited during startup with code $($process.ExitCode)."
+            }
+            # The upstream main.cpp returns -1 when QML rootObjects() is empty.
+            Write-Output 'PASS: executable stayed alive for 15 seconds; QML root-object creation is plausible.'
+          }
+          finally {
+            if (-not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force
+            }
+          }
+
+      - name: Diagnostic control — Qt Quick without MapLibre
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'build-quick-example\\QMapLibreExampleQuickStandalone.exe'
+          $probeQml = Join-Path $env:GITHUB_WORKSPACE 'qtquick-control-probe.qml'
+          $screenshot = Join-Path $env:GITHUB_WORKSPACE 'qtquick-control-probe.png'
+          $install = Join-Path $env:GITHUB_WORKSPACE 'maplibre-install'
+          $qtBin = Join-Path $env:QT_ROOT_DIR 'bin'
+          $env:PATH = "$install\\bin;$qtBin;$env:PATH"
+          $env:QML2_IMPORT_PATH = "$install\\qml"
+          $env:QT_PLUGIN_PATH = "$install\\plugins;$env:QT_ROOT_DIR\\plugins"
+          $env:QSG_RHI_BACKEND = 'opengl'
+          $env:QT_LOGGING_RULES = 'qt.qml.*=true;qt.quick.*=true;qt.scenegraph.*=true'
+          $stdout = Join-Path $env:RUNNER_TEMP 'qtquick-control.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'qtquick-control.stderr.log'
+          @'
+          import QtQuick 6.5
+
+          Window {
+              width: 512
+              height: 512
+              visible: true
+              color: "#ff00ff"
+
+              Item {
+                  id: probe
+                  anchors.fill: parent
+
+                  Rectangle {
+                      anchors.fill: parent
+                      anchors.margins: 32
+                      color: "#00aa44"
+                  }
+
+                  Timer {
+                      interval: 1000
+                      running: true
+                      onTriggered: {
+                          probe.grabToImage(function(result) {
+                              if (result.saveToFile("qtquick-control-probe.png"))
+                                  Qt.exit(0)
+                              else
+                                  Qt.exit(5)
+                          })
+                      }
+                  }
+              }
+
+              Timer {
+                  interval: 15000
+                  running: true
+                  onTriggered: Qt.exit(4)
+              }
+          }
+          '@ | Set-Content -Path $probeQml -Encoding utf8
+
+          $process = Start-Process -FilePath $exe -ArgumentList @($probeQml) -WorkingDirectory $env:GITHUB_WORKSPACE -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          if (-not $process.WaitForExit(20000)) {
+            Stop-Process -Id $process.Id -Force
+            throw 'Qt Quick control probe timed out.'
+          }
+          if ($process.ExitCode -ne 0) {
+            Get-Content $stdout -ErrorAction SilentlyContinue
+            Get-Content $stderr -ErrorAction SilentlyContinue
+            throw "Qt Quick control probe exited with code $($process.ExitCode)."
+          }
+          if (-not (Test-Path $screenshot)) {
+            throw 'Qt Quick control probe exited without a screenshot.'
+          }
+          Write-Output 'PASS: Qt Quick control window captured a screenshot without importing MapLibre.'
+
+      - name: Diagnostic — import MapLibre QML module only
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'build-quick-example\QMapLibreExampleQuickStandalone.exe'
+          $probeQml = Join-Path $env:GITHUB_WORKSPACE 'maplibre-import-probe.qml'
+          $install = Join-Path $env:GITHUB_WORKSPACE 'maplibre-install'
+          $qtBin = Join-Path $env:QT_ROOT_DIR 'bin'
+          $env:PATH = "$install\bin;$qtBin;$env:PATH"
+          $env:QML2_IMPORT_PATH = "$install\qml"
+          $env:QT_PLUGIN_PATH = "$install\plugins;$env:QT_ROOT_DIR\plugins"
+          $env:QSG_RHI_BACKEND = 'opengl'
+          $stdout = Join-Path $env:RUNNER_TEMP 'maplibre-import.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'maplibre-import.stderr.log'
+          @'
+          import QtQuick 6.5
+          import MapLibre 4.0
+          Window {
+              width: 512
+              height: 512
+              visible: true
+              Timer { interval: 3000; running: true; onTriggered: Qt.exit(0) }
+          }
+          '@ | Set-Content -Path $probeQml -Encoding utf8
+          $process = Start-Process -FilePath $exe -ArgumentList @($probeQml) -WorkingDirectory $env:GITHUB_WORKSPACE -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          if (-not $process.WaitForExit(10000)) { Stop-Process -Id $process.Id -Force; throw 'MapLibre import-only probe timed out.' }
+          if ($process.ExitCode -ne 0) { Get-Content $stdout -ErrorAction SilentlyContinue; Get-Content $stderr -ErrorAction SilentlyContinue; throw "MapLibre import-only probe exited with code $($process.ExitCode)." }
+          Write-Output 'PASS: MapLibre QML module imported without constructing a MapLibre object.'
+      - name: Enable Windows crash dumps for MapLibre probe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dumpDir = Join-Path $env:RUNNER_TEMP 'maplibre-crash-dumps'
+          New-Item -ItemType Directory -Path $dumpDir -Force | Out-Null
+          $key = 'HKCU:\Software\Microsoft\Windows\Windows Error Reporting\LocalDumps\QMapLibreExampleQuickStandalone.exe'
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpFolder -Value $dumpDir -PropertyType ExpandString -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpType -Value 2 -PropertyType DWord -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpCount -Value 3 -PropertyType DWord -Force | Out-Null
+          Write-Output "Configured per-user full crash dumps at $dumpDir."
+
+      - name: Diagnostic — MapLibre object without style or screenshot
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'build-quick-example\QMapLibreExampleQuickStandalone.exe'
+          $probeQml = Join-Path $env:GITHUB_WORKSPACE 'maplibre-init-probe.qml'
+          $install = Join-Path $env:GITHUB_WORKSPACE 'maplibre-install'
+          $qtBin = Join-Path $env:QT_ROOT_DIR 'bin'
+          $env:PATH = "$install\bin;$qtBin;$env:PATH"
+          $env:QML2_IMPORT_PATH = "$install\qml"
+          $env:QT_PLUGIN_PATH = "$install\plugins;$env:QT_ROOT_DIR\plugins"
+          $env:QSG_RHI_BACKEND = 'opengl'
+          $stdout = Join-Path $env:RUNNER_TEMP 'maplibre-init.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'maplibre-init.stderr.log'
+          @'
+          import QtQuick 6.5
+          import MapLibre 4.0
+          Window {
+              width: 512
+              height: 512
+              visible: true
+              MapLibre { anchors.fill: parent }
+          }
+          '@ | Set-Content -Path $probeQml -Encoding utf8
+          $process = Start-Process -FilePath $exe -ArgumentList @($probeQml) -WorkingDirectory $env:GITHUB_WORKSPACE -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          if (-not $process.WaitForExit(8000)) {
+            Stop-Process -Id $process.Id -Force
+            Write-Output 'PASS: MapLibre object remained alive for 8 seconds; process was force-stopped to avoid testing graceful teardown.'
+          } else {
+            Get-Content $stdout -ErrorAction SilentlyContinue
+            Get-Content $stderr -ErrorAction SilentlyContinue
+            throw "MapLibre init probe exited unexpectedly with code $($process.ExitCode) before external termination."
+          }
+      - name: Runtime smoke test — rendered map pixels
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'build-quick-example\QMapLibreExampleQuickStandalone.exe'
+          $probeQml = Join-Path $env:GITHUB_WORKSPACE 'maplibre-render-probe.qml'
+          $screenshot = Join-Path $env:GITHUB_WORKSPACE 'maplibre-render-probe.png'
+          $install = Join-Path $env:GITHUB_WORKSPACE 'maplibre-install'
+          $qtBin = Join-Path $env:QT_ROOT_DIR 'bin'
+          $env:PATH = "$install\bin;$qtBin;$env:PATH"
+          $env:QML2_IMPORT_PATH = "$install\qml"
+          $env:QT_PLUGIN_PATH = "$install\plugins;$env:QT_ROOT_DIR\plugins"
+          $env:QSG_RHI_BACKEND = 'opengl'
+          $env:QT_LOGGING_RULES = 'qt.qml.*=true;qt.quick.*=true;qt.scenegraph.*=true;maplibre.*=true'
+          $stdout = Join-Path $env:RUNNER_TEMP 'maplibre-render-probe.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'maplibre-render-probe.stderr.log'
+          @'
+          import QtQuick 6.5
+          import MapLibre 4.0
+
+          Window {
+              id: window
+              width: 512
+              height: 512
+              visible: true
+              color: "#ff00ff"
+
+              Item {
+                  id: probe
+                  anchors.fill: parent
+
+                  MapLibre {
+                      id: map
+                      anchors.fill: parent
+                      style: "https://demotiles.maplibre.org/style.json"
+                      zoomLevel: 4
+                      coordinate: [59.91, 10.75]
+                      onStyleLoadedChanged: {
+                          if (styleLoaded)
+                              settleTimer.start()
+                      }
+                  }
+
+                  Timer {
+                      id: settleTimer
+                      interval: 8000
+                      onTriggered: {
+                          probe.grabToImage(function(result) {
+                              if (result.saveToFile("maplibre-render-probe.png"))
+                                  console.log("MAPLIBRE_SCREENSHOT_SAVED")
+                              else
+                                  console.error("MAPLIBRE_SCREENSHOT_SAVE_FAILED")
+                          })
+                      }
+                  }
+
+              }
+          }
+          '@ | Set-Content -Path $probeQml -Encoding utf8
+
+          $process = Start-Process -FilePath $exe -ArgumentList @($probeQml) -WorkingDirectory $env:GITHUB_WORKSPACE -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $deadline = [DateTime]::UtcNow.AddSeconds(70)
+          while (-not (Test-Path $screenshot) -and -not $process.HasExited -and [DateTime]::UtcNow -lt $deadline) {
+            Start-Sleep -Milliseconds 250
+            $process.Refresh()
+          }
+          if (-not (Test-Path $screenshot)) {
+            if ($process.HasExited) {
+              Get-Content $stdout -ErrorAction SilentlyContinue
+              Get-Content $stderr -ErrorAction SilentlyContinue
+              throw "Render probe exited with code $($process.ExitCode) before saving a screenshot."
+            }
+            Stop-Process -Id $process.Id -Force
+            throw 'Render probe timed out before capturing a screenshot.'
+          }
+          if (-not $process.HasExited) {
+            Stop-Process -Id $process.Id -Force
+          }
+          Write-Output 'Screenshot captured; process was externally stopped so graceful-teardown behavior cannot mask render evidence.'
+
+          Add-Type -AssemblyName System.Drawing
+          $bitmap = [System.Drawing.Bitmap]::new($screenshot)
+          try {
+            $unique = [System.Collections.Generic.HashSet[int]]::new()
+            $nonMagenta = 0
+            $samples = 0
+            for ($y = 0; $y -lt $bitmap.Height; $y += 4) {
+              for ($x = 0; $x -lt $bitmap.Width; $x += 4) {
+                $pixel = $bitmap.GetPixel($x, $y)
+                $rgb = ($pixel.R -shl 16) -bor ($pixel.G -shl 8) -bor $pixel.B
+                [void]$unique.Add($rgb)
+                if (-not ($pixel.R -gt 245 -and $pixel.G -lt 10 -and $pixel.B -gt 245)) {
+                  $nonMagenta++
+                }
+                $samples++
+              }
+            }
+            Write-Output "Rendered screenshot: $($bitmap.Width)x$($bitmap.Height); sampled colors=$($unique.Count); non-background samples=$nonMagenta/$samples"
+            if ($unique.Count -lt 50 -or $nonMagenta -lt [Math]::Ceiling($samples * 0.10)) {
+              throw 'Rendered map pixel check failed: screenshot lacks sufficient visual variation beyond the magenta no-render sentinel.'
+            }
+            Write-Output 'PASS: screenshot contains varied rendered pixels beyond the no-render sentinel.'
+          }
+          finally {
+            $bitmap.Dispose()
+          }
+
+      - name: Record compiler and Qt versions
+        shell: pwsh
+        run: |
+          Write-Output "QT_ROOT_DIR=$env:QT_ROOT_DIR"
+          & (Join-Path $env:QT_ROOT_DIR 'bin\qmake.exe') -query QT_VERSION
+          g++ --version
+          cmake --version
+
+      - name: Upload experimental install for inspection
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maplibre-native-qt-6.11.2-mingw-poc
+          path: maplibre-install
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload MapLibre render evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maplibre-render-evidence
+          path: |
+            maplibre-render-probe.png
+            ${{ runner.temp }}/maplibre-render-probe.stdout.log
+            ${{ runner.temp }}/maplibre-render-probe.stderr.log
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload MapLibre crash diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maplibre-crash-diagnostics
+          path: |
+            ${{ runner.temp }}/maplibre-crash-dumps
+            ${{ runner.temp }}/maplibre-init.stdout.log
+            ${{ runner.temp }}/maplibre-init.stderr.log
+            ${{ runner.temp }}/maplibre-render-probe.stdout.log
+            ${{ runner.temp }}/maplibre-render-probe.stderr.log
+          if-no-files-found: warn
+          retention-days: 7

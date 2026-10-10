@@ -21,6 +21,7 @@ struct OrchestratorDecision {
     Feasibility feasibility{Feasibility::Uncertain};
     std::string selected_solver_id;
     std::string selected_candidate_id;
+    CandidateSolution selected_candidate;
     std::vector<std::string> considered_solvers;
     std::vector<std::string> rejected_solvers;
     std::vector<CandidateRejection> rejected_candidates;

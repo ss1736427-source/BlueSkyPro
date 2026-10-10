@@ -198,6 +198,7 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
     decision.feasibility = Feasibility::Feasible;
     decision.selected_solver_id = best.solver_id;
     decision.selected_candidate_id = best.candidate_id;
+    decision.selected_candidate = best;
 
     std::ostringstream explanation;
     explanation << "Выбран маршрут, рассчитанный алгоритмом " << best.solver_id

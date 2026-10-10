@@ -78,6 +78,10 @@ int main() {
     assert(decision.feasibility == Feasibility::Feasible);
     assert(decision.selected_solver_id == "valid");
     assert(decision.selected_candidate_id == "ORCH-ROUTE-VALIDATION-001:valid:1");
+    assert(decision.selected_candidate.candidate_id == decision.selected_candidate_id);
+    assert(decision.selected_candidate.route_elements.size() == 2);
+    assert(decision.selected_candidate.route_elements[0] == "A");
+    assert(decision.selected_candidate.route_elements[1] == "B");
     assert(context.candidates().size() == 2);
 
     return 0;

@@ -49,6 +49,32 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "routeGeometry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["routeId", "routeVersion", "coordinateReference", "points"],
+          "properties": {
+            "routeId": { "type": "string", "minLength": 1 },
+            "routeVersion": { "type": "string", "minLength": 1 },
+            "coordinateReference": { "const": "WGS84" },
+            "points": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["waypointId", "latitude", "longitude", "altitudeM", "mandatory"],
+                "properties": {
+                  "waypointId": { "type": "string", "minLength": 1 },
+                  "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+                  "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
+                  "altitudeM": { "type": "number" },
+                  "mandatory": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
         "threeDMapping": {
           "type": "object",
           "additionalProperties": false,

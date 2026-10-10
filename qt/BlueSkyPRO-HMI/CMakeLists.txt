@@ -4,7 +4,7 @@ project(BlueSkyPRO_HMI VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick Location Positioning)
+find_package(Qt6 REQUIRED COMPONENTS Quick Network)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -18,6 +18,16 @@ qt_add_executable(appBlueSkyPRO
     src/main.cpp
     src/PlanningBridge.cpp
     src/PlanningBridge.h
+    src/RouteGeometrySerializer.cpp
+    src/RouteGeometrySerializer.h
+    src/SelectedRouteMapHandoff.cpp
+    src/SelectedRouteMapHandoff.h
+    src/SelectedRoutePlanningService.cpp
+    src/SelectedRoutePlanningService.h
+    ../../04_SOFTWARE/PLANNING/selected_route_set.cpp
+    ../../04_SOFTWARE/PLANNING/canonical_route_builder.cpp
+    src/TileCacheManager.cpp
+    src/TileCacheManager.h
 )
 
 qt_add_qml_module(appBlueSkyPRO
@@ -53,9 +63,31 @@ qt_add_qml_module(appBlueSkyPRO
         qml/assets/uav_vtol.svg
 )
 
-target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Quick Qt6::Location Qt6::Positioning)
+target_link_libraries(appBlueSkyPRO PRIVATE
+    Qt6::Quick
+    Qt6::Network
+)
 
 set_target_properties(appBlueSkyPRO PROPERTIES
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
 )
+
+enable_testing()
+add_executable(route_geometry_serializer_test
+    tests/RouteGeometrySerializerTest.cpp
+    src/RouteGeometrySerializer.cpp
+    src/RouteGeometrySerializer.h
+)
+target_link_libraries(route_geometry_serializer_test PRIVATE Qt6::Quick)
+add_test(NAME route_geometry_serializer_contract COMMAND route_geometry_serializer_test)
+
+add_executable(selected_route_map_handoff_test
+    tests/SelectedRouteMapHandoffTest.cpp
+    src/SelectedRouteMapHandoff.cpp
+    src/RouteGeometrySerializer.cpp
+    ../../04_SOFTWARE/PLANNING/selected_route_set.cpp
+    ../../04_SOFTWARE/PLANNING/canonical_route_builder.cpp
+)
+target_link_libraries(selected_route_map_handoff_test PRIVATE Qt6::Quick)
+add_test(NAME selected_route_map_handoff_contract COMMAND selected_route_map_handoff_test)

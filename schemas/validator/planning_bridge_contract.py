@@ -20,6 +20,7 @@ def build_result_message(
     result_id: str,
     pipeline_result: object,
     three_d_mapping: object | None = None,
+    route_geometry: dict[str, Any] | None = None,
     contract_version: str = SCHEMA_VERSION,
     planner_version: str | None = None,
     configuration_version: str | None = None,
@@ -51,6 +52,52 @@ def build_result_message(
         source["runId"] = run_id
 
     result: dict[str, Any] = {}
+    if route_geometry is not None:
+        route_id = route_geometry.get("routeId")
+        route_version = route_geometry.get("routeVersion")
+        coordinate_reference = route_geometry.get("coordinateReference")
+        points = route_geometry.get("points")
+        if not isinstance(route_id, str) or not route_id.strip():
+            raise PlanningBridgeContractError("ROUTE_ID_REQUIRED")
+        if not isinstance(route_version, str) or not route_version.strip():
+            raise PlanningBridgeContractError("ROUTE_VERSION_REQUIRED")
+        if coordinate_reference != "WGS84":
+            raise PlanningBridgeContractError("ROUTE_COORDINATE_REFERENCE_MUST_BE_WGS84")
+        if not isinstance(points, list) or len(points) < 2:
+            raise PlanningBridgeContractError("ROUTE_REQUIRES_AT_LEAST_TWO_POINTS")
+        normalized_points = []
+        for point in points:
+            if not isinstance(point, dict):
+                raise PlanningBridgeContractError("INVALID_ROUTE_POINT")
+            waypoint_id = point.get("waypointId")
+            latitude = point.get("latitude")
+            longitude = point.get("longitude")
+            altitude = point.get("altitudeM")
+            mandatory = point.get("mandatory")
+            if not isinstance(waypoint_id, str) or not waypoint_id.strip():
+                raise PlanningBridgeContractError("ROUTE_WAYPOINT_ID_REQUIRED")
+            if isinstance(latitude, bool) or not isinstance(latitude, (int, float)) or not -90 <= latitude <= 90:
+                raise PlanningBridgeContractError("INVALID_ROUTE_LATITUDE")
+            if isinstance(longitude, bool) or not isinstance(longitude, (int, float)) or not -180 <= longitude <= 180:
+                raise PlanningBridgeContractError("INVALID_ROUTE_LONGITUDE")
+            if isinstance(altitude, bool) or not isinstance(altitude, (int, float)):
+                raise PlanningBridgeContractError("INVALID_ROUTE_ALTITUDE")
+            if not isinstance(mandatory, bool):
+                raise PlanningBridgeContractError("INVALID_ROUTE_MANDATORY_FLAG")
+            normalized_points.append({
+                "waypointId": waypoint_id,
+                "latitude": float(latitude),
+                "longitude": float(longitude),
+                "altitudeM": float(altitude),
+                "mandatory": mandatory,
+            })
+        result["routeGeometry"] = {
+            "routeId": route_id,
+            "routeVersion": route_version,
+            "coordinateReference": "WGS84",
+            "points": normalized_points,
+        }
+
     if three_d_mapping is not None:
         if not is_dataclass(three_d_mapping):
             raise PlanningBridgeContractError("3D_MAPPING_RESULT_MUST_BE_DATACLASS")
