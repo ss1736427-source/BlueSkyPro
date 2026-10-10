@@ -119,10 +119,15 @@ Item {
         var cx = longitudeToWorld(centerLongitude)
         var cy = latitudeToWorld(centerLatitude)
         var tileCount = Math.pow(2, zoomLevel)
-        var firstX = Math.floor((cx - width / 2) / tileSize)
-        var lastX = Math.floor((cx + width / 2) / tileSize)
-        var firstY = Math.floor((cy - height / 2) / tileSize)
-        var lastY = Math.floor((cy + height / 2) / tileSize)
+        // Request a two-tile overscan around the viewport. During continuous
+        // visual zoom (0.5x..2x) and an active drag, the visible bounds extend
+        // beyond the nominal viewport; overscan prevents exposed background
+        // while the next integer zoom level is loading.
+        var overscanTiles = 2
+        var firstX = Math.floor((cx - width / 2) / tileSize) - overscanTiles
+        var lastX = Math.floor((cx + width / 2) / tileSize) + overscanTiles
+        var firstY = Math.floor((cy - height / 2) / tileSize) - overscanTiles
+        var lastY = Math.floor((cy + height / 2) / tileSize) + overscanTiles
         var result = []
 
         for (var ty = firstY; ty <= lastY; ++ty) {
@@ -203,7 +208,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: "#E8EEF2"
+        color: "#071321"
     }
 
     Repeater {
