@@ -1,11 +1,14 @@
 #pragma once
 
 #include <QHash>
+#include <QDirIterator>
 #include <QNetworkAccessManager>
 #include <QQueue>
 #include <QSet>
 #include <QTimer>
 #include <QObject>
+
+#include <memory>
 
 class QNetworkReply;
 
@@ -33,7 +36,9 @@ private:
     void pump();
     void handleFinished(QNetworkReply *reply);
 
+    QString cacheRootPath() const;
     QString cachePath(const QString &key) const;
+    void cleanupExpiredCacheBatch();
     static bool isTransientFailure(QNetworkReply *reply);
 
     QNetworkAccessManager m_network;
@@ -41,6 +46,8 @@ private:
     QSet<QString> m_pending;
     QHash<QNetworkReply *, Request> m_activeRequests;
     QTimer m_pumpTimer;
+    QTimer m_cleanupTimer;
+    std::unique_ptr<QDirIterator> m_cleanupIterator;
     int m_activeCount = 0;
     qint64 m_lastStartMs = 0;
 };
