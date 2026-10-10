@@ -15,6 +15,10 @@ Item {
     property bool manualCreationMode: false
     // The map/mission editor sets this only when the composed mission is complete.
     property bool manualCompositionComplete: false
+    // Geographic route geometry must be supplied by the mission/planning layer.
+    property var routeCoordinates: []
+    property real leftPanelWidth: 0
+    property real rightPanelWidth: 0
     // Pan offset for mouse-driven map dragging (visual preview interaction).
     // View state can be owned by MainContent so it survives template/tool changes.
     property bool useExternalMapState: false
@@ -60,18 +64,15 @@ Item {
         color: root.bg
     }
 
-    // Google Maps Platform Map Tiles API is the authoritative basemap.
+    // Basemap rendering is independent from route authority.
+    // No synthetic route is shown when Planning Core has not supplied geometry.
     GoogleMapView {
         id: googleMap
         anchors.fill: parent
         z: 1
-        routeCoordinates: [
-            { lat: 55.7600, lon: 37.6000 },
-            { lat: 55.7350, lon: 37.6250 },
-            { lat: 55.7550, lon: 37.6550 },
-            { lat: 55.7800, lon: 37.6400 },
-            { lat: 55.7700, lon: 37.5900 }
-        ]
+        leftPanelWidth: root.leftPanelWidth
+        rightPanelWidth: root.rightPanelWidth
+        routeCoordinates: root.routeCoordinates
     }
 
     Canvas {
@@ -177,7 +178,8 @@ Item {
     }
 
     Text {
-        visible: true
+        // Legacy schematic-only caption; the geographic map now owns this workspace.
+        visible: false
         x: 18
         y: 16
         text: "FLIGHT CHART"
@@ -188,7 +190,8 @@ Item {
     }
 
     Rectangle {
-        visible: true
+        // Do not label the live geographic map as a schematic preview.
+        visible: false
         x: 18
         y: 44
         width: 108
@@ -206,7 +209,8 @@ Item {
     }
 
     Rectangle {
-        visible: true
+        // Placeholder wind data is not authoritative and must not overlay the map.
+        visible: false
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.topMargin: 18
@@ -237,7 +241,8 @@ Item {
     }
 
     Rectangle {
-        visible: true
+        // Legacy schematic legend is unrelated to the live basemap overlay.
+        visible: false
         anchors.left: parent.left
         anchors.bottom: parent.bottom
         anchors.leftMargin: 18
@@ -280,7 +285,8 @@ Item {
     }
 
     Text {
-        visible: true
+        // This warning referred to the hidden schematic canvas, not the live map.
+        visible: false
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 14
