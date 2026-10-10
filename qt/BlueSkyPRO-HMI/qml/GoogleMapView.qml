@@ -231,6 +231,7 @@ Item {
 
     // Keep the previous completed viewport underneath while new tiles load.
     Repeater {
+        id: fallbackTilesRepeater
         model: root.fallbackTiles
 
         delegate: Image {
@@ -252,6 +253,7 @@ Item {
     }
 
     Repeater {
+        id: currentTilesRepeater
         model: root.tiles
 
         delegate: Image {
