@@ -328,11 +328,6 @@ jobs:
                       }
                   }
 
-                  Timer {
-                      interval: 60000
-                      running: true
-                      onTriggered: Qt.exit(4)
-                  }
               }
           }
           '@ | Set-Content -Path $probeQml -Encoding utf8
