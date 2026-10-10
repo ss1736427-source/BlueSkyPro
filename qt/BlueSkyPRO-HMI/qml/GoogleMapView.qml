@@ -129,11 +129,11 @@ Item {
         var cx = longitudeToWorld(centerLongitude)
         var cy = latitudeToWorld(centerLatitude)
         var tileCount = Math.pow(2, zoomLevel)
-        // Request a two-tile overscan around the viewport. During continuous
-        // visual zoom (0.5x..2x) and an active drag, the visible bounds extend
-        // beyond the nominal viewport; overscan prevents exposed background
-        // while the next integer zoom level is loading.
-        var overscanTiles = 2
+        // Request only a one-tile overscan around the viewport. The previous
+        // two-tile ring caused a large burst of off-screen downloads on every
+        // committed zoom/pan (especially on wide desktop windows). Cached tiles
+        // remain local; a small ring still covers fractional zoom and drag edges.
+        var overscanTiles = 1
         var firstX = Math.floor((cx - width / 2) / tileSize) - overscanTiles
         var lastX = Math.floor((cx + width / 2) / tileSize) + overscanTiles
         var firstY = Math.floor((cy - height / 2) / tileSize) - overscanTiles
