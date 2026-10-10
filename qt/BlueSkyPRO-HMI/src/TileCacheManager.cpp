@@ -2,6 +2,7 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QNetworkReply>
@@ -15,6 +16,8 @@ namespace {
 constexpr int kMaxConcurrentRequests = 6;
 constexpr int kRequestSpacingMs = 36; // ~27.8 requests/sec, below the 30 RPS limit.
 constexpr int kMaxRetries = 1;
+constexpr int kCacheMaxAgeDays = 29;
+constexpr int kCleanupBatchSize = 64;
 }
 
 TileCacheManager::TileCacheManager(QObject *parent)
@@ -22,20 +25,34 @@ TileCacheManager::TileCacheManager(QObject *parent)
 {
     m_pumpTimer.setSingleShot(true);
     connect(&m_pumpTimer, &QTimer::timeout, this, &TileCacheManager::pump);
+    m_cleanupTimer.setSingleShot(true);
+    connect(&m_cleanupTimer, &QTimer::timeout,
+            this, &TileCacheManager::cleanupExpiredCacheBatch);
+
+    const QString root = cacheRootPath();
+    if (QDir(root).exists()) {
+        m_cleanupIterator = std::make_unique<QDirIterator>(
+            root, QStringList{QStringLiteral("*.png")}, QDir::Files,
+            QDirIterator::Subdirectories);
+        m_cleanupTimer.start(0);
+    }
 }
 
-QString TileCacheManager::cachePath(const QString &key) const
+QString TileCacheManager::cacheRootPath() const
 {
-    // Keep the persistent tile cache with the project/runtime on drive E: by default.
-    // An environment override supports installations with a different writable data path.
     QString cacheRoot = qEnvironmentVariable("BLUESKY_TILE_CACHE_DIR");
     if (cacheRoot.isEmpty()) {
         cacheRoot = QDir::cleanPath(
             QDir(QCoreApplication::applicationDirPath()).absoluteFilePath("../cache"));
     }
-    // Provider/style identity is part of the request key so tiles from different
-    // basemaps cannot collide. The QML key preserves the legacy Yandex path. 
-    const QString root = QDir(cacheRoot).filePath(QStringLiteral("tiles"));
+    return QDir(cacheRoot).filePath(QStringLiteral("tiles"));
+}
+
+QString TileCacheManager::cachePath(const QString &key) const
+{
+    // Provider/style identity is part of the key so tiles from different basemaps
+    // cannot collide. The QML key preserves the legacy Yandex path.
+    const QString root = cacheRootPath();
 
     QString relative = key;
     relative.replace(QChar(92), QLatin1Char('/'));
@@ -47,11 +64,45 @@ QString TileCacheManager::cachePath(const QString &key) const
     return path;
 }
 
+void TileCacheManager::cleanupExpiredCacheBatch()
+{
+    if (!m_cleanupIterator)
+        return;
+
+    const QDateTime cutoff = QDateTime::currentDateTimeUtc().addDays(-kCacheMaxAgeDays);
+    int inspected = 0;
+    while (m_cleanupIterator->hasNext() && inspected < kCleanupBatchSize) {
+        const QString path = m_cleanupIterator->next();
+        const QFileInfo info(path);
+        if (!info.exists() || info.size() <= 0
+                || info.lastModified().toUTC() < cutoff) {
+            QFile::remove(path);
+        }
+        ++inspected;
+    }
+
+    if (!m_cleanupIterator->hasNext()) {
+        m_cleanupIterator.reset();
+        return;
+    }
+
+    // Yield to the GUI event loop between bounded batches; never scan the full
+    // persistent cache synchronously during application startup.
+    m_cleanupTimer.start(1);
+}
+
 QString TileCacheManager::requestTile(const QString &key, const QString &url)
 {
     const QString path = cachePath(key);
-    if (QFileInfo::exists(path) && QFileInfo(path).size() > 0)
-        return QUrl::fromLocalFile(path).toString();
+    const QFileInfo cachedInfo(path);
+    if (cachedInfo.exists()) {
+        const QDateTime cutoff = QDateTime::currentDateTimeUtc().addDays(-kCacheMaxAgeDays);
+        if (cachedInfo.size() > 0 && cachedInfo.lastModified().toUTC() >= cutoff)
+            return QUrl::fromLocalFile(path).toString();
+
+        // Expired or empty cache entries must not be served again.
+        QFile::remove(path);
+    }
 
     if (!m_pending.contains(key)) {
         m_pending.insert(key);
