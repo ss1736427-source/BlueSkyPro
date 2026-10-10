@@ -7,15 +7,34 @@ Item {
     property real centerLatitude: 55.7558
     property real centerLongitude: 37.6176
     property int zoomLevel: 10
-    property string attribution: "Yandex Maps"
+    // Side panels overlay this full-width map view.
+    property real leftPanelWidth: 0
+    property real rightPanelWidth: 0
+    // Provider selection is user-controlled. MapTiler Hybrid v4 is the default
+    // when its runtime key exists; Yandex remains available as an explicit fallback.
+    property string selectedMapProvider:
+        (typeof mapTilerApiKey !== "undefined" && mapTilerApiKey.length > 0)
+        ? "MAPTILER_HYBRID" : "YANDEX"
+    property bool providerMenuOpen: false
+    readonly property bool mapTilerKeyAvailable:
+        typeof mapTilerApiKey !== "undefined" && mapTilerApiKey.length > 0
+    readonly property bool yandexKeyAvailable:
+        typeof yandexMapsApiKey !== "undefined" && yandexMapsApiKey.length > 0
+    readonly property bool useMapTiler:
+        selectedMapProvider.indexOf("MAPTILER") === 0 && mapTilerKeyAvailable
+    readonly property bool useCartoDark:
+        selectedMapProvider === "CARTO_DARK" &&
+        typeof cartoApiKey !== "undefined" && cartoApiKey.length > 0
+    readonly property string selectedProviderLabel:
+        selectedMapProvider === "MAPTILER_HYBRID" ? "MAPTILER HYBRID V4" :
+        selectedMapProvider === "MAPTILER_HYBRID_DARK" ? "MAPTILER HYBRID DARK" :
+        selectedMapProvider === "CARTO_DARK" ? "CARTO DARK" : "YANDEX MAPS"
+    property string attribution:
+        useMapTiler ? "© MapTiler © OpenStreetMap contributors" :
+        (useCartoDark ? "© OpenStreetMap contributors, © CARTO" : "© Яндекс")
     property string mapStatus: "INITIALIZING"
-    property var routeCoordinates: [
-        { lat: 55.7600, lon: 37.6000 },
-        { lat: 55.7350, lon: 37.6250 },
-        { lat: 55.7550, lon: 37.6550 },
-        { lat: 55.7800, lon: 37.6400 },
-        { lat: 55.7700, lon: 37.5900 }
-    ]
+    // No preview route: only verified Planning Core geometry may be rendered.
+    property var routeCoordinates: []
 
     readonly property int tileSize: 256
     property real panOffsetX: 0
@@ -62,7 +81,10 @@ Item {
 
         loadedTileCount = 0
         failedTileCount = 0
-        if (yandexMapsApiKey.length === 0) {
+        if ((selectedMapProvider.indexOf("MAPTILER") === 0 && !mapTilerKeyAvailable) ||
+                (selectedMapProvider === "CARTO_DARK" &&
+                 (typeof cartoApiKey === "undefined" || cartoApiKey.length === 0)) ||
+                (selectedMapProvider === "YANDEX" && !yandexKeyAvailable)) {
             mapStatus = "API KEY REQUIRED"
             tiles = []
             return
@@ -90,12 +112,45 @@ Item {
                     ty: ty,
                     x: tx * tileSize - cx + width / 2 + panOffsetX,
                     y: ty * tileSize - cy + height / 2 + panOffsetY,
-                    url: "https://tiles.api-maps.yandex.ru/v1/tiles/?x=" +
-                         wrappedX + "&y=" + ty + "&z=" + zoomLevel +
-                         "&lang=en_US&l=map&projection=web_mercator&apikey=" +
-                         encodeURIComponent(yandexMapsApiKey)
+                    key: (useMapTiler ? "maptiler/" + selectedMapProvider.toLowerCase() + "/" :
+                          (useCartoDark ? "carto/dark_all/" : "yandex/future_map/web_mercator/")) +
+                         zoomLevel + "/" + wrappedX + "/" + ty,
+                    url: useMapTiler
+                         ? "https://api.maptiler.com/maps/" +
+                           (selectedMapProvider === "MAPTILER_HYBRID_DARK" ? "hybrid-v4-dark" : "hybrid-v4") +
+                           "/256/" + zoomLevel + "/" + wrappedX + "/" + ty + ".png?key=" +
+                           encodeURIComponent(mapTilerApiKey)
+                         : (useCartoDark
+                            ? "https://basemaps.cartocdn.com/rastertiles/dark_all/" +
+                              zoomLevel + "/" + wrappedX + "/" + ty + ".png?key=" +
+                              encodeURIComponent(cartoApiKey)
+                            : "https://tiles.api-maps.yandex.ru/v1/tiles/?x=" +
+                              wrappedX + "&y=" + ty + "&z=" + zoomLevel +
+                              "&lang=en_US&l=map&maptype=future_map&projection=web_mercator&apikey=" +
+                              encodeURIComponent(yandexMapsApiKey)),
+                    source: ""
                 })
             }
+        }
+
+        // Keep the visible viewport priority order. The C++ tile cache
+        // manager uses this order to fill the persistent cache center-out.
+        var viewportCenterX = width / 2
+        var viewportCenterY = height / 2
+        for (var i = 0; i < result.length; ++i) {
+            var dx = result[i].x + tileSize / 2 - viewportCenterX
+            var dy = result[i].y + tileSize / 2 - viewportCenterY
+            result[i].priority = dx * dx + dy * dy
+        }
+        result.sort(function(a, b) {
+            return a.priority - b.priority
+        })
+
+        // Only now enqueue requests, so the cache manager receives the
+        // visible tiles in center-out priority order.
+        for (var j = 0; j < result.length; ++j) {
+            result[j].source = tileCacheManager.requestTile(
+                result[j].key, result[j].url)
         }
 
         tiles = result
@@ -115,6 +170,7 @@ Item {
 
     onWidthChanged: rebuildTiles()
     onHeightChanged: rebuildTiles()
+    onRouteCoordinatesChanged: routeCanvas.requestPaint()
     onCenterLatitudeChanged: { rebuildTiles(); routeCanvas.requestPaint() }
     onCenterLongitudeChanged: { rebuildTiles(); routeCanvas.requestPaint() }
     onZoomLevelChanged: { rebuildTiles(); routeCanvas.requestPaint() }
@@ -130,19 +186,22 @@ Item {
         model: root.tiles
 
         delegate: Image {
-            x: modelData.x
-            y: modelData.y
+            x: modelData.x + root.panOffsetX
+            y: modelData.y + root.panOffsetY
             width: root.tileSize
             height: root.tileSize
-            source: modelData.url
+            source: modelData.source
             asynchronous: true
-            cache: false
+            retainWhileLoading: true
+            cache: true
             fillMode: Image.Stretch
             property int lastStatus: Image.Null
+
             onStatusChanged: {
                 if (status === lastStatus)
                     return
                 lastStatus = status
+
                 if (status === Image.Ready) {
                     root.loadedTileCount++
                     if (root.loadedTileCount === root.tiles.length && root.failedTileCount === 0)
@@ -152,8 +211,20 @@ Item {
                     root.mapStatus = "TILE LOAD ERROR"
                 }
             }
+
             smooth: true
         }
+    }
+
+    // Dark Aviation treatment: keep provider tiles intact and apply a restrained
+    // navy tint above the basemap, below the authoritative route geometry.
+    Rectangle {
+        id: aviationMapTint
+        anchors.fill: parent
+        z: 10
+        color: "#071321"
+        opacity: (root.useMapTiler || root.useCartoDark) ? 0.04 : 0.58
+        visible: true
     }
 
     Canvas {
@@ -192,7 +263,7 @@ Item {
                 ctx.lineTo(point.x, point.y)
             }
 
-            ctx.strokeStyle = "#00D9FF"
+            ctx.strokeStyle = "#FF32C8"
             ctx.lineWidth = 3
             ctx.lineJoin = "round"
             ctx.stroke()
@@ -200,15 +271,26 @@ Item {
             for (var j = 0; j < root.routeCoordinates.length; ++j) {
                 var marker = pointForCoordinate(root.routeCoordinates[j])
                 ctx.beginPath()
-                ctx.arc(marker.x, marker.y,
-                        j === 0 || j === root.routeCoordinates.length - 1 ? 6 : 4,
-                        0, Math.PI * 2)
-                ctx.fillStyle = j === 0 ? "#64FF00" :
-                                j === root.routeCoordinates.length - 1 ? "#FFD43B" : "#00D9FF"
-                ctx.fill()
-                ctx.strokeStyle = "#FFFFFF"
-                ctx.lineWidth = 2
-                ctx.stroke()
+                if (j === 0 || j === root.routeCoordinates.length - 1) {
+                    ctx.arc(marker.x, marker.y, 7, 0, Math.PI * 2)
+                    ctx.fillStyle = j === 0 ? "#64FF00" : "#FF4658"
+                    ctx.fill()
+                    ctx.strokeStyle = j === 0 ? "#B7FF8A" : "#FFB0B8"
+                    ctx.lineWidth = 2
+                    ctx.stroke()
+                } else {
+                    // Aviation-chart waypoint diamond, similar to the reference UI.
+                    ctx.moveTo(marker.x, marker.y - 6)
+                    ctx.lineTo(marker.x + 6, marker.y)
+                    ctx.lineTo(marker.x, marker.y + 6)
+                    ctx.lineTo(marker.x - 6, marker.y)
+                    ctx.closePath()
+                    ctx.fillStyle = "#FF9F43"
+                    ctx.fill()
+                    ctx.strokeStyle = "#FFD3A3"
+                    ctx.lineWidth = 1
+                    ctx.stroke()
+                }
             }
         }
     }
@@ -218,9 +300,9 @@ Item {
         target: null
         acceptedButtons: Qt.LeftButton
 
-        onTranslationChanged: {
-            root.panOffsetX = translation.x
-            root.panOffsetY = translation.y
+        onActiveTranslationChanged: {
+            root.panOffsetX = activeTranslation.x
+            root.panOffsetY = activeTranslation.y
         }
 
         onActiveChanged: {
@@ -234,14 +316,175 @@ Item {
         target: null
         acceptedDevices: PointerDevice.Mouse
         acceptedModifiers: Qt.NoModifier
+        blocking: true
 
         onWheel: function(event) {
-            if (event.angleDelta.y === 0)
+            // The side panels are siblings layered above this full-width map.
+            // Consume their wheel events without changing map zoom.
+            if (event.x < root.leftPanelWidth ||
+                    event.x >= root.width - root.rightPanelWidth) {
+                event.accepted = true
                 return
+            }
+            if (event.angleDelta.y === 0) {
+                event.accepted = true
+                return
+            }
 
             var direction = event.angleDelta.y > 0 ? 1 : -1
             root.zoomLevel = root.clamp(root.zoomLevel + direction, 2, 20)
             event.accepted = true
+        }
+    }
+
+    // Basemap selector: the providers remain independently selectable.
+    Rectangle {
+        id: providerSelector
+        z: 31
+        anchors.left: parent.left
+        anchors.leftMargin: 12
+        anchors.top: parent.top
+        anchors.topMargin: 12
+        width: Math.max(148, providerLabel.implicitWidth + 28)
+        height: 34
+        radius: 4
+        color: "#08111D"
+        border.color: "#31506A"
+        border.width: 1
+
+        Text {
+            id: providerLabel
+            anchors.centerIn: parent
+            text: root.selectedProviderLabel + "  ▾"
+            color: "#E5F0FA"
+            font.pixelSize: 10
+            font.bold: true
+        }
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.providerMenuOpen = !root.providerMenuOpen
+        }
+    }
+
+    Rectangle {
+        id: providerMenu
+        z: 32
+        visible: root.providerMenuOpen
+        anchors.left: providerSelector.left
+        anchors.top: providerSelector.bottom
+        anchors.topMargin: 4
+        width: 206
+        height: providerOptions.implicitHeight + 12
+        radius: 4
+        color: "#08111D"
+        border.color: "#31506A"
+        border.width: 1
+
+        Column {
+            id: providerOptions
+            anchors.fill: parent
+            anchors.margins: 6
+            spacing: 2
+
+            Repeater {
+                model: [
+                    { id: "MAPTILER_HYBRID", label: "MapTiler Hybrid v4" },
+                    { id: "MAPTILER_HYBRID_DARK", label: "MapTiler Hybrid v4 Dark" },
+                    { id: "YANDEX", label: "Яндекс Карты" }
+                ]
+                delegate: Rectangle {
+                    required property var modelData
+                    width: providerOptions.width
+                    height: 30
+                    radius: 3
+                    color: root.selectedMapProvider === modelData.id ? "#173A53" : "transparent"
+                    Text {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: modelData.label
+                        color: "#E5F0FA"
+                        font.pixelSize: 11
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            root.selectedMapProvider = modelData.id
+                            root.providerMenuOpen = false
+                            root.rebuildTiles()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Compact map zoom controls stay inside the visible map workspace,
+    // clear of any side panel layered over this full-width view.
+    Rectangle {
+        id: zoomControls
+        z: 30
+        anchors.right: parent.right
+        anchors.rightMargin: root.rightPanelWidth + 12
+        anchors.top: parent.top
+        anchors.topMargin: 12
+        width: 34
+        height: 68
+        radius: 4
+        color: "#08111D"
+        border.color: "#31506A"
+        border.width: 1
+
+        Rectangle {
+            width: parent.width - 2
+            height: 1
+            x: 1
+            y: parent.height / 2
+            color: "#31506A"
+        }
+
+        Text {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: parent.height / 2
+            text: "+"
+            color: root.zoomLevel < 20 ? "#E5F0FA" : "#607386"
+            font.pixelSize: 24
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+        MouseArea {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: parent.height / 2
+            enabled: root.zoomLevel < 20
+            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: root.zoomLevel = Math.min(20, root.zoomLevel + 1)
+        }
+
+        Text {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: parent.height / 2
+            text: "−"
+            color: root.zoomLevel > 2 ? "#E5F0FA" : "#607386"
+            font.pixelSize: 24
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+        MouseArea {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: parent.height / 2
+            enabled: root.zoomLevel > 2
+            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: root.zoomLevel = Math.max(2, root.zoomLevel - 1)
         }
     }
 
@@ -277,12 +520,36 @@ Item {
         Text {
             id: statusText
             anchors.centerIn: parent
-            text: yandexMapsApiKey.length === 0
-                  ? "YANDEX MAPS API KEY REQUIRED"
-                  : "YANDEX MAPS: " + root.mapStatus
+            text: root.mapStatus === "API KEY REQUIRED"
+                  ? root.selectedProviderLabel + ": API KEY REQUIRED"
+                  : root.attribution.toUpperCase() + ": " + root.mapStatus
             color: "#FFD43B"
             font.family: "B612 Mono"
             font.pixelSize: 11
+        }
+    }
+
+    Connections {
+        target: tileCacheManager
+
+        function onTileReady(key, fileUrl) {
+            var updated = root.tiles.slice()
+            var changed = false
+
+            for (var i = 0; i < updated.length; ++i) {
+                if (updated[i].key === key) {
+                    updated[i].source = fileUrl
+                    changed = true
+                    break
+                }
+            }
+
+            if (changed)
+                root.tiles = updated
+        }
+
+        function onTileFailed(key) {
+            root.mapStatus = "TILE LOAD ERROR"
         }
     }
 
