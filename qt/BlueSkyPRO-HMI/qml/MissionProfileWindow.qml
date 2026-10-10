@@ -113,6 +113,8 @@ Item {
         profileSettings.columnOrderJson = JSON.stringify(next)
     }
     property var tableRows: []
+    // Persist the user's selected altitude cell until another altitude cell is chosen.
+    property int selectedAltitudeRowIndex: -1
 
     // The profile's horizontal progress is the shared ordering source for
     // both marker labels and table rows. routeIndex may be stale after dragging.
@@ -657,25 +659,30 @@ Item {
                                                 wrapMode: Text.Wrap
                                                 elide: Text.ElideRight
                                             }
-                                            // Altitude cells are editable in the design preview.
+                                            // Altitude cells are editable and retain a visible selection state.
                                             Rectangle {
                                                 visible: modelData.key === "altitude"
                                                 anchors.fill: parent
                                                 anchors.margins: 5
-                                                color: "transparent"
-                                                border.color: "#31566A"
+                                                color: root.selectedAltitudeRowIndex === routeRowDelegate.rowIndex ? "#12465A" : "transparent"
+                                                border.color: root.selectedAltitudeRowIndex === routeRowDelegate.rowIndex ? root.cyan : "#31566A"
+                                                border.width: root.selectedAltitudeRowIndex === routeRowDelegate.rowIndex ? 2 : 1
                                                 radius: 2
                                                 TextInput {
                                                     anchors.fill: parent
                                                     anchors.margins: 2
                                                     text: root.columnValue(routeRowDelegate.rowIndex, "altitude")
-                                                    color: root.textColor
+                                                    color: root.selectedAltitudeRowIndex === routeRowDelegate.rowIndex ? "#FFFFFF" : root.textColor
                                                     font.family: "B612 Mono"
                                                     font.pixelSize: 11
                                                     horizontalAlignment: Text.AlignHCenter
                                                     verticalAlignment: Text.AlignVCenter
                                                     selectByMouse: true
                                                     validator: IntValidator { bottom: 0; top: 5000 }
+                                                    onActiveFocusChanged: {
+                                                        if (activeFocus)
+                                                            root.selectedAltitudeRowIndex = routeRowDelegate.rowIndex
+                                                    }
                                                     onEditingFinished: root.setTableAltitude(routeRowDelegate.rowIndex, text)
                                                 }
                                             }
