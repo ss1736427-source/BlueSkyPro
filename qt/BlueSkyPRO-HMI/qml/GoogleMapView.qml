@@ -7,6 +7,9 @@ Item {
     property real centerLatitude: 55.7558
     property real centerLongitude: 37.6176
     property int zoomLevel: 10
+    // Fractional visual zoom is applied immediately to loaded tiles; network
+    // requests are rebuilt only when a whole zoom level is crossed.
+    property real visualZoomScale: 1.0
     // Side panels overlay this full-width map view.
     property real leftPanelWidth: 0
     property real rightPanelWidth: 0
@@ -51,6 +54,24 @@ Item {
 
     function worldSize() {
         return tileSize * Math.pow(2, zoomLevel)
+    }
+
+    function applySmoothZoom(delta) {
+        if (!delta)
+            return
+
+        // One wheel notch corresponds to a quarter zoom level. Scaling is
+        // continuous; the discrete tile level changes only at exact 2x/0.5x.
+        visualZoomScale *= Math.pow(2, delta / 120.0 * 0.25)
+        visualZoomScale = clamp(visualZoomScale, 0.5, 2.0)
+
+        if (visualZoomScale >= 2.0 && zoomLevel < 20) {
+            zoomLevel += 1
+            visualZoomScale = 1.0
+        } else if (visualZoomScale <= 0.5 && zoomLevel > 2) {
+            zoomLevel -= 1
+            visualZoomScale = 1.0
+        }
     }
 
     function longitudeToWorld(lon) {
@@ -189,10 +210,10 @@ Item {
         model: root.tiles
 
         delegate: Image {
-            x: modelData.x + root.panOffsetX
-            y: modelData.y + root.panOffsetY
-            width: root.tileSize
-            height: root.tileSize
+            x: root.width / 2 + (modelData.x + root.panOffsetX - root.width / 2) * root.visualZoomScale
+            y: root.height / 2 + (modelData.y + root.panOffsetY - root.height / 2) * root.visualZoomScale
+            width: root.tileSize * root.visualZoomScale
+            height: root.tileSize * root.visualZoomScale
             source: modelData.source
             asynchronous: true
             retainWhileLoading: true
@@ -249,6 +270,13 @@ Item {
                 x -= size
 
             return { x: x, y: y }
+        }
+
+        transform: Scale {
+            origin.x: routeCanvas.width / 2
+            origin.y: routeCanvas.height / 2
+            xScale: root.visualZoomScale
+            yScale: root.visualZoomScale
         }
 
         onPaint: {
@@ -335,8 +363,7 @@ Item {
                 return
             }
 
-            var direction = event.angleDelta.y > 0 ? 1 : -1
-            root.zoomLevel = root.clamp(root.zoomLevel + direction, 2, 20)
+            root.applySmoothZoom(event.angleDelta.y)
             event.accepted = true
         }
     }
@@ -467,7 +494,7 @@ Item {
             height: parent.height / 2
             enabled: root.zoomLevel < 20
             cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-            onClicked: root.zoomLevel = Math.min(20, root.zoomLevel + 1)
+            onClicked: root.applySmoothZoom(480)
         }
 
         Text {
@@ -488,7 +515,7 @@ Item {
             height: parent.height / 2
             enabled: root.zoomLevel > 2
             cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-            onClicked: root.zoomLevel = Math.max(2, root.zoomLevel - 1)
+            onClicked: root.applySmoothZoom(-480)
         }
     }
 
