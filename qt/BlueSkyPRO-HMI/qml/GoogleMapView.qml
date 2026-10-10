@@ -618,19 +618,34 @@ Item {
         target: tileCacheManager
 
         function onTileReady(key, fileUrl) {
-            var updated = root.tiles.slice()
-            var changed = false
-
-            for (var i = 0; i < updated.length; ++i) {
-                if (updated[i].key === key) {
-                    updated[i].source = fileUrl
-                    changed = true
-                    break
+            // Tile objects are immutable snapshots copied into tiles,
+            // stableTiles and fallbackTiles. Update every live snapshot so a
+            // retained viewport never contains empty-source placeholders.
+            function withReadySource(list) {
+                var updated = list.slice()
+                var changed = false
+                for (var i = 0; i < updated.length; ++i) {
+                    if (updated[i].key === key) {
+                        var item = Object.assign({}, updated[i])
+                        item.source = fileUrl
+                        updated[i] = item
+                        changed = true
+                    }
                 }
+                return { list: updated, changed: changed }
             }
 
-            if (changed)
-                root.tiles = updated
+            var current = withReadySource(root.tiles)
+            if (current.changed)
+                root.tiles = current.list
+
+            var stable = withReadySource(root.stableTiles)
+            if (stable.changed)
+                root.stableTiles = stable.list
+
+            var fallback = withReadySource(root.fallbackTiles)
+            if (fallback.changed)
+                root.fallbackTiles = fallback.list
         }
 
         function onTileFailed(key) {
