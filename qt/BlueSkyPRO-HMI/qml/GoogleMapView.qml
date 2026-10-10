@@ -7,6 +7,9 @@ Item {
     property real centerLatitude: 55.7558
     property real centerLongitude: 37.6176
     property int zoomLevel: 10
+    // Fractional visual zoom is applied immediately to loaded tiles; network
+    // requests are rebuilt only when a whole zoom level is crossed.
+    property real visualZoomScale: 1.0
     // Side panels overlay this full-width map view.
     property real leftPanelWidth: 0
     property real rightPanelWidth: 0
@@ -39,8 +42,14 @@ Item {
     readonly property int tileSize: 256
     property real panOffsetX: 0
     property real panOffsetY: 0
+    property bool committingPan: false
     property var tiles: []
+    // Keep the last complete tile set visible while the next viewport loads.
+    property var fallbackTiles: []
+    property var stableTiles: []
     property int loadedTileCount: 0
+    property int loadedVisibleTileCount: 0
+    property int visibleTileCount: 0
     property int failedTileCount: 0
 
     signal viewChanged(real latitude, real longitude, int zoom)
@@ -51,6 +60,24 @@ Item {
 
     function worldSize() {
         return tileSize * Math.pow(2, zoomLevel)
+    }
+
+    function applySmoothZoom(delta) {
+        if (!delta)
+            return
+
+        // One wheel notch corresponds to a quarter zoom level. Scaling is
+        // continuous; the discrete tile level changes only at exact 2x/0.5x.
+        visualZoomScale *= Math.pow(2, delta / 120.0 * 0.25)
+        visualZoomScale = clamp(visualZoomScale, 0.5, 2.0)
+
+        if (visualZoomScale >= 2.0 && zoomLevel < 20) {
+            zoomLevel += 1
+            visualZoomScale = 1.0
+        } else if (visualZoomScale <= 0.5 && zoomLevel > 2) {
+            zoomLevel -= 1
+            visualZoomScale = 1.0
+        }
     }
 
     function longitudeToWorld(lon) {
@@ -79,13 +106,24 @@ Item {
         if (width <= 0 || height <= 0)
             return
 
+        // Preserve the current tile layer until the replacement viewport is
+        // fully ready; this avoids clearing the map during network fetches.
+        if (stableTiles.length > 0)
+            fallbackTiles = stableTiles
+
+        // Cancel queued requests from the previous viewport before scheduling
+        // the current visible tiles. In-flight requests may still populate cache.
+        tileCacheManager.beginViewUpdate()
         loadedTileCount = 0
+        loadedVisibleTileCount = 0
+        visibleTileCount = 0
         failedTileCount = 0
         if ((selectedMapProvider.indexOf("MAPTILER") === 0 && !mapTilerKeyAvailable) ||
                 (selectedMapProvider === "CARTO_DARK" &&
                  (typeof cartoApiKey === "undefined" || cartoApiKey.length === 0)) ||
                 (selectedMapProvider === "YANDEX" && !yandexKeyAvailable)) {
             mapStatus = "API KEY REQUIRED"
+            // Keep fallback tiles visible even when a provider key is missing.
             tiles = []
             return
         }
@@ -95,10 +133,15 @@ Item {
         var cx = longitudeToWorld(centerLongitude)
         var cy = latitudeToWorld(centerLatitude)
         var tileCount = Math.pow(2, zoomLevel)
-        var firstX = Math.floor((cx - width / 2) / tileSize)
-        var lastX = Math.floor((cx + width / 2) / tileSize)
-        var firstY = Math.floor((cy - height / 2) / tileSize)
-        var lastY = Math.floor((cy + height / 2) / tileSize)
+        // Request only a one-tile overscan around the viewport. The previous
+        // two-tile ring caused a large burst of off-screen downloads on every
+        // committed zoom/pan (especially on wide desktop windows). Cached tiles
+        // remain local; a small ring still covers fractional zoom and drag edges.
+        var overscanTiles = 1
+        var firstX = Math.floor((cx - width / 2) / tileSize) - overscanTiles
+        var lastX = Math.floor((cx + width / 2) / tileSize) + overscanTiles
+        var firstY = Math.floor((cy - height / 2) / tileSize) - overscanTiles
+        var lastY = Math.floor((cy + height / 2) / tileSize) + overscanTiles
         var result = []
 
         for (var ty = firstY; ty <= lastY; ++ty) {
@@ -107,11 +150,20 @@ Item {
 
             for (var tx = firstX; tx <= lastX; ++tx) {
                 var wrappedX = ((tx % tileCount) + tileCount) % tileCount
+                var tileX = tx * tileSize - cx + width / 2 + panOffsetX
+                var tileY = ty * tileSize - cy + height / 2 + panOffsetY
+                var isVisible = tileX < width && tileX + tileSize > 0
+                             && tileY < height && tileY + tileSize > 0
+                if (isVisible)
+                    visibleTileCount++
+
                 result.push({
                     tx: tx,
                     ty: ty,
-                    x: tx * tileSize - cx + width / 2 + panOffsetX,
-                    y: ty * tileSize - cy + height / 2 + panOffsetY,
+                    tileZoom: zoomLevel,
+                    visible: isVisible,
+                    x: tileX,
+                    y: tileY,
                     key: (useMapTiler ? "maptiler/" + selectedMapProvider.toLowerCase() + "/" :
                           (useCartoDark ? "carto/dark_all/" : "yandex/future_map/web_mercator/")) +
                          zoomLevel + "/" + wrappedX + "/" + ty,
@@ -159,10 +211,17 @@ Item {
     function commitPan() {
         var centerX = longitudeToWorld(centerLongitude) - panOffsetX
         var centerY = latitudeToWorld(centerLatitude) - panOffsetY
-        centerLongitude = worldToLongitude(centerX)
-        centerLatitude = clamp(worldToLatitude(centerY), -85.0, 85.0)
+        var nextLongitude = worldToLongitude(centerX)
+        var nextLatitude = clamp(worldToLatitude(centerY), -85.0, 85.0)
+
+        // Avoid rebuilding twice from the two center property notifications.
+        committingPan = true
         panOffsetX = 0
         panOffsetY = 0
+        centerLongitude = nextLongitude
+        centerLatitude = nextLatitude
+        committingPan = false
+
         rebuildTiles()
         routeCanvas.requestPaint()
         viewChanged(centerLatitude, centerLongitude, zoomLevel)
@@ -171,29 +230,52 @@ Item {
     onWidthChanged: rebuildTiles()
     onHeightChanged: rebuildTiles()
     onRouteCoordinatesChanged: routeCanvas.requestPaint()
-    onCenterLatitudeChanged: { rebuildTiles(); routeCanvas.requestPaint() }
-    onCenterLongitudeChanged: { rebuildTiles(); routeCanvas.requestPaint() }
+    onCenterLatitudeChanged: { if (!committingPan) rebuildTiles(); routeCanvas.requestPaint() }
+    onCenterLongitudeChanged: { if (!committingPan) rebuildTiles(); routeCanvas.requestPaint() }
     onZoomLevelChanged: { rebuildTiles(); routeCanvas.requestPaint() }
     onPanOffsetXChanged: routeCanvas.requestPaint()
     onPanOffsetYChanged: routeCanvas.requestPaint()
 
     Rectangle {
         anchors.fill: parent
-        color: "#E8EEF2"
+        color: "#071321"
+    }
+
+    // Keep the previous completed viewport underneath while new tiles load.
+    Repeater {
+        id: fallbackTilesRepeater
+        model: root.fallbackTiles
+
+        delegate: Image {
+            readonly property real retainedScale: Math.pow(2, root.zoomLevel - modelData.tileZoom)
+            readonly property real retainedCenterX: root.longitudeToWorld(root.centerLongitude)
+            readonly property real retainedCenterY: root.latitudeToWorld(root.centerLatitude)
+            readonly property real retainedTileX: modelData.tx * root.tileSize * retainedScale
+            readonly property real retainedTileY: modelData.ty * root.tileSize * retainedScale
+            x: retainedTileX - retainedCenterX + root.width / 2 + root.panOffsetX
+            y: retainedTileY - retainedCenterY + root.height / 2 + root.panOffsetY
+            width: root.tileSize * retainedScale
+            height: root.tileSize * retainedScale
+            source: modelData.source
+            asynchronous: true
+            cache: modelData.source.indexOf("data:") !== 0
+            fillMode: Image.Stretch
+            smooth: true
+        }
     }
 
     Repeater {
+        id: currentTilesRepeater
         model: root.tiles
 
         delegate: Image {
-            x: modelData.x + root.panOffsetX
-            y: modelData.y + root.panOffsetY
-            width: root.tileSize
-            height: root.tileSize
+            x: root.width / 2 + (modelData.x + root.panOffsetX - root.width / 2) * root.visualZoomScale
+            y: root.height / 2 + (modelData.y + root.panOffsetY - root.height / 2) * root.visualZoomScale
+            width: root.tileSize * root.visualZoomScale
+            height: root.tileSize * root.visualZoomScale
             source: modelData.source
             asynchronous: true
             retainWhileLoading: true
-            // Do not retain no-store/data-URL tiles in the Qt Quick image cache.
             cache: modelData.source.indexOf("data:") !== 0
             fillMode: Image.Stretch
             property int lastStatus: Image.Null
@@ -205,11 +287,31 @@ Item {
 
                 if (status === Image.Ready) {
                     root.loadedTileCount++
-                    if (root.loadedTileCount === root.tiles.length && root.failedTileCount === 0)
-                        root.mapStatus = "READY"
+                    if (modelData.visible)
+                        root.loadedVisibleTileCount++
+
+                    // The loading state is based on tiles intersecting the
+                    // viewport. Overscan tiles are useful for smooth panning,
+                    // but must not keep the whole map marked LOADING.
+                    if (root.loadedVisibleTileCount >= root.visibleTileCount
+                            && root.visibleTileCount > 0) {
+                        root.mapStatus = root.failedTileCount === 0
+                                ? "READY" : "TILE LOAD ERROR"
+                        root.stableTiles = root.tiles
+                        root.fallbackTiles = []
+                    }
                 } else if (status === Image.Error) {
-                    root.failedTileCount++
-                    root.mapStatus = "TILE LOAD ERROR"
+                    if (modelData.visible) {
+                        root.failedTileCount++
+                        root.mapStatus = "TILE LOAD ERROR"
+                    }
+                    // A failed off-screen overscan tile does not block the
+                    // visible map from becoming READY.
+                    if (root.loadedVisibleTileCount >= root.visibleTileCount
+                            && root.visibleTileCount > 0) {
+                        root.stableTiles = root.tiles
+                        root.fallbackTiles = []
+                    }
                 }
             }
 
@@ -246,6 +348,13 @@ Item {
                 x -= size
 
             return { x: x, y: y }
+        }
+
+        transform: Scale {
+            origin.x: routeCanvas.width / 2
+            origin.y: routeCanvas.height / 2
+            xScale: root.visualZoomScale
+            yScale: root.visualZoomScale
         }
 
         onPaint: {
@@ -332,8 +441,7 @@ Item {
                 return
             }
 
-            var direction = event.angleDelta.y > 0 ? 1 : -1
-            root.zoomLevel = root.clamp(root.zoomLevel + direction, 2, 20)
+            root.applySmoothZoom(event.angleDelta.y)
             event.accepted = true
         }
     }
@@ -343,7 +451,7 @@ Item {
         id: providerSelector
         z: 31
         anchors.left: parent.left
-        anchors.leftMargin: 12
+        anchors.leftMargin: root.leftPanelWidth + 12
         anchors.top: parent.top
         anchors.topMargin: 12
         width: Math.max(148, providerLabel.implicitWidth + 28)
@@ -464,7 +572,7 @@ Item {
             height: parent.height / 2
             enabled: root.zoomLevel < 20
             cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-            onClicked: root.zoomLevel = Math.min(20, root.zoomLevel + 1)
+            onClicked: root.applySmoothZoom(480)
         }
 
         Text {
@@ -485,7 +593,7 @@ Item {
             height: parent.height / 2
             enabled: root.zoomLevel > 2
             cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-            onClicked: root.zoomLevel = Math.max(2, root.zoomLevel - 1)
+            onClicked: root.applySmoothZoom(-480)
         }
     }
 
@@ -534,19 +642,32 @@ Item {
         target: tileCacheManager
 
         function onTileReady(key, fileUrl) {
-            var updated = root.tiles.slice()
-            var changed = false
+            // Update only the matching Image delegates. Replacing root.tiles with
+            // a new JS array on every response resets the Repeater model and can
+            // recreate every tile delegate while a viewport is still loading.
+            function updateSources(list, repeater) {
+                var changed = false
+                for (var i = 0; i < list.length; ++i) {
+                    if (list[i].key !== key)
+                        continue
 
-            for (var i = 0; i < updated.length; ++i) {
-                if (updated[i].key === key) {
-                    updated[i].source = fileUrl
+                    // These arrays are snapshots, but their entries are mutable
+                    // JS objects. Update the snapshot and the live delegate
+                    // directly so other tiles are not recreated.
+                    list[i].source = fileUrl
+                    if (repeater) {
+                        var tileImage = repeater.itemAt(i)
+                        if (tileImage)
+                            tileImage.source = fileUrl
+                    }
                     changed = true
-                    break
                 }
+                return changed
             }
 
-            if (changed)
-                root.tiles = updated
+            updateSources(root.tiles, currentTilesRepeater)
+            updateSources(root.stableTiles, null)
+            updateSources(root.fallbackTiles, fallbackTilesRepeater)
         }
 
         function onTileFailed(key) {
