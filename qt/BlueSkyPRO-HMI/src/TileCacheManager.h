@@ -20,6 +20,7 @@ class TileCacheManager final : public QObject
 public:
     explicit TileCacheManager(QObject *parent = nullptr);
 
+    Q_INVOKABLE void beginViewUpdate();
     Q_INVOKABLE QString requestTile(const QString &key, const QString &url);
 
 signals:
@@ -31,6 +32,7 @@ private:
         QString key;
         QString url;
         int retryCount = 0;
+        quint64 viewGeneration = 0;
     };
 
     void enqueue(const Request &request);
@@ -52,5 +54,6 @@ private:
     QTimer m_cleanupTimer;
     std::unique_ptr<QDirIterator> m_cleanupIterator;
     int m_activeCount = 0;
+    quint64 m_viewGeneration = 0;
     qint64 m_lastStartMs = 0;
 };
