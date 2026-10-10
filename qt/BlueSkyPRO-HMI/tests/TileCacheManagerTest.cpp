@@ -6,6 +6,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QStringList>
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QUrl>
@@ -71,7 +72,7 @@ int main(int argc, char *argv[])
     QCoreApplication app(argc, argv);
     QTemporaryDir cache;
     assert(cache.isValid());
-    qputenv("BLUESKY_TILE_CACHE_DIR", cache.path().toUtf8());
+    qputenv("BLUESKY_TILE_CACHE_DIR", QFile::encodeName(cache.path()));
 
     const QString lightKey = QStringLiteral("maptiler/hybrid-v4/10/3/4");
     const QString darkKey = QStringLiteral("maptiler/hybrid-v4-dark/10/3/4");
@@ -117,7 +118,13 @@ int main(int argc, char *argv[])
         }
     });
 
+    qputenv("BLUESKY_PERF_DIAGNOSTICS", QByteArray("1"));
     TileCacheManager manager;
+    QStringList diagnosticEvents;
+    QObject::connect(&manager, &TileCacheManager::diagnosticEvent, &app,
+                     [&diagnosticEvents](const QString &eventName, const QVariantMap &) {
+        diagnosticEvents.append(eventName);
+    });
     const QString lightSource = manager.requestTile(
         lightKey, QStringLiteral("http://127.0.0.1:1/should-not-be-requested"));
     const QString darkSource = manager.requestTile(
@@ -137,11 +144,13 @@ int main(int argc, char *argv[])
     const QString repeatedSource = manager.requestTile(
         lightKey, QStringLiteral("not-a-network-url"));
     assert(repeatedSource == lightSource);
+    assert(diagnosticEvents.contains(QStringLiteral("cache_hit")));
 
     // Expired tiles must not be served, and are removed on access.
     const QString expiredSource = manager.requestTile(
         expiredKey, QStringLiteral("invalid://expired-cache-miss"));
     assert(expiredSource.isEmpty());
+    assert(diagnosticEvents.contains(QStringLiteral("cache_miss")));
     assert(!QFileInfo::exists(expiredPath));
 
     // Expired entries that are not requested are also removed in bounded batches.
@@ -176,5 +185,18 @@ int main(int argc, char *argv[])
     assert(!QFileInfo::exists(noStorePath));
     assert(manager.requestTile(noStoreKey, QStringLiteral("invalid://must-fetch-again"))
            .isEmpty());
+    qputenv("BLUESKY_PERF_DIAGNOSTICS", QByteArray("0"));
+    TileCacheManager quietManager;
+    QStringList quietEvents;
+    QObject::connect(&quietManager, &TileCacheManager::diagnosticEvent, &app,
+                     [&quietEvents](const QString &eventName, const QVariantMap &) {
+        quietEvents.append(eventName);
+    });
+
+    // Запрос попадёт в уже существующий кэш; сеть не требуется.
+    assert(!quietManager.requestTile(
+        lightKey, QStringLiteral("invalid://must-not-be-requested")).isEmpty());
+    assert(quietEvents.isEmpty());
+
     return 0;
 }

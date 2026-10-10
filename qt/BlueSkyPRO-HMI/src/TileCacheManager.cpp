@@ -11,6 +11,9 @@
 #include <QStandardPaths>
 #include <QUrl>
 #include <QDateTime>
+#include <QDebug>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 namespace {
 constexpr int kMaxConcurrentRequests = 6;
@@ -63,6 +66,9 @@ bool parseMaxAge(const QByteArray &header, qint64 *seconds)
 TileCacheManager::TileCacheManager(QObject *parent)
     : QObject(parent)
 {
+    m_diagnosticsEnabled = qEnvironmentVariableIntValue("BLUESKY_PERF_DIAGNOSTICS") == 1;
+    recordDiagnostic(QStringLiteral("diagnostics_started"),
+                     {{QStringLiteral("enabled"), m_diagnosticsEnabled}});
     m_pumpTimer.setSingleShot(true);
     connect(&m_pumpTimer, &QTimer::timeout, this, &TileCacheManager::pump);
     m_cleanupTimer.setSingleShot(true);
@@ -76,6 +82,23 @@ TileCacheManager::TileCacheManager(QObject *parent)
             QDirIterator::Subdirectories);
         m_cleanupTimer.start(0);
     }
+}
+
+void TileCacheManager::recordDiagnostic(const QString &eventName,
+                                        const QVariantMap &metrics) const
+{
+    if (!m_diagnosticsEnabled)
+        return;
+
+    QJsonObject object;
+    object.insert(QStringLiteral("event"), eventName);
+    object.insert(QStringLiteral("timestamp_utc"),
+                  QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+    for (auto it = metrics.cbegin(); it != metrics.cend(); ++it)
+        object.insert(it.key(), QJsonValue::fromVariant(it.value()));
+
+    qInfo().noquote() << QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact));
+    emit const_cast<TileCacheManager *>(this)->diagnosticEvent(eventName, metrics);
 }
 
 QString TileCacheManager::cacheRootPath() const
@@ -156,6 +179,7 @@ void TileCacheManager::cleanupExpiredCacheBatch()
 
 void TileCacheManager::beginViewUpdate()
 {
+    const int discardedQueueCount = m_queue.size();
     m_currentViewKeys.clear();
 
     // Requests not yet started are tied to the previous viewport. Drop them
@@ -174,6 +198,9 @@ void TileCacheManager::beginViewUpdate()
     }
 
     m_pumpTimer.stop();
+    recordDiagnostic(QStringLiteral("viewport_queue_reset"),
+                     {{QStringLiteral("queued_before_reset"), discardedQueueCount},
+                      {QStringLiteral("active_requests"), m_activeCount}});
 }
 
 QString TileCacheManager::requestTile(const QString &key, const QString &url)
@@ -185,6 +212,8 @@ QString TileCacheManager::requestTile(const QString &key, const QString &url)
         const QDateTime expiry = cacheExpiry(path);
         if (cachedInfo.size() > 0 && expiry.isValid()
                 && expiry > QDateTime::currentDateTimeUtc()) {
+            recordDiagnostic(QStringLiteral("cache_hit"),
+                             {{QStringLiteral("file_size_bytes"), cachedInfo.size()}});
             return QUrl::fromLocalFile(path).toString();
         }
 
@@ -192,9 +221,10 @@ QString TileCacheManager::requestTile(const QString &key, const QString &url)
         removeCacheEntry(path);
     }
 
+    recordDiagnostic(QStringLiteral("cache_miss"), {});
     if (!m_pending.contains(key)) {
         m_pending.insert(key);
-        enqueue(Request{key, url, 0});
+        enqueue(Request{key, url, 0, QDateTime::currentMSecsSinceEpoch(), 0});
     }
 
     return {};
@@ -202,7 +232,10 @@ QString TileCacheManager::requestTile(const QString &key, const QString &url)
 
 void TileCacheManager::enqueue(const Request &request)
 {
-    m_queue.enqueue(request);
+    Request queued = request;
+    if (queued.queuedAtMs == 0)
+        queued.queuedAtMs = QDateTime::currentMSecsSinceEpoch();
+    m_queue.enqueue(queued);
     pump();
 }
 
@@ -228,7 +261,13 @@ void TileCacheManager::pump()
     if (m_queue.isEmpty())
         return;
 
-    const Request request = m_queue.dequeue();
+    Request request = m_queue.dequeue();
+    request.startedAtMs = QDateTime::currentMSecsSinceEpoch();
+    recordDiagnostic(QStringLiteral("network_started"),
+                     {{QStringLiteral("queue_wait_ms"), request.startedAtMs - request.queuedAtMs},
+                      {QStringLiteral("active_requests"), m_activeCount + 1},
+                      {QStringLiteral("queued_requests"), m_queue.size()},
+                      {QStringLiteral("retry"), request.retryCount}});
     QNetworkRequest networkRequest{QUrl(request.url)};
     networkRequest.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                                 QNetworkRequest::NoLessSafeRedirectPolicy);
@@ -261,11 +300,18 @@ void TileCacheManager::handleFinished(QNetworkReply *reply)
     --m_activeCount;
 
     const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    const qint64 networkDurationMs = request.startedAtMs > 0
+        ? QDateTime::currentMSecsSinceEpoch() - request.startedAtMs : -1;
     const bool ok = reply->error() == QNetworkReply::NoError
         && status >= 200 && status < 300;
 
     if (ok) {
         const QByteArray data = reply->readAll();
+        recordDiagnostic(QStringLiteral("network_complete"),
+                         {{QStringLiteral("duration_ms"), networkDurationMs},
+                          {QStringLiteral("http_status"), status},
+                          {QStringLiteral("bytes"), data.size()},
+                          {QStringLiteral("network_error"), static_cast<int>(reply->error())}});
         const QByteArray cacheControl = reply->rawHeader("Cache-Control");
         qint64 maxAgeSeconds = 0;
         const bool hasMaxAgeDirective = hasCacheDirective(cacheControl, "max-age");
@@ -293,6 +339,7 @@ void TileCacheManager::handleFinished(QNetworkReply *reply)
                            QStringLiteral("data:image/png;base64,")
                                + QString::fromLatin1(data.toBase64()));
         } else if (!data.isEmpty()) {
+            const qint64 cacheWriteStartedMs = QDateTime::currentMSecsSinceEpoch();
             const QString path = cachePath(request.key);
             QSaveFile file(path);
             bool saved = false;
@@ -307,6 +354,10 @@ void TileCacheManager::handleFinished(QNetworkReply *reply)
                 }
             }
 
+            recordDiagnostic(QStringLiteral("cache_write"),
+                             {{QStringLiteral("duration_ms"), QDateTime::currentMSecsSinceEpoch() - cacheWriteStartedMs},
+                              {QStringLiteral("bytes"), data.size()},
+                              {QStringLiteral("success"), saved}});
             if (saved) {
                 emit tileReady(request.key, QUrl::fromLocalFile(path).toString());
             } else {
@@ -320,7 +371,13 @@ void TileCacheManager::handleFinished(QNetworkReply *reply)
         }
         m_pending.remove(request.key);
     } else if (request.retryCount < kMaxRetries && isTransientFailure(reply)) {
-        const Request retry{request.key, request.url, request.retryCount + 1};
+        recordDiagnostic(QStringLiteral("network_failure_retry"),
+                         {{QStringLiteral("duration_ms"), networkDurationMs},
+                          {QStringLiteral("http_status"), status},
+                          {QStringLiteral("network_error"), static_cast<int>(reply->error())},
+                          {QStringLiteral("retry"), request.retryCount + 1}});
+        const Request retry{request.key, request.url, request.retryCount + 1,
+                            QDateTime::currentMSecsSinceEpoch(), 0};
         QTimer::singleShot(1200, this, [this, retry]() {
             // Do not retry a tile after the user has moved to another viewport.
             if (!m_currentViewKeys.contains(retry.key)) {
@@ -329,9 +386,17 @@ void TileCacheManager::handleFinished(QNetworkReply *reply)
                 return;
             }
             m_queue.prepend(retry);
+            recordDiagnostic(QStringLiteral("retry_queued"),
+                             {{QStringLiteral("queued_requests"), m_queue.size()},
+                              {QStringLiteral("retry"), retry.retryCount}});
             pump();
         });
     } else {
+        recordDiagnostic(QStringLiteral("tile_failure"),
+                         {{QStringLiteral("duration_ms"), networkDurationMs},
+                          {QStringLiteral("http_status"), status},
+                          {QStringLiteral("network_error"), static_cast<int>(reply->error())},
+                          {QStringLiteral("retry"), request.retryCount}});
         m_pending.remove(request.key);
         emit tileFailed(request.key);
     }
