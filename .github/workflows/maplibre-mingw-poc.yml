@@ -126,6 +126,72 @@ jobs:
             }
           }
 
+      - name: Diagnostic control — Qt Quick without MapLibre
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'build-quick-example\\QMapLibreExampleQuickStandalone.exe'
+          $probeQml = Join-Path $env:GITHUB_WORKSPACE 'qtquick-control-probe.qml'
+          $screenshot = Join-Path $env:GITHUB_WORKSPACE 'qtquick-control-probe.png'
+          $install = Join-Path $env:GITHUB_WORKSPACE 'maplibre-install'
+          $qtBin = Join-Path $env:QT_ROOT_DIR 'bin'
+          $env:PATH = "$install\\bin;$qtBin;$env:PATH"
+          $env:QML2_IMPORT_PATH = "$install\\qml"
+          $env:QT_PLUGIN_PATH = "$install\\plugins;$env:QT_ROOT_DIR\\plugins"
+          $env:QSG_RHI_BACKEND = 'opengl'
+          $env:QT_LOGGING_RULES = 'qt.qml.*=true;qt.quick.*=true;qt.scenegraph.*=true'
+          $stdout = Join-Path $env:RUNNER_TEMP 'qtquick-control.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'qtquick-control.stderr.log'
+          @'
+          import QtQuick 6.5
+
+          Window {
+              width: 512
+              height: 512
+              visible: true
+              color: "#ff00ff"
+              Rectangle {
+                  anchors.fill: parent
+                  anchors.margins: 32
+                  color: "#00aa44"
+              }
+              Timer {
+                  interval: 1000
+                  running: true
+                  onTriggered: {
+                      if (parent.grabToImage(function(result) {
+                          if (result.saveToFile("qtquick-control-probe.png"))
+                              Qt.exit(0)
+                          else
+                              Qt.exit(5)
+                      }))
+                          return
+                      Qt.exit(6)
+                  }
+              }
+              Timer {
+                  interval: 15000
+                  running: true
+                  onTriggered: Qt.exit(4)
+              }
+          }
+          '@ | Set-Content -Path $probeQml -Encoding utf8
+
+          $process = Start-Process -FilePath $exe -ArgumentList @($probeQml) -WorkingDirectory $env:GITHUB_WORKSPACE -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          if (-not $process.WaitForExit(20000)) {
+            Stop-Process -Id $process.Id -Force
+            throw 'Qt Quick control probe timed out.'
+          }
+          if ($process.ExitCode -ne 0) {
+            Get-Content $stdout -ErrorAction SilentlyContinue
+            Get-Content $stderr -ErrorAction SilentlyContinue
+            throw "Qt Quick control probe exited with code $($process.ExitCode)."
+          }
+          if (-not (Test-Path $screenshot)) {
+            throw 'Qt Quick control probe exited without a screenshot.'
+          }
+          Write-Output 'PASS: Qt Quick control window captured a screenshot without importing MapLibre.'
+
       - name: Runtime smoke test — rendered map pixels
         shell: pwsh
         run: |
