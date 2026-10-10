@@ -611,40 +611,32 @@ Item {
         target: tileCacheManager
 
         function onTileReady(key, fileUrl) {
-            // Tile objects are immutable snapshots copied into tiles,
-            // stableTiles and fallbackTiles. Update every live snapshot so a
-            // retained viewport never contains empty-source placeholders.
-            function withReadySource(list) {
-                var updated = list.slice()
+            // Update only the matching Image delegates. Replacing root.tiles with
+            // a new JS array on every response resets the Repeater model and can
+            // recreate every tile delegate while a viewport is still loading.
+            function updateSources(list, repeater) {
                 var changed = false
-                for (var i = 0; i < updated.length; ++i) {
-                    if (updated[i].key === key) {
-                        var item = Object.assign({}, updated[i])
-                        item.source = fileUrl
-                        updated[i] = item
-                        changed = true
+                for (var i = 0; i < list.length; ++i) {
+                    if (list[i].key !== key)
+                        continue
+
+                    // These arrays are snapshots, but their entries are mutable
+                    // JS objects. Update the snapshot and the live delegate
+                    // directly so other tiles are not recreated.
+                    list[i].source = fileUrl
+                    if (repeater) {
+                        var tileImage = repeater.itemAt(i)
+                        if (tileImage)
+                            tileImage.source = fileUrl
                     }
+                    changed = true
                 }
-                return { list: updated, changed: changed }
+                return changed
             }
 
-            var current = withReadySource(root.tiles)
-            if (current.changed) {
-                root.tiles = current.list
-                // The request queue also contains off-screen overscan tiles.
-                // Do not keep the full-map loading banner up while those
-                // background tiles are still downloading.
-                if (root.mapStatus === "LOADING")
-                    root.mapStatus = "READY"
-            }
-
-            var stable = withReadySource(root.stableTiles)
-            if (stable.changed)
-                root.stableTiles = stable.list
-
-            var fallback = withReadySource(root.fallbackTiles)
-            if (fallback.changed)
-                root.fallbackTiles = fallback.list
+            updateSources(root.tiles, currentTilesRepeater)
+            updateSources(root.stableTiles, null)
+            updateSources(root.fallbackTiles, fallbackTilesRepeater)
         }
 
         function onTileFailed(key) {
