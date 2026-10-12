@@ -6,6 +6,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QStringList>
 #include <QTemporaryDir>
 #include <QTimer>
@@ -121,9 +122,12 @@ int main(int argc, char *argv[])
     qputenv("BLUESKY_PERF_DIAGNOSTICS", QByteArray("1"));
     TileCacheManager manager;
     QStringList diagnosticEvents;
+    QHash<QString, QVariantMap> diagnosticMetrics;
     QObject::connect(&manager, &TileCacheManager::diagnosticEvent, &app,
-                     [&diagnosticEvents](const QString &eventName, const QVariantMap &) {
+                     [&diagnosticEvents, &diagnosticMetrics](
+                         const QString &eventName, const QVariantMap &metrics) {
         diagnosticEvents.append(eventName);
+        diagnosticMetrics.insert(eventName, metrics);
     });
     const QString lightSource = manager.requestTile(
         lightKey, QStringLiteral("http://127.0.0.1:1/should-not-be-requested"));
@@ -166,6 +170,26 @@ int main(int argc, char *argv[])
     QString downloadedSource;
     assert(awaitTile(manager, shortLivedKey, url, &downloadedSource));
     assert(QUrl(downloadedSource).isLocalFile());
+
+    // Successful local HTTP responses must expose timing and cache-write metrics.
+    assert(diagnosticEvents.contains(QStringLiteral("network_started")));
+    assert(diagnosticEvents.contains(QStringLiteral("network_complete")));
+    assert(diagnosticEvents.contains(QStringLiteral("cache_write")));
+    const QVariantMap networkStarted =
+        diagnosticMetrics.value(QStringLiteral("network_started"));
+    assert(networkStarted.contains(QStringLiteral("queue_wait_ms")));
+    assert(networkStarted.value(QStringLiteral("queue_wait_ms")).toLongLong() >= 0);
+    const QVariantMap networkComplete =
+        diagnosticMetrics.value(QStringLiteral("network_complete"));
+    assert(networkComplete.value(QStringLiteral("http_status")).toInt() == 200);
+    assert(networkComplete.value(QStringLiteral("bytes")).toLongLong() == 8);
+    assert(networkComplete.value(QStringLiteral("duration_ms")).toLongLong() >= 0);
+    assert(networkComplete.value(QStringLiteral("network_error")).toInt() == 0);
+    const QVariantMap cacheWrite = diagnosticMetrics.value(QStringLiteral("cache_write"));
+    assert(cacheWrite.value(QStringLiteral("success")).toBool());
+    assert(cacheWrite.value(QStringLiteral("bytes")).toLongLong() == 8);
+    assert(cacheWrite.value(QStringLiteral("duration_ms")).toLongLong() >= 0);
+
     assert(!manager.requestTile(shortLivedKey, url).isEmpty());
 
     QEventLoop expiryLoop;
