@@ -115,13 +115,13 @@ int main(int argc, char *argv[])
                 const QByteArray body("tiledata");
                 const int status = failTransiently ? 503 : 200;
                 const QByteArray statusLine = failTransiently
-                    ? QByteArray("HTTP/1.1 503 Service Unavailable\\r\\n")
-                    : QByteArray("HTTP/1.1 200 OK\\r\\n");
+                    ? QByteArray("HTTP/1.1 503 Service Unavailable\r\n")
+                    : QByteArray("HTTP/1.1 200 OK\r\n");
                 const QByteArray response =
-                    statusLine + "Content-Type: image/png\\r\\nCache-Control: "
+                    statusLine + "Content-Type: image/png\r\nCache-Control: "
                     + cacheControl
-                    + "\\r\\nContent-Length: " + QByteArray::number(body.size())
-                    + "\\r\\nConnection: close\\r\\n\\r\\n" + body;
+                    + "\r\nContent-Length: " + QByteArray::number(body.size())
+                    + "\r\nConnection: close\r\n\r\n" + body;
                 socket->write(response);
                 socket->disconnectFromHost();
             });
