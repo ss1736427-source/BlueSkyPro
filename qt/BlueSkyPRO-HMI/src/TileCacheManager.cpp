@@ -271,6 +271,9 @@ void TileCacheManager::pump()
     QNetworkRequest networkRequest{QUrl(request.url)};
     networkRequest.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                                 QNetworkRequest::NoLessSafeRedirectPolicy);
+    // Qt disables transfer timeouts by default. Bound idle tile requests so a
+    // stalled provider connection cannot occupy a network slot indefinitely.
+    networkRequest.setTransferTimeout(15000);
 
     QNetworkReply *reply = m_network.get(networkRequest);
     m_activeRequests.insert(reply, request);
