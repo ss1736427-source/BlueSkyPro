@@ -94,8 +94,10 @@ int main(int argc, char *argv[])
     }
 
     QTcpServer server;
+    QHash<QByteArray, int> requestCounts;
     assert(server.listen(QHostAddress::LocalHost, 0));
-    QObject::connect(&server, &QTcpServer::newConnection, &server, [&server]() {
+    QObject::connect(&server, &QTcpServer::newConnection, &server,
+                     [&server, &requestCounts]() {
         while (server.hasPendingConnections()) {
             QTcpSocket *socket = server.nextPendingConnection();
             QObject::connect(socket, &QTcpSocket::readyRead, socket, [socket]() {
@@ -104,15 +106,22 @@ int main(int argc, char *argv[])
                     return;
                 socket->setProperty("responseSent", true);
 
-                const bool noStore = request.contains("/no-store");
+                const QByteArray path = request.split(' ').value(1);
+                ++requestCounts[path];
+                const bool noStore = path == "/no-store";
+                const bool failTransiently = path == "/retry-failure";
                 const QByteArray cacheControl = noStore
                     ? QByteArray("no-store") : QByteArray("max-age=1");
                 const QByteArray body("tiledata");
+                const int status = failTransiently ? 503 : 200;
+                const QByteArray statusLine = failTransiently
+                    ? QByteArray("HTTP/1.1 503 Service Unavailable\\r\\n")
+                    : QByteArray("HTTP/1.1 200 OK\\r\\n");
                 const QByteArray response =
-                    "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nCache-Control: "
+                    statusLine + "Content-Type: image/png\\r\\nCache-Control: "
                     + cacheControl
-                    + "\r\nContent-Length: " + QByteArray::number(body.size())
-                    + "\r\nConnection: close\r\n\r\n" + body;
+                    + "\\r\\nContent-Length: " + QByteArray::number(body.size())
+                    + "\\r\\nConnection: close\\r\\n\\r\\n" + body;
                 socket->write(response);
                 socket->disconnectFromHost();
             });
@@ -209,6 +218,26 @@ int main(int argc, char *argv[])
     assert(!QFileInfo::exists(noStorePath));
     assert(manager.requestTile(noStoreKey, QStringLiteral("invalid://must-fetch-again"))
            .isEmpty());
+
+    // A repeatable 503 response must produce one retry and then a final failure.
+    const QString retryFailureKey = QStringLiteral("test/retry-failure");
+    const QString retryFailureUrl = QStringLiteral("http://127.0.0.1:%1/retry-failure")
+                                        .arg(server.serverPort());
+    QString retryFailureSource;
+    assert(!awaitTile(manager, retryFailureKey, retryFailureUrl, &retryFailureSource));
+    assert(requestCounts.value(QByteArray("/retry-failure")) == 2);
+    assert(diagnosticEvents.contains(QStringLiteral("network_failure_retry")));
+    assert(diagnosticEvents.contains(QStringLiteral("retry_queued")));
+    assert(diagnosticEvents.contains(QStringLiteral("tile_failure")));
+    const QVariantMap retryMetrics =
+        diagnosticMetrics.value(QStringLiteral("network_failure_retry"));
+    assert(retryMetrics.value(QStringLiteral("http_status")).toInt() == 503);
+    assert(retryMetrics.value(QStringLiteral("retry")).toInt() == 1);
+    const QVariantMap failureMetrics =
+        diagnosticMetrics.value(QStringLiteral("tile_failure"));
+    assert(failureMetrics.value(QStringLiteral("http_status")).toInt() == 503);
+    assert(failureMetrics.value(QStringLiteral("retry")).toInt() == 1);
+
     qputenv("BLUESKY_PERF_DIAGNOSTICS", QByteArray("0"));
     TileCacheManager quietManager;
     QStringList quietEvents;
