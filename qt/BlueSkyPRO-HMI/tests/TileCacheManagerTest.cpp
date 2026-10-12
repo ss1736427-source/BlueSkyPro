@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
                      [&server, &requestCounts]() {
         while (server.hasPendingConnections()) {
             QTcpSocket *socket = server.nextPendingConnection();
-            QObject::connect(socket, &QTcpSocket::readyRead, socket, [socket]() {
+            QObject::connect(socket, &QTcpSocket::readyRead, socket, [&requestCounts, socket]() {
                 const QByteArray request = socket->readAll();
                 if (socket->property("responseSent").toBool())
                     return;
@@ -113,7 +113,6 @@ int main(int argc, char *argv[])
                 const QByteArray cacheControl = noStore
                     ? QByteArray("no-store") : QByteArray("max-age=1");
                 const QByteArray body("tiledata");
-                const int status = failTransiently ? 503 : 200;
                 const QByteArray statusLine = failTransiently
                     ? QByteArray("HTTP/1.1 503 Service Unavailable\r\n")
                     : QByteArray("HTTP/1.1 200 OK\r\n");
