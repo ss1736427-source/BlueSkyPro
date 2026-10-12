@@ -301,14 +301,19 @@ Item {
                         root.fallbackTiles = []
                     }
                 } else if (status === Image.Error) {
-                    if (modelData.visible) {
+                    // A tile failure may arrive both from the image loader and
+                    // the C++ network manager. Count each visible tile only once.
+                    if (modelData.visible && !modelData.failed) {
+                        modelData.failed = true
                         root.failedTileCount++
+                        root.loadedVisibleTileCount++
                         root.mapStatus = "TILE LOAD ERROR"
                     }
-                    // A failed off-screen overscan tile does not block the
-                    // visible map from becoming READY.
+                    // Failed tiles are terminal too: never leave LOADING waiting
+                    // for an image whose source can no longer become ready.
                     if (root.loadedVisibleTileCount >= root.visibleTileCount
                             && root.visibleTileCount > 0) {
+                        root.mapStatus = root.failedTileCount === 0 ? "READY" : "TILE LOAD ERROR"
                         root.stableTiles = root.tiles
                         root.fallbackTiles = []
                     }
@@ -671,7 +676,33 @@ Item {
         }
 
         function onTileFailed(key) {
-            root.mapStatus = "TILE LOAD ERROR"
+            // Network failures do not necessarily make Image.status become Error:
+            // an empty source can remain Null forever. Mark the matching tile as
+            // terminal so the visible viewport cannot stay in LOADING indefinitely.
+            var lists = [root.tiles]
+            for (var listIndex = 0; listIndex < lists.length; ++listIndex) {
+                var list = lists[listIndex]
+                for (var i = 0; i < list.length; ++i) {
+                    var tile = list[i]
+                    if (tile.key !== key || tile.failed)
+                        continue
+                    tile.failed = true
+                    if (tile.visible) {
+                        root.failedTileCount++
+                        root.loadedVisibleTileCount++
+                    }
+                }
+            }
+
+            if (root.failedTileCount > 0)
+                root.mapStatus = "TILE LOAD ERROR"
+
+            if (root.visibleTileCount > 0
+                    && root.loadedVisibleTileCount >= root.visibleTileCount) {
+                root.mapStatus = root.failedTileCount === 0 ? "READY" : "TILE LOAD ERROR"
+                root.stableTiles = root.tiles
+                root.fallbackTiles = []
+            }
         }
     }
 
