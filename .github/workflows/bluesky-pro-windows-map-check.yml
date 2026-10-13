@@ -1,0 +1,40 @@
+name: BlueSky PRO Windows Map Build
+
+on:
+  pull_request:
+    paths:
+      - 'qt/BlueSkyPRO-HMI/**'
+      - '.github/workflows/bluesky-pro-windows-map-check.yml'
+  workflow_dispatch:
+
+jobs:
+  build-hmi-windows:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Ninja
+        run: choco install ninja --yes --no-progress
+
+      - name: Install Qt MSVC
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.11.2'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          modules: 'qtshadertools qtlocation qtpositioning qtwebchannel qtwebengine'
+
+      - name: Configure
+        working-directory: qt/BlueSkyPRO-HMI
+        shell: pwsh
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+
+      - name: Build
+        working-directory: qt/BlueSkyPRO-HMI
+        run: cmake --build build --parallel
+
+      - name: Test
+        working-directory: qt/BlueSkyPRO-HMI
+        run: ctest --test-dir build --output-on-failure
