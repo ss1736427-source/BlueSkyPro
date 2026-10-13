@@ -51,3 +51,18 @@ jobs:
       - name: Test
         working-directory: qt/BlueSkyPRO-HMI
         run: ctest --test-dir build --output-on-failure
+
+      - name: Deploy Qt runtime
+        working-directory: qt/BlueSkyPRO-HMI
+        shell: pwsh
+        run: |
+          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --qmldir qml build\appBlueSkyPRO.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload Windows application bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlueSkyPRO-Windows-Map-Review
+          path: qt/BlueSkyPRO-HMI/build/
+          if-no-files-found: error
+          retention-days: 7
