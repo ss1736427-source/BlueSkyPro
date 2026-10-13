@@ -26,10 +26,23 @@ jobs:
           arch: 'win64_msvc2022_64'
           modules: 'qtshadertools qtlocation qtpositioning qtwebchannel qtwebengine'
 
+      - name: Configure MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Verify compiler and Qt kit
+        shell: pwsh
+        run: |
+          where.exe cl
+          where.exe cmake
+          Write-Host "QT_ROOT_DIR=$env:QT_ROOT_DIR"
+          if (-not (Test-Path "$env:QT_ROOT_DIR\lib\Qt6Core.lib")) { throw "Qt MSVC libraries not found under QT_ROOT_DIR" }
+
       - name: Configure
         working-directory: qt/BlueSkyPRO-HMI
         shell: pwsh
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
 
       - name: Build
         working-directory: qt/BlueSkyPRO-HMI
