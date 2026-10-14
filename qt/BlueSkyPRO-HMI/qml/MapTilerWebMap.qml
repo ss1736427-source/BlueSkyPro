@@ -9,7 +9,7 @@ Item {
     // Planning Core is the sole authority for route geometry. Empty means no route overlay.
     property var routeCoordinates: []
     signal useLegacyMapRequested()
-    // SDK is loaded in the embedded WebEngine; keep route updates sourced from Planning Core.
+    // Use the module CDN as the document origin so MapLibre v6 can create its CDN-derived worker from the same origin in Qt WebEngine.
     // Style switching uses a full style replacement to avoid diff-update incompatibilities between MapTiler styles.
     property bool htmlLoaded: false
 
@@ -128,7 +128,7 @@ Item {
         }
         Component.onCompleted: {
             if (root.apiKey.length > 0)
-                loadHtml(root.buildHtml(), "https://api.maptiler.com/")
+                loadHtml(root.buildHtml(), "https://unpkg.com/")
         }
     }
 
