@@ -59,6 +59,21 @@ jobs:
           & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --qmldir qml build\appBlueSkyPRO.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Windows application startup smoke test
+        working-directory: qt/BlueSkyPRO-HMI/build
+        shell: pwsh
+        run: |
+          $app = Start-Process -FilePath .\\appBlueSkyPRO.exe -PassThru -RedirectStandardOutput app-smoke.stdout.log -RedirectStandardError app-smoke.stderr.log
+          Start-Sleep -Seconds 8
+          $app.Refresh()
+          if ($app.HasExited) {
+            Get-Content app-smoke.stdout.log -ErrorAction SilentlyContinue
+            Get-Content app-smoke.stderr.log -ErrorAction SilentlyContinue
+            throw \"appBlueSkyPRO.exe exited during startup smoke test (code $($app.ExitCode))\"
+          }
+          Stop-Process -Id $app.Id -Force
+          Write-Host \"Startup smoke test passed: process remained alive for 8 seconds. This does not verify visual map rendering.\"
+
       - name: Upload Windows application bundle
         uses: actions/upload-artifact@v4
         with:
