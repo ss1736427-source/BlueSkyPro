@@ -7,7 +7,7 @@
 - The source file `qt/BlueSkyPRO-HMI/qml/MapTilerWebMap.qml` is aligned with Archive #3 for the verified HTML base URL: `https://unpkg.com/`. The previous branch version used `https://api.maptiler.com/`.
 - Renderer: MapLibre GL JS 6.14.0; MapTiler `hybrid-v4`; `maxTileCacheZoomLevels: 6`; labels enabled by default; style switching uses `diff: false` (full style replacement), matching Archive #3.
 - API keys are not committed. Set `BLUESKY_MAPTILER_API_KEY` in the runtime environment.
-- This commit preserves the source-level map baseline and the reported test record. It does not contain the original ZIP or compiled Windows executable, so it does not claim byte-for-byte executable reproducibility.
+- This branch records the tested settings and reported test record, but its QML source files do not yet byte-match Archive 3. See `docs/archive3-source-fingerprint-2026-10-16.md`. The original ZIP and compiled Windows executable are not embedded in Git.
 
 ## Validation boundary
 
