@@ -127,7 +127,7 @@ Item {
         }
         Component.onCompleted: {
             if (root.apiKey.length > 0)
-                loadHtml(root.buildHtml(), "https://api.maptiler.com/")
+                loadHtml(root.buildHtml(), "https://unpkg.com/")
         }
     }
 
