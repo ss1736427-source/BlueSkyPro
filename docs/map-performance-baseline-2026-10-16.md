@@ -5,7 +5,7 @@
 - Project-owner validation: map is responsive; all expected layers are present; panning is smooth. Tiles may take time to load after zooming but eventually appear.
 - Reported diagnostic snapshot: 164 style layers (70 line, 61 symbol, 31 fill, 1 background, 1 hillshade/3D-type); 0 map errors; 0 long tasks; style load about 246 ms; 243 tile/vector resources; maximum resource duration about 4.84 s.
 - The source file `qt/BlueSkyPRO-HMI/qml/MapTilerWebMap.qml` is aligned with Archive #3 for the verified HTML base URL: `https://unpkg.com/`. The previous branch version used `https://api.maptiler.com/`.
-- Renderer: MapLibre GL JS 6.14.0; MapTiler `hybrid-v4`; `maxTileCacheZoomLevels: 6`; labels enabled by default; style switching uses `diff: true`.
+- Renderer: MapLibre GL JS 6.14.0; MapTiler `hybrid-v4`; `maxTileCacheZoomLevels: 6`; labels enabled by default; style switching uses `diff: false` (full style replacement), matching Archive #3.
 - API keys are not committed. Set `BLUESKY_MAPTILER_API_KEY` in the runtime environment.
 - This commit preserves the source-level map baseline and the reported test record. It does not contain the original ZIP or compiled Windows executable, so it does not claim byte-for-byte executable reproducibility.
 
