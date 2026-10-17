@@ -79,6 +79,12 @@ int main() {
     unknown[5] = 99;
     assert(!r.routeIncomingFrame(1002,unknown).has_value());
     assert(r.receive("CH-A").has_value()); assert(r.receive("CH-B").has_value());
+    const auto accepted_a = r.takeAcceptedMessage("CH-A");
+    const auto accepted_b = r.takeAcceptedMessage("CH-B");
+    assert(accepted_a && accepted_a->kind == MavlinkMessageKind::Heartbeat);
+    assert(accepted_a->received_timestamp_ms == 1000);
+    assert(accepted_b && accepted_b->system_id == 2);
+    assert(!r.takeAcceptedMessage("CH-A").has_value());
     a=r.snapshot("CH-A"); b=r.snapshot("CH-B");
     assert(a->link_metrics.observed_packets==1 && a->link_metrics.inferred_lost_packets==0);
     assert(a->link_bandwidth.transmitted_bytes == frame_a.size());
@@ -91,7 +97,17 @@ int main() {
     assert(a->link_bandwidth.transmitted_bytes == 0 && a->link_bandwidth.received_bytes == 0);
 
     auto recovered=heartbeat(20);
-    assert(r.injectReceive("CH-A",5000,recovered)); assert(r.receive("CH-A").has_value());
+    // Each queued frame must retain its own receive time; the second enqueue
+    // must not rewrite the timestamp used while decoding the first frame.
+    auto recovered_second = heartbeat(21);
+    assert(r.injectReceive("CH-A",5000,recovered));
+    assert(r.injectReceive("CH-A",5010,recovered_second));
+    assert(r.receive("CH-A").has_value());
+    assert(r.receive("CH-A").has_value());
+    const auto first_recovered = r.takeAcceptedMessage("CH-A");
+    const auto second_recovered = r.takeAcceptedMessage("CH-A");
+    assert(first_recovered && first_recovered->received_timestamp_ms == 5000);
+    assert(second_recovered && second_recovered->received_timestamp_ms == 5010);
     a=r.snapshot("CH-A"); assert(a->link_metrics.observed_packets==1 && a->link_metrics.last_sequence==20);
     auto ts_request = timesync(21, 0, 7000000);
     auto ts_response = timesync(22, 123, 7000000);
