@@ -1,9 +1,5 @@
 #include "AltitudeTelemetryService.h"
 
-#include <QMetaObject>
-#include <QVariant>
-
-#include <limits>
 
 using namespace bluesky::operations;
 
@@ -81,9 +77,6 @@ bool AltitudeTelemetryService::startFromEnvironment()
         return true;
 
     m_clock.restart();
-    if (!configureFromEnvironment())
-        return false;
-
     m_transport = std::make_unique<MavlinkTransportChannelRuntime>();
     MavlinkTransportChannelConfig config;
     QString channelId;
@@ -97,7 +90,6 @@ bool AltitudeTelemetryService::startFromEnvironment()
     int componentId = 0;
     int localPort = 0;
     int peerPort = 0;
-    int radioConfiguredInt = 0;
     bool radioConfigured = false;
     int sensorId = 0;
     int sensorType = 0;
@@ -175,13 +167,6 @@ bool AltitudeTelemetryService::startFromEnvironment()
     m_sessionId = sessionId;
     m_timer.start();
     setStatus(QStringLiteral("RUNNING"));
-    return true;
-}
-
-bool AltitudeTelemetryService::configureFromEnvironment()
-{
-    // Configuration is intentionally explicit. No port, peer, vehicle, or
-    // sensor identity is inferred, and incomplete configuration stays offline.
     return true;
 }
 
