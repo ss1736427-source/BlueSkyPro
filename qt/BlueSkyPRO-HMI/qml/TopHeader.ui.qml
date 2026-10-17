@@ -71,7 +71,7 @@ Item {
     property real devicePixelRatio: Screen.devicePixelRatio
     property real pixelStrokeWidth: 1
 
-    property var metricOrder: ["ETD", "TOT", "TRIP", "ETA", "READY", "WARNING"]
+    property var metricOrder: ["ETD", "TOT", "TRIP", "ETA", "READY", "WARNING", "ALTITUDE"]
     readonly property int visibleMetricCount: metricOrder.filter(function(name) {
         return panelSettingsPopup.enabledTools.indexOf(name) >= 0
     }).length
@@ -248,6 +248,17 @@ Item {
             valueSize: root.valueSize
             headingValueGap: root.headingValueGap
         }
+
+        AltitudeTelemetryIndicator {
+            id: altitudeSector
+            visible: panelSettingsPopup.enabledTools.indexOf("ALTITUDE") >= 0
+            x: root.metricX("ALTITUDE")
+            width: centralComposition.width / Math.max(1, root.visibleMetricCount)
+            height: parent.height
+            altitudeTelemetry: altitudeTelemetryBridge
+            labelSize: Math.max(8, root.headingSize - 1)
+            valueSize: root.valueSize
+        }
     }
 
     // WARNING is an actionable header control: open/close the map alert review.
@@ -378,7 +389,7 @@ Item {
                     52 + panelSettingsPopup.tools.length * 30 + 48,
                     Math.max(180, Screen.height - 24))
         title: "HEADER SETTINGS"
-        tools: ["ETD", "TOT", "TRIP", "ETA", "READY", "WARNING"]
+        tools: ["ETD", "TOT", "TRIP", "ETA", "READY", "WARNING", "ALTITUDE"]
         onClosed: open = false
     }
 }
