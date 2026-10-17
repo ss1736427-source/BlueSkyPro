@@ -38,13 +38,11 @@ bool MavlinkAltitudeDisplayRuntime::advances(
 
 bool MavlinkAltitudeDisplayRuntime::ingestAccepted(
     const DecodedMavlinkMessage& message) {
-    if (!message.valid || message.vehicle_id.empty() ||
-        message.source_id.empty() || message.system_id == 0 ||
-        message.component_id == 0 || message.received_timestamp_ms <= 0 ||
-        (!vehicle_id_.empty() && message.vehicle_id != vehicle_id_) ||
-        (!source_id_.empty() && message.source_id != source_id_) ||
-        (system_id_ != 0 && message.system_id != system_id_) ||
-        (component_id_ != 0 && message.component_id != component_id_) ||
+    if (!message.valid || vehicle_id_.empty() || source_id_.empty() ||
+        system_id_ == 0 || component_id_ == 0 ||
+        message.vehicle_id != vehicle_id_ || message.source_id != source_id_ ||
+        message.system_id != system_id_ || message.component_id != component_id_ ||
+        message.received_timestamp_ms <= 0 ||
         !message.source_time_boot_ms.has_value() ||
         *message.source_time_boot_ms == 0) {
         return false;
@@ -106,10 +104,10 @@ MavlinkAltitudeDisplayRuntime::evaluate(std::int64_t now_ms) const {
     // Evaluate a complete same-source pair first. Never combine messages from
     // distinct vehicle/source/component identities.
     for (const auto& [key, pressure] : pressure_by_source_) {
-        if ((!vehicle_id_.empty() && std::get<0>(key) != vehicle_id_) ||
-            (!source_id_.empty() && std::get<1>(key) != source_id_) ||
-            (system_id_ != 0 && std::get<2>(key) != system_id_) ||
-            (component_id_ != 0 && std::get<3>(key) != component_id_)) {
+        if (std::get<0>(key) != vehicle_id_ ||
+            std::get<1>(key) != source_id_ ||
+            std::get<2>(key) != system_id_ ||
+            std::get<3>(key) != component_id_) {
             continue;
         }
         const auto distances = distance_by_source_.find(key);
