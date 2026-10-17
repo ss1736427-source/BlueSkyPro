@@ -10,23 +10,23 @@ if (-not (Test-Path $exe)) {
     exit 2
 }
 
-if ($PromptForMapKey -or -not $env:BLUESKY_YANDEX_MAPS_API_KEY) {
-    $secure = Read-Host "Enter a valid Yandex Maps Tiles API key (input is hidden)" -AsSecureString
+if ($PromptForMapKey -or -not $env:BLUESKY_MAPTILER_API_KEY) {
+    $secure = Read-Host "Enter your MapTiler API key (input is hidden)" -AsSecureString
     $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
     try {
-        $env:BLUESKY_YANDEX_MAPS_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
+        $env:BLUESKY_MAPTILER_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
     } finally {
         [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
     }
 }
 
-if (-not $env:BLUESKY_YANDEX_MAPS_API_KEY) {
-    Write-Error "Yandex Maps API key is required for map tile loading."
+if (-not $env:BLUESKY_MAPTILER_API_KEY) {
+    Write-Error "MapTiler API key is required for map loading."
     exit 3
 }
 
-Write-Host "Starting BlueSky PRO. Map provider: Yandex Maps."
-Write-Host "Telemetry is disabled unless its full explicit configuration is supplied."
+Write-Host "Starting BlueSky PRO. Map provider: MapTiler Hybrid v4."
+Write-Host "Telemetry remains unavailable unless its complete explicit configuration is supplied."
 Push-Location $PSScriptRoot
 try {
     & $exe
