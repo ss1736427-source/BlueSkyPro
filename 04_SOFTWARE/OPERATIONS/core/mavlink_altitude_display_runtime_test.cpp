@@ -66,8 +66,18 @@ MavlinkAltitudeDisplaySensorConfig config() {
     return {true, 4, 3, 1000, 500};
 }
 
+void testConfiguredVehicleIdentityRejectsOtherVehicles() {
+    MavlinkAltitudeDisplayRuntime runtime(
+        config(), "UAV-ALT-01", "PX4:MAVLink2:1:1", 1, 1);
+    auto other = distanceMessage(1, 4, 1000, 10000, 33.0);
+    other.vehicle_id = "UAV-ALT-02";
+    other.system_id = 2;
+    assert(!runtime.ingestAccepted(other));
+    assert(!runtime.hasAnyAltitudeInput());
+}
+
 void testInitialStateUnavailable() {
-    MavlinkAltitudeDisplayRuntime runtime(config());
+    MavlinkAltitudeDisplayRuntime runtime(config(), "UAV-ALT-01", "PX4:MAVLink2:1:1", 1, 1);
     assert(!runtime.hasAnyAltitudeInput());
     const auto d = runtime.evaluate(10000);
     assert(!d.decision.value_available);
@@ -143,6 +153,7 @@ void testStaleSamplesBecomeUnavailable() {
 } // namespace
 
 int main() {
+    testConfiguredVehicleIdentityRejectsOtherVehicles();
     testInitialStateUnavailable();
     testConfiguredSensorCannotBeOverwrittenByOtherSensorId();
     testOutOfOrderAndDuplicateSamplesAreRejected();
