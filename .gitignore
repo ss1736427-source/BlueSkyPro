@@ -25,3 +25,13 @@
 **/*.tmp
 **/*.swp
 **/*~
+# Local build directories (Qt/CMake/Ninja; never commit generated build trees)
+**/build-*/
+**/build-vflight-hmi/
+
+# Local map tile cache (downloaded/generated raster tiles; not source assets)
+/cache/tiles/
+**/cache/tiles/
+
+# Local QML editor/recovery backups
+**/*.qml.bak-*
