@@ -46,9 +46,11 @@ Item {
         property string orderCsv: "Checklist,Flight Conditions,Alerting,ATC"
         property string positionCsv: "Checklist=54,Flight Conditions=293,Alerting=400,ATC=499"
         property int freePositionLayoutVersion: 0
+        property bool fixedSections: true
     }
 
     property var panelOrder: panelOrderSettings.orderCsv.split(",")
+    property bool fixedSections: panelOrderSettings.fixedSections
     property string draggingPanel: ""
     property real dragVisualY: 0
     property real dragGrabOffsetY: 0
@@ -106,7 +108,7 @@ Item {
     }
 
     function beginPanelDrag(key, pressRootY) {
-        if (!panelVisible(key))
+        if (root.fixedSections || !panelVisible(key))
             return
 
         draggingPanel = key
@@ -1163,6 +1165,42 @@ Item {
         height: root.atcButtonHeight
         enabled: root.missionReady
         onClicked: root.startMissionRequested()
+    }
+
+    Rectangle {
+        id: sectionLockButton
+        anchors.top: parent.top
+        anchors.right: panelSettings.left
+        anchors.rightMargin: 6
+        anchors.topMargin: 10
+        width: 112
+        height: 28
+        radius: 4
+        color: root.fixedSections ? "#102337" : "#251D0B"
+        border.color: root.fixedSections ? root.cyan : root.amber
+        border.width: 1
+        z: 400
+
+        Text {
+            anchors.fill: parent
+            text: root.fixedSections ? "SECTIONS: FIXED" : "SECTIONS: FREE"
+            color: root.fixedSections ? root.cyan : root.amber
+            font.family: "B612"
+            font.pixelSize: 9
+            font.bold: true
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+                root.fixedSections = !root.fixedSections
+                panelOrderSettings.fixedSections = root.fixedSections
+                panelOrderSettings.sync()
+            }
+        }
     }
 
     PanelSettingsButton {
