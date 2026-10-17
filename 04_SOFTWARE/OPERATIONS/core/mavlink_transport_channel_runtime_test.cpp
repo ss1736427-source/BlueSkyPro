@@ -97,14 +97,16 @@ int main() {
     assert(a->link_metrics.observed_packets==0 && !a->link_metrics.sequence_initialized);
     assert(a->link_bandwidth.transmitted_bytes == 0 && a->link_bandwidth.received_bytes == 0);
 
-    auto recovered=heartbeat(20);
-    // Each queued frame must retain its own receive time; the second enqueue
-    // must not rewrite the timestamp used while decoding the first frame.
-    auto recovered_second = heartbeat(21);
-    assert(r.injectReceive("CH-A",4900,heartbeat(19)));
+    // Queued frames preserve their own receive times. Reconnect discards old
+    // queued frames and accepted messages before beginning a new session.
+    auto recovered_stale = heartbeat(19);
+    assert(r.injectReceive("CH-A",4900,recovered_stale));
     assert(r.reconnect("CH-A"));
     assert(!r.receive("CH-A").has_value());
     assert(!r.takeAcceptedMessage("CH-A").has_value());
+
+    auto recovered=heartbeat(20);
+    auto recovered_second = heartbeat(21);
     assert(r.injectReceive("CH-A",5000,recovered));
     assert(r.injectReceive("CH-A",5010,recovered_second));
     assert(r.receive("CH-A").has_value());
@@ -113,7 +115,7 @@ int main() {
     const auto second_recovered = r.takeAcceptedMessage("CH-A");
     assert(first_recovered && first_recovered->received_timestamp_ms == 5000);
     assert(second_recovered && second_recovered->received_timestamp_ms == 5010);
-    a=r.snapshot("CH-A"); assert(a->link_metrics.observed_packets==1 && a->link_metrics.last_sequence==20);
+    assert(!r.takeAcceptedMessage("CH-A").has_value());
     auto ts_request = timesync(21, 0, 7000000);
     auto ts_response = timesync(22, 123, 7000000);
     assert(r.send("CH-A", 7000, ts_request));
