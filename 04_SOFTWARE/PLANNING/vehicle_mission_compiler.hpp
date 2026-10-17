@@ -26,6 +26,8 @@ struct VehicleCompiledProfile {
     std::string configuration_version;
     std::string performance_version;
     std::string source_profile_id;
+    std::string route_version;
+    std::string calculation_input_version;
     std::string dependency_identity;
     VehicleCompilationStatus status{VehicleCompilationStatus::Infeasible};
     std::vector<FlightProfilePoint> points;
