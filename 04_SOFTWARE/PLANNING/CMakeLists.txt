@@ -23,6 +23,7 @@ add_library(bluesky_planning
     multi_uav_conflict_resolution.cpp
     candidate_comparison.cpp
     selected_route_set.cpp
+    route_constraint_validator.cpp
     flight_profile.cpp
     vehicle_mission_compiler.cpp
     final_planning_integrity.cpp
@@ -111,7 +112,6 @@ target_link_libraries(wind_performance_trajectory_test PRIVATE bluesky_planning)
 
 add_executable(route_constraint_validator_test
     route_constraint_validator_test.cpp
-    route_constraint_validator.cpp
 )
 target_link_libraries(route_constraint_validator_test PRIVATE bluesky_planning)
 
