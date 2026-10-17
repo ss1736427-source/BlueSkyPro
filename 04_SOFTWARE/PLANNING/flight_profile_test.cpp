@@ -21,6 +21,7 @@ int main() {
         {"WP1",{0.0,0.0},10.0,0.0,0.0},
         {"WP2",{0.0,0.001},100.0,12.5,2.0}
     };
+    trajectory.segments={{"S1",8.9,90.0,12.5,2.0}};
     trajectory.total_time_s=12.5;
 
     const auto p=FlightProfileBuilder::build(selected,route,trajectory,"FP-1","1.0.0");
@@ -38,5 +39,19 @@ int main() {
     const auto invalid=FlightProfileBuilder::build(selected,route,wrong_version,"FP-2","1.0.0");
     assert(!invalid.valid);
     assert(invalid.points.empty());
+
+    auto wrong_geometry=trajectory;
+    wrong_geometry.points[1].position.longitude_deg=0.002;
+    const auto geometry_invalid=FlightProfileBuilder::build(
+        selected,route,wrong_geometry,"FP-3","1.0.0");
+    assert(!geometry_invalid.valid);
+    assert(geometry_invalid.points.empty());
+
+    auto wrong_segment=trajectory;
+    wrong_segment.segments[0].segment_id="STALE-SEGMENT";
+    const auto segment_invalid=FlightProfileBuilder::build(
+        selected,route,wrong_segment,"FP-4","1.0.0");
+    assert(!segment_invalid.valid);
+    assert(segment_invalid.points.empty());
     return 0;
 }
