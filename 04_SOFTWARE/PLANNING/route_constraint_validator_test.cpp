@@ -34,7 +34,7 @@ int main()
     const auto valid = RouteConstraintValidator::validate(base());
     assert(valid.status == RouteValidationStatus::Allowed);
     assert(valid.findings.empty());
-    assert(valid.validator_version == "2");
+    assert(valid.validator_version == "3");
     assert(valid.calculation_input_version == "INPUT-1");
 
     auto low = base();
@@ -52,6 +52,7 @@ int main()
     auto disconnected = base();
     disconnected.waypoints.push_back({"WP-3", {60.2, 25.2}, 100.0, false});
     assert(hasCode(RouteConstraintValidator::validate(disconnected), RouteFindingCode::SegmentEndpointMismatch));
+    assert(hasCode(RouteConstraintValidator::validate(disconnected), RouteFindingCode::SegmentOrderMismatch));
 
     auto missingLineage = base();
     missingLineage.lineage.mission_version.clear();
@@ -91,6 +92,17 @@ int main()
     tooShort.waypoints.resize(1);
     tooShort.segments.clear();
     assert(hasCode(RouteConstraintValidator::validate(tooShort), RouteFindingCode::InsufficientWaypoints));
+
+    auto reversed = base();
+    reversed.segments[0].from_waypoint_id = "WP-2";
+    reversed.segments[0].to_waypoint_id = "WP-1";
+    const auto reversedResult = RouteConstraintValidator::validate(reversed);
+    assert(hasCode(reversedResult, RouteFindingCode::SegmentOrderMismatch));
+
+    auto skipped = base();
+    skipped.waypoints.push_back({"WP-3", {60.2, 25.2}, 100.0, false});
+    skipped.segments.push_back({"S-2", "WP-1", "WP-3", 2000.0, 20.0});
+    assert(hasCode(RouteConstraintValidator::validate(skipped), RouteFindingCode::SegmentOrderMismatch));
 
     return 0;
 }

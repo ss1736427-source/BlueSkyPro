@@ -25,7 +25,8 @@ enum class RouteFindingCode {
     DuplicateSegmentId,
     SelfReferencingSegment,
     DuplicateSegment,
-    InvalidSegmentGeometry
+    InvalidSegmentGeometry,
+    SegmentOrderMismatch
 };
 
 struct RouteValidationFinding {

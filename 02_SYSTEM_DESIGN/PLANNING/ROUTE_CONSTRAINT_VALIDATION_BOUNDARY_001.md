@@ -17,7 +17,8 @@ Hard constraints are feasibility conditions, not optimization weights. The struc
 - unique, non-empty segment identifiers;
 - existing segment endpoint references and no self-referencing or duplicate directed segments;
 - finite non-negative segment distance and finite positive nominal speed;
-- connectivity of every waypoint to at least one segment.
+- connectivity of every waypoint to at least one segment;
+- a directed segment between each pair of consecutive waypoints in canonical order, with no backward or waypoint-skipping segments.
 
 Each result contains Allowed/Rejected status, stable finding codes, affected object identity, validator version and calculation-input version. The validator is deterministic and does not mutate the input Route.
 

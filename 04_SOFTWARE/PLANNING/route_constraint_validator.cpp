@@ -1,6 +1,8 @@
 #include "route_constraint_validator.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -38,7 +40,7 @@ RouteValidationResult RouteConstraintValidator::validate(const Route& route)
 {
     RouteValidationResult result;
     result.validator_id = "canonical-route-constraint-validator";
-    result.validator_version = "2";
+    result.validator_version = "3";
     result.calculation_input_version = route.lineage.calculation_input_version;
 
     if (!hasRequiredLineage(route.lineage)) {
@@ -151,6 +153,30 @@ RouteValidationResult RouteConstraintValidator::validate(const Route& route)
             if (connectionCounts[waypoint.waypoint_id] == 0) {
                 addFinding(result, RouteFindingCode::SegmentEndpointMismatch, waypoint.waypoint_id,
                            "waypoint is not connected to a route segment");
+            }
+        }
+
+        for (std::size_t index = 0; index + 1 < route.waypoints.size(); ++index) {
+            const auto& from = route.waypoints[index].waypoint_id;
+            const auto& to = route.waypoints[index + 1].waypoint_id;
+            if (segmentEndpoints.find({from, to}) == segmentEndpoints.end()) {
+                addFinding(result, RouteFindingCode::SegmentOrderMismatch, from,
+                           "route must contain a directed segment from each waypoint to the next waypoint in canonical order");
+            }
+        }
+
+        for (const auto& segment : route.segments) {
+            const auto source = std::find_if(route.waypoints.begin(), route.waypoints.end(),
+                [&](const RouteWaypoint& waypoint) { return waypoint.waypoint_id == segment.from_waypoint_id; });
+            const auto target = std::find_if(route.waypoints.begin(), route.waypoints.end(),
+                [&](const RouteWaypoint& waypoint) { return waypoint.waypoint_id == segment.to_waypoint_id; });
+            if (source == route.waypoints.end() || target == route.waypoints.end()) {
+                continue;
+            }
+            if (std::distance(route.waypoints.begin(), target)
+                != std::distance(route.waypoints.begin(), source) + 1) {
+                addFinding(result, RouteFindingCode::SegmentOrderMismatch, segment.segment_id,
+                           "segment must connect consecutive waypoints in forward canonical route order");
             }
         }
     }
