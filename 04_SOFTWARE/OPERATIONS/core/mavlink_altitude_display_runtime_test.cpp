@@ -85,7 +85,7 @@ void testInitialStateUnavailable() {
 }
 
 void testConfiguredSensorCannotBeOverwrittenByOtherSensorId() {
-    MavlinkAltitudeDisplayRuntime runtime(config());
+    MavlinkAltitudeDisplayRuntime runtime(config(), "UAV-ALT-01", "PX4:MAVLink2:1:1", 1, 1);
     assert(runtime.ingestAccepted(distanceMessage(1, 4, 1000, 10000, 40.0)));
     // Another downward sensor arrives later; the configured sensor's reading
     // must stay independent even when the non-configured sensor is newer.
@@ -99,7 +99,7 @@ void testConfiguredSensorCannotBeOverwrittenByOtherSensorId() {
 }
 
 void testOutOfOrderAndDuplicateSamplesAreRejected() {
-    MavlinkAltitudeDisplayRuntime runtime(config());
+    MavlinkAltitudeDisplayRuntime runtime(config(), "UAV-ALT-01", "PX4:MAVLink2:1:1", 1, 1);
     assert(runtime.ingestAccepted(distanceMessage(1, 4, 1000, 10000, 40.0)));
     // Older boot time must not replace a newer sample, even if it arrived later.
     assert(!runtime.ingestAccepted(distanceMessage(2, 4, 900, 10100, 70.0)));
@@ -114,7 +114,7 @@ void testOutOfOrderAndDuplicateSamplesAreRejected() {
 }
 
 void testBaroOnlyFallbackIsExplicitlyDegraded() {
-    MavlinkAltitudeDisplayRuntime runtime(config());
+    MavlinkAltitudeDisplayRuntime runtime(config(), "UAV-ALT-01", "PX4:MAVLink2:1:1", 1, 1);
     assert(runtime.ingestAccepted(pressureMessage(1000, 10000, 900.0)));
     const auto d = runtime.evaluate(10100);
     assert(d.decision.source ==
@@ -125,7 +125,7 @@ void testBaroOnlyFallbackIsExplicitlyDegraded() {
 }
 
 void testNoFallbackToGlobalPositionAltitude() {
-    MavlinkAltitudeDisplayRuntime runtime(config());
+    MavlinkAltitudeDisplayRuntime runtime(config(), "UAV-ALT-01", "PX4:MAVLink2:1:1", 1, 1);
     DecodedMavlinkMessage position;
     position.kind = MavlinkMessageKind::GlobalPositionInt;
     position.vehicle_id = "UAV-ALT-01";
@@ -142,7 +142,7 @@ void testNoFallbackToGlobalPositionAltitude() {
 }
 
 void testStaleSamplesBecomeUnavailable() {
-    MavlinkAltitudeDisplayRuntime runtime(config());
+    MavlinkAltitudeDisplayRuntime runtime(config(), "UAV-ALT-01", "PX4:MAVLink2:1:1", 1, 1);
     assert(runtime.ingestAccepted(distanceMessage(1, 4, 1000, 10000, 40.0)));
     assert(runtime.ingestAccepted(pressureMessage(1001, 10010, 1008.0)));
     const auto d = runtime.evaluate(12000);
