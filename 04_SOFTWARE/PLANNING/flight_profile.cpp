@@ -33,13 +33,26 @@ FlightProfile FlightProfileBuilder::build(const SelectedRouteSet& selected,
         return result;
     }
 
+    double segment_time_sum = 0.0;
     for (std::size_t i = 0; i < route.segments.size(); ++i) {
-        if (route.segments[i].segment_id != trajectory.segments[i].segment_id ||
-            route.segments[i].from_waypoint_id != trajectory.points[i].waypoint_id ||
-            route.segments[i].to_waypoint_id != trajectory.points[i + 1].waypoint_id) {
-            result.validation_error = "Trajectory segments do not match route segment order.";
+        const auto& route_segment = route.segments[i];
+        const auto& trajectory_segment = trajectory.segments[i];
+        if (route_segment.segment_id != trajectory_segment.segment_id ||
+            route_segment.from_waypoint_id != route.waypoints[i].waypoint_id ||
+            route_segment.to_waypoint_id != route.waypoints[i + 1].waypoint_id ||
+            route_segment.from_waypoint_id != trajectory.points[i].waypoint_id ||
+            route_segment.to_waypoint_id != trajectory.points[i + 1].waypoint_id ||
+            !std::isfinite(trajectory_segment.traversal_time_s) ||
+            trajectory_segment.traversal_time_s < 0.0) {
+            result.validation_error = "Trajectory segments do not match route order or contain invalid traversal times.";
             return result;
         }
+        segment_time_sum += trajectory_segment.traversal_time_s;
+    }
+    if (!std::isfinite(segment_time_sum) ||
+        std::abs(segment_time_sum - trajectory.total_time_s) > 1e-6) {
+        result.validation_error = "Trajectory segment times do not sum to total trajectory time.";
+        return result;
     }
 
     result.points.reserve(route.waypoints.size());
