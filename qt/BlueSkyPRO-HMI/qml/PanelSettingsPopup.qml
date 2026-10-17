@@ -7,11 +7,13 @@ Item {
     property var tools: []
     property var toolGroups: []
     property bool open: false
+    property bool fixedSections: true
     property var expandedGroups: []
     property int rowHeight: 30
     property int groupHeaderHeight: 30
     property var enabledTools: root.tools.slice()
     signal toolToggled(string tool, bool enabled)
+    signal fixedSectionsRequested(bool fixed)
 
     function syncEnabledTools(toolsList) {
         enabledTools = toolsList.slice()
@@ -81,7 +83,7 @@ Item {
 
     readonly property real contentWidth: Math.max(toolLabelMetrics.width + 64, 260)
     readonly property bool directToolsMode: toolGroups.length === 0 && tools.length > 0
-    readonly property real contentHeight: 64 + (directToolsMode ? tools.length * 34 : visibleRowCount() * 34)
+    readonly property real contentHeight: 104 + (directToolsMode ? tools.length * 34 : visibleRowCount() * 34)
 
     visible: root.open
     clip: true
@@ -117,12 +119,43 @@ Item {
         color: "#202020"
     }
 
-    Flickable {
-        id: settingsScroller
+    Rectangle {
         x: 10
         y: 46
         width: parent.width - 20
-        height: Math.max(0, parent.height - 82)
+        height: 34
+        radius: 4
+        color: root.fixedSections ? "#102337" : "#251D0B"
+        border.color: root.fixedSections ? "#32FFFF" : "#FFD339"
+        border.width: 1
+
+        Text {
+            anchors.fill: parent
+            text: root.fixedSections ? "SECTIONS: FIXED" : "SECTIONS: FREE"
+            color: root.fixedSections ? "#32FFFF" : "#FFD339"
+            font.family: "B612"
+            font.pixelSize: 11
+            font.bold: true
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+                root.fixedSections = !root.fixedSections
+                root.fixedSectionsRequested(root.fixedSections)
+            }
+        }
+    }
+
+    Flickable {
+        id: settingsScroller
+        x: 10
+        y: 86
+        width: parent.width - 20
+        height: Math.max(0, parent.height - 122)
         contentWidth: width
         contentHeight: settingsColumn.implicitHeight
         clip: true
