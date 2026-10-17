@@ -20,7 +20,7 @@ qt_add_executable(appBlueSkyPRO
     src/PlanningBridge.h
     src/AltitudeTelemetryBridge.cpp
     src/AltitudeTelemetryBridge.h
-    ../..//04_SOFTWARE/OPERATIONS/core/mavlink_altitude_display_runtime.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/mavlink_altitude_display_runtime.cpp
 )
 
 qt_add_qml_module(appBlueSkyPRO
