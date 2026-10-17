@@ -1,0 +1,383 @@
+#include "coverage_decomposition.hpp"
+#include <cassert>
+#include <cmath>
+using namespace bluesky::planning;
+namespace {
+double polygon_area_test(const std::vector<GeoPoint>& polygon) {
+    constexpr double kPi=3.14159265358979323846;
+    constexpr double kM=111320.0;
+    if(polygon.size()<3) return 0.0;
+    const double lat=polygon.front().latitude_deg*kPi/180.0;
+    double sum=0.0;
+    for(std::size_t i=0;i<polygon.size();++i) {
+        const auto& a=polygon[i]; const auto& b=polygon[(i+1)%polygon.size()];
+        const double ax=a.longitude_deg*kM*std::cos(lat), ay=a.latitude_deg*kM;
+        const double bx=b.longitude_deg*kM*std::cos(lat), by=b.latitude_deg*kM;
+        sum+=ax*by-bx*ay;
+    }
+    return std::abs(sum)*0.5;
+}
+}
+int main() {
+    CoverageDecompositionInput i;
+    i.aoi={{59.0,30.0},{59.0,30.02},{59.01,30.02},{59.01,30.0}};
+    i.orientation.orientation_deg=0.0;
+    i.orientation.candidate_id="MT01-ORIENT-0";
+    i.track_spacing_m=500.0;
+    i.minimum_altitude_m=100.0;
+    i.maximum_altitude_m=100.0;
+    i.environment.snapshot_id="ENV-1";
+    i.environment.snapshot_version="1";
+    i.environment.calculation_input_version="calc-1";
+    i.geometry_revision="AOI-1";
+    i.calculation_version="MT01-DECOMP-1";
+
+    const auto r=CoverageDecompositionEngine::decompose(i);
+    assert(r.valid);
+    assert(r.cells.size()==3);
+    assert(r.cells.front().cell_id=="MT01-CELL-0");
+    assert(r.cells.front().area_m2>0.0);
+
+    const auto repeat=CoverageDecompositionEngine::decompose(i);
+    assert(repeat.dependency_identity==r.dependency_identity);
+    assert(repeat.cells.size()==r.cells.size());
+
+    auto changed=i;
+    changed.track_spacing_m=250.0;
+    const auto cr=CoverageDecompositionEngine::decompose(changed);
+    assert(cr.valid);
+    assert(cr.cells.size()==5);
+    assert(cr.dependency_identity!=r.dependency_identity);
+
+    auto invalid=i;
+    invalid.track_spacing_m=0.0;
+    assert(!CoverageDecompositionEngine::decompose(invalid).valid);
+
+    auto incomplete=i;
+    incomplete.environment.complete=false;
+    assert(!CoverageDecompositionEngine::decompose(incomplete).valid);
+    auto restricted=i;
+    SpatialRestriction zone;
+    zone.restriction_id="TEST-INTERNAL";
+    zone.geometry_type=RestrictionGeometryType::Polygon;
+    zone.polygon={{59.0030,30.0095},{59.0030,30.0120},{59.0070,30.0120},{59.0070,30.0095}};
+    zone.minimum_altitude_m=50.0;
+    zone.maximum_altitude_m=150.0;
+    restricted.environment.restrictions={zone};
+
+    const auto restricted_result=CoverageDecompositionEngine::decompose(restricted);
+    assert(restricted_result.valid);
+    std::size_t constrained=0;
+    for(const auto& cell:restricted_result.cells)
+        if(cell.constraint_state==CoverageCellConstraintState::Constrained) ++constrained;
+    assert(constrained==0);
+    assert(restricted_result.cells.size()>1);
+
+    CoverageTrackInput restricted_tracks_input;
+    restricted_tracks_input.decomposition=restricted_result;
+    restricted_tracks_input.altitude_m=100.0;
+    restricted_tracks_input.footprint_width_m=100.0;
+    restricted_tracks_input.footprint_height_m=100.0;
+    restricted_tracks_input.calculation_version="TEST-TRACK-1";
+    const auto restricted_tracks=CoverageTrackGenerator::generate(restricted_tracks_input);
+    assert(restricted_tracks.valid);
+    assert(restricted_tracks.tracks.size()>=2);
+
+    CoverageTrackResult quality_tracks;
+    quality_tracks.valid=true;
+    quality_tracks.dependency_identity="TRACKS-QUALITY";
+    CoverageTrack qt;
+    qt.track_id="MT01-TRACK-Q0";
+    qt.cell_id="MT01-CELL-Q";
+    qt.start={59.0,30.0};
+    qt.end={59.0,30.001};
+    qt.altitude_m=100.0;
+    qt.length_m=57.0;
+    quality_tracks.tracks={qt,qt};
+
+    AcquisitionGeometryResult quality_geometry;
+    quality_geometry.valid=true;
+    quality_geometry.dependency_identity="GEOM-QUALITY";
+    quality_geometry.footprint_width_m=100.0;
+    quality_geometry.footprint_height_m=100.0;
+    quality_geometry.gsd_width_m_per_px=0.02;
+    quality_geometry.gsd_height_m_per_px=0.02;
+    quality_geometry.frontal_overlap_ratio=0.75;
+    quality_geometry.side_overlap_ratio=0.60;
+
+    AcquisitionEventResult quality_events;
+    quality_events.valid=true;
+    quality_events.dependency_identity="EVENTS-QUALITY";
+    AcquisitionEvent qe;
+    qe.event_id="MT01-EVENT-Q0";
+    qe.track_id="MT01-TRACK-Q0";
+    qe.position=qt.start;
+    qe.gsd_width_m_per_px=0.02;
+    qe.gsd_height_m_per_px=0.02;
+    qe.sensor_state_valid=true;
+    qe.trigger_state_valid=true;
+    quality_events.events={qe};
+
+    MappingQualityInput quality_input;
+    quality_input.aoi=i.aoi;
+    quality_input.decomposition=r;
+    quality_input.tracks=quality_tracks;
+    quality_input.events=quality_events;
+    quality_input.geometry=quality_geometry;
+    quality_input.calculation_version="MT01-QUALITY-1";
+    const auto quality=MappingQualityEngine::evaluate(quality_input);
+    assert(quality.valid);
+    assert(quality.footprint_union_area_m2>0.0);
+    assert(!quality.covered_geometry.empty());
+    double covered_geometry_area=0.0;
+    for(const auto& polygon:quality.covered_geometry) {
+        assert(polygon.size()>=3);
+        covered_geometry_area+=polygon_area_test(polygon);
+    }
+    assert(std::abs(covered_geometry_area-quality.footprint_union_area_m2)<1e-6);
+    assert(quality.footprint_union_area_m2 < 2.0 * 57.0 * 100.0);
+    assert(quality.coverage_ratio > 0.0);
+    assert(quality.coverage_ratio <= 1.0);
+    assert(quality.uncovered_area_m2 >= 0.0);
+    assert(quality.min_gsd_m_per_px > 0.0);
+    assert(quality.max_gsd_m_per_px >= quality.min_gsd_m_per_px);
+    assert(quality.min_frontal_overlap_ratio >= 0.0);
+    assert(quality.min_frontal_overlap_ratio < 1.0);
+    assert(quality.min_side_overlap_ratio >= 0.0);
+    assert(quality.min_side_overlap_ratio < 1.0);
+    assert(quality.invalid_event_count == 0);
+    assert(quality.mandatory_coverage.empty());
+    assert(quality.mandatory_coverage_passed);
+    assert(quality.gate_passed);
+
+    auto mandatory_quality_input=quality_input;
+    MandatoryCoverageArea covered_mandatory;
+    covered_mandatory.area_id="MANDATORY-Q0";
+    covered_mandatory.polygon={
+        {58.99995,29.99990},{58.99995,30.00010},
+        {59.00005,30.00010},{59.00005,29.99990}};
+    mandatory_quality_input.mandatory_areas={covered_mandatory};
+    const auto mandatory_quality=MappingQualityEngine::evaluate(mandatory_quality_input);
+    assert(mandatory_quality.valid);
+    assert(mandatory_quality.mandatory_coverage.size()==1);
+    assert(mandatory_quality.mandatory_coverage.front().fully_covered);
+    assert(mandatory_quality.mandatory_coverage.front().coverage_ratio==1.0);
+    assert(mandatory_quality.mandatory_coverage_passed);
+    assert(mandatory_quality.gate_passed);
+
+    auto uncovered_mandatory_input=quality_input;
+    MandatoryCoverageArea uncovered_mandatory;
+    uncovered_mandatory.area_id="MANDATORY-Q1";
+    uncovered_mandatory.polygon={
+        {59.0090,30.0190},{59.0090,30.0195},
+        {59.0095,30.0195},{59.0095,30.0190}};
+    uncovered_mandatory_input.mandatory_areas={uncovered_mandatory};
+    const auto uncovered_mandatory_result=MappingQualityEngine::evaluate(uncovered_mandatory_input);
+    assert(uncovered_mandatory_result.valid);
+    assert(uncovered_mandatory_result.mandatory_coverage.size()==1);
+    assert(!uncovered_mandatory_result.mandatory_coverage.front().fully_covered);
+    assert(uncovered_mandatory_result.mandatory_coverage.front().coverage_ratio<1.0);
+    assert(!uncovered_mandatory_result.mandatory_coverage_passed);
+    assert(!uncovered_mandatory_result.gate_passed);
+
+    auto invalid_quality_input=quality_input;
+    invalid_quality_input.events.events.front().sensor_state_valid=false;
+    const auto invalid_quality=MappingQualityEngine::evaluate(invalid_quality_input);
+    assert(invalid_quality.valid);
+    assert(invalid_quality.invalid_event_count==1);
+    assert(!invalid_quality.gate_passed);
+
+    auto clipped_quality_input=quality_input;
+    clipped_quality_input.aoi={
+        {59.0,30.0},{59.0,30.0005},{59.0005,30.0005},{59.0005,30.0}};
+    SpatialRestriction quality_restriction;
+    quality_restriction.restriction_id="QUALITY-EXCLUSION";
+    quality_restriction.geometry_type=RestrictionGeometryType::Polygon;
+    quality_restriction.polygon={
+        {59.0001,30.0001},{59.0001,30.0002},
+        {59.0002,30.0002},{59.0002,30.0001}};
+    clipped_quality_input.environment.complete=true;
+    clipped_quality_input.environment.restrictions={quality_restriction};
+    const auto clipped_quality=MappingQualityEngine::evaluate(clipped_quality_input);
+    assert(clipped_quality.valid);
+    assert(clipped_quality.footprint_union_area_m2>0.0);
+    assert(clipped_quality.footprint_union_area_m2<=clipped_quality.aoi_area_m2);
+    assert(clipped_quality.coverage_ratio<=1.0);
+    assert(!clipped_quality.uncovered_geometry.empty());
+    assert(clipped_quality.uncovered_area_m2>=0.0);
+    assert(clipped_quality.uncovered_area_m2 < clipped_quality.aoi_area_m2);
+    assert(!clipped_quality.uncovered_components.empty());
+    bool has_supported_classification=false;
+    for(const auto& component:clipped_quality.uncovered_components) {
+        assert(component.classification==UncoveredGeometryClassification::BoundaryGap ||
+               component.classification==UncoveredGeometryClassification::ExclusionInduced ||
+               component.classification==UncoveredGeometryClassification::UnclassifiedSourceNotBound);
+        if(component.classification==UncoveredGeometryClassification::ExclusionInduced)
+            has_supported_classification=true;
+    }
+    assert(has_supported_classification);
+
+
+    {
+        CoveragePolygonSplitInput in;
+        in.subject_polygon={{59.0,30.0},{59.0,30.01},{59.01,30.01},{59.01,30.0}};
+        in.restriction_polygon={{59.003,30.003},{59.003,30.007},{59.007,30.007},{59.007,30.003}};
+        in.restriction_id="SPLIT-CONVEX";
+        in.source_id="TEST-SOURCE";
+        in.calculation_version="test-v1";
+        const auto out=CoveragePolygonSplitter::split(in);
+        assert(out.valid);
+        assert(out.pieces.size()>=2);
+        for(const auto& piece:out.pieces) {
+            assert(piece.restriction_id=="SPLIT-CONVEX");
+            assert(piece.source_id=="TEST-SOURCE");
+            assert(piece.polygon.size()>=3);
+        }
+    }
+
+
+    {
+        CoveragePolygonSplitInput in;
+        in.subject_polygon={{59.0,30.0},{59.0,30.012},{59.012,30.012},{59.012,30.0}};
+        in.restriction_polygon={{59.002,30.002},{59.002,30.010},{59.006,30.006},{59.010,30.010},{59.010,30.002}};
+        in.restriction_id="SPLIT-NONCONVEX";
+        in.source_id="TEST-NONCONVEX";
+        in.calculation_version="test-v1";
+        const auto out=CoveragePolygonSplitter::split(in);
+        assert(out.valid);
+        assert(out.pieces.size()>=3);
+    }
+
+    {
+        CoverageTrackResult event_tracks;
+        event_tracks.valid=true;
+        event_tracks.dependency_identity="TRACKS-EVENT-SEQ";
+        CoverageTrack event_track;
+        event_track.track_id="MT01-TRACK-EVENT-SEQ";
+        event_track.cell_id="MT01-CELL-EVENT-SEQ";
+        event_track.start={59.0,30.0};
+        event_track.end={59.0,30.001};
+        event_track.length_m=25.0;
+        event_tracks.tracks={event_track};
+
+        AcquisitionGeometryResult event_geometry;
+        event_geometry.valid=true;
+        event_geometry.dependency_identity="GEOM-EVENT-SEQ";
+        event_geometry.camera_ground_distance_m=100.0;
+        event_geometry.footprint_width_m=100.0;
+        event_geometry.footprint_height_m=100.0;
+        event_geometry.gsd_width_m_per_px=0.02;
+        event_geometry.gsd_height_m_per_px=0.02;
+        event_geometry.image_spacing_m=10.0;
+        event_geometry.trigger_interval_s=1.0;
+        event_geometry.frontal_overlap_ratio=0.75;
+        event_geometry.side_overlap_ratio=0.60;
+
+        AcquisitionEventInput event_input;
+        event_input.tracks=event_tracks;
+        event_input.geometry=event_geometry;
+        event_input.calculation_version="MT01-EVENT-SEQ-1";
+        const auto sequence=AcquisitionEventValidator::generate(event_input);
+        assert(sequence.valid);
+        assert(sequence.events.size()==4);
+        assert(sequence.events.front().position.latitude_deg==event_track.start.latitude_deg);
+        assert(sequence.events.front().position.longitude_deg==event_track.start.longitude_deg);
+        assert(sequence.events.back().position.latitude_deg==event_track.end.latitude_deg);
+        assert(sequence.events.back().position.longitude_deg==event_track.end.longitude_deg);
+        assert(sequence.events[0].event_id=="MT01-EVENT-0");
+        assert(sequence.events[3].event_id=="MT01-EVENT-3");
+        assert(sequence.events[0].position.longitude_deg < sequence.events[1].position.longitude_deg);
+        assert(sequence.events[1].position.longitude_deg < sequence.events[2].position.longitude_deg);
+
+        const auto replay=AcquisitionEventValidator::generate(event_input);
+        assert(replay.valid);
+        assert(replay.events.size()==sequence.events.size());
+        for(std::size_t i=0;i<sequence.events.size();++i) {
+            assert(replay.events[i].event_id==sequence.events[i].event_id);
+            assert(replay.events[i].track_id==sequence.events[i].track_id);
+            assert(replay.events[i].position.latitude_deg==sequence.events[i].position.latitude_deg);
+            assert(replay.events[i].position.longitude_deg==sequence.events[i].position.longitude_deg);
+        }
+
+        auto invalid_spacing=event_input;
+        invalid_spacing.geometry.image_spacing_m=0.0;
+        const auto invalid_spacing_result=AcquisitionEventValidator::generate(invalid_spacing);
+        assert(!invalid_spacing_result.valid);
+        assert(invalid_spacing_result.failure_code=="INVALID_ACQUISITION_SPACING");
+
+        auto short_track=event_input;
+        short_track.tracks.tracks.front().length_m=5.0;
+        const auto short_sequence=AcquisitionEventValidator::generate(short_track);
+        assert(short_sequence.valid);
+        assert(short_sequence.events.size()==2);
+        assert(short_sequence.events.front().position.latitude_deg==event_track.start.latitude_deg);
+        assert(short_sequence.events.back().position.latitude_deg==event_track.end.latitude_deg);
+    }
+
+    {
+        CoverageTrackResult invalid_tracks;
+        invalid_tracks.valid=true;
+        invalid_tracks.dependency_identity="TRACKS-EVENT-INVALID";
+        CoverageTrack t;
+        t.track_id="MT01-TRACK-EVENT-INVALID";
+        t.cell_id="MT01-CELL-EVENT-INVALID";
+        t.start={59.0,30.0};
+        t.end={59.0,30.001};
+        t.length_m=20.0;
+        invalid_tracks.tracks={t};
+
+        AcquisitionGeometryResult geometry;
+        geometry.valid=true;
+        geometry.dependency_identity="GEOM-EVENT-INVALID";
+        geometry.camera_ground_distance_m=100.0;
+        geometry.footprint_width_m=100.0;
+        geometry.footprint_height_m=100.0;
+        geometry.gsd_width_m_per_px=0.02;
+        geometry.gsd_height_m_per_px=0.02;
+        geometry.image_spacing_m=10.0;
+        geometry.trigger_interval_s=1.0;
+        geometry.frontal_overlap_ratio=0.75;
+        geometry.side_overlap_ratio=0.60;
+
+        AcquisitionEventInput input;
+        input.tracks=invalid_tracks;
+        input.geometry=geometry;
+        input.calculation_version="MT01-EVENT-VALIDATE-1";
+        const auto generated=AcquisitionEventValidator::generate(input);
+        assert(generated.valid);
+        assert(generated.events.size()==3);
+
+        auto invalid_event=generated;
+        invalid_event.events.front().gsd_width_m_per_px=0.0;
+        MappingQualityInput quality_input;
+        quality_input.aoi={{59.0,30.0},{59.0,30.002},{59.002,30.002},{59.002,30.0}};
+        quality_input.decomposition.valid=true;
+        quality_input.decomposition.dependency_identity="DECOMP-EVENT-VALIDATE";
+        quality_input.decomposition.cells.push_back({});
+        quality_input.tracks=invalid_tracks;
+        quality_input.events=invalid_event;
+        quality_input.geometry=geometry;
+        quality_input.calculation_version="MT01-EVENT-VALIDATE-1";
+        const auto quality=MappingQualityEngine::evaluate(quality_input);
+        assert(quality.valid);
+        assert(quality.invalid_event_count>0);
+
+        auto invalid_camera=geometry;
+        invalid_camera.camera_ground_distance_m=0.0;
+        auto invalid_camera_input=input;
+        invalid_camera_input.geometry=invalid_camera;
+        const auto invalid_camera_result=AcquisitionEventValidator::generate(invalid_camera_input);
+        assert(!invalid_camera_result.valid);
+        assert(invalid_camera_result.failure_code=="INVALID_GENERATED_EVENT");
+
+        auto invalid_overlap=geometry;
+        invalid_overlap.side_overlap_ratio=1.0;
+        auto invalid_overlap_input=input;
+        invalid_overlap_input.geometry=invalid_overlap;
+        const auto invalid_overlap_result=AcquisitionEventValidator::generate(invalid_overlap_input);
+        assert(!invalid_overlap_result.valid);
+        assert(invalid_overlap_result.failure_code=="INVALID_GENERATED_EVENT");
+    }
+
+    return 0;
+}

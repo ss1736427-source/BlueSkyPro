@@ -1,6 +1,7 @@
 #include "constrained_open_space.hpp"
 
 #include <algorithm>
+#include <numeric>
 #include <cmath>
 #include <cstdint>
 #include <iomanip>
@@ -215,6 +216,124 @@ OpenSpaceResult ConstrainedOpenSpace::evaluateSegment(
             result.blocking_restriction_ids.push_back(restriction.restriction_id);
         }
     }
+    std::sort(result.blocking_restriction_ids.begin(), result.blocking_restriction_ids.end());
+    result.blocking_restriction_ids.erase(
+        std::unique(result.blocking_restriction_ids.begin(), result.blocking_restriction_ids.end()),
+        result.blocking_restriction_ids.end());
+    result.allowed = result.blocking_restriction_ids.empty();
+    return result;
+}
+
+
+OpenSpaceResult ConstrainedOpenSpace::evaluatePolygon(
+    const ConstrainedEnvironmentSnapshot& environment,
+    const std::vector<GeoPoint>& polygon,
+    double altitude_min_m,
+    double altitude_max_m) {
+    auto result = makeResult(environment);
+    if (!environment.complete) {
+        reject(result, "ENVIRONMENT_INCOMPLETE");
+        return result;
+    }
+    if (polygon.size() < 3) {
+        reject(result, "INVALID_PLANNING_POLYGON");
+        return result;
+    }
+    if (!std::isfinite(altitude_min_m) || !std::isfinite(altitude_max_m)) {
+        reject(result, "INVALID_PLANNING_ALTITUDE_BAND");
+        return result;
+    }
+    if (altitude_min_m > altitude_max_m) std::swap(altitude_min_m, altitude_max_m);
+    for (const auto& point : polygon) {
+        if (!validCoordinate(point)) {
+            reject(result, "INVALID_PLANNING_POLYGON_COORDINATE");
+            return result;
+        }
+    }
+
+    const double latitude =
+        std::accumulate(polygon.begin(), polygon.end(), 0.0,
+            [](double sum, const GeoPoint& point) { return sum + point.latitude_deg; }) /
+        static_cast<double>(polygon.size());
+    std::vector<XY> planning_polygon;
+    planning_polygon.reserve(polygon.size());
+    for (const auto& point : polygon)
+        planning_polygon.push_back(project(point, latitude));
+
+    const SpatialEdge representative{
+        polygon.front(), polygon.front(), (altitude_min_m + altitude_max_m) * 0.5,
+        altitude_min_m, altitude_max_m};
+
+    for (const auto& restriction : environment.restrictions) {
+        if (!restriction.active) continue;
+        if (!validRestriction(restriction)) {
+            reject(result, "INVALID_RESTRICTION_GEOMETRY:" + restriction.restriction_id);
+            return result;
+        }
+
+        const double restriction_latitude =
+            restriction.geometry_type == RestrictionGeometryType::Circle
+                ? latitude
+                : latitude;
+        std::vector<XY> restriction_polygon;
+        if (restriction.geometry_type == RestrictionGeometryType::Polygon) {
+            restriction_polygon.reserve(restriction.polygon.size());
+            for (const auto& point : restriction.polygon)
+                restriction_polygon.push_back(project(point, restriction_latitude));
+        }
+
+        const double edge_altitude_min = representative.altitude_min_m;
+        const double edge_altitude_max = representative.altitude_max_m;
+        if (!altitudeOverlaps(restriction, representative)) continue;
+
+        bool intersects_area = false;
+        if (restriction.geometry_type == RestrictionGeometryType::Circle) {
+            const XY center = project(restriction.center, latitude);
+            intersects_area = insidePolygon(center, planning_polygon);
+            if (!intersects_area) {
+                for (std::size_t i = 0; i < planning_polygon.size(); ++i) {
+                    const XY a = planning_polygon[i];
+                    const XY b = planning_polygon[(i + 1) % planning_polygon.size()];
+                    if (pointToSegmentDistance(center, a, b) <= restriction.radius_m) {
+                        intersects_area = true;
+                        break;
+                    }
+                }
+            }
+        } else {
+            for (const auto& point : planning_polygon) {
+                if (insidePolygon(point, restriction_polygon)) {
+                    intersects_area = true;
+                    break;
+                }
+            }
+            if (!intersects_area) {
+                for (const auto& point : restriction_polygon) {
+                    if (insidePolygon(point, planning_polygon)) {
+                        intersects_area = true;
+                        break;
+                    }
+                }
+            }
+            if (!intersects_area) {
+                for (std::size_t i = 0; i < planning_polygon.size() && !intersects_area; ++i) {
+                    const XY a = planning_polygon[i];
+                    const XY b = planning_polygon[(i + 1) % planning_polygon.size()];
+                    for (std::size_t j = 0; j < restriction_polygon.size(); ++j) {
+                        if (segmentsIntersect(a, b, restriction_polygon[j],
+                                              restriction_polygon[(j + 1) % restriction_polygon.size()])) {
+                            intersects_area = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (intersects_area)
+            result.blocking_restriction_ids.push_back(restriction.restriction_id);
+    }
+
     std::sort(result.blocking_restriction_ids.begin(), result.blocking_restriction_ids.end());
     result.blocking_restriction_ids.erase(
         std::unique(result.blocking_restriction_ids.begin(), result.blocking_restriction_ids.end()),

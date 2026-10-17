@@ -39,4 +39,7 @@ jobs:
       - name: Test
         run: ctest --test-dir build/planning --output-on-failure
 
+      - name: Print representative MT-01 simulation metrics
+        run: ./build/planning/mt01_t01_representative_simulation_test
+
 # CI trigger verification for the current main baseline.

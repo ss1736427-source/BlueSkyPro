@@ -323,3 +323,51 @@ V-REG-010  The C2 case-to-requirement/design-to-interface-to-execution-to-eviden
 **DRAFT_FOR_AGREEMENT — C2 PRE-EXECUTION TRACEABILITY INTEGRATED; REAL EXECUTION AND EVIDENCE REMAIN DEFERRED.**
 
 This register establishes verification identity and traceability control. It does not declare any requirement or verification as completed merely by registration.
+
+
+## 17. MT-01 / MT-02 planning verification allocation — controlled
+
+A repository-wide verification identity check was performed before creating planning-specific cases. No existing `V-M01-*` or `V-M02-*` identities were present in the current branch, and no equivalent planning case set was found in the Verification Register.
+
+A real verification-linkage gap was therefore confirmed.
+
+Controlled planning verification identities are now:
+
+```
+V-M01-01 … V-M01-10
+V-M02-01 … V-M02-11
+```
+
+Definitions are maintained in:
+
+`05_VERIFICATION/PLANNING/MT01_MT02_VERIFICATION_CASES_001.md`
+
+Controlled dataset identities are maintained in:
+
+`05_VERIFICATION/PLANNING/MT01_MT02_TEST_DATASETS_001.md`
+
+The allocation is:
+
+| Verification family | Cases | Dataset family | Execution | Evidence |
+|---|---|---|---|---|
+| MT-01 | V-M01-01..10 | MT01-T01..T09 | NOT EXECUTED | OPEN |
+| MT-02 | V-M02-01..11 | MT02-T21..T31 | NOT EXECUTED | OPEN |
+
+The cases cover the algorithm specification's positive, constraint, terrain/geometry, wind/incremental, energy, capability, quality, multi-UAV and deterministic-replay scenarios.
+
+No case is marked PASSED or VERIFIED by definition alone.
+
+Existing NAV-V* cases remain navigation verification identities and are not repurposed as MT planning cases. Existing C2/AI/return verification cases likewise retain their original scope.
+
+### Controlled gate
+
+```
+MT verification identity: CONTROLLED
+Dataset identity: CONTROLLED
+Requirement linkage: PARTIAL / CONTROLLED
+Execution configuration: OPEN
+Execution result: NOT EXECUTED
+Evidence: OPEN
+```
+
+This does not close the MT-01/MT-02 verification gate. It closes only the previously missing verification-case identity/decomposition step.
