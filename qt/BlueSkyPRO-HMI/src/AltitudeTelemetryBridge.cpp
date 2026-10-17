@@ -1,11 +1,5 @@
 #include "AltitudeTelemetryBridge.h"
 
-#include <QVariant>
-
-#include <cstdint>
-#include <limits>
-#include <utility>
-
 using namespace bluesky::operations;
 
 namespace {
@@ -22,11 +16,6 @@ QString sourceLabelFor(AltitudeDisplaySource source)
     default:
         return QStringLiteral("UNAVAILABLE");
     }
-}
-
-bool hasNumeric(const QVariantMap &m, const QString &key)
-{
-    return m.contains(key) && m.value(key).isValid() && m.value(key).canConvert<double>();
 }
 }
 
@@ -52,10 +41,11 @@ bool AltitudeTelemetryBridge::configure(const QString &vehicleId,
                                         qint64 maximumAgeMs,
                                         qint64 maximumPairSkewMs)
 {
-    // Sensor identifiers and freshness/coherence policy are part of the
-    // vehicle capability configuration; never infer them from incoming frames.
+    // Vehicle/capability configuration must supply exact identity, sensor
+    // capability and freshness windows. No sensor ID or port is inferred.
     if (vehicleId.trimmed().isEmpty() || sourceId.trimmed().isEmpty() ||
-        systemId <= 0 || systemId > 255 || componentId <= 0 || componentId > 255 ||
+        systemId <= 0 || systemId > 255 ||
+        componentId <= 0 || componentId > 255 ||
         (radioAltimeterConfigured &&
          (radioAltimeterSensorId < 0 || radioAltimeterSensorId > 255 ||
           radioAltimeterSensorType < 0 || radioAltimeterSensorType > 255)) ||
@@ -96,26 +86,24 @@ bool AltitudeTelemetryBridge::ingestAcceptedMessage(
         return false;
     }
 
-    // Typed C++ ingress only: caller must use the accepted decoded object
-    // returned by MavlinkTransportChannelRuntime::takeAcceptedMessage().
-    // No raw frame re-decode, QML fixture, or generic position altitude path.
+    // Caller must pass the accepted object from
+    // MavlinkTransportChannelRuntime::takeAcceptedMessage(). QML has no write
+    // path, and generic GLOBAL_POSITION_INT altitude is never accepted here.
     if (!message.valid || message.vehicle_id != m_vehicleId.toStdString() ||
         message.source_id != m_sourceId.toStdString() ||
         message.system_id != m_systemId ||
         message.component_id != m_componentId ||
         message.received_timestamp_ms <= 0 ||
-        message.received_timestamp_ms > nowMonotonicMs) {
+        message.received_timestamp_ms > nowMonotonicMs ||
+        (message.kind != MavlinkMessageKind::DistanceSensor &&
+         message.kind != MavlinkMessageKind::ScaledPressure)) {
         return false;
     }
 
-    if (message.kind != MavlinkMessageKind::DistanceSensor &&
-        message.kind != MavlinkMessageKind::ScaledPressure) {
-        return false;
-    }
-
-    // Decoder's source timestamp is currently receipt-time fallback. Keep that
-    // limitation explicit until TIMESYNC-based clock normalization is wired in.
     if (!m_runtime->ingestAccepted(message)) {
+        // Rejecting duplicate/out-of-order input must not leave a previous
+        // sample annunciated as current. Re-evaluate freshness against 'now'.
+        publishResult(m_runtime->evaluate(nowMonotonicMs));
         return false;
     }
 
@@ -144,10 +132,12 @@ void AltitudeTelemetryBridge::publishResult(
     const bool availableValue = result.decision.value_available;
     const double value = availableValue ? result.decision.value_m : 0.0;
     const QString label = sourceLabelFor(result.decision.source);
-    const bool isDegraded = result.decision.degraded || result.timestamp_quality_degraded;
-    const QString freshnessValue = availableValue ? (isDegraded ? QStringLiteral("DEGRADED") :
-                                                       QStringLiteral("CURRENT")) :
-                                                   QStringLiteral("STALE_OR_MISSING");
+    const bool isDegraded =
+        result.decision.degraded || result.timestamp_quality_degraded;
+    const QString freshnessValue = availableValue
+        ? (isDegraded ? QStringLiteral("DEGRADED") : QStringLiteral("CURRENT"))
+        : QStringLiteral("STALE_OR_MISSING");
+
     const bool changed = m_available != availableValue || m_valueM != value ||
         m_sourceLabel != label || m_degraded != isDegraded ||
         m_timestampQualityDegraded != result.timestamp_quality_degraded ||
