@@ -93,15 +93,11 @@ bool MavlinkAltitudeDisplayRuntime::ingestAccepted(
 
 MavlinkAltitudeDisplayAdapterResult
 MavlinkAltitudeDisplayRuntime::evaluate(std::int64_t now_ms) const {
-    if (distance_by_source_.empty() && pressure_by_source_.empty()) {
-        return {};
-    }
-
-    // All configured sources must match one vehicle/source/component tuple.
-    // Do not combine telemetry from different sources into a synthetic pair.
-    for (const auto& [key, sensors] : distance_by_source_) {
-        const auto pressure = pressure_by_source_.find(key);
-        if (pressure == pressure_by_source_.end()) {
+    // Evaluate a complete same-source pair first. Never combine messages from
+    // distinct vehicle/source/component identities.
+    for (const auto& [key, pressure] : pressure_by_source_) {
+        const auto distances = distance_by_source_.find(key);
+        if (distances == distance_by_source_.end()) {
             continue;
         }
 
@@ -110,19 +106,18 @@ MavlinkAltitudeDisplayRuntime::evaluate(std::int64_t now_ms) const {
         sample.source_id = std::get<1>(key);
         sample.system_id = std::get<2>(key);
         sample.component_id = std::get<3>(key);
-        sample.received_timestamp_ms =
-            pressure->second.sample.received_timestamp_ms;
+        sample.received_timestamp_ms = pressure.sample.received_timestamp_ms;
         sample.source_timestamp_ms = sample.received_timestamp_ms;
-        sample.barometric_pressure = pressure->second.sample;
+        sample.barometric_pressure = pressure.sample;
         sample.timestamp_is_receive_time_fallback =
-            pressure->second.timestamp_quality_degraded;
+            pressure.timestamp_quality_degraded;
 
-        // Only the specifically configured radio-altimeter sensor is supplied
-        // to the selector. Other rangefinders remain cached but cannot replace it.
+        // Only the configured sensor may reach the selector. Non-configured
+        // DISTANCE_SENSORs remain cached but cannot replace the selected source.
         if (sensor_config_.radio_altimeter_configured) {
-            const auto selected =
-                sensors.find(sensor_config_.radio_altimeter_sensor_id);
-            if (selected != sensors.end()) {
+            const auto selected = distances->second.find(
+                sensor_config_.radio_altimeter_sensor_id);
+            if (selected != distances->second.end()) {
                 sample.distance_sensor = selected->second.sample;
                 sample.timestamp_is_receive_time_fallback =
                     sample.timestamp_is_receive_time_fallback ||
@@ -133,9 +128,8 @@ MavlinkAltitudeDisplayRuntime::evaluate(std::int64_t now_ms) const {
         return select_mavlink_altitude_display(sample, sensor_config_, now_ms);
     }
 
-    // Do not infer a radio-altimeter reading or pair it with another vehicle.
-    // The existing adapter may show the explicitly degraded high-barometric
-    // fallback from a single source, but never generic position altitude.
+    // No paired sample: only the existing selector's explicitly degraded BARO
+    // fallback is allowed. Generic GLOBAL_POSITION_INT altitude is never used.
     if (!pressure_by_source_.empty()) {
         const auto& [key, pressure] = *pressure_by_source_.begin();
         MavlinkTelemetrySample sample;
