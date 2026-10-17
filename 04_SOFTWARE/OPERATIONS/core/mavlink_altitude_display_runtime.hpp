@@ -18,8 +18,8 @@ class MavlinkAltitudeDisplayRuntime final {
 public:
     explicit MavlinkAltitudeDisplayRuntime(
         MavlinkAltitudeDisplaySensorConfig sensor_config,
-        std::string vehicle_id = {}, std::string source_id = {},
-        std::uint8_t system_id = 0, std::uint8_t component_id = 0);
+        std::string vehicle_id, std::string source_id,
+        std::uint8_t system_id, std::uint8_t component_id);
 
     // Returns true only when the accepted telemetry advanced the cached state.
     // A duplicate or out-of-order source update never replaces newer data.
