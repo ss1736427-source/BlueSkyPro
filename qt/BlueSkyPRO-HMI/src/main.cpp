@@ -4,6 +4,7 @@
 
 #include "PlanningBridge.h"
 #include "AltitudeTelemetryBridge.h"
+#include "AltitudeTelemetryService.h"
 #include <QQmlApplicationEngine>
 #include <QUrl>
 #include <QString>
@@ -20,8 +21,11 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     PlanningBridge planningBridge;
     AltitudeTelemetryBridge altitudeTelemetryBridge;
+    AltitudeTelemetryService altitudeTelemetryService(altitudeTelemetryBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("altitudeTelemetryBridge"), &altitudeTelemetryBridge);
+    engine.rootContext()->setContextProperty(QStringLiteral("altitudeTelemetryService"), &altitudeTelemetryService);
+    altitudeTelemetryService.startFromEnvironment();
     const QString yandexMapsApiKey = qEnvironmentVariable("BLUESKY_YANDEX_MAPS_API_KEY");
     engine.rootContext()->setContextProperty(QStringLiteral("yandexMapsApiKey"), yandexMapsApiKey);
     const QUrl url(QStringLiteral("qrc:/qt/qml/BlueSky/PRO/qml/App.qml"));
