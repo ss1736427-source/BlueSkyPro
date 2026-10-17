@@ -19,7 +19,9 @@ int main(int argc, char *argv[])
 
     QQmlApplicationEngine engine;
     PlanningBridge planningBridge;
+    AltitudeTelemetryBridge altitudeTelemetryBridge;
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
+    engine.rootContext()->setContextProperty(QStringLiteral("altitudeTelemetryBridge"), &altitudeTelemetryBridge);
     const QString yandexMapsApiKey = qEnvironmentVariable("BLUESKY_YANDEX_MAPS_API_KEY");
     engine.rootContext()->setContextProperty(QStringLiteral("yandexMapsApiKey"), yandexMapsApiKey);
     const QUrl url(QStringLiteral("qrc:/qt/qml/BlueSky/PRO/qml/App.qml"));
