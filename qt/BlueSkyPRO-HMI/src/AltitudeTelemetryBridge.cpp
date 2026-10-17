@@ -88,102 +88,34 @@ bool AltitudeTelemetryBridge::configure(const QString &vehicleId,
     return true;
 }
 
-bool AltitudeTelemetryBridge::ingestAcceptedMessage(const QVariantMap &message,
-                                                    qint64 nowMonotonicMs)
+bool AltitudeTelemetryBridge::ingestAcceptedMessage(
+    const DecodedMavlinkMessage &message, qint64 nowMonotonicMs)
 {
     if (!m_configured || !m_runtime || nowMonotonicMs <= 0) {
         publishUnavailable(QStringLiteral("MISSING"));
         return false;
     }
 
-    // This typed map is a narrow Qt boundary. The caller must translate the
-    // actual DecodedMavlinkMessage obtained from takeAcceptedMessage(); raw
-    // frame bytes, QML fixtures and generic position altitude are not accepted.
-    const auto kindString = message.value(QStringLiteral("kind")).toString();
-    MavlinkMessageKind kind;
-    if (kindString == QLatin1String("ScaledPressure")) {
-        kind = MavlinkMessageKind::ScaledPressure;
-    } else if (kindString == QLatin1String("DistanceSensor")) {
-        kind = MavlinkMessageKind::DistanceSensor;
-    } else {
+    // Typed C++ ingress only: caller must use the accepted decoded object
+    // returned by MavlinkTransportChannelRuntime::takeAcceptedMessage().
+    // No raw frame re-decode, QML fixture, or generic position altitude path.
+    if (!message.valid || message.vehicle_id != m_vehicleId.toStdString() ||
+        message.source_id != m_sourceId.toStdString() ||
+        message.system_id != m_systemId ||
+        message.component_id != m_componentId ||
+        message.received_timestamp_ms <= 0 ||
+        message.received_timestamp_ms > nowMonotonicMs) {
         return false;
     }
 
-    for (const auto &key : {QStringLiteral("vehicleId"), QStringLiteral("sourceId"),
-                            QStringLiteral("systemId"), QStringLiteral("componentId"),
-                            QStringLiteral("receivedTimestampMs"), QStringLiteral("sourceTimeBootMs")}) {
-        if (!message.contains(key) || !message.value(key).isValid()) {
-            return false;
-        }
-    }
-    if (message.value(QStringLiteral("vehicleId")).toString() != m_vehicleId ||
-        message.value(QStringLiteral("sourceId")).toString() != m_sourceId ||
-        message.value(QStringLiteral("systemId")).toInt() != m_systemId ||
-        message.value(QStringLiteral("componentId")).toInt() != m_componentId) {
+    if (message.kind != MavlinkMessageKind::DistanceSensor &&
+        message.kind != MavlinkMessageKind::ScaledPressure) {
         return false;
     }
 
-    const auto receiveTimestamp = message.value(QStringLiteral("receivedTimestampMs")).toLongLong();
-    const auto bootTime = message.value(QStringLiteral("sourceTimeBootMs")).toUInt();
-    if (receiveTimestamp <= 0 || bootTime == 0 || receiveTimestamp > nowMonotonicMs) {
-        return false;
-    }
-
-    DecodedMavlinkMessage decoded;
-    decoded.kind = kind;
-    decoded.vehicle_id = m_vehicleId.toStdString();
-    decoded.source_id = m_sourceId.toStdString();
-    decoded.system_id = static_cast<std::uint8_t>(m_systemId);
-    decoded.component_id = static_cast<std::uint8_t>(m_componentId);
-    decoded.source_timestamp_ms = receiveTimestamp;
-    decoded.received_timestamp_ms = receiveTimestamp;
-    decoded.timestamp_is_receive_time_fallback =
-        message.value(QStringLiteral("timestampQualityDegraded"), true).toBool();
-    decoded.source_time_boot_ms = bootTime;
-    decoded.valid = true;
-
-    if (kind == MavlinkMessageKind::DistanceSensor) {
-        for (const auto &key : {QStringLiteral("sensorId"), QStringLiteral("sensorType"),
-                                QStringLiteral("orientation"), QStringLiteral("distanceM"),
-                                QStringLiteral("minimumDistanceCm"), QStringLiteral("maximumDistanceCm")}) {
-            if (!message.contains(key) || !message.value(key).isValid()) {
-                return false;
-            }
-        }
-        MavlinkDistanceSensorSample sensor;
-        sensor.source_time_boot_ms = bootTime;
-        sensor.received_timestamp_ms = receiveTimestamp;
-        sensor.sensor_id = static_cast<std::uint8_t>(message.value(QStringLiteral("sensorId")).toInt());
-        sensor.sensor_type = static_cast<std::uint8_t>(message.value(QStringLiteral("sensorType")).toInt());
-        sensor.orientation = static_cast<std::uint8_t>(message.value(QStringLiteral("orientation")).toInt());
-        sensor.minimum_distance_cm = static_cast<std::uint16_t>(message.value(QStringLiteral("minimumDistanceCm")).toUInt());
-        sensor.maximum_distance_cm = static_cast<std::uint16_t>(message.value(QStringLiteral("maximumDistanceCm")).toUInt());
-        const double distance = message.value(QStringLiteral("distanceM")).toDouble();
-        if (sensor.sensor_id != message.value(QStringLiteral("sensorId")).toInt() ||
-            sensor.sensor_type != message.value(QStringLiteral("sensorType")).toInt() ||
-            sensor.orientation != message.value(QStringLiteral("orientation")).toInt() ||
-            !hasNumeric(message, QStringLiteral("distanceM")) ||
-            sensor.minimum_distance_cm > sensor.maximum_distance_cm ||
-            distance < 0.0 || distance * 100.0 < sensor.minimum_distance_cm ||
-            distance * 100.0 > sensor.maximum_distance_cm) {
-            return false;
-        }
-        sensor.distance_m = distance;
-        sensor.valid = true;
-        decoded.distance_sensor = sensor;
-    } else {
-        if (!hasNumeric(message, QStringLiteral("absolutePressureHpa"))) {
-            return false;
-        }
-        const double pressure = message.value(QStringLiteral("absolutePressureHpa")).toDouble();
-        if (pressure < 100.0 || pressure > 1200.0) {
-            return false;
-        }
-        decoded.barometric_pressure = MavlinkBarometricPressureSample{
-            bootTime, receiveTimestamp, pressure, true};
-    }
-
-    if (!m_runtime->ingestAccepted(decoded)) {
+    // Decoder's source timestamp is currently receipt-time fallback. Keep that
+    // limitation explicit until TIMESYNC-based clock normalization is wired in.
+    if (!m_runtime->ingestAccepted(message)) {
         return false;
     }
 
