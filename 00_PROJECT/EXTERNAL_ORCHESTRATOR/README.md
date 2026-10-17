@@ -19,7 +19,7 @@ git pull --ff-only
 Затем задай:
 
 ```cmd
-set BS_REPO=ss1736427-source/BlueSky-PRO-Knowledge
+set BS_REPO=ss1736427-source/BlueSkyPro
 set BS_BRANCH=main
 set BS_POLL_SECONDS=5
 set BS_CI_GRACE_SECONDS=5
@@ -55,5 +55,9 @@ Agent должен вернуть:
 Путь к локальной папке с оркестратором может быть любым. В переменной `BS_AGENT_ADAPTER` указывается фактический путь к `agent_adapter.ps1`.
 
 `BS_AGENT_EXECUTABLE` должен явно указывать на одобренный внешний агент, совместимый с интерфейсом stdin/stdout, используемым адаптером. Автоматический выбор конкретного агента не выполняется.
+
+По умолчанию репозиторий — `ss1736427-source/BlueSkyPro`. Если запускается другой репозиторий, `BS_REPO` должен быть задан явно и проверен перед стартом.
+
+**Граница текущего CI-контроля:** `bluesky_orchestrator.py` отслеживает только `04_SOFTWARE/PLANNING/` и `.github/workflows/planning-benchmark.yml`. Это не общий контроль CI для всего репозитория и не подтверждение сборки HMI/MapTiler.
 
 Этот компонент является внешним управляющим циклом и не принимает архитектурных или продуктовых решений самостоятельно.
