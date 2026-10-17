@@ -134,6 +134,7 @@ Item {
             if (request.status === WebEngineView.LoadSucceededStatus) {
                 root.htmlLoaded = true
                 root.syncRouteCoordinates()
+                root.syncPanelBounds()
             } else if (request.status === WebEngineView.LoadFailedStatus) {
                 console.warn("MapTiler SDK load failed:", request.errorString)
             }
