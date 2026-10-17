@@ -9,9 +9,12 @@ Item {
     clip: true
     implicitWidth: 270
 
-    // MainContent overlays BottomToolbar on top of the full workspace.
-    // Keep reorderable panels inside the visible right-panel work area.
-    property int bottomInset: 54
+    // MainContent anchors the workspace above BottomToolbar, so the panel's
+    // height already excludes the toolbar. Do not subtract the toolbar twice.
+    property int bottomInset: 0
+
+    // Re-clamp saved card positions when the user resizes the window/workspace.
+    onHeightChanged: Qt.callLater(root.reflowPanelPositions)
 
     property color bg: "#08111D"
     property color text: "#FFFFFF"
@@ -43,9 +46,11 @@ Item {
         property string orderCsv: "Checklist,Flight Conditions,Alerting,ATC"
         property string positionCsv: "Checklist=54,Flight Conditions=293,Alerting=400,ATC=499"
         property int freePositionLayoutVersion: 0
+        property bool fixedSections: true
     }
 
     property var panelOrder: panelOrderSettings.orderCsv.split(",")
+    property bool fixedSections: panelOrderSettings.fixedSections
     property string draggingPanel: ""
     property real dragVisualY: 0
     property real dragGrabOffsetY: 0
@@ -103,7 +108,7 @@ Item {
     }
 
     function beginPanelDrag(key, pressRootY) {
-        if (!panelVisible(key))
+        if (root.fixedSections || !panelVisible(key))
             return
 
         draggingPanel = key
@@ -152,6 +157,15 @@ Item {
             var key = keys[i]
             if (panelVisible(key))
                 items.push({ key: key, y: panelPositionY(key), h: panelHeight(key) })
+        }
+
+        // In FIXED mode ATC stays bottom-aligned, immediately above the workspace edge.
+        // FREE mode preserves the operator's saved position.
+        if (root.fixedSections) {
+            for (var a = 0; a < items.length; ++a) {
+                if (items[a].key === "ATC")
+                    items[a].y = bottomLimit - items[a].h
+            }
         }
 
         // Clamp saved positions first.
@@ -381,6 +395,12 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: root.bg
+    }
+
+    // Catch wheel events propagated from panel controls before they reach the map.
+    WheelHandler {
+        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+        onWheel: function(event) { event.accepted = true }
     }
 
     // Edge ownership mirrors LeftPanel. MainContent disables the top and bottom
@@ -1170,6 +1190,12 @@ Item {
         width: Math.min(parent.width - 16, Math.max(260, panelSettingsPopup.contentWidth))
         height: Math.min(parent.height - 52, panelSettingsPopup.contentHeight + 30)
         title: "PANEL CONTROL"
+        fixedSections: root.fixedSections
+        onFixedSectionsRequested: function(fixed) {
+            panelOrderSettings.fixedSections = fixed
+            panelOrderSettings.sync()
+            root.fixedSections = fixed
+        }
         tools: ["Checklist", "Weather", "NOTAM", "Information", "Readiness", "Validation", "Send Flight Plan", "Start Mission", "Map Alerts"]
         toolGroups: [
             { key: "monitoring", title: "MONITORING", expandedByDefault: true, tools: ["Checklist", "Weather", "NOTAM", "Information"] },

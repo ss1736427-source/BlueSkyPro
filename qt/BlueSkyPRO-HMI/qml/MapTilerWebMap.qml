@@ -6,6 +6,10 @@ Item {
     id: root
 
     property string apiKey: ""
+    // Side panels overlay the full map viewport. Wheel input within their
+    // horizontal bounds must not trigger MapLibre zoom.
+    property real leftPanelWidth: 0
+    property real rightPanelWidth: 0
     // Planning Core is the sole authority for route geometry. Empty means no route overlay.
     property var routeCoordinates: []
     // Use the module CDN as the document origin so MapLibre v6 can create its CDN-derived worker from the same origin in Qt WebEngine.
@@ -47,6 +51,9 @@ Item {
             "else{",
             "",
             "const map=new maplibregl.Map({container:'map',style:'https://api.maptiler.com/maps/hybrid-v4/style.json?key='+encodeURIComponent(apiKey),center:[31.95990,49.85842],zoom:6.7,attributionControl:true,fadeDuration:0,refreshExpiredTiles:false,cancelPendingTileRequestsWhileZooming:true,crossSourceCollisions:false,maxPitch:60,maxTileCacheZoomLevels:6,canvasContextAttributes:{antialias:false,preserveDrawingBuffer:false}});",
+            "const sidePanelBounds={left:" + JSON.stringify(root.leftPanelWidth) + ",right:" + JSON.stringify(root.rightPanelWidth) + "};",
+            "document.addEventListener('wheel',e=>{const rect=document.getElementById('map').getBoundingClientRect();const x=e.clientX-rect.left;if(x<sidePanelBounds.left||x>=rect.width-sidePanelBounds.right){e.preventDefault();e.stopImmediatePropagation();}}, {capture:true,passive:false});",
+            "window.blueskySetPanelBounds=b=>{sidePanelBounds.left=Math.max(0,Number(b.left)||0);sidePanelBounds.right=Math.max(0,Number(b.right)||0);};",
             "let routeData={type:'FeatureCollection',features:[]};",
             "let routeInputSignature=null;",
             "let labelsVisible=true;",
@@ -105,6 +112,13 @@ Item {
         }
     }
 
+    function syncPanelBounds() {
+        if (htmlLoaded && !webMap.loading) {
+            var payload = JSON.stringify({ left: root.leftPanelWidth, right: root.rightPanelWidth })
+            webMap.runJavaScript("if(window.blueskySetPanelBounds)window.blueskySetPanelBounds(" + payload + ");")
+        }
+    }
+
     WebEngineView {
         id: webMap
         anchors.fill: parent
@@ -120,6 +134,7 @@ Item {
             if (request.status === WebEngineView.LoadSucceededStatus) {
                 root.htmlLoaded = true
                 root.syncRouteCoordinates()
+                root.syncPanelBounds()
             } else if (request.status === WebEngineView.LoadFailedStatus) {
                 console.warn("MapTiler SDK load failed:", request.errorString)
             }
@@ -148,5 +163,7 @@ Item {
     Connections {
         target: root
         function onRouteCoordinatesChanged() { root.syncRouteCoordinates() }
+        function onLeftPanelWidthChanged() { root.syncPanelBounds() }
+        function onRightPanelWidthChanged() { root.syncPanelBounds() }
     }
 }

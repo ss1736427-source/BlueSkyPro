@@ -69,6 +69,8 @@ Item {
         z: 1
         apiKey: typeof mapTilerApiKey !== "undefined" ? mapTilerApiKey : ""
         routeCoordinates: root.routeCoordinates
+        leftPanelWidth: root.leftPanelWidth
+        rightPanelWidth: root.rightPanelWidth
     }
 
     Canvas {
