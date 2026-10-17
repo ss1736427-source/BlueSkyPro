@@ -95,7 +95,12 @@ private:
         LinkMetricsRuntime link_metrics;
         LinkLatencyRuntime link_latency;
         LinkBandwidthRuntime link_bandwidth;
-        std::vector<std::vector<std::uint8_t>> rx_queue;
+        struct ReceivedFrame {
+            std::int64_t received_timestamp_ms{0};
+            std::vector<std::uint8_t> bytes;
+        };
+        std::vector<ReceivedFrame> rx_queue;
+        std::vector<DecodedMavlinkMessage> accepted_messages;
         std::vector<std::vector<std::uint8_t>> tx_queue;
         std::unique_ptr<MavlinkUdpTransportDriver> udp_driver;
     };
