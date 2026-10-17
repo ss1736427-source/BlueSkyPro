@@ -40,6 +40,16 @@ int main() {
     assert(std::abs(p.points[1].cumulative_time_s-12.5)<1e-9);
     assert(p.dependency_identity=="DEP|selection:SEL-1|mission:M-1:7|candidate:C-2|route:R-1:4|input:ENV-3|trajectory:TRAJ-DEP-1");
 
+    const auto missing_profile_id = FlightProfileBuilder::build(
+        selected,route,trajectory,"","1.0.0");
+    assert(!missing_profile_id.valid);
+    assert(missing_profile_id.points.empty());
+
+    const auto missing_profile_version = FlightProfileBuilder::build(
+        selected,route,trajectory,"FP-NO-VERSION","");
+    assert(!missing_profile_version.valid);
+    assert(missing_profile_version.points.empty());
+
     auto changed_trajectory_dependency = trajectory;
     changed_trajectory_dependency.dependency_identity = "TRAJ-DEP-2";
     const auto changed_dependency_profile = FlightProfileBuilder::build(
