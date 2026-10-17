@@ -60,6 +60,21 @@ FlightProfile FlightProfileBuilder::build(const SelectedRouteSet& selected,
         return result;
     }
 
+    if (selected.candidate_id.empty() ||
+        selected.mission_id != route.lineage.mission_id ||
+        selected.mission_version != route.lineage.mission_version ||
+        selected.calculation_input_version != route.lineage.calculation_input_version ||
+        selected.route_elements.size() != route.waypoints.size()) {
+        result.validation_error = "Selected route lineage does not match the canonical route.";
+        return result;
+    }
+    for (std::size_t i = 0; i < route.waypoints.size(); ++i) {
+        if (selected.route_elements[i] != route.waypoints[i].waypoint_id) {
+            result.validation_error = "Selected route waypoint order does not match the canonical route.";
+            return result;
+        }
+    }
+
     result.points.reserve(route.waypoints.size());
     double previous_time = -1.0;
     for (std::size_t i = 0; i < route.waypoints.size(); ++i) {

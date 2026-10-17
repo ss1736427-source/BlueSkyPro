@@ -7,8 +7,10 @@ int main() {
     SelectedRouteSet selected;
     selected.mission_id="M-1"; selected.mission_version="7"; selected.candidate_id="C-2";
     selected.source_dependency_identity="DEP";
+    selected.route_elements={"WP1","WP2"};
     Route route;
     route.lineage.route_id="R-1"; route.lineage.route_version="4";
+    route.lineage.mission_id="M-1"; route.lineage.mission_version="7";
     route.lineage.calculation_input_version="ENV-3";
     route.waypoints={
         {"WP1",{0.0,0.0},10.0,true},
@@ -34,6 +36,27 @@ int main() {
     assert(p.points[0].cumulative_time_s==0.0);
     assert(std::abs(p.points[1].cumulative_time_s-12.5)<1e-9);
     assert(p.dependency_identity=="DEP|R-1|4|ENV-3");
+
+    auto stale_selected_mission = selected;
+    stale_selected_mission.mission_id = "M-STALE";
+    const auto stale_mission_profile = FlightProfileBuilder::build(
+        stale_selected_mission,route,trajectory,"FP-STALE-MISSION","1.0.0");
+    assert(!stale_mission_profile.valid);
+    assert(stale_mission_profile.points.empty());
+
+    auto stale_selected_environment = selected;
+    stale_selected_environment.calculation_input_version = "ENV-STALE";
+    const auto stale_environment_profile = FlightProfileBuilder::build(
+        stale_selected_environment,route,trajectory,"FP-STALE-ENV","1.0.0");
+    assert(!stale_environment_profile.valid);
+    assert(stale_environment_profile.points.empty());
+
+    auto wrong_selected_order = selected;
+    wrong_selected_order.route_elements[1] = "WP-STALE";
+    const auto wrong_selected_route_profile = FlightProfileBuilder::build(
+        wrong_selected_order,route,trajectory,"FP-STALE-ROUTE","1.0.0");
+    assert(!wrong_selected_route_profile.valid);
+    assert(wrong_selected_route_profile.points.empty());
 
     auto wrong_version=trajectory;
     wrong_version.route_version="stale";
@@ -66,6 +89,8 @@ int main() {
     // Segment durations must match the differences between cumulative point times.
     Route multi_segment_route = route;
     multi_segment_route.waypoints.push_back({"WP3",{0.0,0.002},120.0,true});
+    SelectedRouteSet multi_segment_selected = selected;
+    multi_segment_selected.route_elements.push_back("WP3");
     multi_segment_route.segments.push_back({"S2","WP2","WP3",111.32,10.0});
     TrajectoryResult inconsistent_segment_time = trajectory;
     inconsistent_segment_time.points.push_back(
@@ -74,7 +99,7 @@ int main() {
     inconsistent_segment_time.segments.push_back({"S2",8.9,90.0,4.5,1.0});
     inconsistent_segment_time.total_time_s = 12.5;
     const auto inconsistent_time_profile = FlightProfileBuilder::build(
-        selected,multi_segment_route,inconsistent_segment_time,"FP-6","1.0.0");
+        multi_segment_selected,multi_segment_route,inconsistent_segment_time,"FP-6","1.0.0");
     assert(!inconsistent_time_profile.valid);
     assert(inconsistent_time_profile.points.empty());
     return 0;
