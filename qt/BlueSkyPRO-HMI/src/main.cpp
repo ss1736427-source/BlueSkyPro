@@ -3,6 +3,7 @@
 #include <QQmlContext>
 
 #include "PlanningBridge.h"
+#include "AltitudeTelemetryBridge.h"
 #include <QQmlApplicationEngine>
 #include <QUrl>
 #include <QString>
