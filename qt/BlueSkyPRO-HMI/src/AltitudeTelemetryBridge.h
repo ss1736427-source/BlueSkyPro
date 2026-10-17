@@ -43,6 +43,7 @@ public:
     // MavlinkTransportChannelRuntime::takeAcceptedMessage(); QML cannot inject data.
     bool ingestAcceptedMessage(const bluesky::operations::DecodedMavlinkMessage &message,
                                qint64 nowMonotonicMs);
+    Q_INVOKABLE void refresh(qint64 nowMonotonicMs);
 
 signals:
     void stateChanged();
