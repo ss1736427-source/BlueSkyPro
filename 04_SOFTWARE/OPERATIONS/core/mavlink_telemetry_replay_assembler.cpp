@@ -51,6 +51,7 @@ MavlinkTelemetryReplay MavlinkTelemetryReplayAssembler::assemble(
         current.battery_valid |= sample.battery_valid;
         current.health_valid |= sample.health_valid;
         current.mission_valid |= sample.mission_valid;
+        current.timestamp_is_receive_time_fallback |= sample.timestamp_is_receive_time_fallback;
 
         if (sample.latitude_deg) current.latitude_deg = sample.latitude_deg;
         if (sample.longitude_deg) current.longitude_deg = sample.longitude_deg;
@@ -62,6 +63,9 @@ MavlinkTelemetryReplay MavlinkTelemetryReplayAssembler::assemble(
         if (sample.yaw_rad) current.yaw_rad = sample.yaw_rad;
         if (sample.battery_percent) current.battery_percent = sample.battery_percent;
         if (sample.mission_state) current.mission_state = sample.mission_state;
+        if (sample.barometric_pressure && sample.barometric_pressure->valid)
+            current.barometric_pressure = sample.barometric_pressure;
+        if (sample.distance_sensor) current.distance_sensor = sample.distance_sensor;
     }
 
     if (has_current) {
