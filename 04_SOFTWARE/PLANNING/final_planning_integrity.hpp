@@ -9,7 +9,11 @@ enum class FinalPlanningIntegrityFindingCode {
     MissingRouteVersion,
     MissingProfile,
     MissingVehicleBinding,
-    MissingCalculationInput
+    MissingCalculationInput,
+    RouteVersionMismatch,
+    CalculationInputMismatch,
+    InvalidCompiledPoints,
+    VehicleCompilationNotFeasible
 };
 struct FinalPlanningIntegrityFinding {
     FinalPlanningIntegrityFindingCode code;
