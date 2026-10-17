@@ -24,7 +24,12 @@ jobs:
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
-          modules: 'qtshadertools qtlocation qtpositioning qtwebengine'
+          modules: 'qtshadertools qtlocation qtpositioning qtwebchannel qtwebengine'
+
+      - name: Configure MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
       - name: Configure
         shell: pwsh
