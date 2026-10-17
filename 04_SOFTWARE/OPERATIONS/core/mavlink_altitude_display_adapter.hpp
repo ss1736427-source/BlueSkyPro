@@ -14,8 +14,8 @@ struct MavlinkAltitudeDisplaySensorConfig {
     bool radio_altimeter_configured{false};
     std::uint8_t radio_altimeter_sensor_id{0};
     std::uint8_t radio_altimeter_sensor_type{0};
-    std::int64_t maximum_age_ms{1000};
-    std::int64_t maximum_pair_skew_ms{500};
+    std::int64_t maximum_age_ms{-1};
+    std::int64_t maximum_pair_skew_ms{-1};
 };
 
 struct MavlinkAltitudeDisplayAdapterResult {

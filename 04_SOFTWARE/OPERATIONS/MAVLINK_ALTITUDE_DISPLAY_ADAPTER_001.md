@@ -9,7 +9,7 @@ The adapter consumes the distinct `SCALED_PRESSURE` and `DISTANCE_SENSOR` sample
 
 A distance sensor is accepted as radio-altimeter AGL only if the vehicle configuration explicitly identifies the sensor ID and sensor type as the radio altimeter and the packet reports downward orientation. The reading must be valid, fresh, and have a nonzero vehicle boot-time counter.
 
-Absolute static pressure is converted to ISA pressure altitude using 1013.25 hPa. Both sources must be fresh; when both are present, their receive timestamps must be within the configured coherence window before barometric switching is permitted.
+Absolute static pressure is converted to ISA pressure altitude using 1013.25 hPa. Both sources must be fresh; when both are present, their receive timestamps must be within the configured coherence window before barometric switching is permitted. Freshness and coherence thresholds have no operational default: configuration values must be explicitly verified and supplied. An unset/negative threshold fails closed and makes the corresponding input unusable.
 
 The adapter exposes a timestamp-quality flag when the raw decoder used receive time as a fallback because the vehicle boot clock is not yet synchronized to the host clock.
 
