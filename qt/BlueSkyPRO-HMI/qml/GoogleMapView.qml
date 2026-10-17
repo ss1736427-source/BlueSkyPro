@@ -150,8 +150,8 @@ Item {
 
             for (var tx = firstX; tx <= lastX; ++tx) {
                 var wrappedX = ((tx % tileCount) + tileCount) % tileCount
-                var tileX = tx * tileSize - cx + width / 2 + panOffsetX
-                var tileY = ty * tileSize - cy + height / 2 + panOffsetY
+                var tileX = tx * tileSize - cx + width / 2
+                var tileY = ty * tileSize - cy + height / 2
                 var isVisible = tileX < width && tileX + tileSize > 0
                              && tileY < height && tileY + tileSize > 0
                 if (isVisible)
@@ -190,8 +190,8 @@ Item {
         var viewportCenterX = width / 2
         var viewportCenterY = height / 2
         for (var i = 0; i < result.length; ++i) {
-            var dx = result[i].x + tileSize / 2 - viewportCenterX
-            var dy = result[i].y + tileSize / 2 - viewportCenterY
+            var dx = result[i].x + panOffsetX + tileSize / 2 - viewportCenterX
+            var dy = result[i].y + panOffsetY + tileSize / 2 - viewportCenterY
             result[i].priority = dx * dx + dy * dy
         }
         result.sort(function(a, b) {
