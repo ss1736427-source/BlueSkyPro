@@ -154,8 +154,31 @@ void TileCacheManager::cleanupExpiredCacheBatch()
     m_cleanupTimer.start(1);
 }
 
+void TileCacheManager::beginViewUpdate()
+{
+    m_currentViewKeys.clear();
+
+    // Requests not yet started are tied to the previous viewport. Drop them
+    // so rapid zooming/panning cannot leave a long FIFO backlog of obsolete tiles.
+    while (!m_queue.isEmpty()) {
+        const Request queued = m_queue.dequeue();
+        bool isActive = false;
+        for (auto it = m_activeRequests.cbegin(); it != m_activeRequests.cend(); ++it) {
+            if (it.value().key == queued.key) {
+                isActive = true;
+                break;
+            }
+        }
+        if (!isActive)
+            m_pending.remove(queued.key);
+    }
+
+    m_pumpTimer.stop();
+}
+
 QString TileCacheManager::requestTile(const QString &key, const QString &url)
 {
+    m_currentViewKeys.insert(key);
     const QString path = cachePath(key);
     const QFileInfo cachedInfo(path);
     if (cachedInfo.exists()) {
@@ -194,6 +217,16 @@ void TileCacheManager::pump()
         m_pumpTimer.start(static_cast<int>(kRequestSpacingMs - elapsed));
         return;
     }
+
+    // Before spending a network slot, discard requests that no longer belong
+    // to the latest viewport. beginViewUpdate() normally clears the queue, but
+    // this guard also handles retries and rapid view changes safely.
+    while (!m_queue.isEmpty() && !m_currentViewKeys.contains(m_queue.head().key)) {
+        const Request obsolete = m_queue.dequeue();
+        m_pending.remove(obsolete.key);
+    }
+    if (m_queue.isEmpty())
+        return;
 
     const Request request = m_queue.dequeue();
     QNetworkRequest networkRequest{QUrl(request.url)};
@@ -289,6 +322,12 @@ void TileCacheManager::handleFinished(QNetworkReply *reply)
     } else if (request.retryCount < kMaxRetries && isTransientFailure(reply)) {
         const Request retry{request.key, request.url, request.retryCount + 1};
         QTimer::singleShot(1200, this, [this, retry]() {
+            // Do not retry a tile after the user has moved to another viewport.
+            if (!m_currentViewKeys.contains(retry.key)) {
+                m_pending.remove(retry.key);
+                pump();
+                return;
+            }
             m_queue.prepend(retry);
             pump();
         });
