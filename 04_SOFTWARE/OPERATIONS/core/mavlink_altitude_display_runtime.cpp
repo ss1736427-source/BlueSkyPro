@@ -125,7 +125,9 @@ MavlinkAltitudeDisplayRuntime::evaluate(std::int64_t now_ms) const {
             }
         }
 
-        return select_mavlink_altitude_display(sample, sensor_config_, now_ms);
+        auto result = select_mavlink_altitude_display(sample, sensor_config_, now_ms);
+        result.timestamp_quality_degraded = true;
+        return result;
     }
 
     // No paired sample: only the existing selector's explicitly degraded BARO
@@ -142,7 +144,9 @@ MavlinkAltitudeDisplayRuntime::evaluate(std::int64_t now_ms) const {
         sample.barometric_pressure = pressure.sample;
         sample.timestamp_is_receive_time_fallback =
             pressure.timestamp_quality_degraded;
-        return select_mavlink_altitude_display(sample, sensor_config_, now_ms);
+        auto result = select_mavlink_altitude_display(sample, sensor_config_, now_ms);
+        result.timestamp_quality_degraded = true;
+        return result;
     }
 
     return {};
