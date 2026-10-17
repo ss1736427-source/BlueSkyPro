@@ -29,6 +29,9 @@ MavlinkTelemetryDecoderBoundary::decode(const DecodedMavlinkMessage& message) {
     sample.component_id = message.component_id;
     sample.source_timestamp_ms = message.source_timestamp_ms;
     sample.received_timestamp_ms = message.received_timestamp_ms;
+    sample.timestamp_is_receive_time_fallback = message.timestamp_is_receive_time_fallback;
+    sample.barometric_pressure = message.barometric_pressure;
+    sample.distance_sensor = message.distance_sensor;
 
     switch (message.kind) {
     case MavlinkMessageKind::Heartbeat:
@@ -67,6 +70,9 @@ MavlinkTelemetryDecoderBoundary::decode(const DecodedMavlinkMessage& message) {
     case MavlinkMessageKind::MissionState:
         sample.mission_valid = message.mission_state.has_value();
         sample.mission_state = message.mission_state;
+        break;
+    case MavlinkMessageKind::ScaledPressure:
+    case MavlinkMessageKind::DistanceSensor:
         break;
     case MavlinkMessageKind::Timesync:
         return std::nullopt;

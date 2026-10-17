@@ -116,6 +116,41 @@ void testLatestUnhealthyHeartbeatOverridesEarlierHealthyHeartbeat() {
     assert(!normalized_state_usable(state));
 }
 
+void testReplayPreservesIndependentAltitudeSensorSamples() {
+    std::vector<DecodedMavlinkMessage> messages;
+    auto heartbeat = base(MavlinkDialect::PX4, MavlinkMessageKind::Heartbeat, 1000);
+    heartbeat.flight_mode = "AUTO";
+    messages.push_back(heartbeat);
+
+    auto pressure = base(MavlinkDialect::PX4, MavlinkMessageKind::ScaledPressure, 1100);
+    pressure.source_time_boot_ms = 900;
+    pressure.barometric_pressure = MavlinkBarometricPressureSample{900, 1100, 990.0, true};
+    messages.push_back(pressure);
+
+    auto range = base(MavlinkDialect::PX4, MavlinkMessageKind::DistanceSensor, 1200);
+    MavlinkDistanceSensorSample distance;
+    distance.source_time_boot_ms = 1000;
+    distance.received_timestamp_ms = 1200;
+    distance.minimum_distance_cm = 30;
+    distance.maximum_distance_cm = 1000;
+    distance.sensor_type = 3;
+    distance.sensor_id = 2;
+    distance.orientation = 25;
+    distance.distance_m = 42.0;
+    distance.valid = true;
+    range.distance_sensor = distance;
+    messages.push_back(range);
+
+    const auto replay = MavlinkTelemetryReplayAssembler::assemble("ALTITUDE-SENSORS", messages);
+    assert(replay.samples.size() == 1);
+    assert(replay.samples.front().barometric_pressure.has_value());
+    assert(replay.samples.front().barometric_pressure->absolute_pressure_hpa == 990.0);
+    assert(replay.samples.front().distance_sensor.has_value());
+    assert(replay.samples.front().distance_sensor->sensor_id == 2);
+    assert(replay.samples.front().distance_sensor->distance_m.has_value());
+    assert(*replay.samples.front().distance_sensor->distance_m == 42.0);
+}
+
 void testInvalidMessageIsExcluded() {
     std::vector<DecodedMavlinkMessage> messages;
     auto invalid = base(MavlinkDialect::PX4, MavlinkMessageKind::Heartbeat, 1000);
@@ -133,6 +168,7 @@ int main() {
     testPx4ReplayRejectsIncompleteSnapshot();
     testLatestUnhealthyHeartbeatOverridesEarlierHealthyHeartbeat();
     testInvalidMessageIsExcluded();
+    testReplayPreservesIndependentAltitudeSensorSamples();
     std::cout << "mavlink_telemetry_replay_assembler_test: PASS\n";
     return 0;
 }

@@ -9,6 +9,25 @@
 
 namespace bluesky::operations {
 
+struct MavlinkBarometricPressureSample {
+    std::uint32_t source_time_boot_ms{0};
+    std::int64_t received_timestamp_ms{0};
+    double absolute_pressure_hpa{0.0};
+    bool valid{false};
+};
+
+struct MavlinkDistanceSensorSample {
+    std::uint32_t source_time_boot_ms{0};
+    std::int64_t received_timestamp_ms{0};
+    std::uint16_t minimum_distance_cm{0};
+    std::uint16_t maximum_distance_cm{0};
+    std::uint8_t sensor_type{0};
+    std::uint8_t sensor_id{0};
+    std::uint8_t orientation{0};
+    std::optional<double> distance_m;
+    bool valid{false};
+};
+
 struct MavlinkTelemetrySample {
     std::string vehicle_id;
     std::string source_id;
@@ -40,6 +59,12 @@ struct MavlinkTelemetrySample {
     std::optional<double> battery_percent;
     std::optional<std::string> flight_mode;
     std::optional<std::string> mission_state;
+
+    // Raw, source-specific altitude inputs are kept separate from generic
+    // GLOBAL_POSITION_INT altitude. They are not AGL/pressure altitude yet.
+    std::optional<MavlinkBarometricPressureSample> barometric_pressure;
+    std::optional<MavlinkDistanceSensorSample> distance_sensor;
+    bool timestamp_is_receive_time_fallback{false};
 };
 
 struct MavlinkTelemetryReplay {
