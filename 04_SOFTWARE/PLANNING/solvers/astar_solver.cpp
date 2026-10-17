@@ -50,11 +50,12 @@ RunState AStarSolver::run(SolverContext& context) {
     struct QueueItem {
         std::string id;
         double f;
+        double g;
         bool operator>(const QueueItem& other) const { return f > other.f; }
     };
 
     std::priority_queue<QueueItem, std::vector<QueueItem>, std::greater<>> open;
-    open.push({start->id, heuristic_(*start, *goal)});
+    open.push({start->id, heuristic_(*start, *goal), 0.0});
 
     std::unordered_set<std::string> closed;
     while (!open.empty()) {
@@ -67,6 +68,8 @@ RunState AStarSolver::run(SolverContext& context) {
 
         const auto current = open.top();
         open.pop();
+        const auto best_g = g.find(current.id);
+        if (best_g == g.end() || current.g != best_g->second) continue;
         if (closed.contains(current.id)) continue;
         closed.insert(current.id);
 
@@ -96,14 +99,14 @@ RunState AStarSolver::run(SolverContext& context) {
         if (!current_node) return RunState::Failed;
 
         for (const auto& edge : adjacency[current.id]) {
-            if (closed.contains(edge.to)) continue;
             const double tentative_g = g[current.id] + edge.cost;
             if (tentative_g < g[edge.to]) {
                 g[edge.to] = tentative_g;
                 parent[edge.to] = current.id;
+                closed.erase(edge.to);
                 const auto* next_node = graph.find_node(edge.to);
                 if (!next_node) return RunState::Failed;
-                open.push({edge.to, tentative_g + heuristic_(*next_node, *goal)});
+                open.push({edge.to, tentative_g + heuristic_(*next_node, *goal), tentative_g});
             }
         }
     }
