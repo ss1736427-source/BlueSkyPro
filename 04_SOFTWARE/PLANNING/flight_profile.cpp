@@ -14,7 +14,14 @@ FlightProfile FlightProfileBuilder::build(const SelectedRouteSet& selected,
     result.source_candidate_id = selected.candidate_id;
     result.route_version = route.lineage.route_version;
     result.calculation_input_version = route.lineage.calculation_input_version;
-    result.dependency_identity = selected.source_dependency_identity + "|" + route.lineage.route_id + "|" + route.lineage.route_version + "|" + route.lineage.calculation_input_version;
+    result.dependency_identity =
+        selected.source_dependency_identity +
+        "|selection:" + selected.selection_version +
+        "|mission:" + selected.mission_id + ":" + selected.mission_version +
+        "|candidate:" + selected.candidate_id +
+        "|route:" + route.lineage.route_id + ":" + route.lineage.route_version +
+        "|input:" + route.lineage.calculation_input_version +
+        "|trajectory:" + trajectory.dependency_identity;
 
     if (trajectory.status != TrajectoryStatus::Feasible) {
         result.validation_error = "Trajectory result is not feasible.";
@@ -61,11 +68,19 @@ FlightProfile FlightProfileBuilder::build(const SelectedRouteSet& selected,
     }
 
     if (selected.candidate_id.empty() ||
+        selected.selection_version.empty() ||
+        selected.source_dependency_identity.empty() ||
+        trajectory.dependency_identity.empty() ||
+        route.lineage.route_id.empty() ||
+        route.lineage.route_version.empty() ||
+        route.lineage.mission_id.empty() ||
+        route.lineage.mission_version.empty() ||
+        route.lineage.calculation_input_version.empty() ||
         selected.mission_id != route.lineage.mission_id ||
         selected.mission_version != route.lineage.mission_version ||
         selected.calculation_input_version != route.lineage.calculation_input_version ||
         selected.route_elements.size() != route.waypoints.size()) {
-        result.validation_error = "Selected route lineage does not match the canonical route.";
+        result.validation_error = "Selected route or trajectory dependency lineage is incomplete or does not match the canonical route.";
         return result;
     }
     for (std::size_t i = 0; i < route.waypoints.size(); ++i) {

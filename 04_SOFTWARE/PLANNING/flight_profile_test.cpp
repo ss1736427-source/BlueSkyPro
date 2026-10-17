@@ -7,6 +7,7 @@ int main() {
     SelectedRouteSet selected;
     selected.mission_id="M-1"; selected.mission_version="7"; selected.candidate_id="C-2";
     selected.source_dependency_identity="DEP";
+    selected.selection_version="SEL-1";
     selected.calculation_input_version="ENV-3";
     selected.route_elements={"WP1","WP2"};
     Route route;
@@ -21,6 +22,7 @@ int main() {
     TrajectoryResult trajectory;
     trajectory.status=TrajectoryStatus::Feasible;
     trajectory.route_id="R-1"; trajectory.route_version="4";
+    trajectory.dependency_identity="TRAJ-DEP-1";
     trajectory.points={
         {"WP1",{0.0,0.0},10.0,0.0,0.0},
         {"WP2",{0.0,0.001},100.0,12.5,2.0}
@@ -36,7 +38,21 @@ int main() {
     assert(p.points[1].altitude_m==100.0);
     assert(p.points[0].cumulative_time_s==0.0);
     assert(std::abs(p.points[1].cumulative_time_s-12.5)<1e-9);
-    assert(p.dependency_identity=="DEP|R-1|4|ENV-3");
+    assert(p.dependency_identity=="DEP|selection:SEL-1|mission:M-1:7|candidate:C-2|route:R-1:4|input:ENV-3|trajectory:TRAJ-DEP-1");
+
+    auto changed_trajectory_dependency = trajectory;
+    changed_trajectory_dependency.dependency_identity = "TRAJ-DEP-2";
+    const auto changed_dependency_profile = FlightProfileBuilder::build(
+        selected,route,changed_trajectory_dependency,"FP-DEP-CHANGE","1.0.0");
+    assert(changed_dependency_profile.valid);
+    assert(changed_dependency_profile.dependency_identity != p.dependency_identity);
+
+    auto missing_trajectory_dependency = trajectory;
+    missing_trajectory_dependency.dependency_identity.clear();
+    const auto missing_dependency_profile = FlightProfileBuilder::build(
+        selected,route,missing_trajectory_dependency,"FP-DEP-MISSING","1.0.0");
+    assert(!missing_dependency_profile.valid);
+    assert(missing_dependency_profile.points.empty());
 
     auto stale_selected_mission = selected;
     stale_selected_mission.mission_id = "M-STALE";
