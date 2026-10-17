@@ -43,6 +43,8 @@ Item {
         property string orderCsv: "Checklist,Flight Conditions,Alerting,ATC"
         property string positionCsv: "Checklist=54,Flight Conditions=293,Alerting=400,ATC=499"
         property int freePositionLayoutVersion: 0
+        property bool positionsLocked: false
+        property int atcBottomOffset: 8
     }
 
     property var panelOrder: panelOrderSettings.orderCsv.split(",")
@@ -96,6 +98,8 @@ Item {
     }
 
     function panelPositionY(key) {
+        if (key === "ATC")
+            return Math.max(54, root.height - bottomInset - panelHeight("ATC") - panelOrderSettings.atcBottomOffset)
         var value = panelPositions[key]
         if (value === undefined)
             return panelBaseY(key)
@@ -103,7 +107,7 @@ Item {
     }
 
     function beginPanelDrag(key, pressRootY) {
-        if (!panelVisible(key))
+        if (panelOrderSettings.positionsLocked || !panelVisible(key))
             return
 
         draggingPanel = key
@@ -243,8 +247,13 @@ Item {
             }
         }
 
-        panelPositions[key] = Math.round(best)
-        savePanelPositions()
+        if (key === "ATC") {
+            panelOrderSettings.atcBottomOffset = Math.max(8, Math.round(root.height - bottomInset - h - best))
+            panelOrderSettings.sync()
+        } else {
+            panelPositions[key] = Math.round(best)
+            savePanelPositions()
+        }
         draggingPanel = ""
         dragVisualY = 0
         dragGrabOffsetY = 0
@@ -1176,6 +1185,15 @@ Item {
             { key: "mission", title: "MISSION CONTROL", expandedByDefault: true, tools: ["Readiness", "Validation", "Send Flight Plan", "Start Mission"] },
             { key: "map", title: "MAP", expandedByDefault: false, tools: ["Map Alerts"] }
         ]
+        switches: [
+            { key: "lockPositions", label: "FIX RIGHT PANEL SECTIONS", enabled: panelOrderSettings.positionsLocked }
+        ]
+        onSwitchToggled: function(key, enabled) {
+            if (key === "lockPositions") {
+                panelOrderSettings.positionsLocked = enabled
+                panelOrderSettings.sync()
+            }
+        }
         onClosed: open = false
     }
 }

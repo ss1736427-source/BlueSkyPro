@@ -152,6 +152,9 @@ Item {
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
             useExternalMapState: true
+            // Keep wheel zoom active only in the unobstructed map viewport.
+            leftPanelWidth: root.leftPanelOpen ? root.leftWidth : 0
+            rightPanelWidth: root.rightPanelOpen ? root.rightWidth : 0
             mapPanX: root.mapPanX
             mapPanY: root.mapPanY
             mapZoom: root.mapZoom
