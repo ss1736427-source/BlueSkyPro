@@ -159,6 +159,15 @@ Item {
                 items.push({ key: key, y: panelPositionY(key), h: panelHeight(key) })
         }
 
+        // In FIXED mode ATC stays bottom-aligned, immediately above the workspace edge.
+        // FREE mode preserves the operator's saved position.
+        if (root.fixedSections) {
+            for (var a = 0; a < items.length; ++a) {
+                if (items[a].key === "ATC")
+                    items[a].y = bottomLimit - items[a].h
+            }
+        }
+
         // Clamp saved positions first.
         for (var j = 0; j < items.length; ++j)
             items[j].y = Math.max(top, Math.min(bottomLimit - items[j].h, items[j].y))
@@ -388,13 +397,10 @@ Item {
         color: root.bg
     }
 
-    // Consume wheel events over otherwise-empty panel space so Qt WebEngine's
-    // map underneath cannot zoom. Later-declared Flickables and controls remain
-    // above this guard and keep their own scrolling/click behavior.
-    MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.NoButton
-        onWheel: function(wheel) { wheel.accepted = true }
+    // Catch wheel events propagated from panel controls before they reach the map.
+    WheelHandler {
+        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+        onWheel: function(event) { event.accepted = true }
     }
 
     // Edge ownership mirrors LeftPanel. MainContent disables the top and bottom
@@ -1167,42 +1173,6 @@ Item {
         onClicked: root.startMissionRequested()
     }
 
-    Rectangle {
-        id: sectionLockButton
-        anchors.top: parent.top
-        anchors.right: panelSettings.left
-        anchors.rightMargin: 6
-        anchors.topMargin: 10
-        width: 112
-        height: 28
-        radius: 4
-        color: root.fixedSections ? "#102337" : "#251D0B"
-        border.color: root.fixedSections ? root.cyan : root.amber
-        border.width: 1
-        z: 400
-
-        Text {
-            anchors.fill: parent
-            text: root.fixedSections ? "SECTIONS: FIXED" : "SECTIONS: FREE"
-            color: root.fixedSections ? root.cyan : root.amber
-            font.family: "B612"
-            font.pixelSize: 9
-            font.bold: true
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-                root.fixedSections = !root.fixedSections
-                panelOrderSettings.fixedSections = root.fixedSections
-                panelOrderSettings.sync()
-            }
-        }
-    }
-
     PanelSettingsButton {
         id: panelSettings
         anchors.top: parent.top
@@ -1220,6 +1190,12 @@ Item {
         width: Math.min(parent.width - 16, Math.max(260, panelSettingsPopup.contentWidth))
         height: Math.min(parent.height - 52, panelSettingsPopup.contentHeight + 30)
         title: "PANEL CONTROL"
+        fixedSections: root.fixedSections
+        onFixedSectionsRequested: function(fixed) {
+            panelOrderSettings.fixedSections = fixed
+            panelOrderSettings.sync()
+            root.fixedSections = fixed
+        }
         tools: ["Checklist", "Weather", "NOTAM", "Information", "Readiness", "Validation", "Send Flight Plan", "Start Mission", "Map Alerts"]
         toolGroups: [
             { key: "monitoring", title: "MONITORING", expandedByDefault: true, tools: ["Checklist", "Weather", "NOTAM", "Information"] },
