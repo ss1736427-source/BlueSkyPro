@@ -33,7 +33,6 @@ private slots:
 
 private:
     void setStatus(const QString &status);
-    bool configureFromEnvironment();
 
     AltitudeTelemetryBridge &m_bridge;
     std::unique_ptr<bluesky::operations::MavlinkTransportChannelRuntime> m_transport;
