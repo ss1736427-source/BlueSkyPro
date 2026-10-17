@@ -76,6 +76,11 @@ bool AltitudeTelemetryService::startFromEnvironment()
     if (m_timer.isActive())
         return true;
 
+    if (!qEnvironmentVariableIsSet("BLUESKY_MAVLINK_CHANNEL_ID")) {
+        setStatus(QStringLiteral("CONFIG_REQUIRED"));
+        return false;
+    }
+
     m_clock.restart();
     m_transport = std::make_unique<MavlinkTransportChannelRuntime>();
     MavlinkTransportChannelConfig config;
