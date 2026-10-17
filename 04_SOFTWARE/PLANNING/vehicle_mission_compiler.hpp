@@ -12,7 +12,12 @@ struct VehicleCompilationInput {
     double cruise_speed_mps{0.0};
 };
 enum class VehicleCompilationStatus { Compiled, Infeasible };
-enum class VehicleCompilationFindingCode { AltitudeLimitExceeded, SpeedLimitInvalid };
+enum class VehicleCompilationFindingCode {
+    InvalidFlightProfile,
+    InvalidVehicleIdentity,
+    AltitudeLimitExceeded,
+    SpeedLimitInvalid
+};
 struct VehicleCompilationFinding { VehicleCompilationFindingCode code; std::string detail; };
 struct VehicleCompiledProfile {
     std::string mission_id;
@@ -21,6 +26,8 @@ struct VehicleCompiledProfile {
     std::string configuration_version;
     std::string performance_version;
     std::string source_profile_id;
+    std::string route_version;
+    std::string calculation_input_version;
     std::string dependency_identity;
     VehicleCompilationStatus status{VehicleCompilationStatus::Infeasible};
     std::vector<FlightProfilePoint> points;

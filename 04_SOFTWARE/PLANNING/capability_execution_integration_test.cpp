@@ -82,7 +82,16 @@ int main()
     profile.configuration.configuration_version = "cfg-048";
     profile.configuration.valid_for_mission = true;
 
-    bluesky::autopilot::AutopilotAdapterBaseline adapter;
+    bluesky::autopilot::Identity adapter_identity;
+    adapter_identity.vehicleId = "veh-048";
+    adapter_identity.vehicleType = "test";
+    adapter_identity.autopilot = "test";
+    adapter_identity.firmwareVersion = "1";
+    adapter_identity.protocol = "MAVLink";
+    adapter_identity.protocolVersion = "2";
+    bluesky::autopilot::AutopilotAdapterBaseline adapter(adapter_identity);
+    const bool connected = adapter.connect();
+    assert(connected);
     const auto admitted_mission = CapabilityExecutionIntegration::executeMission(
         admission,
         "dev-048",

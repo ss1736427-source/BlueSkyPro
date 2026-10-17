@@ -93,7 +93,9 @@ int main() {
 
     assert(registry.registerAdapter(
         std::make_unique<TestAdapter>("ADAPTER-B", "VEHICLE-A", "EQUIPMENT-B")));
-    assert(registry.resolve(resolved_request).status == ResolutionStatus::Ambiguous);
+    const auto still_resolved = registry.resolve(resolved_request);
+    assert(still_resolved.status == ResolutionStatus::Resolved);
+    assert(still_resolved.adapter == registry.findById("ADAPTER-A"));
     assert(registry.findForVehicleProfile("VEHICLE-A") == nullptr);
     assert(registry.findForEquipmentProfile("EQUIPMENT-B") == registry.findById("ADAPTER-B"));
     assert(registry.findForCapability("CAPABILITY-A") == nullptr);
