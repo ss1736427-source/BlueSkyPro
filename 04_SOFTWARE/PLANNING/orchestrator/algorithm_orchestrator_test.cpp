@@ -334,5 +334,31 @@ int main() {
     assert(all_invalid_decision.selected_solver_id.empty());
     assert(all_invalid_decision.selected_candidate_id.empty());
 
+    // An admissible but inconsistent heuristic requires reopening a closed node.
+    PlanningGraph reopen_graph;
+    reopen_graph.nodes = {
+        {"S", 0, 0}, {"A", 1, 0}, {"B", 0, 1}, {"C", 2, 0}, {"G", 3, 0}
+    };
+    reopen_graph.edges = {
+        {"S", "A", 1.0}, {"S", "B", 2.0},
+        {"A", "C", 1.0}, {"B", "C", 1.0}, {"C", "G", 10.0}
+    };
+    reopen_graph.start_node = "S";
+    reopen_graph.goal_node = "G";
+    MissionProblem reopen_problem;
+    reopen_problem.mission_id = "ASTAR-REOPEN-001";
+    reopen_problem.problem_class = "point_to_point";
+    reopen_problem.planning_graph = &reopen_graph;
+    reopen_problem.objective_priorities = {"completion_time"};
+    TestContext reopen_context(reopen_problem, ComputeBudget{1000, 256, 8});
+    auto inconsistent_but_admissible = [](const PlanningNode& from, const PlanningNode&) {
+        return from.id == "A" ? 11.0 : 0.0;
+    };
+    AStarSolver reopening_astar(inconsistent_but_admissible);
+    assert(reopening_astar.run(reopen_context) == RunState::Completed);
+    assert(reopen_context.candidates().size() == 1);
+    assert(std::abs(reopen_context.candidates()[0].estimated_time_s - 12.0) < 1e-9);
+    assert((reopen_context.candidates()[0].route_elements == std::vector<std::string>{"S", "A", "C", "G"}));
+
     return 0;
 }
