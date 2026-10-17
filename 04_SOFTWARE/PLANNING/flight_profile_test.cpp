@@ -1,6 +1,7 @@
 #include "flight_profile.hpp"
 #include <cassert>
 #include <cmath>
+#include <limits>
 using namespace bluesky::planning;
 int main() {
     SelectedRouteSet selected;
@@ -53,5 +54,13 @@ int main() {
         selected,route,wrong_segment,"FP-4","1.0.0");
     assert(!segment_invalid.valid);
     assert(segment_invalid.points.empty());
+
+    auto non_finite_geometry=trajectory;
+    non_finite_geometry.points[1].position.latitude_deg=
+        std::numeric_limits<double>::quiet_NaN();
+    const auto non_finite_invalid=FlightProfileBuilder::build(
+        selected,route,non_finite_geometry,"FP-5","1.0.0");
+    assert(!non_finite_invalid.valid);
+    assert(non_finite_invalid.points.empty());
     return 0;
 }
