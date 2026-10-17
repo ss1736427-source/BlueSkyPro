@@ -11,10 +11,14 @@ Item {
     signal uavSelectionRequested(int index)
     property var routeDataByUav: ({})
     property var mandatoryPointsByUav: ({})
+    // Coordinates derived from the session-only route preview; not planner-authoritative.
+    property var routeCoordinates: []
     property string loadedUavId: ""
     property string missionSummary: ""
     property string missionReviewState: ""
     property var missionTemplateIndices: []
+    // The current route is a design-preview/editing buffer until the canonical planner is connected.
+    readonly property string routeAuthorityStatus: "PREVIEW ONLY · NOT VALIDATED"
     signal closeRequested()
     signal applyRequested()
 
@@ -275,8 +279,6 @@ Item {
         category: "BlueSkyPRO/MissionProfile"
         property string columnOrderJson: ""
         property real tableSplitRatio: 0.47
-        property string routeDataByUavJson: "{}"
-        property string mandatoryPointsByUavJson: "{}"
     }
 
     function assignmentForUav(uavId) {
@@ -301,7 +303,32 @@ Item {
         return root.missionSummary
     }
 
+    function rebuildRouteCoordinates() {
+        var coordinates = []
+        for (var i = 0; i < routeModel.count; ++i) {
+            var textValue = String(routeModel.get(i).coordinates || "")
+            var parts = textValue.split(",")
+            if (parts.length !== 2) {
+                root.routeCoordinates = []
+                return
+            }
+            var latitude = Number(parts[0].trim())
+            var longitude = Number(parts[1].trim())
+            if (!isFinite(latitude) || !isFinite(longitude)
+                    || latitude < -90 || latitude > 90
+                    || longitude < -180 || longitude > 180) {
+                // Fail closed: never draw a partial route if one waypoint is invalid.
+                root.routeCoordinates = []
+                return
+            }
+            coordinates.push({ lat: latitude, lon: longitude })
+        }
+        // A single point is not a route and must not be drawn as one.
+        root.routeCoordinates = coordinates.length >= 2 ? coordinates : []
+    }
+
     function saveCurrentAircraftData() {
+        // Session-only editing buffer. Operational route data must be persisted by the canonical mission model.
         var id = root.loadedUavId.length > 0 ? root.loadedUavId : root.selectedAircraftId()
         var routes = Object.assign({}, root.routeDataByUav)
         var points = Object.assign({}, root.mandatoryPointsByUav)
@@ -315,8 +342,6 @@ Item {
         points[id] = root.mandatoryPoints
         root.routeDataByUav = routes
         root.mandatoryPointsByUav = points
-        profileSettings.routeDataByUavJson = JSON.stringify(routes)
-        profileSettings.mandatoryPointsByUavJson = JSON.stringify(points)
     }
 
     function loadAircraftData(index) {
@@ -331,6 +356,7 @@ Item {
         root.mandatoryPoints = Array.isArray(root.mandatoryPointsByUav[id])
                                ? root.mandatoryPointsByUav[id] : []
         root.rebuildTableRows()
+        root.rebuildRouteCoordinates()
         profileCanvas.requestPaint()
     }
 
@@ -345,10 +371,8 @@ Item {
     Component.onCompleted: {
         root.recalculateColumnLayout()
         root.tableSplitRatio = Math.max(0.25, Math.min(0.75, profileSettings.tableSplitRatio))
-        try { root.routeDataByUav = JSON.parse(profileSettings.routeDataByUavJson) || ({}) }
-        catch (e) { root.routeDataByUav = ({}) }
-        try { root.mandatoryPointsByUav = JSON.parse(profileSettings.mandatoryPointsByUavJson) || ({}) }
-        catch (e) { root.mandatoryPointsByUav = ({}) }
+        // Route and mandatory-point data are intentionally not restored from QSettings.
+        // Until the canonical route controller is connected, this remains a preview-only buffer.
         var initialRoute = []
         for (var ri = 0; ri < routeModel.count; ++ri) {
             var source = routeModel.get(ri), item = {}
@@ -368,6 +392,7 @@ Item {
         root.routeDataByUav = routes
         root.mandatoryPointsByUav = points
         root.loadAircraftData(root.selectedUavIndex)
+        root.rebuildRouteCoordinates()
         if (profileSettings.columnOrderJson.length > 0) {
             try {
                 var saved = JSON.parse(profileSettings.columnOrderJson)
@@ -380,7 +405,6 @@ Item {
     onTableSplitRatioChanged: profileSettings.tableSplitRatio = tableSplitRatio
     onMandatoryPointsChanged: {
         root.mandatoryPointsByUav[root.selectedAircraftId()] = mandatoryPoints
-        profileSettings.mandatoryPointsByUavJson = JSON.stringify(root.mandatoryPointsByUav)
         rebuildTableRows()
         profileCanvas.requestPaint()
     }
@@ -435,10 +459,21 @@ Item {
                     font.family: "B612 Mono"
                     font.pixelSize: 12
                 }
+                Text {
+                    id: routeAuthorityLabel
+                    anchors.left: missionIdText.right
+                    anchors.leftMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.routeAuthorityStatus
+                    color: "#FFD339"
+                    font.family: "B612"
+                    font.pixelSize: 9
+                    font.bold: true
+                }
                 Row {
                     id: uavTabs
-                    anchors.left: missionIdText.right
-                    anchors.leftMargin: 14
+                    anchors.left: routeAuthorityLabel.right
+                    anchors.leftMargin: 10
                     anchors.verticalCenter: parent.verticalCenter
                     width: Math.min(implicitWidth, Math.max(0, collapsedToolsToggle.x - x - 12))
                     height: 34
