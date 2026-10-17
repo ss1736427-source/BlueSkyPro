@@ -110,8 +110,8 @@ Item {
                 result.push({
                     tx: tx,
                     ty: ty,
-                    x: tx * tileSize - cx + width / 2 + panOffsetX,
-                    y: ty * tileSize - cy + height / 2 + panOffsetY,
+                    x: tx * tileSize - cx + width / 2,
+                    y: ty * tileSize - cy + height / 2,
                     key: (useMapTiler ? "maptiler/" + selectedMapProvider.toLowerCase() + "/" :
                           (useCartoDark ? "carto/dark_all/" : "yandex/future_map/web_mercator/")) +
                          zoomLevel + "/" + wrappedX + "/" + ty,
@@ -138,8 +138,8 @@ Item {
         var viewportCenterX = width / 2
         var viewportCenterY = height / 2
         for (var i = 0; i < result.length; ++i) {
-            var dx = result[i].x + tileSize / 2 - viewportCenterX
-            var dy = result[i].y + tileSize / 2 - viewportCenterY
+            var dx = result[i].x + root.panOffsetX + tileSize / 2 - viewportCenterX
+            var dy = result[i].y + root.panOffsetY + tileSize / 2 - viewportCenterY
             result[i].priority = dx * dx + dy * dy
         }
         result.sort(function(a, b) {
