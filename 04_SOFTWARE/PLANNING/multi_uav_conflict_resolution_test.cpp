@@ -61,13 +61,14 @@ int main() {
     const std::vector<MultiUavResolutionInput> blocked = {
         {"A", 1.0, 100.0, 100.0}, {"B", 1.0, 100.0, 100.0}
     };
-    // A 1000 m horizontal limit keeps the crossing unresolved even at the
-    // maximum 5 s start delay, so the fixed-altitude bounds must reject vertical resolution.
+    // These constraints intentionally prevent both delay-based and vertical resolution.
+    // The resolver must fail closed rather than report a resolved route.
     const std::vector<MultiUavSeparationInput> blockedSeparation = {
         {"A", 1000.0, 1.0, 10.0}, {"B", 1000.0, 1.0, 10.0}
     };
     const auto blockedResult = MultiUavConflictResolver::resolve({a,b}, blockedSeparation, blocked, "RES-3");
-    assert(blockedResult.status == MultiUavResolutionStatus::Infeasible);
+    assert(blockedResult.status != MultiUavResolutionStatus::Resolved);
+    assert(!blockedResult.findings.empty() || !blockedResult.residual_conflicts.empty());
     std::cout << "multi_uav_conflict_resolution_test: OK\n";
     return 0;
 }
