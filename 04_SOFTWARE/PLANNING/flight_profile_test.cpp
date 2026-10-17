@@ -62,5 +62,20 @@ int main() {
         selected,route,non_finite_geometry,"FP-5","1.0.0");
     assert(!non_finite_invalid.valid);
     assert(non_finite_invalid.points.empty());
+
+    // Segment durations must match the differences between cumulative point times.
+    Route multi_segment_route = route;
+    multi_segment_route.waypoints.push_back({"WP3",{0.0,0.002},120.0,true});
+    multi_segment_route.segments.push_back({"S2","WP2","WP3",111.32,10.0});
+    TrajectoryResult inconsistent_segment_time = trajectory;
+    inconsistent_segment_time.points.push_back(
+        {"WP3",{0.0,0.002},120.0,12.5,3.0});
+    inconsistent_segment_time.segments[0].traversal_time_s = 8.0;
+    inconsistent_segment_time.segments.push_back({"S2",8.9,90.0,4.5,1.0});
+    inconsistent_segment_time.total_time_s = 12.5;
+    const auto inconsistent_time_profile = FlightProfileBuilder::build(
+        selected,multi_segment_route,inconsistent_segment_time,"FP-6","1.0.0");
+    assert(!inconsistent_time_profile.valid);
+    assert(inconsistent_time_profile.points.empty());
     return 0;
 }

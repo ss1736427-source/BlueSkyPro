@@ -43,7 +43,12 @@ FlightProfile FlightProfileBuilder::build(const SelectedRouteSet& selected,
             route_segment.from_waypoint_id != trajectory.points[i].waypoint_id ||
             route_segment.to_waypoint_id != trajectory.points[i + 1].waypoint_id ||
             !std::isfinite(trajectory_segment.traversal_time_s) ||
-            trajectory_segment.traversal_time_s < 0.0) {
+            trajectory_segment.traversal_time_s < 0.0 ||
+            !std::isfinite(trajectory.points[i].elapsed_time_s) ||
+            !std::isfinite(trajectory.points[i + 1].elapsed_time_s) ||
+            std::abs((trajectory.points[i + 1].elapsed_time_s -
+                      trajectory.points[i].elapsed_time_s) -
+                     trajectory_segment.traversal_time_s) > 1e-6) {
             result.validation_error = "Trajectory segments do not match route order or contain invalid traversal times.";
             return result;
         }
