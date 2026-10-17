@@ -132,6 +132,14 @@ Item {
         color: root.bg
     }
 
+    // Consume wheel events over empty panel space before they reach the map.
+    // Later-declared Flickables and controls remain above this guard.
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.NoButton
+        onWheel: function(wheel) { wheel.accepted = true }
+    }
+
     // Edge ownership is configurable. When a neighboring component already
     // draws a shared separator, disable this edge to prevent a doubled stroke.
     Rectangle {
