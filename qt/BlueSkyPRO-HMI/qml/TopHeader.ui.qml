@@ -140,23 +140,36 @@ Item {
 
             Column {
                 anchors.centerIn: parent
+                width: parent.width
                 spacing: 0
 
                 Text {
+                    width: parent.width
                     text: root.operatorLabel
                     color: root.secondary
                     font.family: "B612"
                     font.pixelSize: Math.min(14, Math.max(10, root.operatorLabelSize + 2))
                     font.bold: true
                     horizontalAlignment: Text.AlignHCenter
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    elide: Text.ElideRight
+                }
+
+                AltitudeTelemetryIndicator {
+                    id: altitudeSector
+                    visible: panelSettingsPopup.enabledTools.indexOf("ALTITUDE") >= 0
+                    width: parent.width
+                    height: 44
+                    altitudeTelemetry: altitudeTelemetryBridge
+                    labelSize: 8
+                    valueSize: 14
                 }
             }
         }
     }
 
     // CENTRAL COMPOSITION — fills the adaptive space between equal-width anchors.
-    // Six equal sectors preserve the geometric center between TRIP and ETA.
+    // Six equal primary sectors preserve the geometric center between TRIP and ETA.
+    // ALTITUDE is an independently configurable readout in the fixed right anchor.
     Item {
         id: centralComposition
         anchors.left: logoBlock.right
@@ -248,6 +261,7 @@ Item {
             valueSize: root.valueSize
             headingValueGap: root.headingValueGap
         }
+
     }
 
     // WARNING is an actionable header control: open/close the map alert review.
@@ -378,7 +392,7 @@ Item {
                     52 + panelSettingsPopup.tools.length * 30 + 48,
                     Math.max(180, Screen.height - 24))
         title: "HEADER SETTINGS"
-        tools: ["ETD", "TOT", "TRIP", "ETA", "READY", "WARNING"]
+        tools: ["ETD", "TOT", "TRIP", "ETA", "READY", "WARNING", "ALTITUDE"]
         onClosed: open = false
     }
 }

@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.21)
 project(BlueSkyPRO_HMI VERSION 0.1 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick Location Positioning)
+find_package(Qt6 REQUIRED COMPONENTS Quick Location Positioning WebEngineQuick)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -18,6 +18,20 @@ qt_add_executable(appBlueSkyPRO
     src/main.cpp
     src/PlanningBridge.cpp
     src/PlanningBridge.h
+    src/AltitudeTelemetryBridge.cpp
+    src/AltitudeTelemetryBridge.h
+    src/AltitudeTelemetryService.cpp
+    src/AltitudeTelemetryService.h
+    ../../04_SOFTWARE/OPERATIONS/core/mavlink_altitude_display_runtime.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/mavlink_transport_channel_runtime.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/mavlink_session_runtime.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/mavlink_raw_decoder_boundary.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/mavlink_telemetry_decoder_boundary.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/mavlink_udp_transport_driver.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/fleet_addressing_runtime.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/link_metrics_runtime.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/link_latency_runtime.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/link_bandwidth_runtime.cpp
 )
 
 qt_add_qml_module(appBlueSkyPRO
@@ -28,10 +42,11 @@ qt_add_qml_module(appBlueSkyPRO
         qml/Main.qml
         qml/MainContent.qml
         qml/TopHeader.ui.qml
+        qml/AltitudeTelemetryIndicator.qml
         qml/HeaderSector.ui.qml
         qml/LeftPanel.qml
         qml/FlightChart.ui.qml
-        qml/GoogleMapView.qml
+        qml/MapTilerWebMap.qml
         qml/RightPanel.ui.qml
         qml/RoleSelection.ui.qml
         qml/TaskCreation.ui.qml
@@ -53,7 +68,8 @@ qt_add_qml_module(appBlueSkyPRO
         qml/assets/uav_vtol.svg
 )
 
-target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Quick Qt6::Location Qt6::Positioning)
+target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Quick Qt6::Location Qt6::Positioning Qt6::WebEngineQuick)
+target_include_directories(appBlueSkyPRO PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/OPERATIONS/core)
 
 set_target_properties(appBlueSkyPRO PROPERTIES
     MACOSX_BUNDLE TRUE

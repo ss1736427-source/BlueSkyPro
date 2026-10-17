@@ -137,6 +137,7 @@ bool MavlinkTransportChannelRuntime::disconnect(
     if (channel.udp_driver) channel.udp_driver->close();
     channel.snapshot.state = MavlinkTransportChannelState::Offline;
     channel.rx_queue.clear();
+    channel.accepted_messages.clear();
     channel.tx_queue.clear();
     return true;
 }
@@ -147,6 +148,8 @@ bool MavlinkTransportChannelRuntime::fail(const std::string& channel_id) {
 
     auto& channel = it->second;
     if (channel.udp_driver) channel.udp_driver->close();
+    channel.rx_queue.clear();
+    channel.accepted_messages.clear();
     channel.snapshot.state = MavlinkTransportChannelState::Lost;
     ++channel.snapshot.stats.link_failures;
     return true;
@@ -162,6 +165,8 @@ bool MavlinkTransportChannelRuntime::reconnect(
     channel.link_metrics.reset();
     channel.link_latency.reset();
     channel.link_bandwidth.reset();
+    channel.rx_queue.clear();
+    channel.accepted_messages.clear();
     session_runtime_.reconnect(
         channel.snapshot.config.session_id,
         channel.snapshot.config.vehicle_id,
@@ -265,7 +270,7 @@ bool MavlinkTransportChannelRuntime::injectReceive(
 
     ++channel.snapshot.stats.received_frames;
     channel.snapshot.stats.last_receive_timestamp_ms = timestamp_ms;
-    channel.rx_queue.push_back(frame);
+    channel.rx_queue.push_back(ChannelState::ReceivedFrame{timestamp_ms, frame});
     return true;
 }
 
@@ -277,27 +282,31 @@ MavlinkTransportChannelRuntime::receive(const std::string& channel_id) {
     auto& channel = it->second;
     if (channel.rx_queue.empty()) return std::nullopt;
 
-    const auto frame = channel.rx_queue.front();
+    const auto received = std::move(channel.rx_queue.front());
     channel.rx_queue.erase(channel.rx_queue.begin());
+    const auto& frame = received.bytes;
 
     const auto result = session_runtime_.ingestRawFrame(
         channel.snapshot.config.session_id,
         channel.snapshot.config.dialect,
         channel.snapshot.config.vehicle_id,
         channel.snapshot.config.source_id,
-        channel.snapshot.stats.last_receive_timestamp_ms,
+        received.received_timestamp_ms,
         frame);
 
     if (result.accepted) {
         ++channel.snapshot.stats.accepted_frames;
         if (const auto sequence = extractSequence(frame)) {
             channel.link_metrics.observe(
-                *sequence, channel.snapshot.stats.last_receive_timestamp_ms);
+                *sequence, received.received_timestamp_ms);
         }
-        channel.link_bandwidth.observeReceive(frame.size(), channel.snapshot.stats.last_receive_timestamp_ms);
+        channel.link_bandwidth.observeReceive(frame.size(), received.received_timestamp_ms);
         if (const auto timesync = extractTimesync(frame); timesync && timesync->first) {
             channel.link_latency.observeTimesyncResponse(
-                channel.snapshot.stats.last_receive_timestamp_ms, timesync->second);
+                received.received_timestamp_ms, timesync->second);
+        }
+        if (result.message.has_value()) {
+            channel.accepted_messages.push_back(*result.message);
         }
         if (result.snapshot.link_state == MavlinkLinkState::Degraded) {
             channel.snapshot.state = MavlinkTransportChannelState::Degraded;
@@ -310,6 +319,19 @@ MavlinkTransportChannelRuntime::receive(const std::string& channel_id) {
     }
 
     return frame;
+}
+
+std::optional<DecodedMavlinkMessage>
+MavlinkTransportChannelRuntime::takeAcceptedMessage(const std::string& channel_id) {
+    auto it = channels_.find(channel_id);
+    if (it == channels_.end() || it->second.accepted_messages.empty()) {
+        return std::nullopt;
+    }
+
+    auto& messages = it->second.accepted_messages;
+    auto message = std::move(messages.front());
+    messages.erase(messages.begin());
+    return message;
 }
 
 bool MavlinkTransportChannelRuntime::pollReceive(
@@ -340,7 +362,7 @@ bool MavlinkTransportChannelRuntime::pollReceive(
         return false;
     }
 
-    channel.rx_queue.push_back(*frame);
+    channel.rx_queue.push_back(ChannelState::ReceivedFrame{timestamp_ms, *frame});
     return receive(channel_id).has_value();
 }
 
