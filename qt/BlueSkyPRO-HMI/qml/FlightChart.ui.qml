@@ -66,13 +66,26 @@ Item {
 
     // Basemap rendering is independent from route authority.
     // No synthetic route is shown when Planning Core has not supplied geometry.
+    property bool useMapTilerWebGL: true
+
     GoogleMapView {
         id: googleMap
         anchors.fill: parent
         z: 1
+        visible: !root.useMapTilerWebGL
         leftPanelWidth: root.leftPanelWidth
         rightPanelWidth: root.rightPanelWidth
         routeCoordinates: root.routeCoordinates
+    }
+
+    MapTilerWebMap {
+        id: mapTilerWebMap
+        anchors.fill: parent
+        z: 2
+        visible: root.useMapTilerWebGL
+        apiKey: typeof mapTilerApiKey !== "undefined" ? mapTilerApiKey : ""
+        routeCoordinates: root.routeCoordinates
+        onUseLegacyMapRequested: root.useMapTilerWebGL = false
     }
 
     Canvas {

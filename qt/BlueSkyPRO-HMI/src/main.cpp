@@ -1,3 +1,4 @@
+#include <QtWebEngineQuick/QtWebEngineQuick>
 #include <QCoreApplication>
 #include <QGuiApplication>
 #include <QQmlContext>
@@ -10,6 +11,7 @@
 
 int main(int argc, char *argv[])
 {
+    QtWebEngineQuick::initialize();
     QGuiApplication app(argc, argv);
 
     // Define stable identity before QML components create QSettings instances.
