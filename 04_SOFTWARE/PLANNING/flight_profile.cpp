@@ -25,10 +25,21 @@ FlightProfile FlightProfileBuilder::build(const SelectedRouteSet& selected,
         result.validation_error = "Trajectory route identity/version does not match the route.";
         return result;
     }
-    if (route.waypoints.size() != trajectory.points.size() ||
-        route.segments.size() + 1 != route.waypoints.size()) {
+    if (route.waypoints.size() < 2 ||
+        route.waypoints.size() != trajectory.points.size() ||
+        route.segments.size() + 1 != route.waypoints.size() ||
+        route.segments.size() != trajectory.segments.size()) {
         result.validation_error = "Route and trajectory point/segment counts do not match.";
         return result;
+    }
+
+    for (std::size_t i = 0; i < route.segments.size(); ++i) {
+        if (route.segments[i].segment_id != trajectory.segments[i].segment_id ||
+            route.segments[i].from_waypoint_id != trajectory.points[i].waypoint_id ||
+            route.segments[i].to_waypoint_id != trajectory.points[i + 1].waypoint_id) {
+            result.validation_error = "Trajectory segments do not match route segment order.";
+            return result;
+        }
     }
 
     result.points.reserve(route.waypoints.size());
@@ -39,7 +50,11 @@ FlightProfile FlightProfileBuilder::build(const SelectedRouteSet& selected,
         if (wp.waypoint_id != tp.waypoint_id ||
             !std::isfinite(tp.elapsed_time_s) ||
             tp.elapsed_time_s < 0.0 ||
-            tp.elapsed_time_s < previous_time) {
+            tp.elapsed_time_s < previous_time ||
+            std::abs(tp.position.latitude_deg - wp.position.latitude_deg) > 1e-8 ||
+            std::abs(tp.position.longitude_deg - wp.position.longitude_deg) > 1e-8 ||
+            std::abs(tp.altitude_m - wp.altitude_m) > 1e-6 ||
+            (i == 0 && std::abs(tp.elapsed_time_s) > 1e-6)) {
             result.points.clear();
             result.validation_error = "Trajectory points do not match route order or contain invalid elapsed times.";
             return result;
@@ -52,7 +67,7 @@ FlightProfile FlightProfileBuilder::build(const SelectedRouteSet& selected,
         result.points.push_back(p);
         previous_time = tp.elapsed_time_s;
     }
-    if (!std::isfinite(trajectory.total_time_s) ||
+    if (!std::isfinite(trajectory.total_time_s) || trajectory.total_time_s < 0.0 ||
         std::abs(result.points.back().cumulative_time_s - trajectory.total_time_s) > 1e-6) {
         result.points.clear();
         result.validation_error = "Final profile time does not match total trajectory time.";
