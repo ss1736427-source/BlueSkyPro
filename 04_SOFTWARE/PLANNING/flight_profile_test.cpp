@@ -7,6 +7,7 @@ int main() {
     SelectedRouteSet selected;
     selected.mission_id="M-1"; selected.mission_version="7"; selected.candidate_id="C-2";
     selected.source_dependency_identity="DEP";
+    selected.calculation_input_version="ENV-3";
     selected.route_elements={"WP1","WP2"};
     Route route;
     route.lineage.route_id="R-1"; route.lineage.route_version="4";

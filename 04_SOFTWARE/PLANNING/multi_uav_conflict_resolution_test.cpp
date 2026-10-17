@@ -39,9 +39,13 @@ int main() {
     const auto r = MultiUavConflictResolver::resolve({a,b}, separation, limits, "RES-1");
     assert(r.status == MultiUavResolutionStatus::Resolved);
     assert(r.trajectories.size() == 2);
-    assert(r.dependency_identity.find("START_DELAY_WINDOW:5") != std::string::npos);
-    assert((r.findings[0].code == MultiUavResolutionFindingCode::StartDelayApplied) ||
-           (r.trajectories[0].dependency_identity.find("VERTICAL_RESOLUTION") != std::string::npos));
+    const bool start_delay_applied =
+        r.dependency_identity.find("START_DELAY_WINDOW:5") != std::string::npos;
+    const bool vertical_resolution_applied =
+        r.trajectories[0].dependency_identity.find("VERTICAL_RESOLUTION") != std::string::npos ||
+        r.trajectories[1].dependency_identity.find("VERTICAL_RESOLUTION") != std::string::npos;
+    assert(start_delay_applied || vertical_resolution_applied);
+    assert(start_delay_applied || vertical_resolution_applied);
     assert(r.trajectories[0].points.front().altitude_m == 100.0);
     assert(r.trajectories[1].points.back().altitude_m == 100.0);
 

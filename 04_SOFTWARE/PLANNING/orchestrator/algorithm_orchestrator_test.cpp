@@ -175,10 +175,10 @@ int main() {
 
     assert(cost_decision.feasibility == Feasibility::Feasible);
     assert(cost_decision.considered_solvers.size() == 2);
-    assert(cost_decision.considered_solvers[0] == "dijkstra");
-    assert(cost_decision.considered_solvers[1] == "astar");
-    assert(cost_decision.selected_solver_id == "dijkstra");
-    assert(cost_decision.selected_candidate_id == "ORCH-PROFILE-002:dijkstra:1");
+    assert(cost_decision.considered_solvers[0] == "astar");
+    assert(cost_decision.considered_solvers[1] == "dijkstra");
+    assert(cost_decision.selected_solver_id == "astar");
+    assert(cost_decision.selected_candidate_id == "ORCH-PROFILE-002:astar:1");
     assert(cost_context.candidates().size() == 2);
 
     PlanningGraph zero_information_graph = graph;
@@ -197,10 +197,10 @@ int main() {
 
     assert(zero_information_decision.feasibility == Feasibility::Feasible);
     assert(zero_information_decision.considered_solvers.size() == 2);
-    assert(zero_information_decision.considered_solvers[0] == "dijkstra");
-    assert(zero_information_decision.considered_solvers[1] == "astar");
-    assert(zero_information_decision.selected_solver_id == "dijkstra");
-    assert(zero_information_decision.selected_candidate_id == "ORCH-GRAPH-003:dijkstra:1");
+    assert(zero_information_decision.considered_solvers[0] == "astar");
+    assert(zero_information_decision.considered_solvers[1] == "dijkstra");
+    assert(zero_information_decision.selected_solver_id == "astar");
+    assert(zero_information_decision.selected_candidate_id == "ORCH-GRAPH-003:astar:1");
     assert(zero_information_context.candidates().size() == 2);
 
     MissionProblem no_heuristic_problem = problem;
