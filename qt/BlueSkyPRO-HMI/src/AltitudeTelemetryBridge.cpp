@@ -78,6 +78,15 @@ bool AltitudeTelemetryBridge::configure(const QString &vehicleId,
     return true;
 }
 
+void AltitudeTelemetryBridge::refresh(qint64 nowMonotonicMs)
+{
+    if (!m_configured || !m_runtime || nowMonotonicMs <= 0) {
+        publishUnavailable(QStringLiteral("MISSING"));
+        return;
+    }
+    publishResult(m_runtime->evaluate(nowMonotonicMs));
+}
+
 bool AltitudeTelemetryBridge::ingestAcceptedMessage(
     const DecodedMavlinkMessage &message, qint64 nowMonotonicMs)
 {
