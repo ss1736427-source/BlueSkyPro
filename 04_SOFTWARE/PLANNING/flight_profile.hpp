@@ -1,6 +1,7 @@
 #pragma once
 #include "selected_route_set.hpp"
 #include "model/route_model.hpp"
+#include "wind_performance_trajectory.hpp"
 #include <string>
 #include <vector>
 namespace bluesky::planning {
@@ -14,15 +15,19 @@ struct FlightProfile {
     std::string mission_id;
     std::string mission_version;
     std::string profile_id;
+    std::string profile_version;
     std::string source_candidate_id;
     std::string route_version;
     std::string calculation_input_version;
     std::string dependency_identity;
+    bool valid{false};
+    std::string validation_error;
     std::vector<FlightProfilePoint> points;
 };
 struct FlightProfileBuilder {
     static FlightProfile build(const SelectedRouteSet& selected,
                                const Route& route,
+                               const TrajectoryResult& trajectory,
                                const std::string& profile_id,
                                const std::string& profile_version);
 };
