@@ -155,6 +155,8 @@ Item {
             mapPanX: root.mapPanX
             mapPanY: root.mapPanY
             mapZoom: root.mapZoom
+            leftPanelWidth: root.leftPanelOpen ? root.leftWidth : 0
+            rightPanelWidth: root.rightPanelOpen ? root.rightWidth : 0
             // Keep the map as the persistent workspace in every mode.
             visible: true
             onMapViewChangeRequested: function(panX, panY, zoom) {
