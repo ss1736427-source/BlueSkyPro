@@ -137,6 +137,7 @@ bool MavlinkTransportChannelRuntime::disconnect(
     if (channel.udp_driver) channel.udp_driver->close();
     channel.snapshot.state = MavlinkTransportChannelState::Offline;
     channel.rx_queue.clear();
+    channel.accepted_messages.clear();
     channel.tx_queue.clear();
     return true;
 }
@@ -147,6 +148,8 @@ bool MavlinkTransportChannelRuntime::fail(const std::string& channel_id) {
 
     auto& channel = it->second;
     if (channel.udp_driver) channel.udp_driver->close();
+    channel.rx_queue.clear();
+    channel.accepted_messages.clear();
     channel.snapshot.state = MavlinkTransportChannelState::Lost;
     ++channel.snapshot.stats.link_failures;
     return true;
@@ -162,6 +165,8 @@ bool MavlinkTransportChannelRuntime::reconnect(
     channel.link_metrics.reset();
     channel.link_latency.reset();
     channel.link_bandwidth.reset();
+    channel.rx_queue.clear();
+    channel.accepted_messages.clear();
     session_runtime_.reconnect(
         channel.snapshot.config.session_id,
         channel.snapshot.config.vehicle_id,
