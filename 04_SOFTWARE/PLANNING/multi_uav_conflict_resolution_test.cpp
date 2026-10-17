@@ -36,6 +36,8 @@ int main() {
     const std::vector<MultiUavResolutionInput> limits = {
         {"A", 1.0, 90.0, 120.0}, {"B", 1.0, 90.0, 120.0}
     };
+    const auto initial_conflicts = MultiUavConflictDetector::evaluate({a,b}, separation, "RES-1.initial");
+    assert(initial_conflicts.status == MultiUavConflictStatus::Conflict);
     const auto r = MultiUavConflictResolver::resolve({a,b}, separation, limits, "RES-1");
     assert(r.status == MultiUavResolutionStatus::Resolved);
     assert(r.trajectories.size() == 2);
