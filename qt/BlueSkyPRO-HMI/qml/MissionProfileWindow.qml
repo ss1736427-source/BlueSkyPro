@@ -308,15 +308,23 @@ Item {
         for (var i = 0; i < routeModel.count; ++i) {
             var textValue = String(routeModel.get(i).coordinates || "")
             var parts = textValue.split(",")
-            if (parts.length !== 2) continue
+            if (parts.length !== 2) {
+                root.routeCoordinates = []
+                return
+            }
             var latitude = Number(parts[0].trim())
             var longitude = Number(parts[1].trim())
             if (!isFinite(latitude) || !isFinite(longitude)
                     || latitude < -90 || latitude > 90
-                    || longitude < -180 || longitude > 180) continue
+                    || longitude < -180 || longitude > 180) {
+                // Fail closed: never draw a partial route if one waypoint is invalid.
+                root.routeCoordinates = []
+                return
+            }
             coordinates.push({ lat: latitude, lon: longitude })
         }
-        root.routeCoordinates = coordinates
+        // A single point is not a route and must not be drawn as one.
+        root.routeCoordinates = coordinates.length >= 2 ? coordinates : []
     }
 
     function saveCurrentAircraftData() {

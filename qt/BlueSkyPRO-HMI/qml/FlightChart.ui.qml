@@ -202,6 +202,25 @@ Item {
     }
 
     Rectangle {
+        visible: root.routeCoordinates && root.routeCoordinates.length >= 2
+        x: 18
+        y: 74
+        width: 202
+        height: 24
+        color: "#30210A"
+        border.color: "#FFD43B"
+        border.width: 1
+        z: 30
+        Text {
+            anchors.centerIn: parent
+            text: "ROUTE PREVIEW · NOT VALIDATED"
+            color: "#FFD43B"
+            font.family: "B612 Mono"
+            font.pixelSize: 9
+        }
+    }
+
+    Rectangle {
         visible: true
         anchors.top: parent.top
         anchors.right: parent.right
