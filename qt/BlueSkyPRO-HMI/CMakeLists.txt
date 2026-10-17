@@ -4,7 +4,7 @@ project(BlueSkyPRO_HMI VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick Location Positioning)
+find_package(Qt6 REQUIRED COMPONENTS Quick Location Positioning WebEngineQuick)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -46,7 +46,7 @@ qt_add_qml_module(appBlueSkyPRO
         qml/HeaderSector.ui.qml
         qml/LeftPanel.qml
         qml/FlightChart.ui.qml
-        qml/GoogleMapView.qml
+        qml/MapTilerWebMap.qml
         qml/RightPanel.ui.qml
         qml/RoleSelection.ui.qml
         qml/TaskCreation.ui.qml
@@ -68,7 +68,7 @@ qt_add_qml_module(appBlueSkyPRO
         qml/assets/uav_vtol.svg
 )
 
-target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Quick Qt6::Location Qt6::Positioning)
+target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Quick Qt6::Location Qt6::Positioning Qt6::WebEngineQuick)
 target_include_directories(appBlueSkyPRO PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/OPERATIONS/core)
 
 set_target_properties(appBlueSkyPRO PROPERTIES
