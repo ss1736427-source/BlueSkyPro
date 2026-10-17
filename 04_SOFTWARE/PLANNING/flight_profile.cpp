@@ -64,6 +64,12 @@ FlightProfile FlightProfileBuilder::build(const SelectedRouteSet& selected,
             !std::isfinite(tp.elapsed_time_s) ||
             tp.elapsed_time_s < 0.0 ||
             tp.elapsed_time_s < previous_time ||
+            !std::isfinite(wp.position.latitude_deg) ||
+            !std::isfinite(wp.position.longitude_deg) ||
+            !std::isfinite(wp.altitude_m) ||
+            !std::isfinite(tp.position.latitude_deg) ||
+            !std::isfinite(tp.position.longitude_deg) ||
+            !std::isfinite(tp.altitude_m) ||
             std::abs(tp.position.latitude_deg - wp.position.latitude_deg) > 1e-8 ||
             std::abs(tp.position.longitude_deg - wp.position.longitude_deg) > 1e-8 ||
             std::abs(tp.altitude_m - wp.altitude_m) > 1e-6 ||
