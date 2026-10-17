@@ -360,5 +360,37 @@ int main() {
     assert(std::abs(reopen_context.candidates()[0].estimated_time_s - 12.0) < 1e-9);
     assert((reopen_context.candidates()[0].route_elements == std::vector<std::string>{"S", "A", "C", "G"}));
 
+    // Zero-cost edges remain valid and must not prevent a lower-cost route.
+    PlanningGraph zero_cost_graph;
+    zero_cost_graph.nodes = {{"S", 0, 0}, {"A", 1, 0}, {"G", 2, 0}};
+    zero_cost_graph.edges = {{"S", "A", 0.0}, {"A", "G", 1.0}, {"S", "G", 3.0}};
+    zero_cost_graph.start_node = "S";
+    zero_cost_graph.goal_node = "G";
+    MissionProblem zero_cost_problem;
+    zero_cost_problem.mission_id = "ASTAR-ZERO-COST-002";
+    zero_cost_problem.problem_class = "point_to_point";
+    zero_cost_problem.planning_graph = &zero_cost_graph;
+    TestContext zero_cost_context(zero_cost_problem, ComputeBudget{1000, 256, 8});
+    AStarSolver zero_cost_astar([](const PlanningNode&, const PlanningNode&) { return 0.0; });
+    assert(zero_cost_astar.run(zero_cost_context) == RunState::Completed);
+    assert(zero_cost_context.candidates().size() == 1);
+    assert(std::abs(zero_cost_context.candidates()[0].estimated_time_s - 1.0) < 1e-9);
+    assert((zero_cost_context.candidates()[0].route_elements == std::vector<std::string>{"S", "A", "G"}));
+
+    // A disconnected goal must not produce a fabricated candidate.
+    PlanningGraph unreachable_graph;
+    unreachable_graph.nodes = {{"S", 0, 0}, {"A", 1, 0}, {"G", 2, 0}};
+    unreachable_graph.edges = {{"S", "A", 1.0}};
+    unreachable_graph.start_node = "S";
+    unreachable_graph.goal_node = "G";
+    MissionProblem unreachable_problem;
+    unreachable_problem.mission_id = "ASTAR-UNREACHABLE-003";
+    unreachable_problem.problem_class = "point_to_point";
+    unreachable_problem.planning_graph = &unreachable_graph;
+    TestContext unreachable_context(unreachable_problem, ComputeBudget{1000, 256, 8});
+    AStarSolver unreachable_astar([](const PlanningNode&, const PlanningNode&) { return 0.0; });
+    assert(unreachable_astar.run(unreachable_context) == RunState::Failed);
+    assert(unreachable_context.candidates().empty());
+
     return 0;
 }
