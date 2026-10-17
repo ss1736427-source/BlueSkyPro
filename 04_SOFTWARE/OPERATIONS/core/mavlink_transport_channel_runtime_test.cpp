@@ -92,6 +92,7 @@ int main() {
     assert(b->link_metrics.last_sequence==200);
 
     assert(r.fail("CH-A")); assert(!r.send("CH-A",2000,frame_a));
+    assert(!r.takeAcceptedMessage("CH-A").has_value());
     assert(r.reconnect("CH-A")); a=r.snapshot("CH-A");
     assert(a->link_metrics.observed_packets==0 && !a->link_metrics.sequence_initialized);
     assert(a->link_bandwidth.transmitted_bytes == 0 && a->link_bandwidth.received_bytes == 0);
@@ -100,6 +101,10 @@ int main() {
     // Each queued frame must retain its own receive time; the second enqueue
     // must not rewrite the timestamp used while decoding the first frame.
     auto recovered_second = heartbeat(21);
+    assert(r.injectReceive("CH-A",4900,heartbeat(19)));
+    assert(r.reconnect("CH-A"));
+    assert(!r.receive("CH-A").has_value());
+    assert(!r.takeAcceptedMessage("CH-A").has_value());
     assert(r.injectReceive("CH-A",5000,recovered));
     assert(r.injectReceive("CH-A",5010,recovered_second));
     assert(r.receive("CH-A").has_value());
