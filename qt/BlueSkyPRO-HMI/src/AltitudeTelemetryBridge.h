@@ -1,9 +1,9 @@
 #pragma once
 
 #include "mavlink_altitude_display_runtime.hpp"
+#include "mavlink_telemetry_decoder_boundary.hpp"
 
 #include <QObject>
-#include <QVariantMap>
 
 #include <memory>
 
@@ -39,10 +39,10 @@ public:
                                qint64 maximumAgeMs,
                                qint64 maximumPairSkewMs);
 
-    // Input must come from MavlinkTransportChannelRuntime::takeAcceptedMessage().
-    // This method accepts only decoded source-specific altitude frames.
-    Q_INVOKABLE bool ingestAcceptedMessage(const QVariantMap &message,
-                                            qint64 nowMonotonicMs);
+    // C++-only ingress. The caller must pass the exact object returned by
+    // MavlinkTransportChannelRuntime::takeAcceptedMessage(); QML cannot inject data.
+    bool ingestAcceptedMessage(const bluesky::operations::DecodedMavlinkMessage &message,
+                               qint64 nowMonotonicMs);
 
 signals:
     void stateChanged();
