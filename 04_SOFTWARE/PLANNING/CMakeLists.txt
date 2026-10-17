@@ -252,3 +252,15 @@ add_executable(journal_service_test
 target_include_directories(journal_service_test PRIVATE ../COMMON/journal)
 target_compile_features(journal_service_test PRIVATE cxx_std_20)
 add_test(NAME journal_service_test COMMAND journal_service_test)
+
+# The test executables use assert() for regression checks. Keep assertions
+# enabled in Release CI builds, where CMake otherwise defines NDEBUG.
+get_property(BLUESKY_PLANNING_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(BLUESKY_TARGET IN LISTS BLUESKY_PLANNING_TARGETS)
+    if(BLUESKY_TARGET MATCHES "(_test|_benchmark)$")
+        target_compile_options(${BLUESKY_TARGET} PRIVATE
+            "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+            "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+        )
+    endif()
+endforeach()
