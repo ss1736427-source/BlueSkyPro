@@ -113,6 +113,16 @@ void testOutOfOrderAndDuplicateSamplesAreRejected() {
     assert(d.decision.value_m == 40.0);
 }
 
+void testRadioAltimeterWorksWithoutBarometricPressure() {
+    MavlinkAltitudeDisplayRuntime runtime(config(), "UAV-ALT-01", "PX4:MAVLink2:1:1", 1, 1);
+    assert(runtime.ingestAccepted(distanceMessage(1, 4, 1000, 10000, 20.0)));
+    const auto d = runtime.evaluate(10050);
+    assert(d.decision.source == AltitudeDisplaySource::RadioAltimeterAgl);
+    assert(d.decision.value_available);
+    assert(std::abs(d.decision.value_m - 20.0) < 1e-9);
+    assert(d.timestamp_quality_degraded);
+}
+
 void testBaroOnlyFallbackIsExplicitlyDegraded() {
     MavlinkAltitudeDisplayRuntime runtime(config(), "UAV-ALT-01", "PX4:MAVLink2:1:1", 1, 1);
     assert(runtime.ingestAccepted(pressureMessage(1000, 10000, 900.0)));
@@ -157,6 +167,7 @@ int main() {
     testInitialStateUnavailable();
     testConfiguredSensorCannotBeOverwrittenByOtherSensorId();
     testOutOfOrderAndDuplicateSamplesAreRejected();
+    testRadioAltimeterWorksWithoutBarometricPressure();
     testBaroOnlyFallbackIsExplicitlyDegraded();
     testNoFallbackToGlobalPositionAltitude();
     testStaleSamplesBecomeUnavailable();
