@@ -269,8 +269,8 @@ Item {
         model: root.tiles
 
         delegate: Image {
-            x: root.width / 2 + (modelData.x + root.panOffsetX - root.width / 2) * root.visualZoomScale
-            y: root.height / 2 + (modelData.y + root.panOffsetY - root.height / 2) * root.visualZoomScale
+            x: root.width / 2 + (modelData.x - root.width / 2) * root.visualZoomScale
+            y: root.height / 2 + (modelData.y - root.height / 2) * root.visualZoomScale
             width: root.tileSize * root.visualZoomScale
             height: root.tileSize * root.visualZoomScale
             source: modelData.source
