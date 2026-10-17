@@ -5,7 +5,7 @@ if (-not (Test-Path $exe)) {
     exit 2
 }
 Remove-Item Env:BLUESKY_MAVLINK_CHANNEL_ID -ErrorAction SilentlyContinue
-Write-Host "Starting BlueSky PRO in UI-only mode. Map tiles need BLUESKY_YANDEX_MAPS_API_KEY."
+Write-Host "Starting BlueSky PRO UI. MapTiler requires BLUESKY_MAPTILER_API_KEY."
 Push-Location $PSScriptRoot
 try {
     & $exe
