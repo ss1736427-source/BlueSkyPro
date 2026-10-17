@@ -24,7 +24,7 @@ jobs:
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
-          modules: 'qtshadertools qtlocation qtpositioning'
+          modules: 'qtshadertools qtlocation qtpositioning qtwebengine'
 
       - name: Configure
         shell: pwsh
