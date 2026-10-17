@@ -67,7 +67,8 @@ FlightProfile FlightProfileBuilder::build(const SelectedRouteSet& selected,
         return result;
     }
 
-    if (selected.candidate_id.empty() ||
+    if (profile_id.empty() || profile_version.empty() ||
+        selected.candidate_id.empty() ||
         selected.selection_version.empty() ||
         selected.source_dependency_identity.empty() ||
         trajectory.dependency_identity.empty() ||
