@@ -9,9 +9,12 @@ Item {
     clip: true
     implicitWidth: 270
 
-    // MainContent overlays BottomToolbar on top of the full workspace.
-    // Keep reorderable panels inside the visible right-panel work area.
-    property int bottomInset: 54
+    // MainContent anchors the workspace above BottomToolbar, so the panel's
+    // height already excludes the toolbar. Do not subtract the toolbar twice.
+    property int bottomInset: 0
+
+    // Re-clamp saved card positions when the user resizes the window/workspace.
+    onHeightChanged: Qt.callLater(root.reflowPanelPositions)
 
     property color bg: "#08111D"
     property color text: "#FFFFFF"
@@ -381,6 +384,15 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: root.bg
+    }
+
+    // Consume wheel events over otherwise-empty panel space so Qt WebEngine's
+    // map underneath cannot zoom. Later-declared Flickables and controls remain
+    // above this guard and keep their own scrolling/click behavior.
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.NoButton
+        onWheel: function(wheel) { wheel.accepted = true }
     }
 
     // Edge ownership mirrors LeftPanel. MainContent disables the top and bottom
