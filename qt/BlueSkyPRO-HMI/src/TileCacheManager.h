@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QDateTime>
+#include <QVariantMap>
 #include <QHash>
 #include <QDirIterator>
 #include <QNetworkAccessManager>
@@ -24,6 +25,7 @@ public:
     Q_INVOKABLE QString requestTile(const QString &key, const QString &url);
 
 signals:
+    void diagnosticEvent(const QString &eventName, const QVariantMap &metrics);
     void tileReady(const QString &key, const QString &fileUrl);
     void tileFailed(const QString &key);
 
@@ -32,11 +34,14 @@ private:
         QString key;
         QString url;
         int retryCount = 0;
-        };
+        qint64 queuedAtMs = 0;
+        qint64 startedAtMs = 0;
+    };
 
     void enqueue(const Request &request);
     void pump();
     void handleFinished(QNetworkReply *reply);
+    void recordDiagnostic(const QString &eventName, const QVariantMap &metrics) const;
 
     QString cacheRootPath() const;
     QString cachePath(const QString &key) const;
@@ -55,4 +60,5 @@ private:
     int m_activeCount = 0;
     QSet<QString> m_currentViewKeys;
     qint64 m_lastStartMs = 0;
+    bool m_diagnosticsEnabled = false;
 };

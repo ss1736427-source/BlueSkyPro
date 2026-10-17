@@ -6,6 +6,8 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
+#include <QStringList>
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QUrl>
@@ -71,7 +73,7 @@ int main(int argc, char *argv[])
     QCoreApplication app(argc, argv);
     QTemporaryDir cache;
     assert(cache.isValid());
-    qputenv("BLUESKY_TILE_CACHE_DIR", cache.path().toUtf8());
+    qputenv("BLUESKY_TILE_CACHE_DIR", QFile::encodeName(cache.path()));
 
     const QString lightKey = QStringLiteral("maptiler/hybrid-v4/10/3/4");
     const QString darkKey = QStringLiteral("maptiler/hybrid-v4-dark/10/3/4");
@@ -92,22 +94,30 @@ int main(int argc, char *argv[])
     }
 
     QTcpServer server;
+    QHash<QByteArray, int> requestCounts;
     assert(server.listen(QHostAddress::LocalHost, 0));
-    QObject::connect(&server, &QTcpServer::newConnection, &server, [&server]() {
+    QObject::connect(&server, &QTcpServer::newConnection, &server,
+                     [&server, &requestCounts]() {
         while (server.hasPendingConnections()) {
             QTcpSocket *socket = server.nextPendingConnection();
-            QObject::connect(socket, &QTcpSocket::readyRead, socket, [socket]() {
+            QObject::connect(socket, &QTcpSocket::readyRead, socket, [&requestCounts, socket]() {
                 const QByteArray request = socket->readAll();
                 if (socket->property("responseSent").toBool())
                     return;
                 socket->setProperty("responseSent", true);
 
-                const bool noStore = request.contains("/no-store");
+                const QByteArray path = request.split(' ').value(1);
+                ++requestCounts[path];
+                const bool noStore = path == "/no-store";
+                const bool failTransiently = path == "/retry-failure";
                 const QByteArray cacheControl = noStore
                     ? QByteArray("no-store") : QByteArray("max-age=1");
                 const QByteArray body("tiledata");
+                const QByteArray statusLine = failTransiently
+                    ? QByteArray("HTTP/1.1 503 Service Unavailable\r\n")
+                    : QByteArray("HTTP/1.1 200 OK\r\n");
                 const QByteArray response =
-                    "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nCache-Control: "
+                    statusLine + "Content-Type: image/png\r\nCache-Control: "
                     + cacheControl
                     + "\r\nContent-Length: " + QByteArray::number(body.size())
                     + "\r\nConnection: close\r\n\r\n" + body;
@@ -117,7 +127,16 @@ int main(int argc, char *argv[])
         }
     });
 
+    qputenv("BLUESKY_PERF_DIAGNOSTICS", QByteArray("1"));
     TileCacheManager manager;
+    QStringList diagnosticEvents;
+    QHash<QString, QVariantMap> diagnosticMetrics;
+    QObject::connect(&manager, &TileCacheManager::diagnosticEvent, &app,
+                     [&diagnosticEvents, &diagnosticMetrics](
+                         const QString &eventName, const QVariantMap &metrics) {
+        diagnosticEvents.append(eventName);
+        diagnosticMetrics.insert(eventName, metrics);
+    });
     const QString lightSource = manager.requestTile(
         lightKey, QStringLiteral("http://127.0.0.1:1/should-not-be-requested"));
     const QString darkSource = manager.requestTile(
@@ -137,11 +156,13 @@ int main(int argc, char *argv[])
     const QString repeatedSource = manager.requestTile(
         lightKey, QStringLiteral("not-a-network-url"));
     assert(repeatedSource == lightSource);
+    assert(diagnosticEvents.contains(QStringLiteral("cache_hit")));
 
     // Expired tiles must not be served, and are removed on access.
     const QString expiredSource = manager.requestTile(
         expiredKey, QStringLiteral("invalid://expired-cache-miss"));
     assert(expiredSource.isEmpty());
+    assert(diagnosticEvents.contains(QStringLiteral("cache_miss")));
     assert(!QFileInfo::exists(expiredPath));
 
     // Expired entries that are not requested are also removed in bounded batches.
@@ -157,6 +178,26 @@ int main(int argc, char *argv[])
     QString downloadedSource;
     assert(awaitTile(manager, shortLivedKey, url, &downloadedSource));
     assert(QUrl(downloadedSource).isLocalFile());
+
+    // Successful local HTTP responses must expose timing and cache-write metrics.
+    assert(diagnosticEvents.contains(QStringLiteral("network_started")));
+    assert(diagnosticEvents.contains(QStringLiteral("network_complete")));
+    assert(diagnosticEvents.contains(QStringLiteral("cache_write")));
+    const QVariantMap networkStarted =
+        diagnosticMetrics.value(QStringLiteral("network_started"));
+    assert(networkStarted.contains(QStringLiteral("queue_wait_ms")));
+    assert(networkStarted.value(QStringLiteral("queue_wait_ms")).toLongLong() >= 0);
+    const QVariantMap networkComplete =
+        diagnosticMetrics.value(QStringLiteral("network_complete"));
+    assert(networkComplete.value(QStringLiteral("http_status")).toInt() == 200);
+    assert(networkComplete.value(QStringLiteral("bytes")).toLongLong() == 8);
+    assert(networkComplete.value(QStringLiteral("duration_ms")).toLongLong() >= 0);
+    assert(networkComplete.value(QStringLiteral("network_error")).toInt() == 0);
+    const QVariantMap cacheWrite = diagnosticMetrics.value(QStringLiteral("cache_write"));
+    assert(cacheWrite.value(QStringLiteral("success")).toBool());
+    assert(cacheWrite.value(QStringLiteral("bytes")).toLongLong() == 8);
+    assert(cacheWrite.value(QStringLiteral("duration_ms")).toLongLong() >= 0);
+
     assert(!manager.requestTile(shortLivedKey, url).isEmpty());
 
     QEventLoop expiryLoop;
@@ -176,5 +217,38 @@ int main(int argc, char *argv[])
     assert(!QFileInfo::exists(noStorePath));
     assert(manager.requestTile(noStoreKey, QStringLiteral("invalid://must-fetch-again"))
            .isEmpty());
+
+    // A repeatable 503 response must produce one retry and then a final failure.
+    const QString retryFailureKey = QStringLiteral("test/retry-failure");
+    const QString retryFailureUrl = QStringLiteral("http://127.0.0.1:%1/retry-failure")
+                                        .arg(server.serverPort());
+    QString retryFailureSource;
+    assert(!awaitTile(manager, retryFailureKey, retryFailureUrl, &retryFailureSource));
+    assert(requestCounts.value(QByteArray("/retry-failure")) == 2);
+    assert(diagnosticEvents.contains(QStringLiteral("network_failure_retry")));
+    assert(diagnosticEvents.contains(QStringLiteral("retry_queued")));
+    assert(diagnosticEvents.contains(QStringLiteral("tile_failure")));
+    const QVariantMap retryMetrics =
+        diagnosticMetrics.value(QStringLiteral("network_failure_retry"));
+    assert(retryMetrics.value(QStringLiteral("http_status")).toInt() == 503);
+    assert(retryMetrics.value(QStringLiteral("retry")).toInt() == 1);
+    const QVariantMap failureMetrics =
+        diagnosticMetrics.value(QStringLiteral("tile_failure"));
+    assert(failureMetrics.value(QStringLiteral("http_status")).toInt() == 503);
+    assert(failureMetrics.value(QStringLiteral("retry")).toInt() == 1);
+
+    qputenv("BLUESKY_PERF_DIAGNOSTICS", QByteArray("0"));
+    TileCacheManager quietManager;
+    QStringList quietEvents;
+    QObject::connect(&quietManager, &TileCacheManager::diagnosticEvent, &app,
+                     [&quietEvents](const QString &eventName, const QVariantMap &) {
+        quietEvents.append(eventName);
+    });
+
+    // Запрос попадёт в уже существующий кэш; сеть не требуется.
+    assert(!quietManager.requestTile(
+        lightKey, QStringLiteral("invalid://must-not-be-requested")).isEmpty());
+    assert(quietEvents.isEmpty());
+
     return 0;
 }
