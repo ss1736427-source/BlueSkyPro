@@ -362,7 +362,7 @@ bool MavlinkTransportChannelRuntime::pollReceive(
         return false;
     }
 
-    channel.rx_queue.push_back(*frame);
+    channel.rx_queue.push_back(ChannelState::ReceivedFrame{timestamp_ms, *frame});
     return receive(channel_id).has_value();
 }
 
