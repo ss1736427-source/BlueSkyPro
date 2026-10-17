@@ -11,6 +11,8 @@ Item {
     signal uavSelectionRequested(int index)
     property var routeDataByUav: ({})
     property var mandatoryPointsByUav: ({})
+    // Coordinates derived from the session-only route preview; not planner-authoritative.
+    property var routeCoordinates: []
     property string loadedUavId: ""
     property string missionSummary: ""
     property string missionReviewState: ""
@@ -301,6 +303,22 @@ Item {
         return root.missionSummary
     }
 
+    function rebuildRouteCoordinates() {
+        var coordinates = []
+        for (var i = 0; i < routeModel.count; ++i) {
+            var textValue = String(routeModel.get(i).coordinates || "")
+            var parts = textValue.split(",")
+            if (parts.length !== 2) continue
+            var latitude = Number(parts[0].trim())
+            var longitude = Number(parts[1].trim())
+            if (!isFinite(latitude) || !isFinite(longitude)
+                    || latitude < -90 || latitude > 90
+                    || longitude < -180 || longitude > 180) continue
+            coordinates.push({ lat: latitude, lon: longitude })
+        }
+        root.routeCoordinates = coordinates
+    }
+
     function saveCurrentAircraftData() {
         // Session-only editing buffer. Operational route data must be persisted by the canonical mission model.
         var id = root.loadedUavId.length > 0 ? root.loadedUavId : root.selectedAircraftId()
@@ -330,6 +348,7 @@ Item {
         root.mandatoryPoints = Array.isArray(root.mandatoryPointsByUav[id])
                                ? root.mandatoryPointsByUav[id] : []
         root.rebuildTableRows()
+        root.rebuildRouteCoordinates()
         profileCanvas.requestPaint()
     }
 
@@ -365,6 +384,7 @@ Item {
         root.routeDataByUav = routes
         root.mandatoryPointsByUav = points
         root.loadAircraftData(root.selectedUavIndex)
+        root.rebuildRouteCoordinates()
         if (profileSettings.columnOrderJson.length > 0) {
             try {
                 var saved = JSON.parse(profileSettings.columnOrderJson)

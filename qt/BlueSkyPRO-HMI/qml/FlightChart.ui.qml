@@ -21,6 +21,8 @@ Item {
     property real mapPanX: 0
     property real mapPanY: 0
     property real mapZoom: 1.0
+    // Shared preview route from MissionProfileWindow; this is not validated planning output.
+    property var routeCoordinates: []
     signal mapViewChangeRequested(real panX, real panY, real zoom)
 
     function setMapView(panX, panY, zoom) {
@@ -65,13 +67,7 @@ Item {
         id: googleMap
         anchors.fill: parent
         z: 1
-        routeCoordinates: [
-            { lat: 55.7600, lon: 37.6000 },
-            { lat: 55.7350, lon: 37.6250 },
-            { lat: 55.7550, lon: 37.6550 },
-            { lat: 55.7800, lon: 37.6400 },
-            { lat: 55.7700, lon: 37.5900 }
-        ]
+        routeCoordinates: root.routeCoordinates
     }
 
     Canvas {
