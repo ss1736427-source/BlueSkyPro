@@ -21,6 +21,15 @@ qt_add_executable(appBlueSkyPRO
     src/AltitudeTelemetryBridge.cpp
     src/AltitudeTelemetryBridge.h
     ../../04_SOFTWARE/OPERATIONS/core/mavlink_altitude_display_runtime.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/mavlink_transport_channel_runtime.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/mavlink_session_runtime.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/mavlink_raw_decoder_boundary.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/mavlink_telemetry_decoder_boundary.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/mavlink_udp_transport_driver.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/fleet_addressing_runtime.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/link_metrics_runtime.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/link_latency_runtime.cpp
+    ../../04_SOFTWARE/OPERATIONS/core/link_bandwidth_runtime.cpp
 )
 
 qt_add_qml_module(appBlueSkyPRO
