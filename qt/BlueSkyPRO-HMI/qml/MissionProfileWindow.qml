@@ -15,6 +15,8 @@ Item {
     property string missionSummary: ""
     property string missionReviewState: ""
     property var missionTemplateIndices: []
+    // The current route is a design-preview/editing buffer until the canonical planner is connected.
+    readonly property string routeAuthorityStatus: "PREVIEW ONLY · NOT VALIDATED"
     signal closeRequested()
     signal applyRequested()
 
@@ -275,8 +277,6 @@ Item {
         category: "BlueSkyPRO/MissionProfile"
         property string columnOrderJson: ""
         property real tableSplitRatio: 0.47
-        property string routeDataByUavJson: "{}"
-        property string mandatoryPointsByUavJson: "{}"
     }
 
     function assignmentForUav(uavId) {
@@ -302,6 +302,7 @@ Item {
     }
 
     function saveCurrentAircraftData() {
+        // Session-only editing buffer. Operational route data must be persisted by the canonical mission model.
         var id = root.loadedUavId.length > 0 ? root.loadedUavId : root.selectedAircraftId()
         var routes = Object.assign({}, root.routeDataByUav)
         var points = Object.assign({}, root.mandatoryPointsByUav)
@@ -315,8 +316,6 @@ Item {
         points[id] = root.mandatoryPoints
         root.routeDataByUav = routes
         root.mandatoryPointsByUav = points
-        profileSettings.routeDataByUavJson = JSON.stringify(routes)
-        profileSettings.mandatoryPointsByUavJson = JSON.stringify(points)
     }
 
     function loadAircraftData(index) {
@@ -345,10 +344,8 @@ Item {
     Component.onCompleted: {
         root.recalculateColumnLayout()
         root.tableSplitRatio = Math.max(0.25, Math.min(0.75, profileSettings.tableSplitRatio))
-        try { root.routeDataByUav = JSON.parse(profileSettings.routeDataByUavJson) || ({}) }
-        catch (e) { root.routeDataByUav = ({}) }
-        try { root.mandatoryPointsByUav = JSON.parse(profileSettings.mandatoryPointsByUavJson) || ({}) }
-        catch (e) { root.mandatoryPointsByUav = ({}) }
+        // Route and mandatory-point data are intentionally not restored from QSettings.
+        // Until the canonical route controller is connected, this remains a preview-only buffer.
         var initialRoute = []
         for (var ri = 0; ri < routeModel.count; ++ri) {
             var source = routeModel.get(ri), item = {}
@@ -380,7 +377,6 @@ Item {
     onTableSplitRatioChanged: profileSettings.tableSplitRatio = tableSplitRatio
     onMandatoryPointsChanged: {
         root.mandatoryPointsByUav[root.selectedAircraftId()] = mandatoryPoints
-        profileSettings.mandatoryPointsByUavJson = JSON.stringify(root.mandatoryPointsByUav)
         rebuildTableRows()
         profileCanvas.requestPaint()
     }
@@ -435,10 +431,21 @@ Item {
                     font.family: "B612 Mono"
                     font.pixelSize: 12
                 }
+                Text {
+                    id: routeAuthorityLabel
+                    anchors.left: missionIdText.right
+                    anchors.leftMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.routeAuthorityStatus
+                    color: "#FFD339"
+                    font.family: "B612"
+                    font.pixelSize: 9
+                    font.bold: true
+                }
                 Row {
                     id: uavTabs
-                    anchors.left: missionIdText.right
-                    anchors.leftMargin: 14
+                    anchors.left: routeAuthorityLabel.right
+                    anchors.leftMargin: 10
                     anchors.verticalCenter: parent.verticalCenter
                     width: Math.min(implicitWidth, Math.max(0, collapsedToolsToggle.x - x - 12))
                     height: 34
