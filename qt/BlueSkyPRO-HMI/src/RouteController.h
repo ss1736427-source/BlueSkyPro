@@ -66,12 +66,12 @@ public:
         if (routeId.isEmpty() || routeVersion.isEmpty() || missionId.isEmpty()
             || missionVersion.isEmpty() || generatorId.isEmpty()
             || generatorVersion.isEmpty() || inputVersion.isEmpty() || crs.isEmpty()) {
-            return reject(QStringLiteral("ROUTE_LINEAGE_REQUIRED"));
+            return rejectCandidate(QStringLiteral("ROUTE_LINEAGE_REQUIRED"));
         }
         if (points.size() < 2)
-            return reject(QStringLiteral("AT_LEAST_TWO_WAYPOINTS_REQUIRED"));
+            return rejectCandidate(QStringLiteral("AT_LEAST_TWO_WAYPOINTS_REQUIRED"));
         if (crs != QLatin1String("EPSG:4326"))
-            return reject(QStringLiteral("UNSUPPORTED_COORDINATE_REFERENCE_SYSTEM"));
+            return rejectCandidate(QStringLiteral("UNSUPPORTED_COORDINATE_REFERENCE_SYSTEM"));
 
         std::set<std::string> ids;
         QVariantList normalized;
@@ -85,16 +85,16 @@ public:
             const QString datum = point.value(QStringLiteral("altitudeReference")).toString();
             const QVariant mandatoryValue = point.value(QStringLiteral("mandatory"));
             if (id.isEmpty() || !ids.insert(id.toStdString()).second)
-                return reject(QStringLiteral("WAYPOINT_ID_MISSING_OR_DUPLICATE"));
+                return rejectCandidate(QStringLiteral("WAYPOINT_ID_MISSING_OR_DUPLICATE"));
             if (mandatoryValue.metaType().id() != QMetaType::Bool)
-                return reject(QStringLiteral("MANDATORY_FLAG_INVALID"));
+                return rejectCandidate(QStringLiteral("MANDATORY_FLAG_INVALID"));
             if (!latOk || !lonOk || !std::isfinite(lat) || !std::isfinite(lon)
                 || lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0)
-                return reject(QStringLiteral("INVALID_WAYPOINT_POSITION"));
+                return rejectCandidate(QStringLiteral("INVALID_WAYPOINT_POSITION"));
             if (!altOk || !std::isfinite(alt) || alt < 0.0 || alt > 5000.0)
-                return reject(QStringLiteral("INVALID_WAYPOINT_ALTITUDE"));
+                return rejectCandidate(QStringLiteral("INVALID_WAYPOINT_ALTITUDE"));
             if (datum != QLatin1String("AGL"))
-                return reject(QStringLiteral("UNSUPPORTED_ALTITUDE_REFERENCE"));
+                return rejectCandidate(QStringLiteral("UNSUPPORTED_ALTITUDE_REFERENCE"));
 
             QVariantMap normalizedPoint;
             normalizedPoint.insert(QStringLiteral("waypointId"), id);
@@ -165,6 +165,22 @@ public:
             return true;
         }
         return reject(QStringLiteral("WAYPOINT_NOT_FOUND"));
+    }
+
+    // A rejected replacement candidate must not leave the previous route visible.
+    bool rejectCandidate(const QString &reason)
+    {
+        m_route = {};
+        m_waypoints.clear();
+        m_routeId.clear();
+        m_routeVersion.clear();
+        m_calculationInputVersion.clear();
+        m_validationState = QStringLiteral("BLOCKED");
+        m_validationReason = reason;
+        m_editSequence = 0;
+        emit routeChanged();
+        emit validationChanged();
+        return false;
     }
 
     // Planner validation is accepted only for the exact route and input versions.
