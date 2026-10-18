@@ -43,6 +43,15 @@ add_test(NAME vehicle_state_mapping_test COMMAND vehicle_state_mapping_test)
 add_executable(mavlink_telemetry_mapping_test core/mavlink_telemetry_mapping_test.cpp core/mavlink_telemetry_mapping.cpp)
 target_link_libraries(mavlink_telemetry_mapping_test PRIVATE bluesky_operational_orchestrator_contract)
 add_test(NAME mavlink_telemetry_mapping_test COMMAND mavlink_telemetry_mapping_test)
+add_executable(altitude_display_source_policy_test core/altitude_display_source_policy_test.cpp)
+target_link_libraries(altitude_display_source_policy_test PRIVATE bluesky_operational_orchestrator_contract)
+add_test(NAME altitude_display_source_policy_test COMMAND altitude_display_source_policy_test)
+add_executable(altitude_source_telemetry_contract_test core/altitude_source_telemetry_contract_test.cpp)
+target_link_libraries(altitude_source_telemetry_contract_test PRIVATE bluesky_operational_orchestrator_contract)
+add_test(NAME altitude_source_telemetry_contract_test COMMAND altitude_source_telemetry_contract_test)
+add_executable(mavlink_altitude_display_adapter_test core/mavlink_altitude_display_adapter_test.cpp)
+target_link_libraries(mavlink_altitude_display_adapter_test PRIVATE bluesky_operational_orchestrator_contract)
+add_test(NAME mavlink_altitude_display_adapter_test COMMAND mavlink_altitude_display_adapter_test)
 add_executable(mavlink_telemetry_decoder_boundary_test core/mavlink_telemetry_decoder_boundary_test.cpp core/mavlink_telemetry_decoder_boundary.cpp core/mavlink_telemetry_mapping.cpp)
 target_link_libraries(mavlink_telemetry_decoder_boundary_test PRIVATE bluesky_operational_orchestrator_contract)
 add_test(NAME mavlink_telemetry_decoder_boundary_test COMMAND mavlink_telemetry_decoder_boundary_test)
@@ -141,3 +150,15 @@ add_test(NAME external_operational_request_execution_test COMMAND external_opera
 add_executable(operational_failure_evidence_binding_test core/operational_failure_evidence_binding_test.cpp)
 target_link_libraries(operational_failure_evidence_binding_test PRIVATE bluesky_operational_orchestrator_contract)
 add_test(NAME operational_failure_evidence_binding_test COMMAND operational_failure_evidence_binding_test)
+
+
+# Keep assert-based contract tests active in Release builds where NDEBUG is set.
+get_property(BLUESKY_OPERATIONS_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(BLUESKY_TARGET IN LISTS BLUESKY_OPERATIONS_TARGETS)
+    if(BLUESKY_TARGET MATCHES "_test$")
+        target_compile_options(${BLUESKY_TARGET} PRIVATE
+            "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+            "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+        )
+    endif()
+endforeach()

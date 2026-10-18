@@ -375,15 +375,17 @@ The repository-wide audit does not promote draft or working records to certifica
 
 ### 12.6 Mainline implementation progress — 2026-10-18
 
-- Last fully verified code baseline before AGL-semantics integration: `ad1ccea79b96d530b9d5dd79d1ddf49cc2395916`; all 12 associated GitHub Actions workflows completed successfully, including Linux HMI build/test and Windows build/test/startup smoke test.
+- Last fully verified code baseline before altitude-core integration: `a09a59687deee2247d8069c4d8ab4f81bcf2452d`; all 12 associated GitHub Actions workflows completed successfully, including Linux HMI build/test and Windows build/test/startup smoke test.
 - Map implementation was ported directly to main from the reviewed PR #36 snapshot. The active chart defaults to `MapTilerWebMap` (Qt WebEngine/MapLibre prototype); `GoogleMapView` remains the legacy/fallback raster map with selectable Yandex/MapTiler providers. CI verifies build/startup only, not visual correctness or flight-grade 3D-map behavior.
 - Panel wheel isolation and fixed/free right-panel section layout were ported from the reviewed unique changes in PR #50.
 - Provider-aware cache policy permits disk caching only for MapTiler keys with explicit freshness headers. Yandex/CARTO tiles are transient unless the applicable license is reviewed and explicitly permits persistent storage. Production licensing for Yandex and the selected MapTiler subscription remains a deployment check.
 - PR #37 planning hardening is integrated at `10c6d4ac411b06657e03c1ef261cfdb43473f1cf`; all 12 associated workflows completed successfully, including planning benchmark and normalized telemetry state. The current main versions of `model/route_model.hpp` and the NOTAM validator files were preserved.
 - PR #39/#40 route-preview containment and restoration of the corrupted flight-profile interaction reference are integrated at `b374b605cb52752bf72c61e2c16cc66a27278c23`; all 12 associated workflows passed. Route preview is editor-gated, non-authoritative, and no longer persisted as operational QSettings data.
 - PR #41 structural route validation is integrated at `ad1ccea79b96d530b9d5dd79d1ddf49cc2395916`; all 12 associated workflows passed. An intermediate commit omitted the production source registration and failed the planning build; this was corrected in `ad1ccea`, whose exact-SHA CI passed. Current main route-model and NOTAM safeguards were preserved.
-- PR #39/#40 route-preview containment and restoration of the corrupted flight-profile interaction reference are integrated at `b374b605cb52752bf72c61e2c16cc66a27278c23`; all 12 associated workflows passed. Route preview is editor-gated, non-authoritative, and no longer persisted as operational QSettings data.
-- PR #43 AGL semantics are applied in this commit: route altitude is a target AGL setpoint, not a radio-altimeter measurement; the structural route validator rejects Unknown/AMSL/FlightLevel until conversion exists. The three planning documents are registered in the Master Document Index. CI for this exact commit is pending; next package is PR #44–#49 altitude source/telemetry integration, including defensive sensor-range validation.
+
+- PR #43 AGL semantics are integrated at `a09a59687deee2247d8069c4d8ab4f81bcf2452d`; all 12 associated workflows passed. Route target AGL remains distinct from radio-altimeter measurement and standard-pressure altitude.
+- PR #44–#47 altitude-source policy, typed telemetry contract, MAVLink decoding and adapter are applied in this commit. The source PR #47 stack had 9 successful workflows, but main must pass CI at this exact SHA. Adapter range checks now independently reject readings outside the sensor's declared min/max range; tests no longer assume a 100.1 m reading is valid for a sensor capped at 100 m.
+- The next package is PR #49 live runtime/HMI bridge integration. Preserve current `main.cpp` map keys, `TileCacheManager`, MapTilerWebMap/GoogleMapView selection and existing UI behavior. Keep issue #48 open until live bridge/runtime behavior is validated; HIL and physical-UAV tests remain deferred.
 
 
 
