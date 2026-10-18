@@ -37,6 +37,7 @@ Item {
     property bool manualValidationStarted: false
     property bool manualValidationSucceeded: false
     property bool manualSetBlocked: false
+    property string manualModelValidationStatus: "NOT_CHECKED"
     property bool missionReady: false
     property bool warningActive: true
 
@@ -382,6 +383,7 @@ Item {
                                     + (atcHeaderVisible && atcVisibleButtonCount > 0 ? atcButtonGap : 0)
                                     + atcVisibleButtonCount * atcButtonHeight
                                     + Math.max(0, atcVisibleButtonCount - 1) * atcButtonGap
+                                    + (root.atcValidationVisible && root.manualCreationMode && root.manualModelValidationStatus !== "NOT_CHECKED" ? 44 : 0)
                                     + 12
     property int atcValidationY: atcWorkArea.y + atcButtonStackTop
     property int atcSendY: atcValidationY + (atcValidationVisible ? atcButtonHeight + atcButtonGap : 0)
@@ -1103,6 +1105,23 @@ Item {
         enabled: root.manualCompositionComplete
         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
         onClicked: root.setManualMissionRequested()
+    }
+
+    Text {
+        visible: root.atcValidationVisible && root.manualCreationMode
+                 && root.manualModelValidationStatus !== "NOT_CHECKED"
+        x: 26
+        y: root.atcValidationY + root.atcButtonHeight + 5
+        width: parent.width - 52
+        height: 38
+        text: root.manualModelValidationStatus === "MODEL_STRUCTURALLY_VALID_PLANNING_CORE_NOT_CONNECTED"
+              ? "STRUCTURE OK · PLANNING CORE NOT CONNECTED"
+              : root.manualModelValidationStatus
+        color: root.amber
+        font.family: "B612"
+        font.pixelSize: 10
+        wrapMode: Text.Wrap
+        verticalAlignment: Text.AlignVCenter
     }
 
     SequentialAnimation on validationPulse {
