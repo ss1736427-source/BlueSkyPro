@@ -1,12 +1,12 @@
 {
-  "last_main_sha": "b73a08180240ef290ca5caba1f790955385df1fe",
-  "verified_sha": null,
+  "last_main_sha": "3086d166859517f3950b9f4ff9023121132ec85f",
+  "verified_sha": "3086d166859517f3950b9f4ff9023121132ec85f",
   "decision_required": false,
   "ci_required": true,
   "current_work_package": "REPOSITORY RECONCILIATION — audit map PRs #25/#32–#36 without regressing current mainline",
-  "checkpoint": "HMI flight-profile fixes are implemented at MissionProfileWindow.qml blob c97ea97eeb9e4efc2a72b0e99f25a9a399768996. Source-code SHA 20e56048af9c8233a45e2491063a4cdaffaa2455 passed Linux HMI build/test, Windows Map build/test/deploy/startup smoke, and Multi-UAV Validator. All 10 workflows for metadata-only HEAD 260b4965a60d6b81fd101156e1e92cff46b8ec18 passed. PR #40's restored interaction spec is byte-for-byte equal to main. Map review confirms main already contains newer MapLibre WebEngine prototype + performance diagnostics and a stricter MapTiler-only persistence policy; do not port old PR 25/32 tile caching over it.",
+  "checkpoint": "Latest canonical main SHA 3086d166859517f3950b9f4ff9023121132ec85f: all 10 workflows for this SHA completed successfully. The flight-profile implementation SHA 20e56048af9c8233a45e2491063a4cdaffaa2455 separately passed Linux HMI build/test and Windows Map build/test/deploy/startup smoke. HMI drag persistence, dynamic altitude scale, and per-UAV route reset confirmed in current QML. PR #40 content already matches main byte-for-byte. PR #36 performance instrumentation exists in main; PR #34 queue/retry logic and regression tests exist in main. Map cache PR #32/#25 contain old storage behavior that must not replace main's MapTiler-only licensed cache policy.",
   "real_execution": "DEFERRED",
   "quantitative_c2_basis": "DEFERRED",
-  "current_ci_status": "PREVIOUS_HEAD_CHECKS_PASS; NEW_HEAD_UNVERIFIED",
-  "next_deterministic_action": "Compare PR #36 unique performance changes to current MapTilerWebMap.qml and identify only any missing bug fix, if any. Then audit PR #34 tile diagnostics/cancelation against current TileCacheManager.cpp. Keep PR #49 Draft, no branches or E: changes."
+  "current_ci_status": "PASS_FOR_3086d166859517f3950b9f4ff9023121132ec85f; HMI_CODE_CI_PASS_FOR_20e56048af9c8233a45e2491063a4cdaffaa2455",
+  "next_deterministic_action": "Continue stack reconciliation: audit PR #37 and PR #41–#47 by unique files/semantics against current main. Then correct any remaining project-state document inconsistency only after evidence is checked. PR #49 stays Draft; no branches; no E: mirror."
 }
