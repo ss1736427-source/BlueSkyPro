@@ -1,0 +1,85 @@
+name: BlueSky PRO Windows Verification Package
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'qt/BlueSkyPRO-HMI/**'
+      - '04_SOFTWARE/OPERATIONS/**'
+      - '.github/workflows/windows-hmi-package.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'qt/BlueSkyPRO-HMI/**'
+      - '04_SOFTWARE/OPERATIONS/**'
+      - '.github/workflows/windows-hmi-package.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-windows:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v5
+
+      - name: Install Qt for MSVC 2022 x64
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          modules: 'qtshadertools qtlocation qtpositioning qtwebchannel qtwebengine'
+
+      - name: Configure MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure
+        shell: pwsh
+        run: cmake -S qt/BlueSkyPRO-HMI -B build-hmi -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build-hmi --parallel
+
+      - name: Deploy Qt runtime
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'build-hmi/appBlueSkyPRO.exe'
+          $qtRoot = $env:QT_ROOT_DIR
+          if (-not $qtRoot) { throw 'QT_ROOT_DIR was not set by install-qt-action.' }
+          $windeployqt = Join-Path $qtRoot 'bin/windeployqt.exe'
+          if (-not (Test-Path $exe)) { throw "Build output not found: $exe" }
+          if (-not (Test-Path $windeployqt)) { throw "windeployqt not found: $windeployqt" }
+          & $windeployqt --release --no-translations --qmldir (Join-Path $PWD 'qt/BlueSkyPRO-HMI/qml') $exe
+          if ($LASTEXITCODE -ne 0) { throw "windeployqt failed with exit code $LASTEXITCODE" }
+
+      - name: Assemble portable package
+        shell: pwsh
+        run: |
+          $package = Join-Path $PWD 'dist/BlueSkyPRO-Windows-x64'
+          New-Item -ItemType Directory -Force -Path $package | Out-Null
+          Copy-Item -Path 'build-hmi/*' -Destination $package -Recurse -Force
+          Copy-Item -Path 'qt/BlueSkyPRO-HMI/package-windows/*' -Destination $package -Recurse -Force
+          @"
+          BlueSky PRO Windows verification build
+          Source commit: $env:GITHUB_SHA
+          Build type: Release, MSVC 2022 x64, Qt 6.8.3
+          This is a portable verification package, not a signed installer.
+          "@ | Set-Content -Encoding UTF8 (Join-Path $package 'BUILD-INFO.txt')
+          Compress-Archive -Path (Join-Path $package '*') -DestinationPath (Join-Path $PWD 'dist/BlueSkyPRO-Windows-x64.zip') -Force
+
+      - name: Upload Windows verification ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlueSkyPRO-Windows-x64
+          path: dist/BlueSkyPRO-Windows-x64.zip
+          if-no-files-found: error
+          retention-days: 14

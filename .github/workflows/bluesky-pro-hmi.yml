@@ -6,12 +6,14 @@ on:
       - main
     paths:
       - 'qt/BlueSkyPRO-HMI/**'
+      - '04_SOFTWARE/OPERATIONS/**'
       - '.github/workflows/bluesky-pro-hmi.yml'
   pull_request:
     branches:
       - main
     paths:
       - 'qt/BlueSkyPRO-HMI/**'
+      - '04_SOFTWARE/OPERATIONS/**'
       - '.github/workflows/bluesky-pro-hmi.yml'
   workflow_dispatch:
 
