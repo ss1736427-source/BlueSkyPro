@@ -27,6 +27,8 @@ Item {
     property real mapPanY: 0
     property real mapZoom: 1.0
     readonly property bool manualValidationStarted: missionState === "VALIDATING"
+    property bool manualSetRequested: false
+    property string manualSetBaselineResultId: ""
     property bool warningActive: true
     // Explicit header-triggered map review; independent of the right-panel Map Alerts toggle.
     property bool headerAlertsOpen: false
@@ -59,6 +61,14 @@ Item {
         && planningBridge.result
         && String(planningBridge.result.missionId) === String(root.missionId)
         ? planningBridge.result : null
+    // A green SET requires a fresh result for this mission and an authoritative PASS.
+    readonly property bool manualSetSucceeded:
+        root.manualSetRequested && root.planningResult
+        && String(root.planningResult.resultId || "") !== root.manualSetBaselineResultId
+        && root.planningResult.verification
+        && root.planningResult.verification.finalGateStatus === "PASS"
+        && root.planningResult.verification.releaseStatus === "RELEASE_ELIGIBLE"
+        && root.planningResult.verification.verified === true
     function syncPlanningRouteCandidate() {
         var result = root.planningResult
         var candidate = result && result.result ? result.result.routeCandidate : null
@@ -149,7 +159,12 @@ Item {
             onMissionProfileRequested: root.missionProfileOpen = !root.missionProfileOpen
             onHideMissionRequested: root.missionState = "HIDDEN"
             onRestoreMissionRequested: root.missionState = "AUTO"
-            onCreateMissionRequested: root.missionState = "MANUAL"
+            onCreateMissionRequested: {
+                root.missionState = "MANUAL"
+                root.manualCompositionComplete = false
+                root.manualSetRequested = false
+                root.manualSetBaselineResultId = ""
+            }
             onReturnToAutoRequested: root.missionState = "AUTO"
             onTaskCreationRequested: {
                 root.taskCreationVisible = true
@@ -215,6 +230,14 @@ Item {
             target: planningBridge
             function onResultChanged() {
                 root.syncPlanningRouteCandidate()
+                if (root.missionState === "VALIDATING" && root.planningResult
+                        && String(root.planningResult.resultId || "") !== root.manualSetBaselineResultId) {
+                    if (!root.manualSetSucceeded) {
+                        // Failed or blocked checks return to editable manual setup.
+                        root.missionState = "MANUAL"
+                        root.manualSetRequested = false
+                    }
+                }
             }
         }
 
@@ -282,7 +305,13 @@ Item {
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
             manualValidationStarted: root.manualValidationStarted
-            onValidateManualMissionRequested: root.missionState = "VALIDATING"
+            manualValidationSucceeded: root.manualSetSucceeded
+            onSetManualMissionRequested: {
+                // Prevent a previous result from being mistaken for this SET attempt.
+                root.manualSetBaselineResultId = root.planningResult ? String(root.planningResult.resultId || "") : ""
+                root.manualSetRequested = true
+                root.missionState = "VALIDATING"
+            }
             onStartMissionRequested: root.leftPanelOpen = false
         }
 
