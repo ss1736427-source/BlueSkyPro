@@ -73,6 +73,19 @@ def _request() -> dict:
                 "verified": True,
             }],
             "minimums": {"horizontalM": 20.0, "verticalM": 10.0},
+            "routeCandidate": {
+                "routeId": "ROUTE-001", "routeVersion": "v1",
+                "missionId": "MISSION-001", "missionVersion": "m1",
+                "generatorId": "planner", "generatorVersion": "1",
+                "calculationInputVersion": "input-1",
+                "coordinateReferenceSystem": "EPSG:4326",
+                "waypoints": [
+                    {"waypointId": "WP-1", "latitudeDeg": 60.0, "longitudeDeg": 24.0,
+                     "altitudeM": 100.0, "mandatory": False, "altitudeReference": "AGL"},
+                    {"waypointId": "WP-2", "latitudeDeg": 60.1, "longitudeDeg": 24.1,
+                     "altitudeM": 110.0, "mandatory": True, "altitudeReference": "AGL"},
+                ],
+            },
             "resolutionPolicy": {"maxDelayS": 5.0},
         },
     }
@@ -92,6 +105,8 @@ def test_stdio_adapter_emits_planning_result() -> None:
     assert message["missionId"] == "MISSION-001"
     assert message["verification"]["finalGateStatus"] == "PASS"
     assert message["verification"]["releaseStatus"] == "RELEASE_ELIGIBLE"
+    assert message["result"]["routeCandidate"]["routeId"] == "ROUTE-001"
+    assert message["result"]["routeCandidate"]["waypoints"][1]["mandatory"] is True
 
 
 if __name__ == "__main__":
