@@ -211,6 +211,7 @@ Item {
             mapZoom: root.mapZoom
             // Preview route is visible only while its non-authoritative editor is open.
             routeCoordinates: routeController.waypoints.map(function(p) { return [Number(p.longitudeDeg), Number(p.latitudeDeg)] })
+            manualTemplateIds: root.manualSelectedTemplateIds
             // Keep the map as the persistent workspace in every mode.
             visible: true
             onMapViewChangeRequested: function(panX, panY, zoom) {
@@ -249,6 +250,25 @@ Item {
                 root.headerAlertsOpen = false
             }
             onApplyRequested: root.missionProfileOpen = false
+        }
+
+        Connections {
+            target: manualGeometryBridge
+            function onCompositionCompleteChanged() {
+                root.manualCompositionComplete = manualGeometryBridge.compositionComplete
+                root.manualMissionVersion += 1
+                root.manualSetRequested = false
+                root.manualSetBaselineResultId = ""
+                if (root.missionState === "VALIDATING")
+                    root.missionState = "MANUAL"
+            }
+            function onGeometryChanged() {
+                root.manualMissionVersion += 1
+                root.manualSetRequested = false
+                root.manualSetBaselineResultId = ""
+                if (root.missionState === "VALIDATING")
+                    root.missionState = "MANUAL"
+            }
         }
 
         Connections {
