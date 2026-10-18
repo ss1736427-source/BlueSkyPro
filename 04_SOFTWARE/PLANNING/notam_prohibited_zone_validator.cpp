@@ -188,7 +188,10 @@ NotamValidationResult NotamProhibitedZoneValidator::validate(const Route& route,
         }
     }
 
-    if (route.constraints.avoid_restricted_areas && !snapshot.zones.empty()) {
+    // The validator below evaluates prohibited zones regardless of the route's
+    // optimization preference; therefore altitude references must always be
+    // compatible whenever the supplied snapshot contains zones.
+    if (!snapshot.zones.empty()) {
         for (const auto& wp : route.waypoints) {
             if (wp.altitude_reference != AltitudeReference::AGL) {
                 reject_altitude_reference(
