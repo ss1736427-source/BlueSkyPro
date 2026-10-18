@@ -59,6 +59,18 @@ Item {
         && planningBridge.result
         && String(planningBridge.result.missionId) === String(root.missionId)
         ? planningBridge.result : null
+    function syncPlanningRouteCandidate() {
+        var result = root.planningResult
+        var candidate = result && result.result ? result.result.routeCandidate : null
+        if (candidate !== null && candidate !== undefined
+                && String(candidate.missionId) === String(root.missionId)) {
+            routeController.loadCandidate(candidate)
+        } else {
+            // Never leave a route from the previous mission visible when the
+            // active mission changes or the bridge no longer has its candidate.
+            routeController.clear()
+        }
+    }
     readonly property bool is3DMappingProfile: root.missionTemplateIds.indexOf("3D_MAPPING") >= 0
     // Example current automatic mission composition; supplied by mission/task aggregation in production.
     property var missionTemplateIndices: [0, 1, 7]
@@ -202,10 +214,14 @@ Item {
         Connections {
             target: planningBridge
             function onResultChanged() {
-                var result = root.planningResult
-                var candidate = result && result.result ? result.result.routeCandidate : null
-                if (candidate !== null && candidate !== undefined)
-                    routeController.loadCandidate(candidate)
+                root.syncPlanningRouteCandidate()
+            }
+        }
+
+        Connections {
+            target: root
+            function onMissionIdChanged() {
+                root.syncPlanningRouteCandidate()
             }
         }
 
