@@ -367,6 +367,7 @@ Item {
             manualValidationStarted: root.manualValidationStarted
             manualValidationSucceeded: root.manualSetSucceeded
             manualSetBlocked: root.manualSetBlocked
+            manualModelValidationStatus: root.manualModelValidationStatus
             onSetManualMissionRequested: {
                 // Build the typed Common Mission Model from the exact geometry
                 // currently published by the map. This validates structure only;
