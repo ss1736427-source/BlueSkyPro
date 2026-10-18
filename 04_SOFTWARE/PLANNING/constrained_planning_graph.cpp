@@ -42,7 +42,9 @@ ConstrainedGraphBuildResult ConstrainedPlanningGraphBuilder::build(
     // dereference absent nodes while trying to compute environment lineage.
     const auto* startNode = result.graph.find_node(result.graph.start_node);
     const auto* goalNode = result.graph.find_node(result.graph.goal_node);
-    if (environment.complete && !environment.restrictions.empty()
+    if (environment.complete && !environment.snapshot_id.empty()
+        && !environment.snapshot_version.empty()
+        && !environment.calculation_input_version.empty()
         && startNode && goalNode) {
         const auto probe = ConstrainedOpenSpace::evaluateSegment(
             environment,
