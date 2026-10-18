@@ -19,19 +19,19 @@ bool AltitudeDisplayBridge::publishDecision(double valueM, const QString &source
 {
     const bool radio = source == QLatin1String("RA_AGL");
     const bool barometric = source == QLatin1String("BARO_STD");
-    if (!std::isfinite(valueM) || valueM < 0.0 || (!radio && !barometric)) {
+    if (!std::isfinite(valueM) || valueM < 0.0 || (!radio && !barometric)
+        || !sourceClockNormalized) {
         markUnavailable();
         return false;
     }
 
-    // Fail closed if source timing is not normalized. The caller may publish
-    // a degraded, clock-qualified decision only after the adapter contract
-    // explicitly permits it; this bridge never upgrades it to normal status.
+    // Unnormalized source clocks are rejected. DEGRADED is reserved for a
+    // clock-qualified decision whose adapter explicitly reports degraded data.
     m_valueText = QString::number(valueM, 'f', 1) + QStringLiteral(" m");
     m_sourceText = radio ? QStringLiteral("RA · AGL")
                          : QStringLiteral("BARO · STD 1013.25 hPa");
     m_available = true;
-    m_degraded = isDegraded || !sourceClockNormalized;
+    m_degraded = isDegraded;
     m_statusText = m_degraded ? QStringLiteral("DEGRADED") : QStringLiteral("LIVE");
     emit changed();
     return true;
