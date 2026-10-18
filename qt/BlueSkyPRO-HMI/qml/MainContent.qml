@@ -105,7 +105,13 @@ Item {
     signal workspaceContextRequested(string context)
     property string workspaceContext: bottomToolbar.activeTool
     // Shared non-operational integration fixture switch for ADMIN and VIRTUAL FLT.
-    property bool integrationTestStubsEnabled: true
+    // Store only this test control here; it must never imply live-source availability.
+    Settings {
+        id: integrationSettings
+        category: "BlueSkyPRO/ExternalIntegrations"
+        property bool testStubsEnabled: true
+    }
+    property bool integrationTestStubsEnabled: integrationSettings.testStubsEnabled
 
     // Persist the operator-positioned alert overlay across application launches.
     Settings {
