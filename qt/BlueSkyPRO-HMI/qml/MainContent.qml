@@ -379,7 +379,7 @@ Item {
                             root.manualMissionVersion,
                             root.manualCompositionComplete)
                 root.manualModelValidationStatus = modelResult.valid
-                        ? "MODEL_STRUCTURALLY_VALID_PLANNING_CORE_NOT_CONNECTED"
+                        ? "MODEL_STRUCTURALLY_VALID_ROUTE_GENERATION_NOT_CONNECTED"
                         : modelResult.errors.join(", ")
                 root.manualMissionModelJson = modelResult.valid
                         ? String(modelResult.missionModelJson || "") : ""
