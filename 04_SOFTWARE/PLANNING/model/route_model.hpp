@@ -10,11 +10,21 @@ struct GeoPoint {
     double longitude_deg{0.0};
 };
 
+// Vertical reference must be explicit before route altitude is compared with
+// airspace/NOTAM altitude limits. Unknown is deliberately the default.
+enum class AltitudeReference {
+    Unknown,
+    AGL,
+    AMSL,
+    FlightLevel
+};
+
 struct RouteWaypoint {
     std::string waypoint_id;
     GeoPoint position;
     double altitude_m{0.0};
     bool mandatory{false};
+    AltitudeReference altitude_reference{AltitudeReference::Unknown};
 };
 
 struct RouteSegment {
