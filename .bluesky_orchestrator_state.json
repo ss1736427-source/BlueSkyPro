@@ -1,12 +1,12 @@
 {
-  "last_main_sha": "20e56048af9c8233a45e2491063a4cdaffaa2455",
+  "last_main_sha": "d556f814b0a28fad432adcad660e2ec4ab05456c",
   "verified_sha": null,
   "decision_required": false,
   "ci_required": true,
   "current_work_package": "HMI FLIGHT PROFILE — exact-SHA CI verification and final interaction-state audit",
-  "checkpoint": "HMI baseline 917dd87b502759c0ed66925bfc3e962e1266e0ec passed 12/12 workflows. Subsequent fixes on main: 4433fba removes last fixed 400 m scale in new point creation; 89e07b7 clears route data before per-UAV route load; 20e5604 persists profile drag edits. Multi-UAV Validator passed for 20e56048af9c8233a45e2491063a4cdaffaa2455. HMI Qt Build and Windows Map Build are still running for that exact code SHA, so final checkpoint remains UNVERIFIED.",
+  "checkpoint": "At 20e56048af9c8233a45e2491063a4cdaffaa2455, Multi-UAV Validator is PASS. HMI Qt Build and Windows Map Build are running; both currently in Qt installation steps. The QML diff fixes drag persistence, dynamic-scale point creation, and clearing routeModel before loading saved per-UAV data. This main SHA is immediately followed by the checkpoint metadata change; do not treat any old CI as verification for a later SHA.",
   "real_execution": "DEFERRED",
   "quantitative_c2_basis": "DEFERRED",
   "current_ci_status": "UNVERIFIED_FOR_CURRENT_MAIN_SHA",
-  "next_deterministic_action": "Poll all runs for exact main SHA. If HMI Qt Build and Windows Map Build pass, review latest commit/status again, update the checkpoint SHA, then resume remaining open-PR reconciliation in line with main-only policy. If any fail, fetch the failing job logs and fix root cause on main. PR #49 must remain Draft; do not touch E: or create branches."
+  "next_deterministic_action": "Wait for exact current main SHA CI to complete; because the checkpoint file is also committed on main, CI must be checked for the actual current HEAD, not only 20e56048af9c8233a45e2491063a4cdaffaa2455. If HMI or Windows Map fails, inspect step logs. If success, audit QML reload/default-route semantics and continue PR reconciliation; PR #49 remains Draft."
 }
