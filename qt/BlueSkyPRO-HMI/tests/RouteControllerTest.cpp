@@ -91,6 +91,15 @@ int main(int argc, char *argv[])
                                         true, QStringLiteral("revalidated")));
     assert(controller.validationState() == QStringLiteral("VALIDATED"));
 
+    // A late stale result must not rewrite the status/reason of the current
+    // validated route. Its route and calculation-input lineage are unchanged.
+    const QString acceptedReason = controller.validationReason();
+    assert(!controller.publishValidation(originalVersion, QStringLiteral("input-1"),
+                                         false, QStringLiteral("late-stale-rejection")));
+    assert(controller.validationState() == QStringLiteral("VALIDATED"));
+    assert(controller.validationReason() == acceptedReason);
+    assert(controller.routeVersion() == editedVersion);
+
     assert(!controller.editWaypointAltitude(QStringLiteral("WP-2"), 5001.0));
     assert(controller.validationState() == QStringLiteral("BLOCKED"));
 
