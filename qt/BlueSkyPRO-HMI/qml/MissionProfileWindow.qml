@@ -38,7 +38,8 @@ Item {
     property bool liveFlightActive: false
     // Design-time marker keeps the aircraft visible in Qt Design Studio.
     // A connected telemetry feed overrides this preview position.
-    property bool showAircraftPreview: true
+    // A sample aircraft marker is never enabled implicitly on an operational profile.
+    property bool showAircraftPreview: false
     property real previewDistanceKm: 46.7
     property real previewAltitudeM: 180
     property real liveDistanceKm: 0
@@ -46,8 +47,8 @@ Item {
     property real liveAltitudeM: 0
     // Constraints are derived from the canonical controller route, never cached in this window.
     readonly property var mandatoryPoints: []
-    readonly property real plannedDistanceKm: 78.4
-    readonly property real plannedDurationSeconds: 78 * 60
+    readonly property real plannedDistanceKm: 0
+    readonly property real plannedDurationSeconds: 0
     property var parameterVisibility: ({
         number: true, type: true, point: true, course: true, distance: true, altitude: true,
         airspeed: true, groundspeed: true, time: true, deltaHeight: true, energy: true, note: true
@@ -405,6 +406,18 @@ Item {
             anchors.margins: 8
             spacing: 7
 
+            Text {
+                visible: !root.hasCanonicalRoute
+                LayoutMirroring.enabled: false
+                width: parent.width
+                height: 28
+                color: root.muted
+                font.pixelSize: 12
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                text: "ПРОФИЛЬ НЕ РАССЧИТАН · ОЖИДАЕТСЯ КАНОНИЧЕСКИЙ МАРШРУТ"
+            }
+
             Rectangle {
                 id: titleBar
                 width: parent.width
@@ -416,6 +429,7 @@ Item {
                     anchors.leftMargin: 10
                     y: (parent.height - height) / 2
                     text: "МИССИЯ"
+                    // The profile must not imply a calculated route when the controller is empty.
                     color: root.cyan
                     font.family: "B612"
                     font.pixelSize: 15
@@ -915,7 +929,8 @@ Item {
                                     // design preview, show a clearly marked sample position.
                                     if (root.liveFlightActive || root.showAircraftPreview) {
                                         var markerDistance = root.liveFlightActive ? root.liveDistanceKm : root.previewDistanceKm
-                                        var progress = Math.max(0, Math.min(1, markerDistance / root.plannedDistanceKm))
+                                        var progress = root.plannedDistanceKm > 0
+                                                ? Math.max(0, Math.min(1, markerDistance / root.plannedDistanceKm)) : 0
                                         var seg = progress * (alts.length - 1)
                                         var segIndex = Math.min(alts.length - 2, Math.floor(seg))
                                         var frac = seg - segIndex
