@@ -77,6 +77,9 @@ command::CommandRequest command_request() {
 } // namespace
 
 int main() {
+    // Pipeline results retain pointers into the snapshot; keep it alive through
+    // the complete intake/execution test instead of passing a temporary.
+    const auto operational_snapshot = snapshot();
     DeviceCapabilityRuntime runtime;
     const auto capability_registration = runtime.registerSnapshot(capability_snapshot());
     assert(capability_registration == DeviceCapabilityResult::Registered);
@@ -84,7 +87,7 @@ int main() {
     CapabilityAdmissionBoundary admission(gate);
 
     const auto accepted_request = ExternalOperationalRequestIntake::evaluate(
-        request(), snapshot(), executable_context());
+        request(), operational_snapshot, executable_context());
     assert(accepted_request.state == ExternalOperationalRequestState::Accepted);
 
     command::CommandLifecycleRuntime lifecycle;
@@ -98,7 +101,7 @@ int main() {
     auto rejected_context = executable_context();
     rejected_context.runtime.energy_gate_ok = false;
     const auto rejected_request = ExternalOperationalRequestIntake::evaluate(
-        request(), snapshot(), rejected_context);
+        request(), operational_snapshot, rejected_context);
     assert(rejected_request.state == ExternalOperationalRequestState::Rejected);
 
     command::CommandLifecycleRuntime blocked;
@@ -111,7 +114,7 @@ int main() {
     auto mismatch_request = request();
     mismatch_request.binding.action_id = "action.land";
     const auto mismatch = ExternalOperationalRequestIntake::evaluate(
-        mismatch_request, snapshot(), executable_context());
+        mismatch_request, operational_snapshot, executable_context());
     assert(mismatch.state == ExternalOperationalRequestState::Rejected);
 
     command::CommandLifecycleRuntime mismatch_lifecycle;
@@ -123,7 +126,7 @@ int main() {
     auto incompatible_request = request();
     incompatible_request.binding.required_capabilities = {"command.land"};
     const auto incompatible_intake = ExternalOperationalRequestIntake::evaluate(
-        incompatible_request, snapshot(), executable_context());
+        incompatible_request, operational_snapshot, executable_context());
     assert(incompatible_intake.state == ExternalOperationalRequestState::Accepted);
 
     command::CommandLifecycleRuntime incompatible_lifecycle;
@@ -136,7 +139,7 @@ int main() {
     auto wrong_device = request();
     wrong_device.binding.device_id = "dev-other";
     const auto wrong_device_intake = ExternalOperationalRequestIntake::evaluate(
-        wrong_device, snapshot(), executable_context());
+        wrong_device, operational_snapshot, executable_context());
     assert(wrong_device_intake.state == ExternalOperationalRequestState::Accepted);
 
     command::CommandLifecycleRuntime wrong_device_lifecycle;

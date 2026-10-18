@@ -50,15 +50,18 @@ OperationalSnapshot snapshot() {
 } // namespace
 
 int main() {
+    // Pipeline results retain pointers into the snapshot; keep it alive through
+    // the complete intake/execution test instead of passing a temporary.
+    const auto operational_snapshot = snapshot();
     const auto accepted = ExternalOperationalRequestIntake::evaluate(
-        request("action.takeoff"), snapshot(), executable_context());
+        request("action.takeoff"), operational_snapshot, executable_context());
 
     assert(accepted.state == ExternalOperationalRequestState::Accepted);
     assert(accepted.reason == "REQUEST_ACCEPTED");
     assert(accepted.pipeline.status == PipelineStatus::Selected);
 
     const auto mismatch = ExternalOperationalRequestIntake::evaluate(
-        request("action.land"), snapshot(), executable_context());
+        request("action.land"), operational_snapshot, executable_context());
 
     assert(mismatch.state == ExternalOperationalRequestState::Rejected);
     assert(mismatch.reason == "REQUESTED_ACTION_NOT_SELECTED");
@@ -66,7 +69,7 @@ int main() {
     auto blocked_context = executable_context();
     blocked_context.runtime.energy_gate_ok = false;
     const auto blocked = ExternalOperationalRequestIntake::evaluate(
-        request("action.takeoff"), snapshot(), blocked_context);
+        request("action.takeoff"), operational_snapshot, blocked_context);
 
     assert(blocked.state == ExternalOperationalRequestState::Rejected);
     assert(blocked.reason == "ACTION_NOT_EXECUTABLE");
@@ -74,7 +77,7 @@ int main() {
     auto invalid = request("action.takeoff");
     invalid.request_id.clear();
     const auto invalid_result = ExternalOperationalRequestIntake::evaluate(
-        invalid, snapshot(), executable_context());
+        invalid, operational_snapshot, executable_context());
 
     assert(invalid_result.state == ExternalOperationalRequestState::Rejected);
     assert(invalid_result.reason == "REQUEST_ID_REQUIRED");
