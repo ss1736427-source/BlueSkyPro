@@ -1117,8 +1117,8 @@ Item {
         y: root.atcValidationY + root.atcButtonHeight + 5
         width: parent.width - 52
         height: 38
-        text: root.manualModelValidationStatus === "MODEL_STRUCTURALLY_VALID_PLANNING_CORE_NOT_CONNECTED"
-              ? "STRUCTURE OK · PLANNING CORE NOT CONNECTED"
+        text: root.manualModelValidationStatus === "MODEL_STRUCTURALLY_VALID_ROUTE_GENERATION_NOT_CONNECTED"
+              ? "STRUCTURE OK · ROUTE GENERATION NOT CONNECTED"
               : root.manualModelValidationStatus
         color: root.amber
         font.family: "B612"
