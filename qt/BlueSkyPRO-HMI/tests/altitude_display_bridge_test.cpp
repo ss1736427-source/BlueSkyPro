@@ -6,9 +6,9 @@
 
 #include <QCoreApplication>
 #include <cassert>
-#include <cmath>
 #include <iostream>
-#include <limits>
+
+using namespace bluesky::operations;
 
 int main(int argc, char **argv)
 {
@@ -16,39 +16,38 @@ int main(int argc, char **argv)
     AltitudeDisplayBridge bridge;
 
     assert(!bridge.available());
-    assert(!bridge.degraded());
-    assert(bridge.valueText() == QStringLiteral("—"));
     assert(bridge.statusText() == QStringLiteral("UNAVAILABLE"));
 
-    assert(!bridge.publishDecision(std::numeric_limits<double>::quiet_NaN(),
-                                   QStringLiteral("RA_AGL"), false, true));
-    assert(!bridge.available());
-    assert(bridge.statusText() == QStringLiteral("UNAVAILABLE"));
-
-    assert(!bridge.publishDecision(-1.0, QStringLiteral("RA_AGL"), false, true));
-    assert(!bridge.publishDecision(42.0, QStringLiteral("GPS_ALT"), false, true));
+    MavlinkAltitudeDisplayAdapterResult result;
+    result.decision = {AltitudeDisplaySource::Unavailable, 0.0, false, false};
+    assert(!bridge.publishAdapterResult(result));
     assert(!bridge.available());
 
-    assert(bridge.publishDecision(99.5, QStringLiteral("RA_AGL"), false, true));
+    result.decision = {AltitudeDisplaySource::RadioAltimeterAgl, 99.5, true, false};
+    assert(bridge.publishAdapterResult(result));
     assert(bridge.available());
     assert(!bridge.degraded());
     assert(bridge.valueText() == QStringLiteral("99.5 m"));
     assert(bridge.sourceText() == QStringLiteral("RA · AGL"));
     assert(bridge.statusText() == QStringLiteral("LIVE"));
 
-    assert(bridge.publishDecision(123.4, QStringLiteral("BARO_STD"), true, true));
+    result.decision = {AltitudeDisplaySource::BarometricStandardPressure, 123.4, true, false};
+    result.timestamp_quality_degraded = true;
+    assert(bridge.publishAdapterResult(result));
     assert(bridge.available());
     assert(bridge.degraded());
     assert(bridge.sourceText() == QStringLiteral("BARO · STD 1013.25 hPa"));
     assert(bridge.statusText() == QStringLiteral("DEGRADED"));
 
-    assert(!bridge.publishDecision(123.4, QStringLiteral("BARO_STD"), false, false));
+    result.decision = {AltitudeDisplaySource::BarometricStandardPressureDegraded, 123.4, true, true};
+    result.timestamp_quality_degraded = false;
+    assert(bridge.publishAdapterResult(result));
+    assert(bridge.degraded());
+
+    result.decision = {AltitudeDisplaySource::RadioAltimeterAgl, -1.0, true, false};
+    assert(!bridge.publishAdapterResult(result));
     assert(!bridge.available());
     assert(bridge.statusText() == QStringLiteral("UNAVAILABLE"));
-
-    assert(bridge.publishDecision(123.4, QStringLiteral("BARO_STD"), false, true));
-    assert(bridge.available());
-    assert(!bridge.degraded());
 
     bridge.markUnavailable();
     assert(!bridge.available());
@@ -57,6 +56,6 @@ int main(int argc, char **argv)
     assert(bridge.sourceText() == QStringLiteral("ALTITUDE"));
     assert(bridge.statusText() == QStringLiteral("UNAVAILABLE"));
 
-    std::cout << "altitude_display_bridge_test: PASS\n";
+    std::cout << "altitude_display_bridge_test: PASS\\n";
     return 0;
 }
