@@ -1,12 +1,12 @@
 {
-  "last_main_sha": "58f398a43669c92cd6c28f7d9828d3c9ef5f27fc",
+  "last_main_sha": "435e6bbd367d3c36a1efc32130387b5315ed225e",
   "verified_sha": null,
   "decision_required": false,
   "ci_required": true,
-  "current_work_package": "HMI FLIGHT PROFILE — close dynamic altitude edit and per-UAV stale-route defects, then continue the canonical repository reconciliation package",
-  "checkpoint": "CI PASS for 917dd87b502759c0ed66925bfc3e962e1266e0ec (12/12). Commit 4433fba78e32965b7219ce22b2ed376f7b2cf6fa fixes remaining fixed 400 m scale in new profile-point editing but was superseded before CI completion. Commit 58f398a43669c92cd6c28f7d9828d3c9ef5f27fc clears stale route rows only when a saved route exists; missing route for a selected UAV still risks previous UAV's route persisting because loadAircraftData does not clear routeModel before conditional restore. This is the next priority defect.",
+  "current_work_package": "HMI FLIGHT PROFILE — route isolation and edit persistence verification",
+  "checkpoint": "Main moved to checkpoint commit while reviewing the route-selection edge case. Dynamic altitude scale edit from 4433fba was not CI-confirmed before supersession. Load path now identified: routeModel is cleared only when a saved snapshot exists, so a UAV with no saved route can inherit the previously selected UAV route. Fix in the same canonical HMI component, then wait for CI on the resulting SHA.",
   "real_execution": "DEFERRED",
   "quantitative_c2_basis": "DEFERRED",
-  "current_ci_status": "UNVERIFIED_FOR_NEW_MAIN_SHA_58f398a43669c92cd6c28f7d9828d3c9ef5f27fc",
-  "next_deterministic_action": "Fix loadAircraftData so the route model always clears before loading selected UAV route and falls back to that UAV's initialized/default route when no saved route exists; inspect exact current main, make a minimal commit, then verify new SHA CI. After CI passes, return to the repository reconciliation checkpoint and continue auditing remaining open PRs. Keep PR #49 Draft and do not change E: or create branches."
+  "current_ci_status": "UNVERIFIED_FOR_CURRENT_MAIN_SHA",
+  "next_deterministic_action": "Commit the minimal routeModel clear-before-load fix after confirming the current file and head SHA. Then verify all relevant workflows for that exact SHA. Keep PR #49 Draft; no branches or local E: changes."
 }
