@@ -34,6 +34,14 @@ static QString writeCachedTile(const QString &cacheRoot, const QString &key)
     assert(file.open(QIODevice::WriteOnly));
     assert(file.write("cached-tile-fixture") > 0);
     file.close();
+
+    QFile metadata(path + QStringLiteral(".meta"));
+    assert(metadata.open(QIODevice::WriteOnly));
+    const QByteArray expiry = QByteArray("v2\n")
+        + QDateTime::currentDateTimeUtc().addSecs(3600)
+              .toString(Qt::ISODateWithMs).toUtf8();
+    assert(metadata.write(expiry) == expiry.size());
+    metadata.close();
     return QFileInfo(path).absoluteFilePath();
 }
 
@@ -91,6 +99,13 @@ int main(int argc, char *argv[])
         assert(oldTile.open(QIODevice::ReadWrite));
         assert(oldTile.setFileTime(expiredTime, QFileDevice::FileModificationTime));
         oldTile.close();
+
+        QFile metadata(path + QStringLiteral(".meta"));
+        assert(metadata.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        const QByteArray expiry = QByteArray("v2\n")
+            + expiredTime.toString(Qt::ISODateWithMs).toUtf8();
+        assert(metadata.write(expiry) == expiry.size());
+        metadata.close();
     }
 
     QTcpServer server;
@@ -109,6 +124,7 @@ int main(int argc, char *argv[])
                 const QByteArray path = request.split(' ').value(1);
                 ++requestCounts[path];
                 const bool noStore = path == "/no-store";
+                const bool noCacheHeader = path == "/no-cache-header";
                 const bool failTransiently = path == "/retry-failure";
                 const QByteArray cacheControl = noStore
                     ? QByteArray("no-store") : QByteArray("max-age=1");
@@ -116,10 +132,12 @@ int main(int argc, char *argv[])
                 const QByteArray statusLine = failTransiently
                     ? QByteArray("HTTP/1.1 503 Service Unavailable\r\n")
                     : QByteArray("HTTP/1.1 200 OK\r\n");
+                const QByteArray cacheHeader = noCacheHeader
+                    ? QByteArray() : QByteArray("Cache-Control: ") + cacheControl + "\r\n";
                 const QByteArray response =
-                    statusLine + "Content-Type: image/png\r\nCache-Control: "
-                    + cacheControl
-                    + "\r\nContent-Length: " + QByteArray::number(body.size())
+                    statusLine + "Content-Type: image/png\r\n"
+                    + cacheHeader
+                    + "Content-Length: " + QByteArray::number(body.size())
                     + "\r\nConnection: close\r\n\r\n" + body;
                 socket->write(response);
                 socket->disconnectFromHost();
@@ -191,7 +209,7 @@ int main(int argc, char *argv[])
     assert(!QFileInfo::exists(orphanPath));
 
     // max-age from the provider is honored rather than replaced with the 29-day cap.
-    const QString shortLivedKey = QStringLiteral("test/short-lived");
+    const QString shortLivedKey = QStringLiteral("maptiler/test/short-lived");
     const QString url = QStringLiteral("http://127.0.0.1:%1/max-age")
                             .arg(server.serverPort());
     QString downloadedSource;
@@ -225,20 +243,46 @@ int main(int argc, char *argv[])
     assert(manager.requestTile(shortLivedKey, url).isEmpty());
 
     // no-store responses are delivered for this request without a disk cache entry.
-    const QString noStoreKey = QStringLiteral("test/no-store");
+    const QString noStoreKey = QStringLiteral("maptiler/test/no-store");
     const QString noStoreUrl = QStringLiteral("http://127.0.0.1:%1/no-store")
                                    .arg(server.serverPort());
     QString noStoreSource;
     assert(awaitTile(manager, noStoreKey, noStoreUrl, &noStoreSource));
     assert(noStoreSource.startsWith(QStringLiteral("data:image/png;base64,")));
     const QString noStorePath = QDir(cache.path()).filePath(
-        QStringLiteral("tiles/test/no-store.png"));
+        QStringLiteral("tiles/maptiler/test/no-store.png"));
     assert(!QFileInfo::exists(noStorePath));
     assert(manager.requestTile(noStoreKey, QStringLiteral("invalid://must-fetch-again"))
            .isEmpty());
 
+    // Yandex tiles are transient unless an explicit storage license is configured.
+    // Even a provider max-age must not enable a persistent disk cache for Yandex.
+    const QString yandexKey = QStringLiteral("yandex/test/transient");
+    const QString yandexUrl = QStringLiteral("http://127.0.0.1:%1/max-age")
+                                  .arg(server.serverPort());
+    QString yandexSource;
+    const int requestsBeforeYandex = requestCounts.value(QByteArray("/max-age"));
+    assert(awaitTile(manager, yandexKey, yandexUrl, &yandexSource));
+    assert(yandexSource.startsWith(QStringLiteral("data:image/png;base64,")));
+    const QString yandexPath = QDir(cache.path()).filePath(
+        QStringLiteral("tiles/yandex/test/transient.png"));
+    assert(!QFileInfo::exists(yandexPath));
+    assert(awaitTile(manager, yandexKey, yandexUrl, &yandexSource));
+    assert(requestCounts.value(QByteArray("/max-age")) == requestsBeforeYandex + 2);
+
+    // Missing Cache-Control/Expires must not invent a 29-day disk-cache lifetime.
+    const QString noHeaderKey = QStringLiteral("maptiler/test/no-cache-header");
+    const QString noHeaderUrl = QStringLiteral("http://127.0.0.1:%1/no-cache-header")
+                                     .arg(server.serverPort());
+    QString noHeaderSource;
+    assert(awaitTile(manager, noHeaderKey, noHeaderUrl, &noHeaderSource));
+    assert(noHeaderSource.startsWith(QStringLiteral("data:image/png;base64,")));
+    const QString noHeaderPath = QDir(cache.path()).filePath(
+        QStringLiteral("tiles/maptiler/test/no-cache-header.png"));
+    assert(!QFileInfo::exists(noHeaderPath));
+
     // A repeatable 503 response must produce one retry and then a final failure.
-    const QString retryFailureKey = QStringLiteral("test/retry-failure");
+    const QString retryFailureKey = QStringLiteral("maptiler/test/retry-failure");
     const QString retryFailureUrl = QStringLiteral("http://127.0.0.1:%1/retry-failure")
                                         .arg(server.serverPort());
     QString retryFailureSource;

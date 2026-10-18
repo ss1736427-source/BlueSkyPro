@@ -61,6 +61,14 @@ bool parseMaxAge(const QByteArray &header, qint64 *seconds)
     }
     return false;
 }
+
+// Persistent end-user cache is enabled only for MapTiler Cloud, whose terms
+// permit a temporary personal cache. Other providers stay transient until their
+// applicable license explicitly permits local tile storage.
+bool allowsPersistentDiskCache(const QString &key)
+{
+    return key.startsWith(QStringLiteral("maptiler/"));
+}
 }
 
 TileCacheManager::TileCacheManager(QObject *parent)
@@ -147,19 +155,19 @@ QString TileCacheManager::cachePath(const QString &key) const
 QDateTime TileCacheManager::cacheExpiry(const QString &tilePath) const
 {
     const QString metadataPath = cacheMetadataPath(tilePath);
-    if (QFileInfo::exists(metadataPath)) {
-        QFile metadata(metadataPath);
-        if (!metadata.open(QIODevice::ReadOnly))
-            return {};
-        const QByteArray value = metadata.readAll().trimmed();
-        const QDateTime expiry = QDateTime::fromString(
-            QString::fromUtf8(value), Qt::ISODateWithMs);
-        return expiry.isValid() ? expiry.toUTC() : QDateTime{};
-    }
+    if (!QFileInfo::exists(metadataPath))
+        return {}; // Legacy entries are invalidated; their provider policy is unknown.
 
-    // Backward compatibility for tiles created before expiry metadata existed.
-    const QFileInfo info(tilePath);
-    return info.lastModified().toUTC().addDays(kCacheMaxAgeDays);
+    QFile metadata(metadataPath);
+    if (!metadata.open(QIODevice::ReadOnly))
+        return {};
+    const QList<QByteArray> fields = metadata.readAll().trimmed().split('\n');
+    if (fields.size() != 2 || fields[0] != QByteArray("v2"))
+        return {}; // Metadata written by the old, provider-agnostic policy is invalid.
+
+    const QDateTime expiry = QDateTime::fromString(
+        QString::fromUtf8(fields[1].trimmed()), Qt::ISODateWithMs);
+    return expiry.isValid() ? expiry.toUTC() : QDateTime{};
 }
 
 void TileCacheManager::removeCacheEntry(const QString &tilePath) const
@@ -178,9 +186,15 @@ void TileCacheManager::cleanupExpiredCacheBatch()
     while (m_cleanupIterator->hasNext() && inspected < kCleanupBatchSize) {
         const QString path = m_cleanupIterator->next();
         const QFileInfo info(path);
+        QString key = QDir(cacheRootPath()).relativeFilePath(path);
+        if (key.endsWith(QStringLiteral(".png")))
+            key.chop(4);
         const QDateTime expiry = cacheExpiry(path);
-        if (!info.exists() || info.size() <= 0 || !expiry.isValid() || expiry <= now)
+        if (!info.exists() || info.size() <= 0
+                || !allowsPersistentDiskCache(key)
+                || !expiry.isValid() || expiry <= now) {
             removeCacheEntry(path);
+        }
         ++inspected;
     }
 
@@ -230,18 +244,24 @@ QString TileCacheManager::requestTile(const QString &key, const QString &url)
         return {};
     }
     m_currentViewKeys.insert(key);
-    const QFileInfo cachedInfo(path);
-    if (cachedInfo.exists()) {
-        const QDateTime expiry = cacheExpiry(path);
-        if (cachedInfo.size() > 0 && expiry.isValid()
-                && expiry > QDateTime::currentDateTimeUtc()) {
-            recordDiagnostic(QStringLiteral("cache_hit"),
-                             {{QStringLiteral("file_size_bytes"), cachedInfo.size()}});
-            return QUrl::fromLocalFile(path).toString();
-        }
-
-        // Expired or empty cache entries must not be served again.
+    if (!allowsPersistentDiskCache(key)) {
+        // Purge old provider-agnostic entries rather than silently continuing
+        // to serve or retain tiles whose storage license is not established.
         removeCacheEntry(path);
+    } else {
+        const QFileInfo cachedInfo(path);
+        if (cachedInfo.exists()) {
+            const QDateTime expiry = cacheExpiry(path);
+            if (cachedInfo.size() > 0 && expiry.isValid()
+                    && expiry > QDateTime::currentDateTimeUtc()) {
+                recordDiagnostic(QStringLiteral("cache_hit"),
+                                 {{QStringLiteral("file_size_bytes"), cachedInfo.size()}});
+                return QUrl::fromLocalFile(path).toString();
+            }
+
+            // Expired, legacy, or empty cache entries must not be served again.
+            removeCacheEntry(path);
+        }
     }
 
     recordDiagnostic(QStringLiteral("cache_miss"), {});
@@ -342,10 +362,12 @@ void TileCacheManager::handleFinished(QNetworkReply *reply)
         qint64 maxAgeSeconds = 0;
         const bool hasMaxAgeDirective = hasCacheDirective(cacheControl, "max-age");
         const bool hasMaxAge = parseMaxAge(cacheControl, &maxAgeSeconds);
-        const bool doNotPersist = hasCacheDirective(cacheControl, "no-store")
+        bool doNotPersist = !allowsPersistentDiskCache(request.key)
+            || hasCacheDirective(cacheControl, "no-store")
             || hasCacheDirective(cacheControl, "no-cache")
             || (hasMaxAgeDirective && !hasMaxAge);
         const QDateTime now = QDateTime::currentDateTimeUtc();
+        const QDateTime maximumExpiry = now.addDays(kCacheMaxAgeDays);
         QDateTime expiry;
 
         if (hasMaxAge) {
@@ -354,8 +376,12 @@ void TileCacheManager::handleFinished(QNetworkReply *reply)
         } else if (!reply->rawHeader("Expires").isEmpty()) {
             expiry = QDateTime::fromString(
                 QString::fromLatin1(reply->rawHeader("Expires")), Qt::RFC2822Date).toUTC();
+            if (expiry.isValid() && expiry > maximumExpiry)
+                expiry = maximumExpiry;
         } else {
-            expiry = now.addDays(kCacheMaxAgeDays);
+            // Never invent a long cache lifetime when the provider sends no
+            // explicit freshness directive.
+            doNotPersist = true;
         }
 
         // no-cache/no-store and immediately stale responses are delivered for
@@ -372,7 +398,8 @@ void TileCacheManager::handleFinished(QNetworkReply *reply)
             if (file.open(QIODevice::WriteOnly)
                     && file.write(data) == data.size() && file.commit()) {
                 QSaveFile metadata(cacheMetadataPath(path));
-                const QByteArray timestamp = expiry.toUTC().toString(Qt::ISODateWithMs).toUtf8();
+                const QByteArray timestamp = QByteArray("v2\n")
+                    + expiry.toUTC().toString(Qt::ISODateWithMs).toUtf8();
                 if (metadata.open(QIODevice::WriteOnly)
                         && metadata.write(timestamp) == timestamp.size()
                         && metadata.commit()) {
