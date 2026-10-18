@@ -51,7 +51,9 @@ Item {
     ]
     property bool missionProfileOpen: false
     // Planning-core result injected by the application/planning bridge; QML never calculates it.
-    property var planningResult: null
+    // Bind only the validated result published by PlanningBridge.
+    // Empty bridge output remains unavailable; QML never invents route/readiness data.
+    property var planningResult: typeof planningBridge !== "undefined" ? planningBridge.result : null
     readonly property bool is3DMappingProfile: root.missionTemplateIds.indexOf("3D_MAPPING") >= 0
     // Example current automatic mission composition; supplied by mission/task aggregation in production.
     property var missionTemplateIndices: [0, 1, 7]
