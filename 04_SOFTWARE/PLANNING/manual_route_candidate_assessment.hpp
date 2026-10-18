@@ -43,4 +43,24 @@ ManualRouteNotamAssessment assessManualRouteCandidateNotams(
     const NotamSnapshot& snapshot,
     const std::string& current_calculation_input_version);
 
+// Combined airspace + NOTAM assessment. Both independently supplied snapshots
+// must pass; this remains a partial assessment and can never authorize release.
+struct ManualRouteCandidateAirspaceNotamAssessment {
+    bool assessed{false};
+    bool candidate_structurally_valid{false};
+    bool airspace_clear{false};
+    bool notam_clear{false};
+    bool combined_clear{false};
+    bool flight_release_eligible{false};
+    ManualRouteCandidateAssessment airspace;
+    ManualRouteNotamAssessment notams;
+    std::vector<std::string> errors;
+};
+
+ManualRouteCandidateAirspaceNotamAssessment assessManualRouteCandidateAirspaceAndNotams(
+    const ManualRouteBuildResult& candidate,
+    const ConstrainedEnvironmentSnapshot& environment,
+    const NotamSnapshot& notam_snapshot,
+    const std::string& current_calculation_input_version);
+
 } // namespace bluesky::planning
