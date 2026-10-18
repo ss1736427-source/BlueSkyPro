@@ -13,6 +13,5 @@ ApplicationWindow {
 
     MainContent {
         anchors.fill: parent
-        planningResult: planningBridge.result
     }
 }
