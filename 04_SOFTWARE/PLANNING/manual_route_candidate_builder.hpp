@@ -9,7 +9,8 @@
 namespace bluesky::planning {
 
 // Explicit inputs required to turn operator-authored line geometry into a
-// route candidate. No operational defaults are provided by this contract.
+// structural route candidate. This does not check route/environment intersections,
+// NOTAM legality, energy reserve, or release readiness. No defaults are provided.
 struct ManualRouteBuildRequirements {
     std::string generator_id;
     std::string generator_version;
@@ -25,7 +26,8 @@ struct ManualRouteBuildRequirements {
 };
 
 struct ManualRouteBuildResult {
-    bool valid{false};
+    bool valid{false}; // Structural candidate constructed; not a safety/release decision.
+    bool flight_release_eligible{false}; // This builder can never authorize release.
     Route route;
     std::vector<std::string> errors;
 };
