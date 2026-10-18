@@ -29,6 +29,7 @@ static QVariantMap candidate()
         {QStringLiteral("generatorId"), QStringLiteral("planner-test")},
         {QStringLiteral("generatorVersion"), QStringLiteral("1")},
         {QStringLiteral("calculationInputVersion"), QStringLiteral("input-1")},
+        {QStringLiteral("coordinateReferenceSystem"), QStringLiteral("EPSG:4326")},
         {QStringLiteral("waypoints"), QVariantList{
              waypoint(QStringLiteral("WP-1"), 60.0, 24.0, 100.0),
              waypoint(QStringLiteral("WP-2"), 60.1, 24.1, 110.0)
@@ -100,6 +101,11 @@ int main(int argc, char *argv[])
     });
     assert(!controller.loadCandidate(invalid));
     assert(controller.validationReason() == QStringLiteral("INVALID_WAYPOINT_POSITION"));
+
+    invalid = candidate();
+    invalid.insert(QStringLiteral("coordinateReferenceSystem"), QStringLiteral("LOCAL_XY"));
+    assert(!controller.loadCandidate(invalid));
+    assert(controller.validationReason() == QStringLiteral("UNSUPPORTED_COORDINATE_REFERENCE_SYSTEM"));
 
     invalid = candidate();
     QVariantMap unsupported = waypoint(QStringLiteral("WP-1"), 60.0, 24.0, 100.0);
