@@ -193,8 +193,8 @@ public:
             return reject(QStringLiteral("NO_CANDIDATE_ROUTE"));
         if (validatedRouteVersion != m_routeVersion
             || validatedInputVersion != m_calculationInputVersion) {
-            m_validationReason = QStringLiteral("STALE_VALIDATION_RESULT");
-            emit validationChanged();
+            // Ignore late planner replies. They must not overwrite the state or
+            // reason associated with a newer, already accepted validation.
             return false;
         }
         m_validationState = accepted ? QStringLiteral("VALIDATED")
