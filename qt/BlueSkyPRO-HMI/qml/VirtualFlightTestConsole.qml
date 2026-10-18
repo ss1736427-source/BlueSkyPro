@@ -4,6 +4,7 @@ import QtQuick.Controls
 Item {
     id: root
     property int scenarioIndex: 0
+    property bool testStubsEnabled: true
     property bool runRequested: false
     readonly property color panel: "#0B1724"
     readonly property color line: "#26394B"
@@ -37,8 +38,8 @@ Item {
             color: "#2B2115"; border.color: "#8B682F"
             Column {
                 anchors.fill: parent; anchors.margins: 10; spacing: 4
-                Text { text: "SYNTHETIC TEST DATA — NOT FOR FLIGHT OPERATIONS"; color: root.amber; font.family: "B612 Mono"; font.pixelSize: 11; font.bold: true }
-                Text { text: "Weather values are illustrative averages for exercising UI and planning interfaces; NOTAM records and zones are stubs, not current aeronautical information."; color: root.text; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap; width: parent.width }
+                Text { text: root.testStubsEnabled ? "SYNTHETIC TEST DATA — NOT FOR FLIGHT OPERATIONS" : "TEST STUBS DISABLED — NO PROFILE INPUT"; color: root.amber; font.family: "B612 Mono"; font.pixelSize: 11; font.bold: true }
+                Text { text: root.testStubsEnabled ? "Weather values are illustrative averages for exercising UI and planning interfaces; NOTAM records and zones are stubs, not current aeronautical information." : "Enable test stubs in ADMIN / EXTERNAL INTEGRATIONS before selecting a fixture. No live provider is connected."; color: root.text; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap; width: parent.width }
             }
         }
 
@@ -53,7 +54,7 @@ Item {
                     color: root.scenarioIndex === index ? "#10283A" : root.panel
                     border.color: root.scenarioIndex === index ? root.cyan : root.line
                     Text { anchors.centerIn: parent; text: modelData.name; color: root.scenarioIndex === index ? root.cyan : root.text; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
-                    MouseArea { anchors.fill: parent; onClicked: { root.scenarioIndex = index; root.runRequested = false } }
+                    MouseArea { anchors.fill: parent; onClicked: { if (root.testStubsEnabled) { root.scenarioIndex = index; root.runRequested = false } } }
                 }
             }
         }
@@ -101,14 +102,16 @@ Item {
             Rectangle {
                 width: 190; height: 42; radius: 3
                 color: "#10283A"; border.color: root.cyan
-                Text { anchors.centerIn: parent; text: root.runRequested ? "TEST PROFILE SELECTED" : "SELECT TEST PROFILE"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 10; font.bold: true }
-                MouseArea { anchors.fill: parent; onClicked: root.runRequested = true }
+                Text { anchors.centerIn: parent; text: !root.testStubsEnabled ? "TEST STUBS OFF" : (root.runRequested ? "TEST PROFILE SELECTED" : "SELECT TEST PROFILE"); color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 10; font.bold: true }
+                MouseArea { anchors.fill: parent; onClicked: { if (root.testStubsEnabled) root.runRequested = true } }
             }
             Text {
                 width: root.width - 260
-                text: root.runRequested
-                      ? "Profile selected in the HMI fixture. No planning kernel was executed and no route or safety result was produced."
-                      : "Select a scenario to exercise the Virtual Flight test interface. This control does not launch or authorize a flight."
+                text: !root.testStubsEnabled
+                      ? "Test fixtures are disabled in Administrator. No profile is available for this session."
+                      : (root.runRequested
+                         ? "Profile selected in the HMI fixture. No planning kernel was executed and no route or safety result was produced."
+                         : "Select a scenario to exercise the Virtual Flight test interface. This control does not launch or authorize a flight.")
                 color: root.muted; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap; verticalAlignment: Text.AlignVCenter
             }
         }
