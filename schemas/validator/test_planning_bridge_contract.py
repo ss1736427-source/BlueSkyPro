@@ -47,6 +47,26 @@ def main() -> int:
     assert message["messageType"] == MESSAGE_TYPE
     assert message["verification"]["verified"] is True
     assert message["result"]["threeDMapping"]["routeLengthM"] == 2500.0
+    route_candidate = {
+        "routeId": "ROUTE-001", "routeVersion": "v1",
+        "missionId": "MISSION-001", "missionVersion": "m1",
+        "generatorId": "planner", "generatorVersion": "1",
+        "calculationInputVersion": "input-1",
+        "coordinateReferenceSystem": "EPSG:4326",
+        "waypoints": [
+            {"waypointId": "WP-1", "latitudeDeg": 60.0, "longitudeDeg": 24.0,
+             "altitudeM": 100.0, "mandatory": False, "altitudeReference": "AGL"},
+            {"waypointId": "WP-2", "latitudeDeg": 60.1, "longitudeDeg": 24.1,
+             "altitudeM": 110.0, "mandatory": True, "altitudeReference": "AGL"},
+        ],
+    }
+    candidate_message = build_result_message(
+        mission_id="MISSION-001", result_id="PLAN-002",
+        pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")),
+        route_candidate=route_candidate,
+    )
+    assert candidate_message["result"]["routeCandidate"]["coordinateReferenceSystem"] == "EPSG:4326"
+    assert candidate_message["result"]["routeCandidate"]["waypoints"][1]["mandatory"] is True
     assert '"missionId":"MISSION-001"' in dumps_result_message(message)
 
     try:
