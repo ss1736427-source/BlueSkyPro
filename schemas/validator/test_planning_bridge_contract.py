@@ -76,6 +76,19 @@ def main() -> int:
     assert candidate_message["result"]["routeCandidate"]["waypoints"][1]["mandatory"] is True
     assert '"missionId":"MISSION-001"' in dumps_result_message(message)
 
+    incomplete_candidate = dict(route_candidate)
+    incomplete_candidate.pop("environmentSnapshotRefs")
+    try:
+        build_result_message(
+            mission_id="MISSION-001", result_id="PLAN-003",
+            pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")),
+            route_candidate=incomplete_candidate,
+        )
+    except PlanningBridgeContractError as exc:
+        assert str(exc) == "ROUTE_CANDIDATE_ENVIRONMENT_SNAPSHOT_REFS_REQUIRED"
+    else:
+        raise AssertionError("route candidate without environment lineage must be rejected")
+
     try:
         build_result_message(mission_id="", result_id="PLAN-001", pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")))
     except PlanningBridgeContractError as exc:
