@@ -75,8 +75,6 @@ public:
     bool injectReceive(const std::string& channel_id, std::int64_t timestamp_ms,
                        const std::vector<std::uint8_t>& frame);
     std::optional<std::vector<std::uint8_t>> receive(const std::string& channel_id);
-    // Retrieves decoded telemetry accepted by the session runtime during receive().
-    std::optional<DecodedMavlinkMessage> takeAcceptedMessage(const std::string& channel_id);
     bool pollReceive(const std::string& channel_id, std::int64_t timestamp_ms);
 
     // Route an already received MAVLink frame by its system/component address.
@@ -97,12 +95,7 @@ private:
         LinkMetricsRuntime link_metrics;
         LinkLatencyRuntime link_latency;
         LinkBandwidthRuntime link_bandwidth;
-        struct ReceivedFrame {
-            std::int64_t received_timestamp_ms{0};
-            std::vector<std::uint8_t> bytes;
-        };
-        std::vector<ReceivedFrame> rx_queue;
-        std::vector<DecodedMavlinkMessage> accepted_messages;
+        std::vector<std::vector<std::uint8_t>> rx_queue;
         std::vector<std::vector<std::uint8_t>> tx_queue;
         std::unique_ptr<MavlinkUdpTransportDriver> udp_driver;
     };
