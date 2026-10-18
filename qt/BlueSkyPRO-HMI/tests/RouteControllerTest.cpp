@@ -46,6 +46,13 @@ int main(int argc, char *argv[])
                                          true, QString()));
     assert(controller.loadCandidate(candidate()));
     assert(controller.waypoints().size() == 2);
+    const QVariantMap snapshot = controller.routeSnapshot();
+    assert(snapshot.value(QStringLiteral("routeId")).toString() == QStringLiteral("ROUTE-TEST-01"));
+    assert(snapshot.value(QStringLiteral("missionVersion")).toString() == QStringLiteral("m1"));
+    const QVariantMap snapshotWaypoint = snapshot.value(QStringLiteral("waypoints")).toList()[0].toMap();
+    assert(snapshotWaypoint.value(QStringLiteral("waypointId")).toString() == QStringLiteral("WP-1"));
+    assert(snapshotWaypoint.value(QStringLiteral("latitudeDeg")).toDouble() == 60.0);
+    assert(snapshotWaypoint.value(QStringLiteral("longitudeDeg")).toDouble() == 24.0);
     assert(controller.validationState() == QStringLiteral("CANDIDATE_UNVALIDATED"));
 
     // Mandatory status is route data and must survive normalization unchanged.
