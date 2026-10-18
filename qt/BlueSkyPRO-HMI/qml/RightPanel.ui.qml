@@ -36,6 +36,7 @@ Item {
     property bool manualCompositionComplete: false
     property bool manualValidationStarted: false
     property bool manualValidationSucceeded: false
+    property bool manualSetBlocked: false
     property bool missionReady: false
     property bool warningActive: true
 
@@ -1082,9 +1083,9 @@ Item {
         y: root.atcValidationY
         width: parent.width - 52
         height: root.atcButtonHeight
-        text: root.manualValidationSucceeded ? "SET ✓" : (root.manualValidationStarted ? "CHECKING..." : "SET")
+        text: root.manualValidationSucceeded ? "SET ✓" : (root.manualValidationStarted ? "CHECKING..." : (root.manualSetBlocked ? "PLANNER INPUT MISSING" : "SET"))
         opacity: root.manualCreationMode && !root.manualCompositionComplete ? 0.65 : 1.0
-        color: root.manualValidationSucceeded ? root.bg : root.green
+        color: root.manualValidationSucceeded ? root.bg : (root.manualSetBlocked ? root.amber : root.green)
         font.family: "B612"
         font.pixelSize: 12
         font.bold: true
