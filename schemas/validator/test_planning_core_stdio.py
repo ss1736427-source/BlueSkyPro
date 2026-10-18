@@ -109,6 +109,36 @@ def test_stdio_adapter_emits_planning_result() -> None:
     assert message["result"]["routeCandidate"]["waypoints"][1]["mandatory"] is True
 
 
+def test_stdio_adapter_does_not_promote_planar_routes() -> None:
+    request = _request()
+    request["inputs"].pop("routeCandidate")
+    proc = subprocess.run(
+        [sys.executable, str(ADAPTER)],
+        input=json.dumps(request) + "\\n",
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    message = json.loads(proc.stdout.strip())
+    assert "routeCandidate" not in message["result"]
+
+
+def test_stdio_adapter_rejects_unknown_candidate_crs() -> None:
+    request = _request()
+    request["inputs"]["routeCandidate"]["coordinateReferenceSystem"] = "LOCAL_XY"
+    proc = subprocess.run(
+        [sys.executable, str(ADAPTER)],
+        input=json.dumps(request) + "\\n",
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert not proc.stdout.strip()
+    assert "ROUTE_CANDIDATE_CRS_UNSUPPORTED" in proc.stderr
+
+
 if __name__ == "__main__":
     test_stdio_adapter_emits_planning_result()
+    test_stdio_adapter_does_not_promote_planar_routes()
+    test_stdio_adapter_rejects_unknown_candidate_crs()
     print("PLANNING CORE STDIO ADAPTER TESTS: PASS")
