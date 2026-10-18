@@ -408,7 +408,7 @@ For the current development sequence, work proceeds from the existing architectu
 
 ### Current state pointer — 2026-10-18
 
-- Последняя проверенная вершина main на момент синхронизации: `c2b3971a1b188657a60166e900dcdbb9dd0f77ff`.
+- Последняя проверенная вершина main на момент синхронизации: `9f60746d6de6d80ad9afc1ee16722843ed02a8ad`.
 - Текущий handover snapshot: `00_PROJECT/GOVERNANCE/BLUE_SKY_PROJECT_STATE.md` §12.
 - Последовательность работ и условия reconciliation: `00_PROJECT/GOVERNANCE/BLUE_SKY_WORK_PLAN.md` §13.
 - Runtime state orchestrator: `.bluesky_orchestrator_state.json`. Поле `last_main_sha` — указатель на репозиторий, не доказательство CI; `verified_sha` должен ссылаться только на SHA с подтверждённой соответствующей проверкой.

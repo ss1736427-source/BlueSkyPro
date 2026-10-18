@@ -1,10 +1,10 @@
 {
-  "last_main_sha": "c2b3971a1b188657a60166e900dcdbb9dd0f77ff",
+  "last_main_sha": "9f60746d6de6d80ad9afc1ee16722843ed02a8ad",
   "verified_sha": "5310fd9683b6b198917b4cb65253aabc9607b812",
   "decision_required": false,
   "ci_required": true,
   "current_work_package": "REPOSITORY STATE RECONCILIATION — synchronize existing canonical state records and audit open PR dependencies",
-  "checkpoint": "STATE SNAPSHOT REFRESHED AGAINST main c2b3971a1b188657a60166e900dcdbb9dd0f77ff; CURRENT main SHA NOT MARKED CI-VERIFIED; PR/BRANCH DEPENDENCY AUDIT STILL REQUIRED",
+  "checkpoint": "STATE SNAPSHOT REFRESHED AGAINST main 9f60746d6de6d80ad9afc1ee16722843ed02a8ad; CURRENT main SHA NOT MARKED CI-VERIFIED; PR/BRANCH DEPENDENCY AUDIT STILL REQUIRED",
   "real_execution": "DEFERRED",
   "quantitative_c2_basis": "DEFERRED",
   "current_ci_status": "UNVERIFIED_FOR_CURRENT_MAIN_SHA",
