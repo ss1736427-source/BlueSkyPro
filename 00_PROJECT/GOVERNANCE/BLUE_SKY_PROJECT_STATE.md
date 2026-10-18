@@ -1,7 +1,7 @@
 # BLUE SKY — PROJECT STATE
 
 > Контрольное состояние проекта для передачи между чатами.
-> Дата состояния: 2026-09-20.
+> Дата исходного baseline: 2026-09-20. Текущая сверка GitHub: 2026-10-18.
 
 ## 1. Project Identity
 
@@ -332,7 +332,7 @@ Data classes:
 
 Последнее проверенное состояние main:
 
-- current HEAD: 69fe8dfe51b3aa18a56009c178f8243babe6b99a;
+- исторический HEAD предыдущего снимка: `69fe8dfe51b3aa18a56009c178f8243babe6b99a`; актуальный main HEAD на сверке 2026-10-18: `d06434b9e45d6e8e2bb56168d8779d5391a775ac`;
 - HMI reconciliation HMI-RECONCILIATION-001;
 - operational execution architecture through ARCH-OPS-051;
 - PH4-INT-005 failure-path propagation fixture;
@@ -346,7 +346,7 @@ Data classes:
 
 - PH4-INT-025 implementation commit 608785d3dbb703033231db5adfb8643096feba27 has a directly retrievable GitHub Actions run #570 with conclusion success.
 - PH4-INT-025 merged main commit: b298a1ea9beac3502bf779b6ac28c8940b5e52a5.
-- PH4-INT-026 is merged by PR #55 into main at 5a9ba793c05ed12f5180280b657d7eeb83887085; its controlled status record states CI run #578 succeeded. A direct commit-workflow lookup for the merge commit did not return a workflow run, so this audit does not independently promote that CI claim beyond the controlled project record.
+- Историческая запись о PH4-INT-026, связывающая merge с PR #55 и SHA `5a9ba793c05ed12f5180280b657d7eeb83887085`, конфликтует с фактическим GitHub: текущий PR #55 открыт как Draft для NOTAM altitude-reference validation. Эту связь нельзя считать подтверждённой до восстановления первичного evidence; не использовать её как основание для текущих действий.
 - Both stages remain bounded to SIL_FIXTURE_ONLY; no HIL, physical-UAV, flight-test, certification or real transport evidence is claimed.
 
 ### Current deterministic sequence
@@ -361,6 +361,18 @@ Data classes:
 8. Freeze the next implementation work package only after its requirements, design, verification and evidence records are aligned.
 
 The repository-wide audit does not promote draft or working records to certification baseline.
+
+### 12.5 Current GitHub reconciliation checkpoint — 2026-10-18
+
+- Canonical repository: `ss1736427-source/BlueSkyPro`; canonical branch: `main`.
+- Current main SHA at this checkpoint: `d06434b9e45d6e8e2bb56168d8779d5391a775ac`.
+- Available checks attached to this exact SHA were observed as completed successfully; this does not establish full application, Qt runtime, HIL, physical-UAV or certification verification.
+- PR #52 and #53 remain open Drafts based on the older main SHA `9f60746d6de6d80ad9afc1ee16722843ed02a8ad`. PR #52's branch-selection rules conflict with the later explicit project rule that routine work is committed directly to canonical main; do not merge it as written.
+- PR #53 is a useful source for state reconciliation, but its recorded main snapshot `9f60746d6de6d80ad9afc1ee16722843ed02a8ad` is stale. Any accepted synchronization must be recalculated against the current main SHA, not copied verbatim.
+- PR #55 is still open Draft and its branch diverges from current main. The main tree already contains the explicit route/NOTAM vertical-reference fields, fail-closed checks and regression coverage. Do not merge the stale PR without a fresh unique-diff comparison.
+- The stacked planning/altitude sequence (#37, #41–#47) and HMI sequence (#49–#51) still require file-level comparison against current main. Passing CI on their head SHAs does not establish integration into main.
+- Next deterministic action: compare each remaining stacked PR's unique changes against current main, classify already-present versus missing/conflicting work, and port only necessary accepted changes directly to main in small verified commits. No new branches or PRs; do not touch the E: mirror.
+
 
 ## 13. Project Rules
 
