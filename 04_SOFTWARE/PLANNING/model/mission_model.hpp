@@ -30,7 +30,7 @@ struct MissionGeometryObject {
     std::string coordinate_reference_system = "EPSG:4326";
     std::vector<MissionGeometryVertex> coordinates;
     std::vector<std::string> template_ids;
-    std::string version;
+    int version = 1;
 };
 
 struct MissionIntent {
