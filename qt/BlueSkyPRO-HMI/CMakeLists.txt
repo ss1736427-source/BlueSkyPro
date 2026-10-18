@@ -4,7 +4,7 @@ project(BlueSkyPRO_HMI VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick Location Positioning Network WebEngineQuick)
+find_package(Qt6 REQUIRED COMPONENTS Core Quick Location Positioning Network WebEngineQuick)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -18,6 +18,7 @@ qt_add_executable(appBlueSkyPRO
     src/main.cpp
     src/PlanningBridge.cpp
     src/PlanningBridge.h
+    src/RouteController.h
     src/TileCacheManager.cpp
     src/TileCacheManager.h
 )
@@ -56,7 +57,8 @@ qt_add_qml_module(appBlueSkyPRO
         qml/assets/uav_vtol.svg
 )
 
-target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::WebEngineQuick)
+target_include_directories(appBlueSkyPRO PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Core Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::WebEngineQuick)
 
 enable_testing()
 add_executable(tile_cache_manager_test
@@ -66,6 +68,14 @@ add_executable(tile_cache_manager_test
 )
 target_link_libraries(tile_cache_manager_test PRIVATE Qt6::Network)
 add_test(NAME tile_cache_manager_contract COMMAND tile_cache_manager_test)
+
+add_executable(route_controller_test
+    tests/RouteControllerTest.cpp
+    src/RouteController.h
+)
+target_include_directories(route_controller_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+target_link_libraries(route_controller_test PRIVATE Qt6::Core)
+add_test(NAME route_controller_fail_closed_contract COMMAND route_controller_test)
 
 set_target_properties(appBlueSkyPRO PROPERTIES
     MACOSX_BUNDLE TRUE
