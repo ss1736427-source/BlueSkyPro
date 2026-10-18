@@ -116,6 +116,15 @@ int main(int argc, char *argv[])
     assert(!controller.loadCandidate(invalid));
     assert(controller.validationReason() == QStringLiteral("UNSUPPORTED_ALTITUDE_REFERENCE"));
 
+    invalid = candidate();
+    QVariantMap malformedMandatory = waypoint(QStringLiteral("WP-1"), 60.0, 24.0, 100.0);
+    malformedMandatory.insert(QStringLiteral("mandatory"), QStringLiteral("true"));
+    invalid.insert(QStringLiteral("waypoints"), QVariantList{
+        malformedMandatory, waypoint(QStringLiteral("WP-2"), 60.1, 24.1, 110.0)
+    });
+    assert(!controller.loadCandidate(invalid));
+    assert(controller.validationReason() == QStringLiteral("MANDATORY_FLAG_INVALID"));
+
     controller.clear();
     assert(controller.validationState() == QStringLiteral("EMPTY"));
     assert(controller.waypoints().isEmpty());
