@@ -345,13 +345,15 @@ Item {
         var id = index >= 0 && index < root.uavModel.length
                  ? String(root.uavModel[index].id) : "DEFAULT"
         root.loadedUavId = id
+
         var routes = root.routeDataByUav[id]
         if (Array.isArray(routes) && routes.length > 0) {
             routeModel.clear()
             for (var i = 0; i < routes.length; ++i) routeModel.append(routes[i])
         }
-        root.mandatoryPoints = Array.isArray(root.mandatoryPointsByUav[id])
-                               ? root.mandatoryPointsByUav[id] : []
+
+        var points = root.mandatoryPointsByUav[id]
+        root.mandatoryPoints = Array.isArray(points) ? points : []
         root.rebuildTableRows()
         profileCanvas.requestPaint()
     }
