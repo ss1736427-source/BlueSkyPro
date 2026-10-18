@@ -28,6 +28,21 @@ int main() {
         environment, {{58.99, 29.99}, {58.995, 29.995}, 100, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), AltitudeReference::AGL});
     assert(open.allowed);
 
+    auto unknownDatumEdge = crossing;
+    unknownDatumEdge.altitude_reference = AltitudeReference::Unknown;
+    const auto unknownDatumResult =
+        ConstrainedOpenSpace::evaluateSegment(environment, unknownDatumEdge);
+    assert(!unknownDatumResult.allowed);
+    assert(unknownDatumResult.blocking_restriction_ids.front() == "INVALID_ROUTE_EDGE");
+
+    auto unknownRestrictionDatum = environment;
+    unknownRestrictionDatum.restrictions[0].altitude_reference = AltitudeReference::Unknown;
+    const auto unknownRestrictionResult =
+        ConstrainedOpenSpace::evaluateSegment(unknownRestrictionDatum, crossing);
+    assert(!unknownRestrictionResult.allowed);
+    assert(unknownRestrictionResult.blocking_restriction_ids.front() ==
+           "UNSUPPORTED_RESTRICTION_ALTITUDE_DATUM:NOTAM-1");
+
     // Invalid route coordinates and altitudes must fail closed.
     const double nan = std::numeric_limits<double>::quiet_NaN();
     const double infinity = std::numeric_limits<double>::infinity();
@@ -109,15 +124,15 @@ int main() {
     environment.complete = true;
 
     const auto first = ConstrainedOpenSpace::evaluateSegment(
-        environment, {{58.99, 29.99}, {58.995, 29.995}, 100});
+        environment, {{58.99, 29.99}, {58.995, 29.995}, 100, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), AltitudeReference::AGL});
     const auto second = ConstrainedOpenSpace::evaluateSegment(environment,
-        {{58.99, 29.99}, {58.995, 29.995}, 100});
+        {{58.99, 29.99}, {58.995, 29.995}, 100, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), AltitudeReference::AGL});
     assert(first.dependency_identity == second.dependency_identity);
 
     auto changed = environment;
     changed.restrictions[0].polygon[0].latitude_deg += 0.001;
     const auto changed_result = ConstrainedOpenSpace::evaluateSegment(
-        changed, {{58.99, 29.99}, {58.995, 29.995}, 100});
+        changed, {{58.99, 29.99}, {58.995, 29.995}, 100, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), AltitudeReference::AGL});
     assert(changed_result.dependency_identity != second.dependency_identity);
 
     Route empty_route;
