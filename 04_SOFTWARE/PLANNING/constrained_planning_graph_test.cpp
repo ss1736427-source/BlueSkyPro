@@ -44,5 +44,25 @@ int main()
     assert(missingGoal.graph.goal_node.empty());
     assert(missingGoal.dependency_identity.empty());
 
+    // Graph edges must carry an explicit, compatible altitude datum before
+    // numerical comparison with restriction altitude limits is permitted.
+    graph.nodes.push_back({"N2", 100.0, 100.0, {59.02, 30.02}, 100.0});
+    graph.start_node = "N1";
+    graph.goal_node = "N2";
+    graph.edges = {{"N1", "N2", 1.0}};
+    auto unrestricted = environment;
+    unrestricted.restrictions.clear();
+
+    const auto unknownDatumGraph =
+        ConstrainedPlanningGraphBuilder::build(graph, unrestricted);
+    assert(unknownDatumGraph.graph.edges.empty());
+    assert(unknownDatumGraph.rejected_edges == 1);
+
+    graph.nodes.back().altitude_reference = AltitudeReference::AGL;
+    const auto explicitAglGraph =
+        ConstrainedPlanningGraphBuilder::build(graph, unrestricted);
+    assert(explicitAglGraph.graph.edges.size() == 1);
+    assert(explicitAglGraph.rejected_edges == 0);
+
     return 0;
 }
