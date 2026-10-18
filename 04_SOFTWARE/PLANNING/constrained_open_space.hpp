@@ -9,6 +9,8 @@ struct SpatialRestriction {
  std::string restriction_id; std::string source_id; std::string snapshot_version;
  RestrictionGeometryType geometry_type{RestrictionGeometryType::Polygon};
  std::vector<GeoPoint> polygon; GeoPoint center; double radius_m{0.0};
+ // Altitude limits use this datum; unknown/mismatched datums must not be compared numerically.
+ AltitudeReference altitude_reference{AltitudeReference::Unknown};
  double minimum_altitude_m{0.0}; double maximum_altitude_m{0.0}; bool active{true};
 };
 struct ConstrainedEnvironmentSnapshot {
