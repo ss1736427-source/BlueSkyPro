@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -99,6 +100,31 @@ int main() {
               << ", time(us): " << a_us << '\n';
     std::cout << "Dijkstra route cost: " << d.estimated_time_s
               << ", time(us): " << d_us << '\n';
+    // Invalid numeric inputs must fail closed instead of silently changing the graph
+    // or placing NaN/Infinity values in the priority queue.
+    auto invalid_cost_graph = make_graph();
+    invalid_cost_graph.edges.push_back({"S", "G", std::numeric_limits<double>::quiet_NaN()});
+    MissionProblem invalid_cost_problem{
+        "invalid-edge-cost", "1", "point_to_point", {"UAV-01"},
+        {}, {"route_efficiency"}, "test-environment", &invalid_cost_graph
+    };
+    TestContext invalid_cost_ctx(invalid_cost_problem, budget);
+    AStarSolver finite_cost_astar([](const PlanningNode&, const PlanningNode&) { return 0.0; });
+    assert(finite_cost_astar.run(invalid_cost_ctx) == RunState::Failed);
+    assert(invalid_cost_ctx.candidates_.empty());
+
+    auto heuristic_graph = make_graph();
+    MissionProblem invalid_heuristic_problem{
+        "invalid-heuristic", "1", "point_to_point", {"UAV-01"},
+        {}, {"route_efficiency"}, "test-environment", &heuristic_graph
+    };
+    TestContext invalid_heuristic_ctx(invalid_heuristic_problem, budget);
+    AStarSolver nonfinite_heuristic([](const PlanningNode&, const PlanningNode&) {
+        return std::numeric_limits<double>::infinity();
+    });
+    assert(nonfinite_heuristic.run(invalid_heuristic_ctx) == RunState::Failed);
+    assert(invalid_heuristic_ctx.candidates_.empty());
+
     std::cout << "Benchmark: PASS\n";
     return 0;
 }

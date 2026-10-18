@@ -107,7 +107,10 @@ int main() {
     {
         auto problem = base_problem("ORCH-TIE-004", {"energy", "reserve"});
         Context context(problem);
-        AlgorithmOrchestrator orchestrator(make_solvers());
+        std::vector<std::unique_ptr<Solver>> tie_solvers;
+        tie_solvers.push_back(std::make_unique<ObjectiveSolver>("b", 20.0, 5.0, 10.0, 9.0));
+        tie_solvers.push_back(std::make_unique<ObjectiveSolver>("d", 40.0, 5.0, 10.0, 0.0));
+        AlgorithmOrchestrator orchestrator(std::move(tie_solvers));
         const auto decision = orchestrator.solve(context);
         assert(decision.feasibility == Feasibility::Feasible);
         assert(decision.selected_solver_id == "b");
