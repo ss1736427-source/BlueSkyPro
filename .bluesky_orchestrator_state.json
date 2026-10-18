@@ -1,12 +1,12 @@
 {
-  "last_main_sha": "3086d166859517f3950b9f4ff9023121132ec85f",
-  "verified_sha": "3086d166859517f3950b9f4ff9023121132ec85f",
+  "last_main_sha": "093f63692f86fc8cf2e8442aa041e48f90e5546c",
+  "verified_sha": "093f63692f86fc8cf2e8442aa041e48f90e5546c",
   "decision_required": false,
   "ci_required": true,
-  "current_work_package": "REPOSITORY RECONCILIATION — audit map PRs #25/#32–#36 without regressing current mainline",
-  "checkpoint": "Latest canonical main SHA 3086d166859517f3950b9f4ff9023121132ec85f: all 10 workflows for this SHA completed successfully. The flight-profile implementation SHA 20e56048af9c8233a45e2491063a4cdaffaa2455 separately passed Linux HMI build/test and Windows Map build/test/deploy/startup smoke. HMI drag persistence, dynamic altitude scale, and per-UAV route reset confirmed in current QML. PR #40 content already matches main byte-for-byte. PR #36 performance instrumentation exists in main; PR #34 queue/retry logic and regression tests exist in main. Map cache PR #32/#25 contain old storage behavior that must not replace main's MapTiler-only licensed cache policy.",
+  "current_work_package": "REPOSITORY AUDIT — review exact unique logic from PR #37 and #41–#47 against main",
+  "checkpoint": "Current main 093f63692f86fc8cf2e8442aa041e48f90e5546c: all 10 workflows completed success. HMI profile fix code SHA 20e56048af9c8233a45e2491063a4cdaffaa2455 passed exact HMI Qt/Linux and Windows Map build/test/deploy/startup smoke; visual Design Studio check still pending. PR #36 and #34 unique implementation is already in main. PR #41 introduces an older route validator than current main v4 and lacks explicit AGL reference rejection; do not port over current main. PR #46 decoder file is identical to main. PR #55 fail-closed NOTAM checks are already present.",
   "real_execution": "DEFERRED",
   "quantitative_c2_basis": "DEFERRED",
-  "current_ci_status": "PASS_FOR_3086d166859517f3950b9f4ff9023121132ec85f; HMI_CODE_CI_PASS_FOR_20e56048af9c8233a45e2491063a4cdaffaa2455",
-  "next_deterministic_action": "Continue stack reconciliation: audit PR #37 and PR #41–#47 by unique files/semantics against current main. Then correct any remaining project-state document inconsistency only after evidence is checked. PR #49 stays Draft; no branches; no E: mirror."
+  "current_ci_status": "PASS_FOR_093f63692f86fc8cf2e8442aa041e48f90e5546c",
+  "next_deterministic_action": "Finish comparing PR #37's unique test/solver changes and PR #44–#47 altitude adapter semantics against current main. If a clear safety-relevant gap exists, fix on main minimally and run exact-SHA CI; otherwise record already-present/deliberately-deferred behavior. Keep PR #49 Draft, do not create branches, do not touch E:."
 }
