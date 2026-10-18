@@ -16,6 +16,7 @@ add_library(bluesky_planning
     benchmarks/solver_benchmark_runner.cpp
     adapter/universal_adapter_registry.cpp
     compiler/mission_compiler.cpp
+    manual_route_candidate_builder.cpp
     constrained_open_space.cpp
     constrained_planning_graph.cpp
     wind_performance_trajectory.cpp
@@ -139,6 +140,11 @@ add_executable(route_model_contract_test
 )
 target_link_libraries(route_model_contract_test PRIVATE bluesky_planning)
 
+add_executable(manual_route_candidate_builder_test
+    manual_route_candidate_builder_test.cpp
+)
+target_link_libraries(manual_route_candidate_builder_test PRIVATE bluesky_planning)
+
 add_executable(mission_model_contract_test
     model/mission_model_contract_test.cpp
 )
@@ -234,6 +240,7 @@ add_test(NAME authorization_readiness_gate_test COMMAND authorization_readiness_
 add_test(NAME constrained_open_space_test COMMAND constrained_open_space_test)
 add_test(NAME constrained_planning_graph_test COMMAND constrained_planning_graph_test)
 add_test(NAME route_model_contract_test COMMAND route_model_contract_test)
+add_test(NAME manual_route_candidate_builder_test COMMAND manual_route_candidate_builder_test)
 add_test(NAME mission_model_contract_test COMMAND mission_model_contract_test)
 add_test(NAME vehicle_equipment_capability_contract_test COMMAND vehicle_equipment_capability_contract_test)
 add_test(NAME universal_adapter_contract_test COMMAND universal_adapter_contract_test)
