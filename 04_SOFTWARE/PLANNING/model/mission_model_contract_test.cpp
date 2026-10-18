@@ -8,6 +8,13 @@ using namespace bluesky::planning;
 int main() {
     Mission mission;
     mission.identity.mission_id = "MISSION-001";
+    mission.mission_mode = "MANUAL";
+    mission.selected_template_ids = {"MT-01", "MT-02"};
+    mission.geometry_objects.push_back({
+        "GEO-001", "POLYGON_AOI", "EPSG:4326",
+        {{37.6000, 55.7000, 0.0, "UNRESOLVED"}, {37.6100, 55.7000, 0.0, "UNRESOLVED"},
+         {37.6100, 55.7100, 0.0, "UNRESOLVED"}, {37.6000, 55.7000, 0.0, "UNRESOLVED"}},
+        {"MT-01", "MT-02"}, "1"});
     mission.identity.mission_version = "1";
     mission.identity.organization_id = "ORG-001";
     mission.identity.operator_id = "OP-001";
@@ -32,6 +39,11 @@ int main() {
     mission.execution_references.push_back({"FLIGHT-01", "UAV-01", "FCS-01", "C2-01"});
 
     assert(mission.identity.mission_id == "MISSION-001");
+    assert(mission.mission_mode == "MANUAL");
+    assert(mission.selected_template_ids.size() == 2);
+    assert(mission.geometry_objects.size() == 1);
+    assert(mission.geometry_objects.front().template_ids.size() == 2);
+    assert(mission.geometry_objects.front().coordinate_reference_system == "EPSG:4326");
     assert(mission.identity.mission_version == "1");
     assert(mission.intent.objective == "survey an area");
     assert(mission.constraints.mandatory.size() == 2);
