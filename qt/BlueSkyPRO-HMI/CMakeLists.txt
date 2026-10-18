@@ -63,6 +63,7 @@ add_executable(altitude_display_bridge_test
     src/AltitudeDisplayBridge.cpp
     src/AltitudeDisplayBridge.h
 )
+target_include_directories(altitude_display_bridge_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(altitude_display_bridge_test PRIVATE Qt6::Core)
 add_test(NAME altitude_display_bridge_test COMMAND altitude_display_bridge_test)
 
