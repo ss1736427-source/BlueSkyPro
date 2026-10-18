@@ -5,6 +5,7 @@
 
 #include "PlanningBridge.h"
 #include "ManualGeometryBridge.h"
+#include "ManualMissionModelAdapter.h"
 #include "RouteController.h"
 #include "TileCacheManager.h"
 #include <QQmlApplicationEngine>
@@ -24,10 +25,12 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     PlanningBridge planningBridge;
     ManualGeometryBridge manualGeometryBridge;
+    ManualMissionModelAdapter manualMissionModelAdapter;
     RouteController routeController;
     TileCacheManager tileCacheManager;
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("manualGeometryBridge"), &manualGeometryBridge);
+    engine.rootContext()->setContextProperty(QStringLiteral("manualMissionModelAdapter"), &manualMissionModelAdapter);
     engine.rootContext()->setContextProperty(QStringLiteral("routeController"), &routeController);
     engine.rootContext()->setContextProperty(QStringLiteral("tileCacheManager"), &tileCacheManager);
     const QString yandexMapsApiKey = qEnvironmentVariable("BLUESKY_YANDEX_MAPS_API_KEY");
