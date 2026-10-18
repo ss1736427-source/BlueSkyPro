@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtWebEngine
+import QtWebChannel
 
 Item {
     id: root
@@ -11,6 +12,7 @@ Item {
     property real rightPanelWidth: 0
     // Planning Core is the sole authority for route geometry. Empty means no route overlay.
     property var routeCoordinates: []
+    property var manualTemplateIds: []
     signal useLegacyMapRequested()
     // Use the module CDN as the document origin so MapLibre v6 can create its CDN-derived worker from the same origin in Qt WebEngine.
     // Style switching uses a full style replacement to avoid diff-update incompatibilities between MapTiler styles.
@@ -35,6 +37,7 @@ Item {
             ".status{position:absolute;z-index:5;left:10px;top:10px;color:#d5e7f7;background:rgba(5,10,18,.8);padding:6px 8px;font:11px monospace;border-radius:3px}",
             "</style></head><body>",
             "<div id='map'></div>",
+            "<div id='geometry-controls' style='position:absolute;z-index:8;left:10px;right:10px;bottom:10px;display:none;gap:6px;align-items:center;flex-wrap:wrap;background:rgba(5,10,18,.94);padding:8px;border:1px solid #36516b;color:#eaf4ff;font:11px monospace'><select id='geometry-template'></select><button id='geometry-start' type='button'>START OBJECT</button><button id='geometry-finish' type='button'>FINISH OBJECT</button><button id='geometry-clear' type='button'>CLEAR</button><span id='geometry-status'>SELECT TEMPLATE</span></div>",
             "<div class='status' id='map-status'>MAPTILER HYBRID V4 · INITIALIZING</div>",
             "<div class='controls'>",
             "<select id='style' aria-label='Map style'><option value='hybrid-v4' selected>HYBRID</option><option value='satellite-v4'>SATELLITE</option><option value='streets-v4'>STREETS</option></select>",
@@ -43,10 +46,18 @@ Item {
             "<button id='perf-snapshot' type='button'>PERF SNAPSHOT</button>",
             "</div>",
             "<div class='diag-panel' id='diag-panel'><div style='display:flex;gap:6px;align-items:center;color:#d5e7f7;font:12px monospace'><span>PERFORMANCE SNAPSHOT · API KEY REDACTED</span><button id='diag-refresh' type='button'>REFRESH</button><button id='diag-select' type='button'>SELECT ALL</button><button id='diag-close' type='button'>CLOSE</button></div><textarea id='diag-output' readonly spellcheck='false' aria-label='Performance diagnostics JSON'></textarea></div>",
+            "<script src='qrc:///qtwebchannel/qwebchannel.js'></script>",
             "<script type='module'>",
             "import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs';",
             "const apiKey=" + keyLiteral + ";",
             "const statusEl=document.getElementById('map-status');",
+            "let geometryBridge=null;let selectedTemplates=[];let activeTemplate='';let capturing=false;let draft=[];let objects=[];let geometryVersion=1;",
+            "const geometryTypes={'MT-01':'POLYGON_AOI','MT-02':'POLYGON_AOI','MT-03':'INSPECTION_POINTS','MT-04':'POLYGON_AOI','MT-05':'CORRIDOR','MT-06':'SEARCH_AREA','MT-07':'SEARCH_AREA','MT-08':'POLYGON_AOI','MT-09':'POLYGON_AOI','MT-10':'DELIVERY_ROUTE','MT-11':'OBSERVATION_POINTS','MT-12':'POLYGON_AOI','MT-13':'OBSERVATION_POINTS'};",
+            "const geometryControls=document.getElementById('geometry-controls');const geometrySelect=document.getElementById('geometry-template');const geometryStatus=document.getElementById('geometry-status');",
+            "function publishGeometry(complete){if(geometryBridge)geometryBridge.publishGeometry(JSON.stringify({objects:objects}),complete);}",
+            "function syncGeometryTemplates(ids){selectedTemplates=Array.isArray(ids)?ids.filter(id=>geometryTypes[id]):[];geometrySelect.replaceChildren();selectedTemplates.forEach(id=>{const option=document.createElement('option');option.value=id;option.textContent=id+' · '+geometryTypes[id];geometrySelect.appendChild(option);});activeTemplate=selectedTemplates.includes(activeTemplate)?activeTemplate:(selectedTemplates[0]||'');geometrySelect.value=activeTemplate;geometryControls.style.display=selectedTemplates.length?'flex':'none';publishGeometry(false);}",
+            "window.blueskySetManualTemplates=syncGeometryTemplates;",
+            "new QWebChannel(qt.webChannelTransport,channel=>{geometryBridge=channel.objects.manualGeometryBridge;publishGeometry(false);});",
             "if(!apiKey){statusEl.textContent='BLUESKY_MAPTILER_API_KEY NOT SET';}",
             "else{",
             "",
@@ -93,6 +104,11 @@ Item {
             "document.getElementById('diag-refresh').addEventListener('click',renderPerfSnapshot);",
             "document.getElementById('diag-select').addEventListener('click',()=>{diagOutput.focus();diagOutput.select();});",
             "document.getElementById('diag-close').addEventListener('click',()=>diagPanel.classList.remove('open'));",
+            "map.on('click',e=>{if(!capturing||!activeTemplate)return;draft.push([Number(e.lngLat.lng),Number(e.lngLat.lat),0]);geometryStatus.textContent=activeTemplate+' · '+draft.length+' POINT(S)';});",
+            "geometrySelect.addEventListener('change',e=>{activeTemplate=e.target.value;});",
+            "document.getElementById('geometry-start').addEventListener('click',()=>{if(!activeTemplate){geometryStatus.textContent='SELECT TEMPLATE';return;}capturing=true;draft=[];geometryStatus.textContent='CLICK MAP · '+activeTemplate+' · '+geometryTypes[activeTemplate];});",
+            "document.getElementById('geometry-finish').addEventListener('click',()=>{if(!capturing||!activeTemplate)return;const type=geometryTypes[activeTemplate];const minimum=['POLYGON_AOI','SEARCH_AREA'].includes(type)?3:(['CORRIDOR','DELIVERY_ROUTE'].includes(type)?2:1);if(draft.length<minimum){geometryStatus.textContent='INSUFFICIENT POINTS · NEED '+minimum;return;}objects=objects.filter(o=>!o.templateIds.includes(activeTemplate));objects.push({geometryId:'GEO-'+activeTemplate+'-'+geometryVersion++,geometryType:type,coordinateReferenceSystem:'EPSG:4326',coordinates:draft.slice(),templateIds:[activeTemplate],version:geometryVersion});draft=[];capturing=false;const covered=new Set(objects.flatMap(o=>o.templateIds));const complete=selectedTemplates.length>0&&selectedTemplates.every(id=>covered.has(id));publishGeometry(complete);geometryStatus.textContent=complete?'GEOMETRY COMPLETE':'OBJECT SAVED · CONTINUE WITH OTHER TEMPLATES';});",
+            "document.getElementById('geometry-clear').addEventListener('click',()=>{objects=[];draft=[];capturing=false;geometryVersion++;publishGeometry(false);geometryStatus.textContent='GEOMETRY CLEARED';});",
             "map.on('load',()=>{statusEl.textContent='MAPTILER HYBRID V4 · READY';});",
             "map.on('style.load',()=>{const selectedStyle=document.getElementById('style').value;statusEl.textContent='MAPTILER '+selectedStyle.toUpperCase()+' · READY';});",
             "map.on('error',e=>{perfDiag.errors++;const err=e&&e.error?e.error:null;const item={atMs:Math.round(performance.now()),type:e&&e.type?String(e.type):'unknown',message:err&&err.message?String(err.message):'Map error without error.message',stack:err&&err.stack?String(err.stack).slice(0,4000):null,sourceId:e&&e.sourceId?String(e.sourceId):null,sourceType:e&&e.sourceType?String(e.sourceType):null,tileId:e&&e.tile&&e.tile.uid!==undefined?String(e.tile.uid):null};perfDiag.recentErrors.push(item);if(perfDiag.recentErrors.length>30)perfDiag.recentErrors.shift();console.warn('MapTiler map error:',item.message);});",
@@ -101,6 +117,7 @@ Item {
             "document.getElementById('terrain').addEventListener('click',()=>{terrainOn=!terrainOn;try{if(terrainOn){if(map.isStyleLoaded())enableTerrain();map.easeTo({pitch:55,duration:250});}else{map.setTerrain(null);map.easeTo({pitch:0,duration:350});}document.getElementById('terrain').textContent='3D TERRAIN: '+(terrainOn?'ON':'OFF');document.getElementById('terrain').classList.toggle('active',terrainOn);}catch(e){terrainOn=false;statusEl.textContent='3D TERRAIN UNAVAILABLE';console.warn('Terrain toggle failed:',e.message);}});",
             "document.getElementById('labels').addEventListener('click',()=>{labelsVisible=!labelsVisible;applyLabels(false);document.getElementById('labels').textContent='LABELS: '+(labelsVisible?'ON':'OFF');document.getElementById('labels').classList.toggle('active',labelsVisible);});",
             "window.blueskySetRoute(" + JSON.stringify(root.routeCoordinates || []) + ");",
+            "window.blueskySetManualTemplates(" + JSON.stringify(root.manualTemplateIds || []) + ");",
             "}",
             "</script></body></html>"
         ].join("\n")
@@ -113,6 +130,13 @@ Item {
         }
     }
 
+    function syncManualTemplates() {
+        if (htmlLoaded && !webMap.loading) {
+            var payload = JSON.stringify(root.manualTemplateIds || [])
+            webMap.runJavaScript("if(window.blueskySetManualTemplates)window.blueskySetManualTemplates(" + payload + ");")
+        }
+    }
+
     function syncPanelBounds() {
         if (htmlLoaded && !webMap.loading) {
             var payload = JSON.stringify({ left: root.leftPanelWidth, right: root.rightPanelWidth })
@@ -120,8 +144,14 @@ Item {
         }
     }
 
+    WebChannel {
+        id: mapWebChannel
+        registeredObjects: typeof manualGeometryBridge !== "undefined" ? [manualGeometryBridge] : []
+    }
+
     WebEngineView {
         id: webMap
+        webChannel: mapWebChannel
         anchors.fill: parent
         visible: root.apiKey.length > 0
         backgroundColor: "#071321"
@@ -173,6 +203,7 @@ Item {
     Connections {
         target: root
         function onRouteCoordinatesChanged() { root.syncRouteCoordinates() }
+        function onManualTemplateIdsChanged() { root.syncManualTemplates() }
         function onLeftPanelWidthChanged() { root.syncPanelBounds() }
         function onRightPanelWidthChanged() { root.syncPanelBounds() }
     }
