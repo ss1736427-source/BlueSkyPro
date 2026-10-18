@@ -60,6 +60,13 @@ ManualRouteCandidateAssessment assessManualRouteCandidateAirspace(
             addError(result, "RESTRICTION_SNAPSHOT_VERSION_MISMATCH:"
                              + restriction.restriction_id);
         }
+        // The candidate builder currently emits target altitude in AGL. Comparing
+        // it directly to AMSL/flight-level restriction limits is dimensionally invalid
+        // without an explicit terrain/pressure conversion, so reject those inputs here.
+        if (restriction.altitude_reference != AltitudeReference::AGL) {
+            addError(result, "RESTRICTION_ALTITUDE_DATUM_UNSUPPORTED:"
+                             + restriction.restriction_id);
+        }
     }
     if (!result.errors.empty()) {
         std::sort(result.errors.begin(), result.errors.end());
