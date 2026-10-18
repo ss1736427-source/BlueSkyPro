@@ -207,5 +207,30 @@ int main()
     assert(hasError(invalid, "MANUAL_ROUTE_CANDIDATE_NOT_STRUCTURALLY_VALID"));
     assert(hasError(invalid, "CANDIDATE_BUILD:EXPLICIT_TARGET_ALTITUDE_REQUIRED:0"));
 
+    const auto combinedClear = assessManualRouteCandidateAirspaceAndNotams(
+        candidate, environment, notamSnapshot, "INPUT-7");
+    assert(combinedClear.assessed);
+    assert(combinedClear.candidate_structurally_valid);
+    assert(combinedClear.airspace_clear);
+    assert(combinedClear.notam_clear);
+    assert(combinedClear.combined_clear);
+    assert(!combinedClear.flight_release_eligible);
+    assert(combinedClear.errors.empty());
+
+    const auto combinedNotamBlocked = assessManualRouteCandidateAirspaceAndNotams(
+        candidate, environment, notamBlockedSnapshot, "INPUT-7");
+    assert(combinedNotamBlocked.assessed);
+    assert(combinedNotamBlocked.airspace_clear);
+    assert(!combinedNotamBlocked.notam_clear);
+    assert(!combinedNotamBlocked.combined_clear);
+    assert(!combinedNotamBlocked.flight_release_eligible);
+
+    const auto combinedStaleInputs = assessManualRouteCandidateAirspaceAndNotams(
+        candidate, environment, notamSnapshot, "INPUT-OLD");
+    assert(!combinedStaleInputs.assessed);
+    assert(!combinedStaleInputs.combined_clear);
+    assert(!combinedStaleInputs.flight_release_eligible);
+    assert(hasError(combinedStaleInputs.notams, "CALCULATION_INPUT_VERSION_MISMATCH"));
+
     return 0;
 }
