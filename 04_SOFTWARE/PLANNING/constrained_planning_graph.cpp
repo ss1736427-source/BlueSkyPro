@@ -14,10 +14,13 @@ ConstrainedGraphBuildResult ConstrainedPlanningGraphBuilder::build(
         const auto* from = source.find_node(edge.from);
         const auto* to = source.find_node(edge.to);
         if (!from || !to) return false;
+        const auto altitude_reference = from->altitude_reference == to->altitude_reference
+            ? from->altitude_reference : AltitudeReference::Unknown;
         const SpatialEdge spatial{from->position, to->position,
                                   (from->altitude_m + to->altitude_m) * 0.5,
                                   std::min(from->altitude_m, to->altitude_m),
-                                  std::max(from->altitude_m, to->altitude_m)};
+                                  std::max(from->altitude_m, to->altitude_m),
+                                  altitude_reference};
         return ConstrainedOpenSpace::evaluateSegment(environment, spatial).allowed;
     };
 
