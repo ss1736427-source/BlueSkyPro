@@ -114,7 +114,7 @@ def test_stdio_adapter_does_not_promote_planar_routes() -> None:
     request["inputs"].pop("routeCandidate")
     proc = subprocess.run(
         [sys.executable, str(ADAPTER)],
-        input=json.dumps(request) + "\\n",
+        input=json.dumps(request) + "\n",
         text=True,
         capture_output=True,
         check=True,
@@ -128,7 +128,7 @@ def test_stdio_adapter_rejects_unknown_candidate_crs() -> None:
     request["inputs"]["routeCandidate"]["coordinateReferenceSystem"] = "LOCAL_XY"
     proc = subprocess.run(
         [sys.executable, str(ADAPTER)],
-        input=json.dumps(request) + "\\n",
+        input=json.dumps(request) + "\n",
         text=True,
         capture_output=True,
         check=True,
