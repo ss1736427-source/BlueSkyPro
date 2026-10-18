@@ -29,6 +29,7 @@ Item {
     readonly property bool manualValidationStarted: missionState === "VALIDATING"
     property bool manualSetRequested: false
     property bool manualSetBlocked: false
+    property string manualModelValidationStatus: "NOT_CHECKED"
     property string manualSetBaselineResultId: ""
     // Manual input version advances whenever templates or operator geometry changes.
     property int manualMissionVersion: 1
@@ -358,18 +359,28 @@ Item {
             manualValidationSucceeded: root.manualSetSucceeded
             manualSetBlocked: root.manualSetBlocked
             onSetManualMissionRequested: {
-                // Fail closed until the manual editor supplies selected templates and
-                // real geometry to a versioned Planning Core request. The current map
-                // display alone is not a geometry submission.
-                if (root.manualSelectedTemplateIds.length === 0
-                        || !root.manualCompositionComplete) {
+                // Build the typed Common Mission Model from the exact geometry
+                // currently published by the map. This validates structure only;
+                // it does not calculate a route or authorize flight.
+                var modelResult = manualMissionModelAdapter.buildMission(
+                            manualGeometryBridge.geometryJson,
+                            root.manualSelectedTemplateIds,
+                            root.missionId,
+                            root.manualMissionVersion,
+                            root.manualCompositionComplete)
+                root.manualModelValidationStatus = modelResult.valid
+                        ? "MODEL_STRUCTURALLY_VALID_PLANNING_CORE_NOT_CONNECTED"
+                        : modelResult.errors.join(", ")
+                if (!modelResult.valid) {
                     root.manualSetRequested = false
                     root.manualSetBlocked = true
                     root.missionState = "MANUAL"
                     return
                 }
-                // Fail visibly rather than silently treating captured geometry as a
-                // Planning Core request. The current adapter cannot plan from this model.
+
+                // Keep release blocked until a versioned Planning Core request
+                // consumes this canonical model and returns fresh authoritative
+                // route + safety verification results.
                 root.manualSetRequested = false
                 root.manualSetBlocked = true
                 root.missionState = "MANUAL"
