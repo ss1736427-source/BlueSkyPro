@@ -457,7 +457,7 @@ Item {
                           : root.routeValidationState === "CANDIDATE_UNVALIDATED" ? "КАНДИДАТ · НЕ ПРОВЕРЕН"
                           : "МАРШРУТ НЕ ГОТОВ"
                     color: root.routeValidationState === "VALIDATED" ? root.switchGreen
-                           : root.routeValidationState === "BLOCKED" ? "#FF625A" : root.warning
+                           : root.routeValidationState === "BLOCKED" ? "#FF625A" : "#FFD339"
                     font.family: "B612"
                     font.pixelSize: 10
                     font.bold: true
