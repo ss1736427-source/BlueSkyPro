@@ -1,5 +1,7 @@
 #include "../model/mission_model.hpp"
+#include "../model/mission_model_validation.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <string>
 
@@ -56,6 +58,30 @@ int main() {
     assert(mission.authorizations.size() == 1);
     assert(mission.executable_packages.size() == 1);
     assert(mission.execution_references.size() == 1);
+
+    const auto validErrors = validateMissionModelStructure(mission);
+    assert(validErrors.empty());
+
+    Mission missingGeometry = mission;
+    missingGeometry.geometry_objects.clear();
+    const auto missingGeometryErrors = validateMissionModelStructure(missingGeometry);
+    assert(std::find(missingGeometryErrors.begin(), missingGeometryErrors.end(),
+                     "MANUAL_GEOMETRY_REQUIRED") != missingGeometryErrors.end());
+
+    Mission unsupportedTemplate = mission;
+    unsupportedTemplate.selected_template_ids = {"MT-99"};
+    unsupportedTemplate.geometry_objects.front().template_ids = {"MT-99"};
+    const auto unsupportedErrors = validateMissionModelStructure(unsupportedTemplate);
+    assert(std::find(unsupportedErrors.begin(), unsupportedErrors.end(),
+                     "MISSION_TEMPLATE_UNSUPPORTED:MT-99") != unsupportedErrors.end());
+
+    Mission invalidCoordinate = mission;
+    invalidCoordinate.geometry_objects.front().coordinates.front().longitude_deg = 181.0;
+    const auto coordinateErrors = validateMissionModelStructure(invalidCoordinate);
+    assert(std::find_if(coordinateErrors.begin(), coordinateErrors.end(),
+                        [](const std::string &error) {
+                            return error.rfind("GEOMETRY_COORDINATE_INVALID:", 0) == 0;
+                        }) != coordinateErrors.end());
 
     return 0;
 }
