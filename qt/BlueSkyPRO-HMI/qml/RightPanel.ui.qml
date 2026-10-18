@@ -371,6 +371,8 @@ Item {
     // ATC work area sizes itself to the currently enabled action buttons.
     property bool atcHeaderVisible: panelSettingsPopup.enabledTools.indexOf("Readiness") >= 0
     property bool atcValidationVisible: root.validationVisible && panelSettingsPopup.enabledTools.indexOf("Validation") >= 0
+    property bool manualModelStatusVisible: root.atcValidationVisible && root.manualCreationMode
+                                            && root.manualModelValidationStatus !== "NOT_CHECKED"
     property bool atcSendVisible: panelSettingsPopup.enabledTools.indexOf("Send Flight Plan") >= 0
     property bool atcStartVisible: panelSettingsPopup.enabledTools.indexOf("Start Mission") >= 0
     property int atcVisibleButtonCount: (atcValidationVisible ? 1 : 0)
@@ -383,12 +385,14 @@ Item {
                                     + (atcHeaderVisible && atcVisibleButtonCount > 0 ? atcButtonGap : 0)
                                     + atcVisibleButtonCount * atcButtonHeight
                                     + Math.max(0, atcVisibleButtonCount - 1) * atcButtonGap
-                                    + (root.atcValidationVisible && root.manualCreationMode && root.manualModelValidationStatus !== "NOT_CHECKED" ? 44 : 0)
+                                    + (root.manualModelStatusVisible ? 44 : 0)
                                     + 12
     property int atcValidationY: atcWorkArea.y + atcButtonStackTop
     property int atcSendY: atcValidationY + (atcValidationVisible ? atcButtonHeight + atcButtonGap : 0)
+                            + (root.manualModelStatusVisible ? 44 : 0)
     property int atcStartY: atcValidationY
                             + (atcValidationVisible ? atcButtonHeight + atcButtonGap : 0)
+                            + (root.manualModelStatusVisible ? 44 : 0)
                             + (atcSendVisible ? atcButtonHeight + atcButtonGap : 0)
 
     signal startMissionRequested()
@@ -1108,8 +1112,7 @@ Item {
     }
 
     Text {
-        visible: root.atcValidationVisible && root.manualCreationMode
-                 && root.manualModelValidationStatus !== "NOT_CHECKED"
+        visible: root.manualModelStatusVisible
         x: 26
         y: root.atcValidationY + root.atcButtonHeight + 5
         width: parent.width - 52
