@@ -149,7 +149,7 @@ Item {
             rows.push({
                 progress: bound ? Number(bound.progress) : progress,
                 order: i,
-                pointType: bound ? "Обязательная" : source.pointType,
+                pointType: (bound !== null || Boolean(source.mandatory)) ? "Обязательная" : source.pointType,
                 pointName: source.pointName,
                 coordinates: source.coordinates,
                 course: source.course,
@@ -160,8 +160,8 @@ Item {
                 time: source.time,
                 deltaHeight: source.deltaHeight,
                 energy: source.energy,
-                note: bound ? "Обязательная точка" : source.note,
-                isMandatory: bound !== null,
+                note: (bound !== null || Boolean(source.mandatory)) ? "Обязательная точка" : source.note,
+                isMandatory: bound !== null || Boolean(source.mandatory),
                 mandatoryId: bound ? bound.id : "",
                 routeIndex: i
             })
@@ -331,6 +331,7 @@ Item {
             routeModel.append({
                 pointType: p.mandatory ? "Обязательная" : pointType,
                 pointName: String(p.waypointId),
+                mandatory: Boolean(p.mandatory),
                 coordinates: Number(p.latitudeDeg).toFixed(6) + ", " + Number(p.longitudeDeg).toFixed(6),
                 course: "—", distance: "—", altitude: String(p.altitudeM),
                 airspeed: "—", groundspeed: "—", time: "—", deltaHeight: "—",
@@ -1050,35 +1051,29 @@ Item {
                                         return bestProgress
                                     }
                                     function addMandatoryPoint(progress, altitude, routeIndex) {
-                                        var next = root.mandatoryPoints.slice(0)
-                                        next.push({ id: "mandatory-" + Date.now().toString() + "-" + next.length,
-                                            progress: Math.max(0, Math.min(1, progress)),
-                                            altitude: Math.round(Math.max(0, Math.min(5000, altitude))),
-                                            routeIndex: routeIndex === undefined ? -1 : routeIndex })
-                                        root.mandatoryPoints = next
-                                        return next.length - 1
+                                        // Until the canonical route model exposes an insertion API,
+                                        // reject UI-only mandatory points rather than creating constraints
+                                        // that the planner and map do not know about.
+                                        return -1
                                     }
 
                                     function updateMandatoryPoint(index, mouseX, mouseY) {
                                         if (index < 0 || index >= root.mandatoryPoints.length) return
-                                        var next = root.mandatoryPoints.slice(0)
-                                        var selected = next[index]
-                                        var nextProgress = Math.max(0, Math.min(1, (mouseX - plotLeft) / Math.max(1, plotRight - plotLeft)))
-                                        var nextAltitude = Math.round(Math.max(0, Math.min(5000, (plotBottom - mouseY) / Math.max(1, plotBottom - plotTop) * root.profileAltitudeScaleMax())))
-                                        next[index] = {
-                                            id: selected.id,
-                                            progress: nextProgress,
-                                             altitude: nextAltitude,
-                                             distance: Number(distanceAtProgress(nextProgress).toFixed(1)),
-                                            routeIndex: selected.routeIndex === undefined ? -1 : Number(selected.routeIndex)
-                                        }
-                                        var boundIndex = Number(selected.routeIndex)
-                                        if (boundIndex >= 0 && boundIndex < routeModel.count)
-                                            routeModel.setProperty(boundIndex, "altitude", String(nextAltitude))
-                                        root.mandatoryPoints = next
-                                        root.rebuildTableRows()
-                                        root.saveCurrentAircraftData()
-                                        profileCanvas.requestPaint()
+                                        var selected = root.mandatoryPoints[index]
+                                        var routeIndex = Number(selected.routeIndex)
+                                        if (!root.hasCanonicalRoute || routeIndex < 0
+                                                || routeIndex >= root.routeController.waypoints.length) return
+
+                                        // A mandatory route waypoint is edited only by stable identity.
+                                        // Moving an unbound UI marker is not a route geometry edit.
+                                        var points = root.routeController.waypoints
+                                        var waypoint = points[routeIndex]
+                                        if (!waypoint.mandatory) return
+                                        var nextAltitude = Math.round(Math.max(0, Math.min(5000,
+                                            (plotBottom - mouseY) / Math.max(1, plotBottom - plotTop)
+                                            * root.profileAltitudeScaleMax())))
+                                        root.routeController.editWaypointAltitude(
+                                            String(waypoint.waypointId), nextAltitude)
                                     }
 
                                     function removeMandatoryPoint(index) {
