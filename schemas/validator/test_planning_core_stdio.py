@@ -78,6 +78,12 @@ def _request() -> dict:
                 "missionId": "MISSION-001", "missionVersion": "m1",
                 "generatorId": "planner", "generatorVersion": "1",
                 "calculationInputVersion": "input-1",
+                "environmentSnapshotRefs": {
+                    "terrainSnapshotId": "terrain-snapshot-001",
+                    "airspaceSnapshotId": "airspace-snapshot-001",
+                    "weatherSnapshotId": "weather-snapshot-001",
+                    "windSnapshotId": "wind-snapshot-001",
+                },
                 "coordinateReferenceSystem": "EPSG:4326",
                 "waypoints": [
                     {"waypointId": "WP-1", "latitudeDeg": 60.0, "longitudeDeg": 24.0,
@@ -107,6 +113,7 @@ def test_stdio_adapter_emits_planning_result() -> None:
     assert message["verification"]["releaseStatus"] == "RELEASE_ELIGIBLE"
     assert message["result"]["routeCandidate"]["routeId"] == "ROUTE-001"
     assert message["result"]["routeCandidate"]["waypoints"][1]["mandatory"] is True
+    assert message["result"]["routeCandidate"]["environmentSnapshotRefs"]["windSnapshotId"] == "wind-snapshot-001"
 
 
 def test_stdio_adapter_does_not_promote_planar_routes() -> None:
@@ -121,6 +128,20 @@ def test_stdio_adapter_does_not_promote_planar_routes() -> None:
     )
     message = json.loads(proc.stdout.strip())
     assert "routeCandidate" not in message["result"]
+
+
+def test_stdio_adapter_rejects_missing_environment_snapshot_refs() -> None:
+    request = _request()
+    request["inputs"]["routeCandidate"].pop("environmentSnapshotRefs")
+    proc = subprocess.run(
+        [sys.executable, str(ADAPTER)],
+        input=json.dumps(request) + "\\n",
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert not proc.stdout.strip()
+    assert "ROUTE_CANDIDATE_ENVIRONMENT_SNAPSHOT_REFS_REQUIRED" in proc.stderr
 
 
 def test_stdio_adapter_rejects_unknown_candidate_crs() -> None:
@@ -140,5 +161,6 @@ def test_stdio_adapter_rejects_unknown_candidate_crs() -> None:
 if __name__ == "__main__":
     test_stdio_adapter_emits_planning_result()
     test_stdio_adapter_does_not_promote_planar_routes()
+    test_stdio_adapter_rejects_missing_environment_snapshot_refs()
     test_stdio_adapter_rejects_unknown_candidate_crs()
     print("PLANNING CORE STDIO ADAPTER TESTS: PASS")
