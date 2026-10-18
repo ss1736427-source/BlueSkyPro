@@ -1,12 +1,12 @@
 {
-  "last_main_sha": "093f63692f86fc8cf2e8442aa041e48f90e5546c",
-  "verified_sha": "093f63692f86fc8cf2e8442aa041e48f90e5546c",
+  "last_main_sha": "0596652c7fc38e2922d2a96d267b5b25c00d2007",
+  "verified_sha": "0596652c7fc38e2922d2a96d267b5b25c00d2007",
   "decision_required": false,
   "ci_required": true,
-  "current_work_package": "REPOSITORY AUDIT — review exact unique logic from PR #37 and #41–#47 against main",
-  "checkpoint": "Current main 093f63692f86fc8cf2e8442aa041e48f90e5546c: all 10 workflows completed success. HMI profile fix code SHA 20e56048af9c8233a45e2491063a4cdaffaa2455 passed exact HMI Qt/Linux and Windows Map build/test/deploy/startup smoke; visual Design Studio check still pending. PR #36 and #34 unique implementation is already in main. PR #41 introduces an older route validator than current main v4 and lacks explicit AGL reference rejection; do not port over current main. PR #46 decoder file is identical to main. PR #55 fail-closed NOTAM checks are already present.",
+  "current_work_package": "ISSUE #38 — implement canonical C++ route controller and shared HMI route/profile model",
+  "checkpoint": "2026-10-18: main 0596652c7fc38e2922d2a96d267b5b25c00d2007 passed all 12 CI workflows, including Linux Qt HMI and Windows Map Build. Fixed orphaned catch clauses in MissionProfileWindow.qml. PR #37's audited planning files are already identical to main; PR #44–#46 audited altitude policy/contract/decoder files are already identical to main; PR #47's adapter exists in main with stricter distance range checks than the draft. Do not port duplicate or weaker changes. Issue #38 remains open: HMI profile/table/map still lack a shared canonical C++ route controller, candidate-edit validation/recalculation, route-version lineage and stale-result rejection. Keep PR #49 Draft; no branches; do not touch E:.",
   "real_execution": "DEFERRED",
   "quantitative_c2_basis": "DEFERRED",
-  "current_ci_status": "PASS_FOR_093f63692f86fc8cf2e8442aa041e48f90e5546c",
-  "next_deterministic_action": "Finish comparing PR #37's unique test/solver changes and PR #44–#47 altitude adapter semantics against current main. If a clear safety-relevant gap exists, fix on main minimally and run exact-SHA CI; otherwise record already-present/deliberately-deferred behavior. Keep PR #49 Draft, do not create branches, do not touch E:."
+  "current_ci_status": "PASS_FOR_0596652c7fc38e2922d2a96d267b5b25c00d2007",
+  "next_deterministic_action": "Inspect PlanningBridge and current QML route-table/map bindings; define the minimal canonical route controller API using bluesky::planning::Route; add focused positive/negative controller tests and wire shared read-only route/profile projection without marking preview as validated. Keep candidate edits fail-closed until planner revalidation and lineage are connected. Stay on main, no branches, leave PR #49 Draft, do not touch E:."
 }
