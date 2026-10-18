@@ -104,6 +104,58 @@ def _trajectory(raw: dict[str, Any]) -> Trajectory4D:
     )
 
 
+
+def _canonical_route_candidate(raw: Any, mission_id: str) -> dict[str, Any] | None:
+    """Validate a separately supplied WGS84 route candidate; never convert planar x/y."""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise RequestError("ROUTE_CANDIDATE_MUST_BE_OBJECT")
+    fields = ("routeId", "routeVersion", "missionId", "missionVersion",
+              "generatorId", "generatorVersion", "calculationInputVersion")
+    for key in fields:
+        if not isinstance(raw.get(key), str) or not raw[key].strip():
+            raise RequestError(f"ROUTE_CANDIDATE_FIELD_REQUIRED:{key}")
+    if raw["missionId"] != mission_id:
+        raise RequestError("ROUTE_CANDIDATE_MISSION_MISMATCH")
+    if raw.get("coordinateReferenceSystem") != "EPSG:4326":
+        raise RequestError("ROUTE_CANDIDATE_CRS_UNSUPPORTED")
+    points = raw.get("waypoints")
+    if not isinstance(points, list) or len(points) < 2:
+        raise RequestError("ROUTE_CANDIDATE_REQUIRES_TWO_WAYPOINTS")
+    import math
+    normalized = []
+    seen = set()
+    for point in points:
+        if not isinstance(point, dict):
+            raise RequestError("ROUTE_CANDIDATE_WAYPOINT_MUST_BE_OBJECT")
+        waypoint_id = point.get("waypointId")
+        if not isinstance(waypoint_id, str) or not waypoint_id.strip() or waypoint_id in seen:
+            raise RequestError("ROUTE_CANDIDATE_WAYPOINT_ID_INVALID_OR_DUPLICATE")
+        seen.add(waypoint_id)
+        if point.get("altitudeReference") != "AGL":
+            raise RequestError("ROUTE_CANDIDATE_ALTITUDE_REFERENCE_UNSUPPORTED")
+        if not isinstance(point.get("mandatory"), bool):
+            raise RequestError("ROUTE_CANDIDATE_MANDATORY_FLAG_INVALID")
+        try:
+            lat, lon, alt = (float(point[k]) for k in ("latitudeDeg", "longitudeDeg", "altitudeM"))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise RequestError("ROUTE_CANDIDATE_WAYPOINT_NUMERIC_FIELD_INVALID") from exc
+        if not all(math.isfinite(v) for v in (lat, lon, alt)):
+            raise RequestError("ROUTE_CANDIDATE_WAYPOINT_NUMERIC_FIELD_INVALID")
+        if not -90 <= lat <= 90 or not -180 <= lon <= 180:
+            raise RequestError("ROUTE_CANDIDATE_GEODETIC_POSITION_INVALID")
+        if not 0 <= alt <= 5000:
+            raise RequestError("ROUTE_CANDIDATE_ALTITUDE_INVALID")
+        normalized.append({
+            "waypointId": waypoint_id, "latitudeDeg": lat, "longitudeDeg": lon,
+            "altitudeM": alt, "mandatory": point["mandatory"], "altitudeReference": "AGL"
+        })
+    return {**{key: raw[key] for key in fields},
+            "coordinateReferenceSystem": "EPSG:4326", "waypoints": normalized}
+
+
+
 def _candidate_revalidator(
     trajectories: tuple[Trajectory4D, ...],
     minimums: SeparationMinimums,
@@ -123,6 +175,7 @@ def process_request(request: dict[str, Any]) -> dict[str, Any]:
     mission_id = str(_require(request, "missionId"))
     result_id = str(_require(request, "resultId"))
     raw = _require(request, "inputs")
+    route_candidate = _canonical_route_candidate(raw.get("routeCandidate"), mission_id)
 
     routes = tuple(_route(item) for item in _require(raw, "routes"))
     performance = tuple(_performance(item) for item in _require(raw, "performance"))
@@ -184,6 +237,7 @@ def process_request(request: dict[str, Any]) -> dict[str, Any]:
         input_refs=tuple(trace.get("inputRefs", ())),
         artifact_refs=tuple(trace.get("artifactRefs", ())),
         evidence_refs=tuple(trace.get("evidenceRefs", ())),
+        route_candidate=route_candidate,
     )
     return message
 
