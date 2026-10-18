@@ -35,6 +35,7 @@ Item {
     property bool manualCreationMode: false
     property bool manualCompositionComplete: false
     property bool manualValidationStarted: false
+    property bool manualValidationSucceeded: false
     property bool missionReady: false
     property bool warningActive: true
 
@@ -361,7 +362,8 @@ Item {
     property var selectedInformationMessage: null
     property bool interventionMode: false
     signal pilotInterventionRequested(string messageId)
-    property bool validationVisible: manualCreationMode ? !manualValidationStarted : validationConfirmationRequired
+    // SET is a manual mission setup action only; automatic-mode validation has its own flow.
+    property bool validationVisible: manualCreationMode
     property real validationPulse: 1.0
 
     // ATC work area sizes itself to the currently enabled action buttons.
@@ -387,7 +389,7 @@ Item {
                             + (atcSendVisible ? atcButtonHeight + atcButtonGap : 0)
 
     signal startMissionRequested()
-    signal validateManualMissionRequested()
+    signal setManualMissionRequested()
 
     Rectangle {
         anchors.fill: parent
@@ -1068,8 +1070,8 @@ Item {
         y: root.atcValidationY
         width: parent.width - 52
         height: root.atcButtonHeight
-        color: "transparent"
-        border.color: Qt.rgba(root.green.r, root.green.g, root.green.b, root.validationPulse)
+        color: root.manualValidationSucceeded ? root.green : "transparent"
+        border.color: root.green
         opacity: root.manualCreationMode && !root.manualCompositionComplete ? 0.55 : 1.0
         border.width: 1
     }
@@ -1080,9 +1082,9 @@ Item {
         y: root.atcValidationY
         width: parent.width - 52
         height: root.atcButtonHeight
-        text: root.manualCreationMode ? "ВАЛИДАЦИЯ МИССИИ" : "VALIDATE MISSION"
+        text: root.manualValidationSucceeded ? "SET ✓" : (root.manualValidationStarted ? "CHECKING..." : "SET")
         opacity: root.manualCreationMode && !root.manualCompositionComplete ? 0.65 : 1.0
-        color: root.green
+        color: root.manualValidationSucceeded ? root.bg : root.green
         font.family: "B612"
         font.pixelSize: 12
         font.bold: true
@@ -1091,7 +1093,7 @@ Item {
     }
 
     MouseArea {
-        visible: root.manualCreationMode && !root.manualValidationStarted
+        visible: root.manualCreationMode && !root.manualValidationStarted && !root.manualValidationSucceeded
                  && panelSettingsPopup.enabledTools.indexOf("Validation") >= 0
         x: 26
         y: root.atcValidationY
@@ -1099,11 +1101,11 @@ Item {
         height: root.atcButtonHeight
         enabled: root.manualCompositionComplete
         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-        onClicked: root.validateManualMissionRequested()
+        onClicked: root.setManualMissionRequested()
     }
 
     SequentialAnimation on validationPulse {
-        running: root.manualCreationMode ? !root.manualValidationStarted : root.validationConfirmationRequired
+        running: root.manualCreationMode && !root.manualValidationStarted && !root.manualValidationSucceeded
         loops: Animation.Infinite
         NumberAnimation { from: 0.35; to: 1.0; duration: 650; easing.type: Easing.InOutSine }
         NumberAnimation { from: 1.0; to: 0.35; duration: 650; easing.type: Easing.InOutSine }
