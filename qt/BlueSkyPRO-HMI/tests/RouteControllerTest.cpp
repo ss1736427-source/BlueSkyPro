@@ -48,16 +48,34 @@ int main(int argc, char *argv[])
     assert(controller.waypoints().size() == 2);
     assert(controller.validationState() == QStringLiteral("CANDIDATE_UNVALIDATED"));
 
+    // Mandatory status is route data and must survive normalization unchanged.
+    QVariantMap mandatoryCandidate = candidate();
+    QVariantList mandatoryPoints = mandatoryCandidate.value(QStringLiteral("waypoints")).toList();
+    QVariantMap mandatoryWaypoint = mandatoryPoints[0].toMap();
+    mandatoryWaypoint.insert(QStringLiteral("mandatory"), true);
+    mandatoryPoints[0] = mandatoryWaypoint;
+    mandatoryCandidate.insert(QStringLiteral("waypoints"), mandatoryPoints);
+    assert(controller.loadCandidate(mandatoryCandidate));
+    assert(controller.waypoints()[0].toMap().value(QStringLiteral("mandatory")).toBool());
+
     const QString originalVersion = controller.routeVersion();
     assert(controller.publishValidation(originalVersion, QStringLiteral("input-1"),
                                         true, QStringLiteral("validator-pass")));
     assert(controller.validationState() == QStringLiteral("VALIDATED"));
 
+    const QVariantMap untouchedWaypoint = controller.waypoints()[0].toMap();
     assert(controller.editWaypointAltitude(QStringLiteral("WP-2"), 125.0));
     assert(controller.routeVersion() != originalVersion);
     assert(controller.validationState() == QStringLiteral("RECALCULATION_REQUIRED"));
+    assert(controller.waypoints()[0].toMap() == untouchedWaypoint);
+    assert(controller.waypoints()[1].toMap().value(QStringLiteral("altitudeM")).toDouble() == 125.0);
+
+    // Neither an older route version nor a mismatched calculation-input version may validate edits.
     assert(!controller.publishValidation(originalVersion, QStringLiteral("input-1"),
                                          true, QStringLiteral("stale-pass")));
+    assert(controller.validationState() == QStringLiteral("RECALCULATION_REQUIRED"));
+    assert(!controller.publishValidation(controller.routeVersion(), QStringLiteral("input-stale"),
+                                         true, QStringLiteral("stale-input-pass")));
     assert(controller.validationState() == QStringLiteral("RECALCULATION_REQUIRED"));
 
     const QString editedVersion = controller.routeVersion();
