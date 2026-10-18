@@ -5,6 +5,7 @@ Item {
     id: root
     property bool testStubsEnabled: true
     property int selectedIntegration: 0
+    signal testStubsEnabledRequested(bool enabled)
     readonly property color panel: "#0B1724"
     readonly property color line: "#26394B"
     readonly property color text: "#E8EEF5"
@@ -82,7 +83,7 @@ Item {
                         color: root.testStubsEnabled ? root.amber : root.muted
                         font.family: "B612 Mono"; font.pixelSize: 10; font.bold: true
                     }
-                    MouseArea { anchors.fill: parent; onClicked: root.testStubsEnabled = !root.testStubsEnabled }
+                    MouseArea { anchors.fill: parent; onClicked: root.testStubsEnabledRequested(!root.testStubsEnabled) }
                 }
             }
 
