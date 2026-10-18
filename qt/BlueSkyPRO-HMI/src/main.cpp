@@ -1,14 +1,18 @@
+#include <QtWebEngineQuick/QtWebEngineQuick>
 #include <QCoreApplication>
 #include <QGuiApplication>
 #include <QQmlContext>
 
 #include "PlanningBridge.h"
+#include "AltitudeTelemetryBridge.h"
+#include "AltitudeTelemetryService.h"
 #include <QQmlApplicationEngine>
 #include <QUrl>
 #include <QString>
 
 int main(int argc, char *argv[])
 {
+    QtWebEngineQuick::initialize();
     QGuiApplication app(argc, argv);
 
     // Define stable identity before QML components create QSettings instances.
@@ -18,9 +22,14 @@ int main(int argc, char *argv[])
 
     QQmlApplicationEngine engine;
     PlanningBridge planningBridge;
+    AltitudeTelemetryBridge altitudeTelemetryBridge;
+    AltitudeTelemetryService altitudeTelemetryService(altitudeTelemetryBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
-    const QString yandexMapsApiKey = qEnvironmentVariable("BLUESKY_YANDEX_MAPS_API_KEY");
-    engine.rootContext()->setContextProperty(QStringLiteral("yandexMapsApiKey"), yandexMapsApiKey);
+    engine.rootContext()->setContextProperty(QStringLiteral("altitudeTelemetryBridge"), &altitudeTelemetryBridge);
+    engine.rootContext()->setContextProperty(QStringLiteral("altitudeTelemetryService"), &altitudeTelemetryService);
+    altitudeTelemetryService.startFromEnvironment();
+    const QString mapTilerApiKey = qEnvironmentVariable("BLUESKY_MAPTILER_API_KEY");
+    engine.rootContext()->setContextProperty(QStringLiteral("mapTilerApiKey"), mapTilerApiKey);
     const QUrl url(QStringLiteral("qrc:/qt/qml/BlueSky/PRO/qml/App.qml"));
 
     QObject::connect(

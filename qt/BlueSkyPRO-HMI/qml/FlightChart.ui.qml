@@ -60,18 +60,15 @@ Item {
         color: root.bg
     }
 
-    // Google Maps Platform Map Tiles API is the authoritative basemap.
-    GoogleMapView {
-        id: googleMap
+    // MapTiler Hybrid v4 is the sole basemap provider. Route geometry is supplied by Planning Core.
+    property var routeCoordinates: []
+
+    MapTilerWebMap {
+        id: mapTilerWebMap
         anchors.fill: parent
         z: 1
-        routeCoordinates: [
-            { lat: 55.7600, lon: 37.6000 },
-            { lat: 55.7350, lon: 37.6250 },
-            { lat: 55.7550, lon: 37.6550 },
-            { lat: 55.7800, lon: 37.6400 },
-            { lat: 55.7700, lon: 37.5900 }
-        ]
+        apiKey: typeof mapTilerApiKey !== "undefined" ? mapTilerApiKey : ""
+        routeCoordinates: root.routeCoordinates
     }
 
     Canvas {
