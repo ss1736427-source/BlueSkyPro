@@ -7,21 +7,49 @@ Item {
     property real centerLatitude: 55.7558
     property real centerLongitude: 37.6176
     property int zoomLevel: 10
-    property string attribution: "Yandex Maps"
+    // Fractional visual zoom is applied immediately to loaded tiles; network
+    // requests are rebuilt only when a whole zoom level is crossed.
+    property real visualZoomScale: 1.0
+    // Side panels overlay this full-width map view.
+    property real leftPanelWidth: 0
+    property real rightPanelWidth: 0
+    // Provider selection is user-controlled. MapTiler Hybrid v4 is the default
+    // when its runtime key exists; Yandex remains available as an explicit fallback.
+    property string selectedMapProvider:
+        (typeof mapTilerApiKey !== "undefined" && mapTilerApiKey.length > 0)
+        ? "MAPTILER_HYBRID" : "YANDEX"
+    property bool providerMenuOpen: false
+    readonly property bool mapTilerKeyAvailable:
+        typeof mapTilerApiKey !== "undefined" && mapTilerApiKey.length > 0
+    readonly property bool yandexKeyAvailable:
+        typeof yandexMapsApiKey !== "undefined" && yandexMapsApiKey.length > 0
+    readonly property bool useMapTiler:
+        selectedMapProvider.indexOf("MAPTILER") === 0 && mapTilerKeyAvailable
+    readonly property bool useCartoDark:
+        selectedMapProvider === "CARTO_DARK" &&
+        typeof cartoApiKey !== "undefined" && cartoApiKey.length > 0
+    readonly property string selectedProviderLabel:
+        selectedMapProvider === "MAPTILER_HYBRID" ? "MAPTILER HYBRID V4" :
+        selectedMapProvider === "MAPTILER_HYBRID_DARK" ? "MAPTILER HYBRID DARK" :
+        selectedMapProvider === "CARTO_DARK" ? "CARTO DARK" : "YANDEX MAPS"
+    property string attribution:
+        useMapTiler ? "© MapTiler © OpenStreetMap contributors" :
+        (useCartoDark ? "© OpenStreetMap contributors, © CARTO" : "© Яндекс")
     property string mapStatus: "INITIALIZING"
-    property var routeCoordinates: [
-        { lat: 55.7600, lon: 37.6000 },
-        { lat: 55.7350, lon: 37.6250 },
-        { lat: 55.7550, lon: 37.6550 },
-        { lat: 55.7800, lon: 37.6400 },
-        { lat: 55.7700, lon: 37.5900 }
-    ]
+    // No preview route: only verified Planning Core geometry may be rendered.
+    property var routeCoordinates: []
 
     readonly property int tileSize: 256
     property real panOffsetX: 0
     property real panOffsetY: 0
+    property bool committingPan: false
     property var tiles: []
+    // Keep the last complete tile set visible while the next viewport loads.
+    property var fallbackTiles: []
+    property var stableTiles: []
     property int loadedTileCount: 0
+    property int loadedVisibleTileCount: 0
+    property int visibleTileCount: 0
     property int failedTileCount: 0
 
     signal viewChanged(real latitude, real longitude, int zoom)
@@ -32,6 +60,24 @@ Item {
 
     function worldSize() {
         return tileSize * Math.pow(2, zoomLevel)
+    }
+
+    function applySmoothZoom(delta) {
+        if (!delta)
+            return
+
+        // One wheel notch corresponds to a quarter zoom level. Scaling is
+        // continuous; the discrete tile level changes only at exact 2x/0.5x.
+        visualZoomScale *= Math.pow(2, delta / 120.0 * 0.25)
+        visualZoomScale = clamp(visualZoomScale, 0.5, 2.0)
+
+        if (visualZoomScale >= 2.0 && zoomLevel < 20) {
+            zoomLevel += 1
+            visualZoomScale = 1.0
+        } else if (visualZoomScale <= 0.5 && zoomLevel > 2) {
+            zoomLevel -= 1
+            visualZoomScale = 1.0
+        }
     }
 
     function longitudeToWorld(lon) {
@@ -60,10 +106,24 @@ Item {
         if (width <= 0 || height <= 0)
             return
 
+        // Preserve the current tile layer until the replacement viewport is
+        // fully ready; this avoids clearing the map during network fetches.
+        if (stableTiles.length > 0)
+            fallbackTiles = stableTiles
+
+        // Cancel queued requests from the previous viewport before scheduling
+        // the current visible tiles. In-flight requests may still populate cache.
+        tileCacheManager.beginViewUpdate()
         loadedTileCount = 0
+        loadedVisibleTileCount = 0
+        visibleTileCount = 0
         failedTileCount = 0
-        if (yandexMapsApiKey.length === 0) {
+        if ((selectedMapProvider.indexOf("MAPTILER") === 0 && !mapTilerKeyAvailable) ||
+                (selectedMapProvider === "CARTO_DARK" &&
+                 (typeof cartoApiKey === "undefined" || cartoApiKey.length === 0)) ||
+                (selectedMapProvider === "YANDEX" && !yandexKeyAvailable)) {
             mapStatus = "API KEY REQUIRED"
+            // Keep fallback tiles visible even when a provider key is missing.
             tiles = []
             return
         }
@@ -73,10 +133,15 @@ Item {
         var cx = longitudeToWorld(centerLongitude)
         var cy = latitudeToWorld(centerLatitude)
         var tileCount = Math.pow(2, zoomLevel)
-        var firstX = Math.floor((cx - width / 2) / tileSize)
-        var lastX = Math.floor((cx + width / 2) / tileSize)
-        var firstY = Math.floor((cy - height / 2) / tileSize)
-        var lastY = Math.floor((cy + height / 2) / tileSize)
+        // Request only a one-tile overscan around the viewport. The previous
+        // two-tile ring caused a large burst of off-screen downloads on every
+        // committed zoom/pan (especially on wide desktop windows). Cached tiles
+        // remain local; a small ring still covers fractional zoom and drag edges.
+        var overscanTiles = 1
+        var firstX = Math.floor((cx - width / 2) / tileSize) - overscanTiles
+        var lastX = Math.floor((cx + width / 2) / tileSize) + overscanTiles
+        var firstY = Math.floor((cy - height / 2) / tileSize) - overscanTiles
+        var lastY = Math.floor((cy + height / 2) / tileSize) + overscanTiles
         var result = []
 
         for (var ty = firstY; ty <= lastY; ++ty) {
@@ -85,17 +150,59 @@ Item {
 
             for (var tx = firstX; tx <= lastX; ++tx) {
                 var wrappedX = ((tx % tileCount) + tileCount) % tileCount
+                var tileX = tx * tileSize - cx + width / 2
+                var tileY = ty * tileSize - cy + height / 2
+                var isVisible = tileX < width && tileX + tileSize > 0
+                             && tileY < height && tileY + tileSize > 0
+                if (isVisible)
+                    visibleTileCount++
+
                 result.push({
                     tx: tx,
                     ty: ty,
-                    x: tx * tileSize - cx + width / 2 + panOffsetX,
-                    y: ty * tileSize - cy + height / 2 + panOffsetY,
-                    url: "https://tiles.api-maps.yandex.ru/v1/tiles/?x=" +
-                         wrappedX + "&y=" + ty + "&z=" + zoomLevel +
-                         "&lang=en_US&l=map&projection=web_mercator&apikey=" +
-                         encodeURIComponent(yandexMapsApiKey)
+                    tileZoom: zoomLevel,
+                    visible: isVisible,
+                    x: tileX,
+                    y: tileY,
+                    key: (useMapTiler ? "maptiler/" + selectedMapProvider.toLowerCase() + "/" :
+                          (useCartoDark ? "carto/dark_all/" : "yandex/future_map/web_mercator/")) +
+                         zoomLevel + "/" + wrappedX + "/" + ty,
+                    url: useMapTiler
+                         ? "https://api.maptiler.com/maps/" +
+                           (selectedMapProvider === "MAPTILER_HYBRID_DARK" ? "hybrid-v4-dark" : "hybrid-v4") +
+                           "/256/" + zoomLevel + "/" + wrappedX + "/" + ty + ".png?key=" +
+                           encodeURIComponent(mapTilerApiKey)
+                         : (useCartoDark
+                            ? "https://basemaps.cartocdn.com/rastertiles/dark_all/" +
+                              zoomLevel + "/" + wrappedX + "/" + ty + ".png?key=" +
+                              encodeURIComponent(cartoApiKey)
+                            : "https://tiles.api-maps.yandex.ru/v1/tiles/?x=" +
+                              wrappedX + "&y=" + ty + "&z=" + zoomLevel +
+                              "&lang=en_US&l=map&maptype=future_map&projection=web_mercator&apikey=" +
+                              encodeURIComponent(yandexMapsApiKey)),
+                    source: ""
                 })
             }
+        }
+
+        // Keep the visible viewport priority order. The C++ tile cache
+        // manager uses this order to fill the persistent cache center-out.
+        var viewportCenterX = width / 2
+        var viewportCenterY = height / 2
+        for (var i = 0; i < result.length; ++i) {
+            var dx = result[i].x + panOffsetX + tileSize / 2 - viewportCenterX
+            var dy = result[i].y + panOffsetY + tileSize / 2 - viewportCenterY
+            result[i].priority = dx * dx + dy * dy
+        }
+        result.sort(function(a, b) {
+            return a.priority - b.priority
+        })
+
+        // Only now enqueue requests, so the cache manager receives the
+        // visible tiles in center-out priority order.
+        for (var j = 0; j < result.length; ++j) {
+            result[j].source = tileCacheManager.requestTile(
+                result[j].key, result[j].url)
         }
 
         tiles = result
@@ -104,10 +211,17 @@ Item {
     function commitPan() {
         var centerX = longitudeToWorld(centerLongitude) - panOffsetX
         var centerY = latitudeToWorld(centerLatitude) - panOffsetY
-        centerLongitude = worldToLongitude(centerX)
-        centerLatitude = clamp(worldToLatitude(centerY), -85.0, 85.0)
+        var nextLongitude = worldToLongitude(centerX)
+        var nextLatitude = clamp(worldToLatitude(centerY), -85.0, 85.0)
+
+        // Avoid rebuilding twice from the two center property notifications.
+        committingPan = true
         panOffsetX = 0
         panOffsetY = 0
+        centerLongitude = nextLongitude
+        centerLatitude = nextLatitude
+        committingPan = false
+
         rebuildTiles()
         routeCanvas.requestPaint()
         viewChanged(centerLatitude, centerLongitude, zoomLevel)
@@ -115,45 +229,110 @@ Item {
 
     onWidthChanged: rebuildTiles()
     onHeightChanged: rebuildTiles()
-    onCenterLatitudeChanged: { rebuildTiles(); routeCanvas.requestPaint() }
-    onCenterLongitudeChanged: { rebuildTiles(); routeCanvas.requestPaint() }
+    onRouteCoordinatesChanged: routeCanvas.requestPaint()
+    onCenterLatitudeChanged: { if (!committingPan) rebuildTiles(); routeCanvas.requestPaint() }
+    onCenterLongitudeChanged: { if (!committingPan) rebuildTiles(); routeCanvas.requestPaint() }
     onZoomLevelChanged: { rebuildTiles(); routeCanvas.requestPaint() }
     onPanOffsetXChanged: routeCanvas.requestPaint()
     onPanOffsetYChanged: routeCanvas.requestPaint()
 
     Rectangle {
         anchors.fill: parent
-        color: "#E8EEF2"
+        color: "#071321"
+    }
+
+    // Keep the previous completed viewport underneath while new tiles load.
+    Repeater {
+        id: fallbackTilesRepeater
+        model: root.fallbackTiles
+
+        delegate: Image {
+            readonly property real retainedScale: Math.pow(2, root.zoomLevel - modelData.tileZoom)
+            readonly property real retainedCenterX: root.longitudeToWorld(root.centerLongitude)
+            readonly property real retainedCenterY: root.latitudeToWorld(root.centerLatitude)
+            readonly property real retainedTileX: modelData.tx * root.tileSize * retainedScale
+            readonly property real retainedTileY: modelData.ty * root.tileSize * retainedScale
+            x: retainedTileX - retainedCenterX + root.width / 2 + root.panOffsetX
+            y: retainedTileY - retainedCenterY + root.height / 2 + root.panOffsetY
+            width: root.tileSize * retainedScale
+            height: root.tileSize * retainedScale
+            source: modelData.source
+            asynchronous: true
+            cache: modelData.source.indexOf("data:") !== 0
+            fillMode: Image.Stretch
+            smooth: true
+        }
     }
 
     Repeater {
+        id: currentTilesRepeater
         model: root.tiles
 
         delegate: Image {
-            x: modelData.x
-            y: modelData.y
-            width: root.tileSize
-            height: root.tileSize
-            source: modelData.url
+            x: root.width / 2 + (modelData.x - root.width / 2) * root.visualZoomScale + root.panOffsetX
+            y: root.height / 2 + (modelData.y - root.height / 2) * root.visualZoomScale + root.panOffsetY
+            width: root.tileSize * root.visualZoomScale
+            height: root.tileSize * root.visualZoomScale
+            source: modelData.source
             asynchronous: true
-            cache: false
+            retainWhileLoading: true
+            cache: modelData.source.indexOf("data:") !== 0
             fillMode: Image.Stretch
             property int lastStatus: Image.Null
+
             onStatusChanged: {
                 if (status === lastStatus)
                     return
                 lastStatus = status
+
                 if (status === Image.Ready) {
                     root.loadedTileCount++
-                    if (root.loadedTileCount === root.tiles.length && root.failedTileCount === 0)
-                        root.mapStatus = "READY"
+                    if (modelData.visible)
+                        root.loadedVisibleTileCount++
+
+                    // The loading state is based on tiles intersecting the
+                    // viewport. Overscan tiles are useful for smooth panning,
+                    // but must not keep the whole map marked LOADING.
+                    if (root.loadedVisibleTileCount >= root.visibleTileCount
+                            && root.visibleTileCount > 0) {
+                        root.mapStatus = root.failedTileCount === 0
+                                ? "READY" : "TILE LOAD ERROR"
+                        root.stableTiles = root.tiles
+                        root.fallbackTiles = []
+                    }
                 } else if (status === Image.Error) {
-                    root.failedTileCount++
-                    root.mapStatus = "TILE LOAD ERROR"
+                    // A tile failure may arrive both from the image loader and
+                    // the C++ network manager. Count each visible tile only once.
+                    if (modelData.visible && !modelData.failed) {
+                        modelData.failed = true
+                        root.failedTileCount++
+                        root.loadedVisibleTileCount++
+                        root.mapStatus = "TILE LOAD ERROR"
+                    }
+                    // Failed tiles are terminal too: never leave LOADING waiting
+                    // for an image whose source can no longer become ready.
+                    if (root.loadedVisibleTileCount >= root.visibleTileCount
+                            && root.visibleTileCount > 0) {
+                        root.mapStatus = root.failedTileCount === 0 ? "READY" : "TILE LOAD ERROR"
+                        root.stableTiles = root.tiles
+                        root.fallbackTiles = []
+                    }
                 }
             }
+
             smooth: true
         }
+    }
+
+    // Dark Aviation treatment: keep provider tiles intact and apply a restrained
+    // navy tint above the basemap, below the authoritative route geometry.
+    Rectangle {
+        id: aviationMapTint
+        anchors.fill: parent
+        z: 10
+        color: "#071321"
+        opacity: (root.useMapTiler || root.useCartoDark) ? 0.04 : 0.58
+        visible: true
     }
 
     Canvas {
@@ -176,6 +355,13 @@ Item {
             return { x: x, y: y }
         }
 
+        transform: Scale {
+            origin.x: routeCanvas.width / 2
+            origin.y: routeCanvas.height / 2
+            xScale: root.visualZoomScale
+            yScale: root.visualZoomScale
+        }
+
         onPaint: {
             var ctx = getContext("2d")
             ctx.clearRect(0, 0, width, height)
@@ -192,7 +378,7 @@ Item {
                 ctx.lineTo(point.x, point.y)
             }
 
-            ctx.strokeStyle = "#00D9FF"
+            ctx.strokeStyle = "#FF32C8"
             ctx.lineWidth = 3
             ctx.lineJoin = "round"
             ctx.stroke()
@@ -200,15 +386,26 @@ Item {
             for (var j = 0; j < root.routeCoordinates.length; ++j) {
                 var marker = pointForCoordinate(root.routeCoordinates[j])
                 ctx.beginPath()
-                ctx.arc(marker.x, marker.y,
-                        j === 0 || j === root.routeCoordinates.length - 1 ? 6 : 4,
-                        0, Math.PI * 2)
-                ctx.fillStyle = j === 0 ? "#64FF00" :
-                                j === root.routeCoordinates.length - 1 ? "#FFD43B" : "#00D9FF"
-                ctx.fill()
-                ctx.strokeStyle = "#FFFFFF"
-                ctx.lineWidth = 2
-                ctx.stroke()
+                if (j === 0 || j === root.routeCoordinates.length - 1) {
+                    ctx.arc(marker.x, marker.y, 7, 0, Math.PI * 2)
+                    ctx.fillStyle = j === 0 ? "#64FF00" : "#FF4658"
+                    ctx.fill()
+                    ctx.strokeStyle = j === 0 ? "#B7FF8A" : "#FFB0B8"
+                    ctx.lineWidth = 2
+                    ctx.stroke()
+                } else {
+                    // Aviation-chart waypoint diamond, similar to the reference UI.
+                    ctx.moveTo(marker.x, marker.y - 6)
+                    ctx.lineTo(marker.x + 6, marker.y)
+                    ctx.lineTo(marker.x, marker.y + 6)
+                    ctx.lineTo(marker.x - 6, marker.y)
+                    ctx.closePath()
+                    ctx.fillStyle = "#FF9F43"
+                    ctx.fill()
+                    ctx.strokeStyle = "#FFD3A3"
+                    ctx.lineWidth = 1
+                    ctx.stroke()
+                }
             }
         }
     }
@@ -218,9 +415,9 @@ Item {
         target: null
         acceptedButtons: Qt.LeftButton
 
-        onTranslationChanged: {
-            root.panOffsetX = translation.x
-            root.panOffsetY = translation.y
+        onActiveTranslationChanged: {
+            root.panOffsetX = activeTranslation.x
+            root.panOffsetY = activeTranslation.y
         }
 
         onActiveChanged: {
@@ -234,14 +431,174 @@ Item {
         target: null
         acceptedDevices: PointerDevice.Mouse
         acceptedModifiers: Qt.NoModifier
+        blocking: true
 
         onWheel: function(event) {
-            if (event.angleDelta.y === 0)
+            // The side panels are siblings layered above this full-width map.
+            // Consume their wheel events without changing map zoom.
+            if (event.x < root.leftPanelWidth ||
+                    event.x >= root.width - root.rightPanelWidth) {
+                event.accepted = true
                 return
+            }
+            if (event.angleDelta.y === 0) {
+                event.accepted = true
+                return
+            }
 
-            var direction = event.angleDelta.y > 0 ? 1 : -1
-            root.zoomLevel = root.clamp(root.zoomLevel + direction, 2, 20)
+            root.applySmoothZoom(event.angleDelta.y)
             event.accepted = true
+        }
+    }
+
+    // Basemap selector: the providers remain independently selectable.
+    Rectangle {
+        id: providerSelector
+        z: 31
+        anchors.left: parent.left
+        anchors.leftMargin: root.leftPanelWidth + 12
+        anchors.top: parent.top
+        anchors.topMargin: 12
+        width: Math.max(148, providerLabel.implicitWidth + 28)
+        height: 34
+        radius: 4
+        color: "#08111D"
+        border.color: "#31506A"
+        border.width: 1
+
+        Text {
+            id: providerLabel
+            anchors.centerIn: parent
+            text: root.selectedProviderLabel + "  ▾"
+            color: "#E5F0FA"
+            font.pixelSize: 10
+            font.bold: true
+        }
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.providerMenuOpen = !root.providerMenuOpen
+        }
+    }
+
+    Rectangle {
+        id: providerMenu
+        z: 32
+        visible: root.providerMenuOpen
+        anchors.left: providerSelector.left
+        anchors.top: providerSelector.bottom
+        anchors.topMargin: 4
+        width: 206
+        height: providerOptions.implicitHeight + 12
+        radius: 4
+        color: "#08111D"
+        border.color: "#31506A"
+        border.width: 1
+
+        Column {
+            id: providerOptions
+            anchors.fill: parent
+            anchors.margins: 6
+            spacing: 2
+
+            Repeater {
+                model: [
+                    { id: "MAPTILER_HYBRID", label: "MapTiler Hybrid v4" },
+                    { id: "MAPTILER_HYBRID_DARK", label: "MapTiler Hybrid v4 Dark" },
+                    { id: "YANDEX", label: "Яндекс Карты" }
+                ]
+                delegate: Rectangle {
+                    required property var modelData
+                    width: providerOptions.width
+                    height: 30
+                    radius: 3
+                    color: root.selectedMapProvider === modelData.id ? "#173A53" : "transparent"
+                    Text {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: modelData.label
+                        color: "#E5F0FA"
+                        font.pixelSize: 11
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            root.selectedMapProvider = modelData.id
+                            root.providerMenuOpen = false
+                            root.rebuildTiles()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Compact map zoom controls stay inside the visible map workspace,
+    // clear of any side panel layered over this full-width view.
+    Rectangle {
+        id: zoomControls
+        z: 30
+        anchors.right: parent.right
+        anchors.rightMargin: root.rightPanelWidth + 12
+        anchors.top: parent.top
+        anchors.topMargin: 12
+        width: 34
+        height: 68
+        radius: 4
+        color: "#08111D"
+        border.color: "#31506A"
+        border.width: 1
+
+        Rectangle {
+            width: parent.width - 2
+            height: 1
+            x: 1
+            y: parent.height / 2
+            color: "#31506A"
+        }
+
+        Text {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: parent.height / 2
+            text: "+"
+            color: root.zoomLevel < 20 ? "#E5F0FA" : "#607386"
+            font.pixelSize: 24
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+        MouseArea {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: parent.height / 2
+            enabled: root.zoomLevel < 20
+            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: root.applySmoothZoom(480)
+        }
+
+        Text {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: parent.height / 2
+            text: "−"
+            color: root.zoomLevel > 2 ? "#E5F0FA" : "#607386"
+            font.pixelSize: 24
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+        MouseArea {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: parent.height / 2
+            enabled: root.zoomLevel > 2
+            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: root.applySmoothZoom(-480)
         }
     }
 
@@ -277,12 +634,75 @@ Item {
         Text {
             id: statusText
             anchors.centerIn: parent
-            text: yandexMapsApiKey.length === 0
-                  ? "YANDEX MAPS API KEY REQUIRED"
-                  : "YANDEX MAPS: " + root.mapStatus
+            text: root.mapStatus === "API KEY REQUIRED"
+                  ? root.selectedProviderLabel + ": API KEY REQUIRED"
+                  : root.attribution.toUpperCase() + ": " + root.mapStatus
             color: "#FFD43B"
             font.family: "B612 Mono"
             font.pixelSize: 11
+        }
+    }
+
+    Connections {
+        target: tileCacheManager
+
+        function onTileReady(key, fileUrl) {
+            // Update only the matching Image delegates. Replacing root.tiles with
+            // a new JS array on every response resets the Repeater model and can
+            // recreate every tile delegate while a viewport is still loading.
+            function updateSources(list, repeater) {
+                var changed = false
+                for (var i = 0; i < list.length; ++i) {
+                    if (list[i].key !== key)
+                        continue
+
+                    // These arrays are snapshots, but their entries are mutable
+                    // JS objects. Update the snapshot and the live delegate
+                    // directly so other tiles are not recreated.
+                    list[i].source = fileUrl
+                    if (repeater) {
+                        var tileImage = repeater.itemAt(i)
+                        if (tileImage)
+                            tileImage.source = fileUrl
+                    }
+                    changed = true
+                }
+                return changed
+            }
+
+            updateSources(root.tiles, currentTilesRepeater)
+            updateSources(root.stableTiles, null)
+            updateSources(root.fallbackTiles, fallbackTilesRepeater)
+        }
+
+        function onTileFailed(key) {
+            // Network failures do not necessarily make Image.status become Error:
+            // an empty source can remain Null forever. Mark the matching tile as
+            // terminal so the visible viewport cannot stay in LOADING indefinitely.
+            var lists = [root.tiles]
+            for (var listIndex = 0; listIndex < lists.length; ++listIndex) {
+                var list = lists[listIndex]
+                for (var i = 0; i < list.length; ++i) {
+                    var tile = list[i]
+                    if (tile.key !== key || tile.failed)
+                        continue
+                    tile.failed = true
+                    if (tile.visible) {
+                        root.failedTileCount++
+                        root.loadedVisibleTileCount++
+                    }
+                }
+            }
+
+            if (root.failedTileCount > 0)
+                root.mapStatus = "TILE LOAD ERROR"
+
+            if (root.visibleTileCount > 0
+                    && root.loadedVisibleTileCount >= root.visibleTileCount) {
+                root.mapStatus = root.failedTileCount === 0 ? "READY" : "TILE LOAD ERROR"
+                root.stableTiles = root.tiles
+                root.fallbackTiles = []
+            }
         }
     }
 

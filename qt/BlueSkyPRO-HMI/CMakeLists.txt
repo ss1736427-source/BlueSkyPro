@@ -4,7 +4,7 @@ project(BlueSkyPRO_HMI VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick Location Positioning)
+find_package(Qt6 REQUIRED COMPONENTS Quick Location Positioning Network WebEngineQuick)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -18,6 +18,8 @@ qt_add_executable(appBlueSkyPRO
     src/main.cpp
     src/PlanningBridge.cpp
     src/PlanningBridge.h
+    src/TileCacheManager.cpp
+    src/TileCacheManager.h
 )
 
 qt_add_qml_module(appBlueSkyPRO
@@ -32,6 +34,7 @@ qt_add_qml_module(appBlueSkyPRO
         qml/LeftPanel.qml
         qml/FlightChart.ui.qml
         qml/GoogleMapView.qml
+        qml/MapTilerWebMap.qml
         qml/RightPanel.ui.qml
         qml/RoleSelection.ui.qml
         qml/TaskCreation.ui.qml
@@ -53,7 +56,16 @@ qt_add_qml_module(appBlueSkyPRO
         qml/assets/uav_vtol.svg
 )
 
-target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Quick Qt6::Location Qt6::Positioning)
+target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::WebEngineQuick)
+
+enable_testing()
+add_executable(tile_cache_manager_test
+    tests/TileCacheManagerTest.cpp
+    src/TileCacheManager.cpp
+    src/TileCacheManager.h
+)
+target_link_libraries(tile_cache_manager_test PRIVATE Qt6::Network)
+add_test(NAME tile_cache_manager_contract COMMAND tile_cache_manager_test)
 
 set_target_properties(appBlueSkyPRO PROPERTIES
     MACOSX_BUNDLE TRUE

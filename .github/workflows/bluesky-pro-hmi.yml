@@ -3,11 +3,13 @@ name: BlueSky PRO HMI Qt Build
 on:
   push:
     branches:
-      - feat/hmi-controlled-cleanup-001
+      - main
     paths:
       - 'qt/BlueSkyPRO-HMI/**'
       - '.github/workflows/bluesky-pro-hmi.yml'
   pull_request:
+    branches:
+      - main
     paths:
       - 'qt/BlueSkyPRO-HMI/**'
       - '.github/workflows/bluesky-pro-hmi.yml'
@@ -32,7 +34,7 @@ jobs:
           host: 'linux'
           target: 'desktop'
           arch: 'linux_gcc_64'
-          modules: 'qtshadertools qtlocation qtpositioning'
+          modules: 'qtshadertools qtlocation qtpositioning qtwebchannel qtwebengine'
 
       - name: Configure
         working-directory: qt/BlueSkyPRO-HMI
@@ -41,3 +43,7 @@ jobs:
       - name: Build
         working-directory: qt/BlueSkyPRO-HMI
         run: cmake --build build --parallel
+
+      - name: Test
+        working-directory: qt/BlueSkyPRO-HMI
+        run: ctest --test-dir build --output-on-failure
