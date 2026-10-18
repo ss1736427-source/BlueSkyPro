@@ -160,7 +160,7 @@ Item {
             mapPanY: root.mapPanY
             mapZoom: root.mapZoom
             // Preview route is visible only while its non-authoritative editor is open.
-            routeCoordinates: routeController.waypoints.map(function(p) { return [Number(p.longitudeDeg), Number(p.latitudeDeg), Number(p.altitudeM)] })
+            routeCoordinates: routeController.waypoints.map(function(p) { return [Number(p.longitudeDeg), Number(p.latitudeDeg)] })
             // Keep the map as the persistent workspace in every mode.
             visible: true
             onMapViewChangeRequested: function(panX, panY, zoom) {
