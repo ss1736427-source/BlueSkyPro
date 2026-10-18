@@ -1104,6 +1104,7 @@ Item {
                                             routeModel.setProperty(boundIndex, "altitude", String(nextAltitude))
                                         root.mandatoryPoints = next
                                         root.rebuildTableRows()
+                                        root.saveCurrentAircraftData()
                                         profileCanvas.requestPaint()
                                     }
 
