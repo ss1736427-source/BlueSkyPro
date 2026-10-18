@@ -17,6 +17,7 @@ add_library(bluesky_planning
     adapter/universal_adapter_registry.cpp
     compiler/mission_compiler.cpp
     constrained_open_space.cpp
+    constrained_planning_graph.cpp
     wind_performance_trajectory.cpp
     multi_uav_conflict.cpp
     multi_uav_sequencing.cpp
