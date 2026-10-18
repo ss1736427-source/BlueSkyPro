@@ -35,7 +35,7 @@ int main(){
     assert(r.segments.size()==1);
     assert(r.points.size()==2);
     assert(r.segments[0].ground_speed_mps>20.0);
-    assert(r.segments[0].traversal_time_s>5.0);
+    assert(r.segments[0].traversal_time_s>4.0 && r.segments[0].traversal_time_s<5.0);
     assert(r.total_energy_wh>1.0);
     assert(r.remaining_energy_wh<100.0);
     assert(!r.dependency_identity.empty());

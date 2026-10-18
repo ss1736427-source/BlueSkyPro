@@ -362,16 +362,26 @@ Data classes:
 
 The repository-wide audit does not promote draft or working records to certification baseline.
 
-### 12.5 Current GitHub reconciliation checkpoint — 2026-10-18
+### 12.5 Historical GitHub reconciliation checkpoint — 2026-10-18
 
 - Canonical repository: `ss1736427-source/BlueSkyPro`; canonical branch: `main`.
-- Current main SHA at this checkpoint: `c3f12a2ba9ecf8fc44d135ca0919369470f3b641`.
+- Main SHA at the start of that checkpoint: `c3f12a2ba9ecf8fc44d135ca0919369470f3b641` (historical baseline).
 - GitHub Actions checks for this exact SHA completed successfully (10/10 observed successful). This does not establish full application, Qt runtime, HIL, physical-UAV or certification verification.
 - PR #52 and #53 remain open Drafts based on the older main SHA `9f60746d6de6d80ad9afc1ee16722843ed02a8ad`. PR #52's branch-selection rules conflict with the later explicit project rule that routine work is committed directly to canonical main; do not merge it as written.
 - PR #53 is a useful source for state reconciliation, but its recorded main snapshot `9f60746d6de6d80ad9afc1ee16722843ed02a8ad` is stale. Any accepted synchronization must be recalculated against the current main SHA, not copied verbatim.
 - PR #55 is still open Draft and its branch diverges from current main. The main tree already contains the explicit route/NOTAM vertical-reference fields, fail-closed checks and regression coverage. Do not merge the stale PR without a fresh unique-diff comparison.
 - The stacked planning/altitude sequence (#37, #41–#47) and HMI sequence (#49–#51) still require file-level comparison against current main. Passing CI on their head SHAs does not establish integration into main.
 - Next deterministic action: compare each remaining stacked PR's unique changes against current main, classify already-present versus missing/conflicting work, and port only necessary accepted changes directly to main in small verified commits. No new branches or PRs; do not touch the E: mirror.
+
+### 12.6 Mainline implementation progress — 2026-10-18
+
+- Last fully verified code baseline before planning-hardening integration: `38639c66eee7fff077f2d9e964db4303ad0b085a`; all 12 associated GitHub Actions workflows completed successfully, including Linux HMI build/test and Windows build/test/startup smoke test.
+- Map implementation was ported directly to main from the reviewed PR #36 snapshot. The active chart retains `GoogleMapView` with selectable Yandex/MapTiler raster providers; `MapTilerWebMap` remains a separate prototype and is not claimed as the active 3D map.
+- Panel wheel isolation and fixed/free right-panel section layout were ported from the reviewed unique changes in PR #50.
+- Provider-aware cache policy permits disk caching only for MapTiler keys with explicit freshness headers. Yandex/CARTO tiles are transient unless the applicable license is reviewed and explicitly permits persistent storage. Production licensing for Yandex and the selected MapTiler subscription remains a deployment check.
+- PR #37 planning hardening is being ported from exact head `6c9c1f61a757fdbabc693c7aad7a0792d9dd047e`. Preserve the current main versions of `model/route_model.hpp` and the NOTAM validator files, which contain newer vertical-reference safeguards not present on the PR #37 branch.
+- CI for the planning-hardening commit must be checked against its exact resulting SHA before advancing to PR #39/#40 route-preview containment and the dependent altitude telemetry stack.
+
 
 
 ## 13. Project Rules

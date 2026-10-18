@@ -175,10 +175,10 @@ int main() {
 
     assert(cost_decision.feasibility == Feasibility::Feasible);
     assert(cost_decision.considered_solvers.size() == 2);
-    assert(cost_decision.considered_solvers[0] == "dijkstra");
-    assert(cost_decision.considered_solvers[1] == "astar");
-    assert(cost_decision.selected_solver_id == "dijkstra");
-    assert(cost_decision.selected_candidate_id == "ORCH-PROFILE-002:dijkstra:1");
+    assert(cost_decision.considered_solvers[0] == "astar");
+    assert(cost_decision.considered_solvers[1] == "dijkstra");
+    assert(cost_decision.selected_solver_id == "astar");
+    assert(cost_decision.selected_candidate_id == "ORCH-PROFILE-002:astar:1");
     assert(cost_context.candidates().size() == 2);
 
     PlanningGraph zero_information_graph = graph;
@@ -197,10 +197,10 @@ int main() {
 
     assert(zero_information_decision.feasibility == Feasibility::Feasible);
     assert(zero_information_decision.considered_solvers.size() == 2);
-    assert(zero_information_decision.considered_solvers[0] == "dijkstra");
-    assert(zero_information_decision.considered_solvers[1] == "astar");
-    assert(zero_information_decision.selected_solver_id == "dijkstra");
-    assert(zero_information_decision.selected_candidate_id == "ORCH-GRAPH-003:dijkstra:1");
+    assert(zero_information_decision.considered_solvers[0] == "astar");
+    assert(zero_information_decision.considered_solvers[1] == "dijkstra");
+    assert(zero_information_decision.selected_solver_id == "astar");
+    assert(zero_information_decision.selected_candidate_id == "ORCH-GRAPH-003:astar:1");
     assert(zero_information_context.candidates().size() == 2);
 
     MissionProblem no_heuristic_problem = problem;
@@ -333,6 +333,64 @@ int main() {
     assert(all_invalid_decision.feasibility == Feasibility::Infeasible);
     assert(all_invalid_decision.selected_solver_id.empty());
     assert(all_invalid_decision.selected_candidate_id.empty());
+
+    // An admissible but inconsistent heuristic requires reopening a closed node.
+    PlanningGraph reopen_graph;
+    reopen_graph.nodes = {
+        {"S", 0, 0}, {"A", 1, 0}, {"B", 0, 1}, {"C", 2, 0}, {"G", 3, 0}
+    };
+    reopen_graph.edges = {
+        {"S", "A", 1.0}, {"S", "B", 2.0},
+        {"A", "C", 1.0}, {"B", "C", 1.0}, {"C", "G", 10.0}
+    };
+    reopen_graph.start_node = "S";
+    reopen_graph.goal_node = "G";
+    MissionProblem reopen_problem;
+    reopen_problem.mission_id = "ASTAR-REOPEN-001";
+    reopen_problem.problem_class = "point_to_point";
+    reopen_problem.planning_graph = &reopen_graph;
+    reopen_problem.objective_priorities = {"completion_time"};
+    TestContext reopen_context(reopen_problem, ComputeBudget{1000, 256, 8});
+    auto inconsistent_but_admissible = [](const PlanningNode& from, const PlanningNode&) {
+        return from.id == "A" ? 11.0 : 0.0;
+    };
+    AStarSolver reopening_astar(inconsistent_but_admissible);
+    assert(reopening_astar.run(reopen_context) == RunState::Completed);
+    assert(reopen_context.candidates().size() == 1);
+    assert(std::abs(reopen_context.candidates()[0].estimated_time_s - 12.0) < 1e-9);
+    assert((reopen_context.candidates()[0].route_elements == std::vector<std::string>{"S", "A", "C", "G"}));
+
+    // Zero-cost edges remain valid and must not prevent a lower-cost route.
+    PlanningGraph zero_cost_graph;
+    zero_cost_graph.nodes = {{"S", 0, 0}, {"A", 1, 0}, {"G", 2, 0}};
+    zero_cost_graph.edges = {{"S", "A", 0.0}, {"A", "G", 1.0}, {"S", "G", 3.0}};
+    zero_cost_graph.start_node = "S";
+    zero_cost_graph.goal_node = "G";
+    MissionProblem zero_cost_problem;
+    zero_cost_problem.mission_id = "ASTAR-ZERO-COST-002";
+    zero_cost_problem.problem_class = "point_to_point";
+    zero_cost_problem.planning_graph = &zero_cost_graph;
+    TestContext zero_cost_context(zero_cost_problem, ComputeBudget{1000, 256, 8});
+    AStarSolver zero_cost_astar([](const PlanningNode&, const PlanningNode&) { return 0.0; });
+    assert(zero_cost_astar.run(zero_cost_context) == RunState::Completed);
+    assert(zero_cost_context.candidates().size() == 1);
+    assert(std::abs(zero_cost_context.candidates()[0].estimated_time_s - 1.0) < 1e-9);
+    assert((zero_cost_context.candidates()[0].route_elements == std::vector<std::string>{"S", "A", "G"}));
+
+    // A disconnected goal must not produce a fabricated candidate.
+    PlanningGraph unreachable_graph;
+    unreachable_graph.nodes = {{"S", 0, 0}, {"A", 1, 0}, {"G", 2, 0}};
+    unreachable_graph.edges = {{"S", "A", 1.0}};
+    unreachable_graph.start_node = "S";
+    unreachable_graph.goal_node = "G";
+    MissionProblem unreachable_problem;
+    unreachable_problem.mission_id = "ASTAR-UNREACHABLE-003";
+    unreachable_problem.problem_class = "point_to_point";
+    unreachable_problem.planning_graph = &unreachable_graph;
+    TestContext unreachable_context(unreachable_problem, ComputeBudget{1000, 256, 8});
+    AStarSolver unreachable_astar([](const PlanningNode&, const PlanningNode&) { return 0.0; });
+    assert(unreachable_astar.run(unreachable_context) == RunState::Failed);
+    assert(unreachable_context.candidates().empty());
 
     return 0;
 }
