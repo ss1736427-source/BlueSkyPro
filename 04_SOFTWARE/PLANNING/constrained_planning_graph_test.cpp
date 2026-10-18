@@ -22,10 +22,11 @@ int main()
     restriction.minimum_altitude_m = 0.0;
     restriction.maximum_altitude_m = 200.0;
     restriction.active = true;
+    restriction.altitude_reference = AltitudeReference::AGL;
     environment.restrictions.push_back(restriction);
 
     PlanningGraph graph;
-    graph.nodes.push_back({"N1", 0.0, 0.0, {59.0, 30.0}, 100.0});
+    graph.nodes.push_back({"N1", 0.0, 0.0, {59.0, 30.0}, 100.0, AltitudeReference::AGL});
     graph.start_node = "MISSING-START";
     graph.goal_node = "N1";
 
