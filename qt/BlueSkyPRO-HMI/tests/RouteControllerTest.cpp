@@ -102,6 +102,20 @@ int main(int argc, char *argv[])
     assert(!controller.loadCandidate(invalid));
     assert(controller.validationReason() == QStringLiteral("INVALID_WAYPOINT_POSITION"));
 
+    // A malformed replacement must clear the previously loaded route instead of
+    // leaving stale waypoints visible under a BLOCKED status.
+    assert(controller.loadCandidate(candidate()));
+    assert(controller.waypoints().size() == 2);
+    invalid = candidate();
+    invalid.insert(QStringLiteral("waypoints"), QVariantList{
+        waypoint(QStringLiteral("WP-1"), 91.0, 24.0, 100.0),
+        waypoint(QStringLiteral("WP-2"), 60.1, 24.1, 110.0)
+    });
+    assert(!controller.loadCandidate(invalid));
+    assert(controller.validationState() == QStringLiteral("BLOCKED"));
+    assert(controller.validationReason() == QStringLiteral("INVALID_WAYPOINT_POSITION"));
+    assert(controller.waypoints().isEmpty());
+
     invalid = candidate();
     invalid.insert(QStringLiteral("coordinateReferenceSystem"), QStringLiteral("LOCAL_XY"));
     assert(!controller.loadCandidate(invalid));
