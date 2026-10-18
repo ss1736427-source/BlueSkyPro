@@ -53,7 +53,12 @@ Item {
     // Planning-core result injected by the application/planning bridge; QML never calculates it.
     // Bind only the validated result published by PlanningBridge.
     // Empty bridge output remains unavailable; QML never invents route/readiness data.
-    property var planningResult: typeof planningBridge !== "undefined" ? planningBridge.result : null
+    // Do not expose a late planning result to a different active mission.
+    readonly property var planningResult:
+        typeof planningBridge !== "undefined"
+        && planningBridge.result
+        && String(planningBridge.result.missionId) === String(root.missionId)
+        ? planningBridge.result : null
     readonly property bool is3DMappingProfile: root.missionTemplateIds.indexOf("3D_MAPPING") >= 0
     // Example current automatic mission composition; supplied by mission/task aggregation in production.
     property var missionTemplateIndices: [0, 1, 7]
@@ -197,13 +202,10 @@ Item {
         Connections {
             target: planningBridge
             function onResultChanged() {
-                var result = planningBridge.result
+                var result = root.planningResult
                 var candidate = result && result.result ? result.result.routeCandidate : null
-                // Never let a late result for another mission replace this mission's route.
-                if (result && String(result.missionId) === String(root.missionId)
-                        && candidate !== null && candidate !== undefined) {
+                if (candidate !== null && candidate !== undefined)
                     routeController.loadCandidate(candidate)
-                }
             }
         }
 
