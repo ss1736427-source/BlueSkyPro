@@ -149,4 +149,41 @@ ManualRouteNotamAssessment assessManualRouteCandidateNotams(
     return result;
 }
 
+
+ManualRouteCandidateAirspaceNotamAssessment assessManualRouteCandidateAirspaceAndNotams(
+    const ManualRouteBuildResult& candidate,
+    const ConstrainedEnvironmentSnapshot& environment,
+    const NotamSnapshot& notam_snapshot,
+    const std::string& current_calculation_input_version)
+{
+    ManualRouteCandidateAirspaceNotamAssessment result;
+    result.candidate_structurally_valid = candidate.valid;
+    result.airspace = assessManualRouteCandidateAirspace(candidate, environment);
+    result.notams = assessManualRouteCandidateNotams(
+        candidate, notam_snapshot, current_calculation_input_version);
+
+    result.airspace_clear = result.airspace.assessed && result.airspace.airspace_clear;
+    result.notam_clear = result.notams.assessed && result.notams.notam_clear;
+    result.assessed = result.airspace.assessed && result.notams.assessed;
+    result.combined_clear = result.assessed && result.airspace_clear && result.notam_clear;
+
+    result.errors.insert(result.errors.end(),
+                         result.airspace.errors.begin(), result.airspace.errors.end());
+    result.errors.insert(result.errors.end(),
+                         result.notams.errors.begin(), result.notams.errors.end());
+    if (!result.airspace.assessed && result.airspace.errors.empty())
+        result.errors.emplace_back("AIRSPACE_ASSESSMENT_NOT_COMPLETED");
+    if (!result.notams.assessed && result.notams.errors.empty())
+        result.errors.emplace_back("NOTAM_ASSESSMENT_NOT_COMPLETED");
+    std::sort(result.errors.begin(), result.errors.end());
+    result.errors.erase(std::unique(result.errors.begin(), result.errors.end()),
+                        result.errors.end());
+
+    // This combined result checks only supplied snapshots. It does not establish
+    // snapshot authority/freshness beyond the lineage checks, terrain/obstacles,
+    // weather/energy, permissions, or overall release readiness.
+    result.flight_release_eligible = false;
+    return result;
+}
+
 } // namespace bluesky::planning
