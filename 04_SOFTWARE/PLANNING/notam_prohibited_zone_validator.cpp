@@ -150,6 +150,11 @@ NotamValidationResult NotamProhibitedZoneValidator::validate(const Route& route,
         result.status = RouteValidationStatus::Rejected;
         result.findings.push_back({NotamValidationCode::SnapshotNotValid, "", "", detail, "", ""});
     };
+    const auto reject_altitude_reference = [&result](const std::string& detail) {
+        result.status = RouteValidationStatus::Rejected;
+        result.findings.push_back({NotamValidationCode::UnsupportedAltitudeReference,
+                                   "", "", detail, "", ""});
+    };
 
     if (route.constraints.avoid_restricted_areas &&
         route.environment.airspace_snapshot_id.empty()) {
@@ -180,6 +185,23 @@ NotamValidationResult NotamProhibitedZoneValidator::validate(const Route& route,
         if (!valid_point(wp.position) || !std::isfinite(wp.altitude_m)) {
             reject_snapshot("Route contains an invalid waypoint coordinate or altitude");
             return result;
+        }
+    }
+
+    if (route.constraints.avoid_restricted_areas && !snapshot.zones.empty()) {
+        for (const auto& wp : route.waypoints) {
+            if (wp.altitude_reference != AltitudeReference::AGL) {
+                reject_altitude_reference(
+                    "Route waypoint altitude reference is unknown or unsupported; NOTAM clearance cannot be established");
+                return result;
+            }
+        }
+        for (const auto& zone : snapshot.zones) {
+            if (zone.altitude_reference != NotamAltitudeReference::AGL) {
+                reject_altitude_reference(
+                    "NOTAM altitude reference is unknown or unsupported; conversion to route altitude reference is required");
+                return result;
+            }
         }
     }
 
