@@ -23,9 +23,9 @@ public:
 
     // Called only by the future validated telemetry adapter. This method is not
     // a MAVLink transport and must not be fed preview or generic GPS altitude.
-    Q_INVOKABLE bool publishDecision(double valueM, const QString &source,
+    bool publishDecision(double valueM, const QString &source,
                                      bool isDegraded, bool sourceClockNormalized);
-    Q_INVOKABLE void markUnavailable();
+    void markUnavailable();
 
 signals:
     void changed();
