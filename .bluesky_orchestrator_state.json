@@ -1,12 +1,12 @@
 {
-  "last_main_sha": "260b4965a60d6b81fd101156e1e92cff46b8ec18",
-  "verified_sha": "260b4965a60d6b81fd101156e1e92cff46b8ec18",
+  "last_main_sha": "b73a08180240ef290ca5caba1f790955385df1fe",
+  "verified_sha": null,
   "decision_required": false,
   "ci_required": true,
-  "current_work_package": "REPOSITORY RECONCILIATION — continue auditing open PR unique diffs against canonical main",
-  "checkpoint": "HMI flight-profile correction set has been verified. Code SHA 20e56048af9c8233a45e2491063a4cdaffaa2455 passed exact-SHA Linux HMI build/test, Windows Map build/test/deploy/startup smoke, and Multi-UAV Validator. Checkpoint-only follow-up commits on main culminated in 260b4965a60d6b81fd101156e1e92cff46b8ec18; all 10 workflows for that exact HEAD passed. MissionProfileWindow.qml confirms dynamic altitude scale for edit/create, save on profile drag, and routeModel clear before per-UAV restore. Visual Qt Design Studio inspection remains outstanding. PR #49 remains Draft and unmerged.",
+  "current_work_package": "REPOSITORY RECONCILIATION — audit map PRs #25/#32–#36 without regressing current mainline",
+  "checkpoint": "HMI flight-profile fixes are implemented at MissionProfileWindow.qml blob c97ea97eeb9e4efc2a72b0e99f25a9a399768996. Source-code SHA 20e56048af9c8233a45e2491063a4cdaffaa2455 passed Linux HMI build/test, Windows Map build/test/deploy/startup smoke, and Multi-UAV Validator. All 10 workflows for metadata-only HEAD 260b4965a60d6b81fd101156e1e92cff46b8ec18 passed. PR #40's restored interaction spec is byte-for-byte equal to main. Map review confirms main already contains newer MapLibre WebEngine prototype + performance diagnostics and a stricter MapTiler-only persistence policy; do not port old PR 25/32 tile caching over it.",
   "real_execution": "DEFERRED",
   "quantitative_c2_basis": "DEFERRED",
-  "current_ci_status": "PASS_FOR_260b4965a60d6b81fd101156e1e92cff46b8ec18; HMI_CODE_CI_PASS_FOR_20e56048af9c8233a45e2491063a4cdaffaa2455",
-  "next_deterministic_action": "Continue audit of open PRs file-by-file. PR #40's corrupted documentation has already been restored in main (02_SYSTEM/Design/Interface/Flight Profile Interaction.md is valid); compare its exact content for any missing unique intent but avoid replacement if already present. Then prioritize PRs #32/#25 map cache unique changes and remaining stacked planning/altitude PRs. Never merge/import PR #49, don't create branches, don't touch E:."
+  "current_ci_status": "PREVIOUS_HEAD_CHECKS_PASS; NEW_HEAD_UNVERIFIED",
+  "next_deterministic_action": "Compare PR #36 unique performance changes to current MapTilerWebMap.qml and identify only any missing bug fix, if any. Then audit PR #34 tile diagnostics/cancelation against current TileCacheManager.cpp. Keep PR #49 Draft, no branches or E: changes."
 }
