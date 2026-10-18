@@ -297,8 +297,7 @@ Item {
         category: "BlueSkyPRO/MissionProfile"
         property string columnOrderJson: ""
         property real tableSplitRatio: 0.47
-        property string routeDataByUavJson: "{}"
-        property string mandatoryPointsByUavJson: "{}"
+
     }
 
     function assignmentForUav(uavId) {
@@ -337,8 +336,7 @@ Item {
         points[id] = root.mandatoryPoints
         root.routeDataByUav = routes
         root.mandatoryPointsByUav = points
-        profileSettings.routeDataByUavJson = JSON.stringify(routes)
-        profileSettings.mandatoryPointsByUavJson = JSON.stringify(points)
+
     }
 
     function loadAircraftData(index) {
@@ -375,9 +373,9 @@ Item {
     Component.onCompleted: {
         root.recalculateColumnLayout()
         root.tableSplitRatio = Math.max(0, Math.min(1, profileSettings.tableSplitRatio))
-        try { root.routeDataByUav = JSON.parse(profileSettings.routeDataByUavJson) || ({}) }
+
         catch (e) { root.routeDataByUav = ({}) }
-        try { root.mandatoryPointsByUav = JSON.parse(profileSettings.mandatoryPointsByUavJson) || ({}) }
+
         catch (e) { root.mandatoryPointsByUav = ({}) }
         var initialRoute = []
         for (var ri = 0; ri < routeModel.count; ++ri) {
@@ -410,7 +408,7 @@ Item {
     onTableSplitRatioChanged: profileSettings.tableSplitRatio = tableSplitRatio
     onMandatoryPointsChanged: {
         root.mandatoryPointsByUav[root.selectedAircraftId()] = mandatoryPoints
-        profileSettings.mandatoryPointsByUavJson = JSON.stringify(root.mandatoryPointsByUav)
+
         rebuildTableRows()
         profileCanvas.requestPaint()
     }
