@@ -13,6 +13,8 @@ struct PlanningNode {
     double y{0.0};
     GeoPoint position;
     double altitude_m{0.0};
+    // Planner altitude datum must be explicit before evaluating airspace limits.
+    AltitudeReference altitude_reference{AltitudeReference::Unknown};
 };
 
 struct PlanningGraphEdge {
