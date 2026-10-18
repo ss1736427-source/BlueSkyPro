@@ -88,7 +88,7 @@ add_executable(manual_mission_model_adapter_test
     src/ManualMissionModelAdapter.cpp
     src/ManualMissionModelAdapter.h
 )
-target_include_directories(manual_mission_model_adapter_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+target_include_directories(manual_mission_model_adapter_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.. ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(manual_mission_model_adapter_test PRIVATE Qt6::Core)
 add_test(NAME manual_mission_model_adapter_contract COMMAND manual_mission_model_adapter_test)
 
