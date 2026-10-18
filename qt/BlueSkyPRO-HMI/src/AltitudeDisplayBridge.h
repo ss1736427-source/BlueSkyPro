@@ -3,6 +3,8 @@
 #include <QObject>
 #include <QString>
 
+#include "mavlink_altitude_display_adapter.hpp"
+
 class AltitudeDisplayBridge final : public QObject
 {
     Q_OBJECT
@@ -21,11 +23,14 @@ public:
     bool available() const;
     bool degraded() const;
 
-    // Called only by the future validated telemetry adapter. This method is not
-    // a MAVLink transport and must not be fed preview or generic GPS altitude.
-    bool publishDecision(double valueM, const QString &source,
-                                     bool isDegraded, bool sourceClockNormalized);
+    // Accept only the typed decision emitted by the validated operations adapter.
+    // This is not a MAVLink transport and is not exposed as a QML-invokable method.
+    bool publishAdapterResult(
+        const bluesky::operations::MavlinkAltitudeDisplayAdapterResult &result);
     void markUnavailable();
+
+private:
+    bool publishDecision(double valueM, const QString &source, bool isDegraded);
 
 signals:
     void changed();
