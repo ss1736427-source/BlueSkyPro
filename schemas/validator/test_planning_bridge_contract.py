@@ -52,6 +52,12 @@ def main() -> int:
         "missionId": "MISSION-001", "missionVersion": "m1",
         "generatorId": "planner", "generatorVersion": "1",
         "calculationInputVersion": "input-1",
+        "environmentSnapshotRefs": {
+            "terrainSnapshotId": "terrain-snapshot-001",
+            "airspaceSnapshotId": "airspace-snapshot-001",
+            "weatherSnapshotId": "weather-snapshot-001",
+            "windSnapshotId": "wind-snapshot-001",
+        },
         "coordinateReferenceSystem": "EPSG:4326",
         "waypoints": [
             {"waypointId": "WP-1", "latitudeDeg": 60.0, "longitudeDeg": 24.0,
@@ -66,6 +72,7 @@ def main() -> int:
         route_candidate=route_candidate,
     )
     assert candidate_message["result"]["routeCandidate"]["coordinateReferenceSystem"] == "EPSG:4326"
+    assert candidate_message["result"]["routeCandidate"]["environmentSnapshotRefs"]["terrainSnapshotId"] == "terrain-snapshot-001"
     assert candidate_message["result"]["routeCandidate"]["waypoints"][1]["mandatory"] is True
     assert '"missionId":"MISSION-001"' in dumps_result_message(message)
 
