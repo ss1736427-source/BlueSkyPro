@@ -60,15 +60,18 @@ public:
         const QString generatorId = candidate.value(QStringLiteral("generatorId")).toString().trimmed();
         const QString generatorVersion = candidate.value(QStringLiteral("generatorVersion")).toString().trimmed();
         const QString inputVersion = candidate.value(QStringLiteral("calculationInputVersion")).toString().trimmed();
+        const QString crs = candidate.value(QStringLiteral("coordinateReferenceSystem")).toString().trimmed();
         const QVariantList points = candidate.value(QStringLiteral("waypoints")).toList();
 
         if (routeId.isEmpty() || routeVersion.isEmpty() || missionId.isEmpty()
             || missionVersion.isEmpty() || generatorId.isEmpty()
-            || generatorVersion.isEmpty() || inputVersion.isEmpty()) {
+            || generatorVersion.isEmpty() || inputVersion.isEmpty() || crs.isEmpty()) {
             return reject(QStringLiteral("ROUTE_LINEAGE_REQUIRED"));
         }
         if (points.size() < 2)
             return reject(QStringLiteral("AT_LEAST_TWO_WAYPOINTS_REQUIRED"));
+        if (crs != QLatin1String("EPSG:4326"))
+            return reject(QStringLiteral("UNSUPPORTED_COORDINATE_REFERENCE_SYSTEM"));
 
         std::set<std::string> ids;
         QVariantList normalized;
