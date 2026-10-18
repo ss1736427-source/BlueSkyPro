@@ -120,6 +120,16 @@ def _canonical_route_candidate(raw: Any, mission_id: str) -> dict[str, Any] | No
         raise RequestError("ROUTE_CANDIDATE_MISSION_MISMATCH")
     if raw.get("coordinateReferenceSystem") != "EPSG:4326":
         raise RequestError("ROUTE_CANDIDATE_CRS_UNSUPPORTED")
+    environment = raw.get("environmentSnapshotRefs")
+    environment_fields = (
+        "terrainSnapshotId", "airspaceSnapshotId",
+        "weatherSnapshotId", "windSnapshotId",
+    )
+    if not isinstance(environment, dict):
+        raise RequestError("ROUTE_CANDIDATE_ENVIRONMENT_SNAPSHOT_REFS_REQUIRED")
+    for key in environment_fields:
+        if not isinstance(environment.get(key), str) or not environment[key].strip():
+            raise RequestError(f"ROUTE_CANDIDATE_ENVIRONMENT_SNAPSHOT_REQUIRED:{key}")
     points = raw.get("waypoints")
     if not isinstance(points, list) or len(points) < 2:
         raise RequestError("ROUTE_CANDIDATE_REQUIRES_TWO_WAYPOINTS")
@@ -152,6 +162,7 @@ def _canonical_route_candidate(raw: Any, mission_id: str) -> dict[str, Any] | No
             "altitudeM": alt, "mandatory": point["mandatory"], "altitudeReference": "AGL"
         })
     return {**{key: raw[key] for key in fields},
+            "environmentSnapshotRefs": {key: environment[key] for key in environment_fields},
             "coordinateReferenceSystem": "EPSG:4326", "waypoints": normalized}
 
 
