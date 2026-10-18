@@ -30,6 +30,7 @@ Item {
     property bool manualSetRequested: false
     property bool manualSetBlocked: false
     property string manualModelValidationStatus: "NOT_CHECKED"
+    property string manualMissionModelJson: ""
     property string manualSetBaselineResultId: ""
     // Manual input version advances whenever templates or operator geometry changes.
     property int manualMissionVersion: 1
@@ -170,6 +171,8 @@ Item {
                 root.manualSetRequested = false
                 root.manualSetBlocked = false
                 root.manualSetBaselineResultId = ""
+                root.manualModelValidationStatus = "NOT_CHECKED"
+                root.manualMissionModelJson = ""
                 root.manualSelectedTemplateIds = []
                 root.manualMissionVersion += 1
             }
@@ -184,6 +187,8 @@ Item {
                 root.manualSetBlocked = false
                 root.manualSetBaselineResultId = ""
                 root.manualCompositionComplete = false
+                root.manualMissionModelJson = ""
+                root.manualModelValidationStatus = "NOT_CHECKED"
                 if (root.missionState === "VALIDATING")
                     root.missionState = "MANUAL"
             }
@@ -261,6 +266,8 @@ Item {
             target: manualGeometryBridge
             function onCompositionCompleteChanged() {
                 root.manualCompositionComplete = manualGeometryBridge.compositionComplete
+                root.manualMissionModelJson = ""
+                root.manualModelValidationStatus = "NOT_CHECKED"
                 root.manualMissionVersion += 1
                 root.manualSetRequested = false
                 root.manualSetBaselineResultId = ""
@@ -268,6 +275,8 @@ Item {
                     root.missionState = "MANUAL"
             }
             function onGeometryChanged() {
+                root.manualMissionModelJson = ""
+                root.manualModelValidationStatus = "NOT_CHECKED"
                 root.manualMissionVersion += 1
                 root.manualSetRequested = false
                 root.manualSetBlocked = false
@@ -371,6 +380,8 @@ Item {
                 root.manualModelValidationStatus = modelResult.valid
                         ? "MODEL_STRUCTURALLY_VALID_PLANNING_CORE_NOT_CONNECTED"
                         : modelResult.errors.join(", ")
+                root.manualMissionModelJson = modelResult.valid
+                        ? String(modelResult.missionModelJson || "") : ""
                 if (!modelResult.valid) {
                     root.manualSetRequested = false
                     root.manualSetBlocked = true
