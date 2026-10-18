@@ -35,12 +35,15 @@ ConstrainedGraphBuildResult ConstrainedPlanningGraphBuilder::build(
         result.graph.goal_node.clear();
     }
 
-    if (environment.complete && !environment.restrictions.empty()) {
+    // Invalid or unresolved endpoints are a normal rejected-input path. Do not
+    // dereference absent nodes while trying to compute environment lineage.
+    const auto* startNode = result.graph.find_node(result.graph.start_node);
+    const auto* goalNode = result.graph.find_node(result.graph.goal_node);
+    if (environment.complete && !environment.restrictions.empty()
+        && startNode && goalNode) {
         const auto probe = ConstrainedOpenSpace::evaluateSegment(
             environment,
-            {result.graph.find_node(source.start_node)->position,
-             result.graph.find_node(source.goal_node)->position,
-             0.0});
+            {startNode->position, goalNode->position, 0.0});
         result.dependency_identity = probe.dependency_identity;
     }
     return result;
