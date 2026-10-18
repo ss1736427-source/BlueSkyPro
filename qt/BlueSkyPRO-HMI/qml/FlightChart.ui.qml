@@ -86,6 +86,7 @@ Item {
         visible: root.useMapTilerWebGL
         apiKey: typeof mapTilerApiKey !== "undefined" ? mapTilerApiKey : ""
         routeCoordinates: root.routeCoordinates
+        manualTemplateIds: root.manualTemplateIds
         onUseLegacyMapRequested: root.useMapTilerWebGL = false
     }
 
