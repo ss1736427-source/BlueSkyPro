@@ -28,6 +28,7 @@ Item {
     property real mapZoom: 1.0
     readonly property bool manualValidationStarted: missionState === "VALIDATING"
     property bool manualSetRequested: false
+    property bool manualSetBlocked: false
     property string manualSetBaselineResultId: ""
     // Manual input version advances whenever templates or operator geometry changes.
     property int manualMissionVersion: 1
@@ -178,6 +179,7 @@ Item {
                 root.manualMissionVersion += 1
                 // Any template change invalidates a prior check for the previous model.
                 root.manualSetRequested = false
+                root.manualSetBlocked = false
                 root.manualSetBaselineResultId = ""
                 root.manualCompositionComplete = false
                 if (root.missionState === "VALIDATING")
@@ -223,6 +225,7 @@ Item {
                 root.manualCompositionComplete = true
                 root.manualMissionVersion += 1
                 root.manualSetRequested = false
+                root.manualSetBlocked = false
                 root.manualSetBaselineResultId = ""
                 if (root.missionState === "VALIDATING")
                     root.missionState = "MANUAL"
@@ -351,6 +354,7 @@ Item {
             manualCompositionComplete: root.manualCompositionComplete
             manualValidationStarted: root.manualValidationStarted
             manualValidationSucceeded: root.manualSetSucceeded
+            manualSetBlocked: root.manualSetBlocked
             onSetManualMissionRequested: {
                 // Fail closed until the manual editor supplies selected templates and
                 // real geometry to a versioned Planning Core request. The current map
@@ -358,12 +362,14 @@ Item {
                 if (root.manualSelectedTemplateIds.length === 0
                         || !root.manualCompositionComplete) {
                     root.manualSetRequested = false
+                    root.manualSetBlocked = true
                     root.missionState = "MANUAL"
                     return
                 }
-                // Do not claim that a request was sent: the current Planning Core
-                // bridge contract still accepts prebuilt planning inputs, not this model.
+                // Fail visibly rather than silently treating captured geometry as a
+                // Planning Core request. The current adapter cannot plan from this model.
                 root.manualSetRequested = false
+                root.manualSetBlocked = true
                 root.missionState = "MANUAL"
             }
             onStartMissionRequested: root.leftPanelOpen = false
