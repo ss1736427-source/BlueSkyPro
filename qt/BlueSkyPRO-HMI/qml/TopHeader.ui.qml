@@ -26,6 +26,7 @@ Item {
     property string tot: "—"
     property string trip: "—"
     property string eta: "11:48"
+    property var altitudeDisplay: altitudeDisplayBridge
     property bool ready: true
     property bool warningActive: true
     property int warningCount: 0
@@ -247,6 +248,44 @@ Item {
             headingSize: root.headingSize
             valueSize: root.valueSize
             headingValueGap: root.headingValueGap
+        }
+    }
+
+    // Altitude source annunciation is deliberately independent of READY.
+    // It starts UNAVAILABLE until a validated telemetry adapter publishes a decision.
+    Rectangle {
+        id: altitudeAnnunciation
+        anchors.horizontalCenter: centralComposition.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 2
+        width: Math.min(centralComposition.width - 12, 310)
+        height: 18
+        radius: 2
+        color: "#0B1B2B"
+        border.width: 1
+        border.color: root.altitudeDisplay && root.altitudeDisplay.available
+                      ? (root.altitudeDisplay.degraded ? root.amber : root.accent)
+                      : root.muted
+        z: 10
+
+        Text {
+            anchors.fill: parent
+            anchors.leftMargin: 5
+            anchors.rightMargin: 5
+            text: root.altitudeDisplay
+                  ? root.altitudeDisplay.sourceText + "  "
+                    + root.altitudeDisplay.valueText + "  "
+                    + root.altitudeDisplay.statusText
+                  : "ALTITUDE  —  UNAVAILABLE"
+            color: root.altitudeDisplay && root.altitudeDisplay.available
+                   ? (root.altitudeDisplay.degraded ? root.amber : root.accent)
+                   : root.secondary
+            font.family: "B612"
+            font.pixelSize: 9
+            font.bold: true
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
         }
     }
 
