@@ -15,8 +15,7 @@ Item {
     property var missionAssignments: []
     property int selectedUavIndex: -1
     signal uavSelectionRequested(int index)
-    property var routeDataByUav: ({})
-    property var mandatoryPointsByUav: ({})
+    // Operational route data belongs to RouteController, not per-window caches.
     property string loadedUavId: ""
     property string missionSummary: ""
     property string missionReviewState: ""
@@ -45,8 +44,8 @@ Item {
     property real liveDistanceKm: 0
     property real liveElapsedSeconds: 0
     property real liveAltitudeM: 0
-    // Editable profile constraints. Progress is normalized along the route.
-    property var mandatoryPoints: []
+    // Constraints are derived from the canonical controller route, never cached in this window.
+    readonly property var mandatoryPoints: []
     readonly property real plannedDistanceKm: 78.4
     readonly property real plannedDurationSeconds: 78 * 60
     property var parameterVisibility: ({
@@ -382,13 +381,6 @@ Item {
     }
 
     onTableSplitRatioChanged: profileSettings.tableSplitRatio = tableSplitRatio
-    onMandatoryPointsChanged: {
-        root.mandatoryPointsByUav[root.selectedAircraftId()] = mandatoryPoints
-
-        rebuildTableRows()
-        profileCanvas.requestPaint()
-    }
-
     anchors.fill: parent
     z: 80
     visible: root.visible
