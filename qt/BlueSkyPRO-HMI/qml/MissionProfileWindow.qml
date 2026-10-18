@@ -4,6 +4,12 @@ import QtCore
 Item {
     id: root
     property string missionId: ""
+    // Shared authoritative route model; local profile data is presentation-only.
+    property var routeController: null
+    readonly property bool hasCanonicalRoute: routeController !== null && routeController !== undefined
+                                             && routeController.waypoints !== undefined
+                                             && routeController.waypoints.length >= 2
+    readonly property string routeValidationState: hasCanonicalRoute ? routeController.validationState : "EMPTY"
     property var uavModel: []
     // Assignment result supplied by mission planning; the HMI does not infer task allocation.
     property var missionAssignments: []
@@ -259,26 +265,12 @@ Item {
         var row = root.tableRows[rowIndex], altitude = Number(value)
         if (!row || !isFinite(altitude) || altitude < 0 || altitude > 5000) return
         if (row.isMandatory) {
-            var next = root.mandatoryPoints.slice(0)
-            for (var i = 0; i < next.length; i++) {
-                if (next[i].id === row.mandatoryId) {
-                    next[i] = { id: next[i].id, progress: next[i].progress, altitude: altitude,
-                        routeIndex: next[i].routeIndex === undefined ? -1 : next[i].routeIndex }
-                    var boundIndex = Number(next[i].routeIndex)
-                    if (boundIndex >= 0 && boundIndex < routeModel.count)
-                        routeModel.setProperty(boundIndex, "altitude", String(altitude))
-                    root.mandatoryPoints = next
-                    root.rebuildTableRows()
-                    root.saveCurrentAircraftData()
-                    profileCanvas.requestPaint()
-                    return
-                }
-            }
-        } else if (row.routeIndex >= 0) {
-            routeModel.setProperty(row.routeIndex, "altitude", String(altitude))
-            root.rebuildTableRows()
-            root.saveCurrentAircraftData()
-            profileCanvas.requestPaint()
+            return
+        }
+        if (row.routeIndex >= 0 && root.hasCanonicalRoute) {
+            var points = root.routeController.waypoints
+            if (row.routeIndex < points.length)
+                root.routeController.editWaypointAltitude(String(points[row.routeIndex].waypointId), altitude)
         }
     }
     function parameterKey(i) {
@@ -322,44 +314,42 @@ Item {
         return root.missionSummary
     }
 
-    function saveCurrentAircraftData() {
-        var id = root.loadedUavId.length > 0 ? root.loadedUavId : root.selectedAircraftId()
-        var routes = Object.assign({}, root.routeDataByUav)
-        var points = Object.assign({}, root.mandatoryPointsByUav)
-        var snapshot = []
-        for (var i = 0; i < routeModel.count; ++i) {
-            var item = routeModel.get(i), copy = {}
-            for (var key in item) copy[key] = item[key]
-            snapshot.push(copy)
+    // Compatibility projection for current drawing delegates. Operational edits
+    // are forwarded to RouteController; this ListModel is never authoritative.
+    function syncFromCanonicalRoute() {
+        routeModel.clear()
+        if (!root.hasCanonicalRoute) {
+            root.mandatoryPoints = []
+            root.tableRows = []
+            profileCanvas.requestPaint()
+            return
         }
-        routes[id] = snapshot
-        points[id] = root.mandatoryPoints
-        root.routeDataByUav = routes
-        root.mandatoryPointsByUav = points
+        var points = root.routeController.waypoints
+        for (var i = 0; i < points.length; ++i) {
+            var p = points[i]
+            var pointType = i === 0 ? "Старт" : (i === points.length - 1 ? "Финиш" : "Участок")
+            routeModel.append({
+                pointType: p.mandatory ? "Обязательная" : pointType,
+                pointName: String(p.waypointId),
+                coordinates: Number(p.latitudeDeg).toFixed(6) + ", " + Number(p.longitudeDeg).toFixed(6),
+                course: "—", distance: "—", altitude: String(p.altitudeM),
+                airspeed: "—", groundspeed: "—", time: "—", deltaHeight: "—",
+                energy: "—", note: p.mandatory ? "Обязательная точка" : "Не рассчитано"
+            })
+        }
+        root.mandatoryPoints = []
+        root.rebuildTableRows()
+        profileCanvas.requestPaint()
+    }
 
+    function saveCurrentAircraftData() {
+        // Route and operational constraints are owned by RouteController.
     }
 
     function loadAircraftData(index) {
-        var id = index >= 0 && index < root.uavModel.length
-                 ? String(root.uavModel[index].id) : "DEFAULT"
-        root.loadedUavId = id
-
-        var routes = root.routeDataByUav[id]
-        var routeToLoad = Array.isArray(routes) && routes.length > 0
-                          ? routes : null
-
-        // Do not let the previous aircraft's route remain visible when the
-        // selected aircraft has no persisted route snapshot.
-        routeModel.clear()
-        if (routeToLoad) {
-            for (var i = 0; i < routeToLoad.length; ++i)
-                routeModel.append(routeToLoad[i])
-        }
-
-        var points = root.mandatoryPointsByUav[id]
-        root.mandatoryPoints = Array.isArray(points) ? points : []
-        root.rebuildTableRows()
-        profileCanvas.requestPaint()
+        root.loadedUavId = index >= 0 && index < root.uavModel.length
+                           ? String(root.uavModel[index].id) : "DEFAULT"
+        root.syncFromCanonicalRoute()
     }
 
     function selectAircraft(index) {
@@ -373,26 +363,7 @@ Item {
     Component.onCompleted: {
         root.recalculateColumnLayout()
         root.tableSplitRatio = Math.max(0, Math.min(1, profileSettings.tableSplitRatio))
-
-        var initialRoute = []
-        for (var ri = 0; ri < routeModel.count; ++ri) {
-            var source = routeModel.get(ri), item = {}
-            for (var key in source) item[key] = source[key]
-            initialRoute.push(item)
-        }
-        var initialId = root.selectedAircraftId()
-        var routes = Object.assign({}, root.routeDataByUav)
-        var points = Object.assign({}, root.mandatoryPointsByUav)
-        for (var ui = 0; ui < root.uavModel.length; ++ui) {
-            var uid = String(root.uavModel[ui].id)
-            if (!Array.isArray(routes[uid])) routes[uid] = initialRoute
-            if (!Array.isArray(points[uid])) points[uid] = []
-        }
-        if (!Array.isArray(routes[initialId])) routes[initialId] = initialRoute
-        if (!Array.isArray(points[initialId])) points[initialId] = []
-        root.routeDataByUav = routes
-        root.mandatoryPointsByUav = points
-        root.loadAircraftData(root.selectedUavIndex)
+        root.syncFromCanonicalRoute()
         if (profileSettings.columnOrderJson.length > 0) {
             try {
                 var saved = JSON.parse(profileSettings.columnOrderJson)
@@ -400,6 +371,13 @@ Item {
                     root.columnOrder = saved
             } catch (e) { }
         }
+    }
+
+    Connections {
+        target: root.routeController
+        ignoreUnknownSignals: true
+        function onRouteChanged() { root.syncFromCanonicalRoute() }
+        function onValidationChanged() { root.syncFromCanonicalRoute() }
     }
 
     onTableSplitRatioChanged: profileSettings.tableSplitRatio = tableSplitRatio
@@ -1337,12 +1315,6 @@ Item {
 
     ListModel {
         id: routeModel
-        ListElement { pointType: "Старт"; pointName: "WP Start"; coordinates: "55.7522, 37.6156"; course: "—"; distance: "0.0"; altitude: "120"; airspeed: "—"; groundspeed: "—"; time: "00:00"; deltaHeight: "—"; energy: "100"; note: "Взлёт (VTOL)" }
-        ListElement { pointType: "Участок"; pointName: "WP 1"; coordinates: "55.7801, 37.6923"; course: "087"; distance: "12.4"; altitude: "150"; airspeed: "28.0"; groundspeed: "25.4"; time: "04:52"; deltaHeight: "+30"; energy: "92"; note: "Набор высоты" }
-        ListElement { pointType: "Участок"; pointName: "WP 2"; coordinates: "55.8065, 37.8041"; course: "095"; distance: "18.7"; altitude: "150"; airspeed: "30.0"; groundspeed: "27.1"; time: "06:54"; deltaHeight: "0"; energy: "81"; note: "Патрулирование" }
-        ListElement { pointType: "Участок"; pointName: "WP 3"; coordinates: "55.8410, 37.9124"; course: "110"; distance: "15.6"; altitude: "180"; airspeed: "28.5"; groundspeed: "26.0"; time: "05:47"; deltaHeight: "+30"; energy: "68"; note: "Обход зоны" }
-        ListElement { pointType: "Участок"; pointName: "WP 4"; coordinates: "55.8702, 38.0231"; course: "132"; distance: "16.8"; altitude: "150"; airspeed: "29.0"; groundspeed: "24.8"; time: "06:46"; deltaHeight: "-30"; energy: "54"; note: "Съёмка" }
-        ListElement { pointType: "Финиш"; pointName: "WP Finish"; coordinates: "55.9001, 38.1156"; course: "142"; distance: "14.9"; altitude: "120"; airspeed: "28.0"; groundspeed: "25.6"; time: "05:59"; deltaHeight: "-30"; energy: "42"; note: "Снижение, посадка" }
     }
 }
 }
