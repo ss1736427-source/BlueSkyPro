@@ -52,7 +52,8 @@ CapabilityDiscoveryResult CapabilityDiscoveryBoundary::ingest(
         DeviceCapabilityLifecycle::Discovered,
         report.capabilities};
 
-    if (capability_runtime_.resolve(report.device_id, snapshot)) {
+    DeviceCapabilitySnapshot existing_snapshot{};
+    if (capability_runtime_.resolve(report.device_id, existing_snapshot)) {
         const auto result = capability_runtime_.updateSnapshot(std::move(snapshot));
         return result == DeviceCapabilityResult::Updated
             ? CapabilityDiscoveryResult::Updated

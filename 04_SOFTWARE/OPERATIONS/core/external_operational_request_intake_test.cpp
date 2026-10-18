@@ -37,6 +37,7 @@ OperationalSnapshot snapshot() {
     OperationalSnapshot value;
     Action action;
     action.id = "action.takeoff";
+    action.automation = AutomationLevel::Automatic;
     action.authorized = true;
     action.safe = true;
     action.regulatory_ok = true;

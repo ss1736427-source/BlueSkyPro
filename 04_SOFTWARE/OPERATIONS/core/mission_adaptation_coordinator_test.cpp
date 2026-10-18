@@ -24,7 +24,8 @@ int main() {
         "route-change", AdaptationType::RouteProfileChange,
         {"uav-02"}, {"task-01"}, false, true, true, true, true, 100};
     const AdaptationContext no_authority{false};
-    const auto human = select_adaptation({outside_envelope}, no_authority);
+    const std::vector<AdaptationCandidate> human_candidates{outside_envelope};
+    const auto human = select_adaptation(human_candidates, no_authority);
     assert(human.status == AdaptationStatus::RequiresHuman);
     assert(human.candidate != nullptr);
     assert(human.candidate->id == "route-change");
