@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <functional>
 #include <limits>
 #include <queue>
@@ -14,7 +15,7 @@ AStarSolver::AStarSolver(Heuristic heuristic)
     : heuristic_(std::move(heuristic)) {}
 
 SolverMetadata AStarSolver::metadata() const {
-    return {"astar", "1.1.0", {"point_to_point", "graph_route", "constrained_graph_route"}, false, true};
+    return {"astar", "1.1.1", {"point_to_point", "graph_route", "constrained_graph_route"}, false, true};
 }
 
 bool AStarSolver::eligible(const MissionProblem& problem) const {
@@ -37,10 +38,17 @@ RunState AStarSolver::run(SolverContext& context) {
     const auto budget_ms = context.budget().wall_time_ms;
     const double inf = std::numeric_limits<double>::infinity();
 
+    // A* is defined here for finite, non-negative edge costs. Silently skipping
+    // malformed edges can produce a plausible but incomplete route, so reject
+    // the graph rather than optimizing over a silently altered graph.
     std::unordered_map<std::string, std::vector<PlanningGraphEdge>> adjacency;
     for (const auto& edge : graph.edges) {
-        if (edge.cost >= 0.0) adjacency[edge.from].push_back(edge);
+        if (!std::isfinite(edge.cost) || edge.cost < 0.0) return RunState::Failed;
+        adjacency[edge.from].push_back(edge);
     }
+
+    const double start_h = heuristic_(*start, *goal);
+    if (!std::isfinite(start_h)) return RunState::Failed;
 
     std::unordered_map<std::string, double> g;
     std::unordered_map<std::string, std::string> parent;
@@ -55,7 +63,7 @@ RunState AStarSolver::run(SolverContext& context) {
     };
 
     std::priority_queue<QueueItem, std::vector<QueueItem>, std::greater<>> open;
-    open.push({start->id, heuristic_(*start, *goal), 0.0});
+    open.push({start->id, start_h, 0.0});
 
     std::unordered_set<std::string> closed;
     while (!open.empty()) {
@@ -70,6 +78,7 @@ RunState AStarSolver::run(SolverContext& context) {
         open.pop();
         const auto best_g = g.find(current.id);
         if (best_g == g.end() || current.g != best_g->second) continue;
+        if (!std::isfinite(current.f) || !std::isfinite(current.g)) return RunState::Failed;
         if (closed.contains(current.id)) continue;
         closed.insert(current.id);
 
@@ -99,14 +108,23 @@ RunState AStarSolver::run(SolverContext& context) {
         if (!current_node) return RunState::Failed;
 
         for (const auto& edge : adjacency[current.id]) {
+            const auto destination = g.find(edge.to);
+            if (destination == g.end()) return RunState::Failed;
+
             const double tentative_g = g[current.id] + edge.cost;
-            if (tentative_g < g[edge.to]) {
+            if (!std::isfinite(tentative_g)) return RunState::Failed;
+            if (tentative_g < destination->second) {
+                const auto* next_node = graph.find_node(edge.to);
+                if (!next_node) return RunState::Failed;
+                const double h = heuristic_(*next_node, *goal);
+                if (!std::isfinite(h)) return RunState::Failed;
+                const double f = tentative_g + h;
+                if (!std::isfinite(f)) return RunState::Failed;
+
                 g[edge.to] = tentative_g;
                 parent[edge.to] = current.id;
                 closed.erase(edge.to);
-                const auto* next_node = graph.find_node(edge.to);
-                if (!next_node) return RunState::Failed;
-                open.push({edge.to, tentative_g + heuristic_(*next_node, *goal), tentative_g});
+                open.push({edge.to, f, tentative_g});
             }
         }
     }
