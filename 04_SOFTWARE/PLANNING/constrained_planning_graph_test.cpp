@@ -1,22 +1,47 @@
 #include "constrained_planning_graph.hpp"
+
 #include <cassert>
+
 using namespace bluesky::planning;
-int main() {
-    PlanningGraph source;
-    source.start_node="S"; source.goal_node="G";
-    source.nodes.push_back({"S",0,0,{59.0,30.0},100});
-    source.nodes.push_back({"G",1,1,{59.01,30.01},100});
-    source.edges.push_back({"S","G",10});
-    ConstrainedEnvironmentSnapshot env;
-    env.snapshot_id="ENV-1"; env.snapshot_version="1"; env.calculation_input_version="1";
-    SpatialRestriction r;
-    r.restriction_id="R-1"; r.source_id="TEST"; r.snapshot_version="1";
-    r.polygon={{58.99,29.99},{58.99,30.02},{59.02,30.02},{59.02,29.99}};
-    env.restrictions.push_back(r);
-    auto blocked=ConstrainedPlanningGraphBuilder::build(source,env);
-    assert(blocked.graph.edges.empty()); assert(blocked.rejected_edges==1);
-    env.restrictions.clear();
-    auto open=ConstrainedPlanningGraphBuilder::build(source,env);
-    assert(open.graph.edges.size()==1);
+
+int main()
+{
+    ConstrainedEnvironmentSnapshot environment;
+    environment.snapshot_id = "ENV-1";
+    environment.snapshot_version = "v1";
+    environment.calculation_input_version = "INPUT-1";
+    environment.complete = true;
+
+    SpatialRestriction restriction;
+    restriction.restriction_id = "R-1";
+    restriction.source_id = "TEST";
+    restriction.snapshot_version = "v1";
+    restriction.geometry_type = RestrictionGeometryType::Circle;
+    restriction.center = {59.0, 30.0};
+    restriction.radius_m = 100.0;
+    restriction.minimum_altitude_m = 0.0;
+    restriction.maximum_altitude_m = 200.0;
+    restriction.active = true;
+    environment.restrictions.push_back(restriction);
+
+    PlanningGraph graph;
+    graph.nodes.push_back({"N1", 0.0, 0.0, {59.0, 30.0}, 100.0});
+    graph.start_node = "MISSING-START";
+    graph.goal_node = "N1";
+
+    // Missing endpoints must be rejected safely, not crash while computing
+    // environment dependency identity.
+    const auto result = ConstrainedPlanningGraphBuilder::build(graph, environment);
+    assert(result.graph.start_node.empty());
+    assert(result.graph.goal_node.empty());
+    assert(result.dependency_identity.empty());
+
+    graph.start_node = "N1";
+    graph.goal_node = "MISSING-GOAL";
+    const auto missingGoal = ConstrainedPlanningGraphBuilder::build(graph, environment);
+    assert(missingGoal.graph.start_node.empty());
+    assert(missingGoal.graph.goal_node.empty());
+    assert(missingGoal.dependency_identity.empty());
+
     return 0;
 }
