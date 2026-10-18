@@ -135,7 +135,7 @@ def test_stdio_adapter_rejects_missing_environment_snapshot_refs() -> None:
     request["inputs"]["routeCandidate"].pop("environmentSnapshotRefs")
     proc = subprocess.run(
         [sys.executable, str(ADAPTER)],
-        input=json.dumps(request) + "\\n",
+        input=json.dumps(request) + "\n",
         text=True,
         capture_output=True,
         check=True,
