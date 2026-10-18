@@ -16,37 +16,38 @@ int main() {
     restriction.restriction_id = "NOTAM-1";
     restriction.source_id = "NOTAM";
     restriction.snapshot_version = "N-7";
+    restriction.altitude_reference = AltitudeReference::AGL;
     restriction.polygon = {{59, 30}, {59, 30.01}, {59.01, 30.01}, {59.01, 30}};
     environment.restrictions.push_back(restriction);
 
-    const SpatialEdge crossing{{58.995, 29.995}, {59.005, 30.005}, 100};
+    const SpatialEdge crossing{{58.995, 29.995}, {59.005, 30.005}, 100, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), AltitudeReference::AGL};
     const auto blocked = ConstrainedOpenSpace::evaluateSegment(environment, crossing);
     assert(!blocked.allowed && blocked.blocking_restriction_ids.size() == 1);
 
     const auto open = ConstrainedOpenSpace::evaluateSegment(
-        environment, {{58.99, 29.99}, {58.995, 29.995}, 100});
+        environment, {{58.99, 29.99}, {58.995, 29.995}, 100, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), AltitudeReference::AGL});
     assert(open.allowed);
 
     // Invalid route coordinates and altitudes must fail closed.
     const double nan = std::numeric_limits<double>::quiet_NaN();
     const double infinity = std::numeric_limits<double>::infinity();
     const auto nan_coordinate = ConstrainedOpenSpace::evaluateSegment(
-        environment, {{nan, 30.0}, {59.005, 30.005}, 100});
+        environment, {{nan, 30.0}, {59.005, 30.005}, 100, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), AltitudeReference::AGL});
     assert(!nan_coordinate.allowed);
     assert(nan_coordinate.blocking_restriction_ids.front() == "INVALID_ROUTE_EDGE");
 
     const auto out_of_range_coordinate = ConstrainedOpenSpace::evaluateSegment(
-        environment, {{91.0, 30.0}, {59.005, 30.005}, 100});
+        environment, {{91.0, 30.0}, {59.005, 30.005}, 100, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), AltitudeReference::AGL});
     assert(!out_of_range_coordinate.allowed);
     assert(out_of_range_coordinate.blocking_restriction_ids.front() == "INVALID_ROUTE_EDGE");
 
     const auto infinite_altitude = ConstrainedOpenSpace::evaluateSegment(
-        environment, {{58.995, 29.995}, {59.005, 30.005}, infinity});
+        environment, {{58.995, 29.995}, {59.005, 30.005}, infinity, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), AltitudeReference::AGL});
     assert(!infinite_altitude.allowed);
     assert(infinite_altitude.blocking_restriction_ids.front() == "INVALID_ROUTE_EDGE");
 
     const auto infinite_altitude_envelope = ConstrainedOpenSpace::evaluateSegment(
-        environment, {{58.995, 29.995}, {59.005, 30.005}, 100, infinity, 120});
+        environment, {{58.995, 29.995}, {59.005, 30.005}, 100, infinity, 120, AltitudeReference::AGL});
     assert(!infinite_altitude_envelope.allowed);
     assert(infinite_altitude_envelope.blocking_restriction_ids.front() == "INVALID_ROUTE_EDGE");
 
@@ -98,7 +99,7 @@ int main() {
     assert(!ConstrainedOpenSpace::evaluateSegment(environment, crossing).allowed);
 
     const auto envelope = ConstrainedOpenSpace::evaluateSegment(
-        environment, {{58.995, 29.995}, {59.005, 30.005}, 150, 80, 160});
+        environment, {{58.995, 29.995}, {59.005, 30.005}, 150, 80, 160, AltitudeReference::AGL});
     assert(!envelope.allowed);
 
     environment.complete = false;
@@ -157,8 +158,8 @@ int main() {
 
     Route valid_route;
     valid_route.waypoints = {
-        {"A", {58.99, 29.99}, 100, false},
-        {"B", {58.995, 29.995}, 100, false}
+        {"A", {58.99, 29.99}, 100, false, AltitudeReference::AGL},
+        {"B", {58.995, 29.995}, 100, false, AltitudeReference::AGL}
     };
     valid_route.segments.push_back({"SEG-2", "A", "B", 10, 5});
     assert(ConstrainedOpenSpace::evaluateRoute(environment, valid_route).allowed);
