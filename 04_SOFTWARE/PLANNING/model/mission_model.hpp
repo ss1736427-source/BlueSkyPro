@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -20,8 +21,8 @@ struct MissionIdentity {
 struct MissionGeometryVertex {
     double longitude_deg = 0.0;
     double latitude_deg = 0.0;
-    double altitude_m = 0.0;
-    std::string altitude_reference;
+    std::optional<double> altitude_m;
+    std::optional<std::string> altitude_reference;
 };
 
 struct MissionGeometryObject {
