@@ -329,6 +329,7 @@ Item {
             anchors.bottom: parent.bottom
             // Do not replace the map workspace while creating a mission.
             visible: !root.missionCreationMode && root.activeTool !== "MAP" && root.activeTool !== "UAV"
+                     && root.activeTool !== "ADMIN" && root.activeTool !== "VIRTUAL FLT"
             contextName: root.activeTool
             selectedUavIndex: root.selectedUavIndex
             selectedUavId: root.selectedUavId
@@ -340,6 +341,24 @@ Item {
                       : root.activeTool === "FPV"
                       ? ["UAV SELECTION", "CONTROL STATION", "CONTROL MAPPING", "C2 / VIDEO STATE", "MANUAL CONTROL", "RETURN TO AUTO"]
                       : ["VIRTUAL UAV", "SIMULATION", "ENVIRONMENT", "SCENARIOS", "PLANNED / SIMULATED / ACTUAL", "RESULTS"]
+        }
+
+        IntegrationConsole {
+            id: integrationConsole
+            anchors.left: leftPanel.right
+            anchors.right: rightPanel.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            visible: !root.missionCreationMode && root.activeTool === "ADMIN"
+        }
+
+        VirtualFlightTestConsole {
+            id: virtualFlightTestConsole
+            anchors.left: leftPanel.right
+            anchors.right: rightPanel.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            visible: !root.missionCreationMode && root.activeTool === "VIRTUAL FLT"
         }
 
         RightPanel {
