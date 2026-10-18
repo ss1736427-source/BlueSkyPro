@@ -29,6 +29,9 @@ Item {
     readonly property bool manualValidationStarted: missionState === "VALIDATING"
     property bool manualSetRequested: false
     property string manualSetBaselineResultId: ""
+    // Manual input version advances whenever templates or operator geometry changes.
+    property int manualMissionVersion: 1
+    property var manualSelectedTemplateIds: []
     property bool warningActive: true
     // Explicit header-triggered map review; independent of the right-panel Map Alerts toggle.
     property bool headerAlertsOpen: false
@@ -164,6 +167,21 @@ Item {
                 root.manualCompositionComplete = false
                 root.manualSetRequested = false
                 root.manualSetBaselineResultId = ""
+                root.manualSelectedTemplateIds = []
+                root.manualMissionVersion += 1
+            }
+            onManualTemplateSelectionCommitted: function(indices) {
+                var nextIds = indices.map(function(index) {
+                    return "MT-" + String(index + 1).padStart(2, "0")
+                })
+                root.manualSelectedTemplateIds = nextIds
+                root.manualMissionVersion += 1
+                // Any template change invalidates a prior check for the previous model.
+                root.manualSetRequested = false
+                root.manualSetBaselineResultId = ""
+                root.manualCompositionComplete = false
+                if (root.missionState === "VALIDATING")
+                    root.missionState = "MANUAL"
             }
             onReturnToAutoRequested: root.missionState = "AUTO"
             onTaskCreationRequested: {
@@ -200,7 +218,14 @@ Item {
                 root.mapPanY = panY
                 root.mapZoom = zoom
             }
-            onManualCompositionCompleted: root.manualCompositionComplete = true
+            onManualCompositionCompleted: {
+                root.manualCompositionComplete = true
+                root.manualMissionVersion += 1
+                root.manualSetRequested = false
+                root.manualSetBaselineResultId = ""
+                if (root.missionState === "VALIDATING")
+                    root.missionState = "MANUAL"
+            }
             onMapDoubleClicked: root.leftPanelOpen = false
         }
 
@@ -307,10 +332,19 @@ Item {
             manualValidationStarted: root.manualValidationStarted
             manualValidationSucceeded: root.manualSetSucceeded
             onSetManualMissionRequested: {
-                // Prevent a previous result from being mistaken for this SET attempt.
-                root.manualSetBaselineResultId = root.planningResult ? String(root.planningResult.resultId || "") : ""
-                root.manualSetRequested = true
-                root.missionState = "VALIDATING"
+                // Fail closed until the manual editor supplies selected templates and
+                // real geometry to a versioned Planning Core request. The current map
+                // display alone is not a geometry submission.
+                if (root.manualSelectedTemplateIds.length === 0
+                        || !root.manualCompositionComplete) {
+                    root.manualSetRequested = false
+                    root.missionState = "MANUAL"
+                    return
+                }
+                // Do not claim that a request was sent: the current Planning Core
+                // bridge contract still accepts prebuilt planning inputs, not this model.
+                root.manualSetRequested = false
+                root.missionState = "MANUAL"
             }
             onStartMissionRequested: root.leftPanelOpen = false
         }
