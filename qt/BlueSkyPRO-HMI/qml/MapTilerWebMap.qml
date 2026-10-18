@@ -145,15 +145,21 @@ Item {
         }
     }
 
-    WebChannel {
-        id: mapWebChannel
-        registeredObjects: typeof manualGeometryBridge !== "undefined" ? [manualGeometryBridge] : []
+    // Do not instantiate Qt WebChannel at all when the map key is absent.
+    // This keeps the no-key startup path independent of WebChannel runtime setup.
+    Loader {
+        id: mapWebChannelLoader
+        active: root.apiKey.length > 0
+        sourceComponent: Component {
+            WebChannel {
+                registeredObjects: typeof manualGeometryBridge !== "undefined" ? [manualGeometryBridge] : []
+            }
+        }
     }
 
     WebEngineView {
         id: webMap
-        // Only initialize the Qt WebChannel when the MapTiler page is enabled.
-        webChannel: root.apiKey.length > 0 ? mapWebChannel : null
+        webChannel: mapWebChannelLoader.item
         anchors.fill: parent
         visible: root.apiKey.length > 0
         backgroundColor: "#071321"
