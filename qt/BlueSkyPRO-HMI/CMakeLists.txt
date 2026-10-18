@@ -20,6 +20,8 @@ qt_add_executable(appBlueSkyPRO
     src/PlanningBridge.h
     src/ManualGeometryBridge.cpp
     src/ManualGeometryBridge.h
+    src/ManualMissionModelAdapter.cpp
+    src/ManualMissionModelAdapter.h
     src/RouteController.h
     src/TileCacheManager.cpp
     src/TileCacheManager.h
@@ -78,6 +80,15 @@ add_executable(route_controller_test
 target_include_directories(route_controller_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 target_link_libraries(route_controller_test PRIVATE Qt6::Core)
 add_test(NAME route_controller_fail_closed_contract COMMAND route_controller_test)
+
+add_executable(manual_mission_model_adapter_test
+    tests/ManualMissionModelAdapterTest.cpp
+    src/ManualMissionModelAdapter.cpp
+    src/ManualMissionModelAdapter.h
+)
+target_include_directories(manual_mission_model_adapter_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+target_link_libraries(manual_mission_model_adapter_test PRIVATE Qt6::Core)
+add_test(NAME manual_mission_model_adapter_contract COMMAND manual_mission_model_adapter_test)
 
 set_target_properties(appBlueSkyPRO PROPERTIES
     MACOSX_BUNDLE TRUE
