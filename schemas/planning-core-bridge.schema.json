@@ -4,45 +4,130 @@
   "title": "BlueSky PRO Planning Core Bridge Result",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "messageType", "missionId", "resultId", "source", "verification", "result"],
+  "required": [
+    "schemaVersion",
+    "messageType",
+    "missionId",
+    "resultId",
+    "source",
+    "verification",
+    "result"
+  ],
   "properties": {
-    "schemaVersion": { "const": "1.0" },
-    "messageType": { "const": "planning.result" },
-    "missionId": { "type": "string", "minLength": 1 },
-    "resultId": { "type": "string", "minLength": 1 },
-    "generatedAt": { "type": "string", "minLength": 1 },
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "messageType": {
+      "const": "planning.result"
+    },
+    "missionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "resultId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generatedAt": {
+      "type": "string",
+      "minLength": 1
+    },
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["runtime", "contractVersion"],
+      "required": [
+        "runtime",
+        "contractVersion"
+      ],
       "properties": {
-        "runtime": { "type": "string", "enum": ["python-planning-core"] },
-        "plannerVersion": { "type": "string" },
-        "contractVersion": { "type": "string", "minLength": 1 },
-        "configurationVersion": { "type": "string" },
-        "runId": { "type": "string" }
+        "runtime": {
+          "type": "string",
+          "enum": [
+            "python-planning-core"
+          ]
+        },
+        "plannerVersion": {
+          "type": "string"
+        },
+        "contractVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "configurationVersion": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        }
       }
     },
     "verification": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["finalGateStatus", "releaseStatus", "verified", "authorizationStatus"],
+      "required": [
+        "finalGateStatus",
+        "releaseStatus",
+        "verified",
+        "authorizationStatus"
+      ],
       "properties": {
-        "finalGateStatus": { "type": "string", "enum": ["PASS", "FAIL"] },
-        "releaseStatus": { "type": "string", "enum": ["RELEASE_ELIGIBLE", "BLOCKED"] },
-        "verified": { "type": "boolean" },
-        "failedChecks": { "type": "array", "items": { "type": "string" } },
-        "upstreamChecks": { "type": "array", "items": { "type": "string" } },
-        "authorizationStatus": { "type": "string", "minLength": 1 }
+        "finalGateStatus": {
+          "type": "string",
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "releaseStatus": {
+          "type": "string",
+          "enum": [
+            "RELEASE_ELIGIBLE",
+            "BLOCKED"
+          ]
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "failedChecks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "upstreamChecks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "authorizationStatus": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "traceability": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "inputRefs": { "type": "array", "items": { "type": "string" } },
-        "artifactRefs": { "type": "array", "items": { "type": "string" } },
-        "evidenceRefs": { "type": "array", "items": { "type": "string" } }
+        "inputRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "artifactRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "result": {
@@ -53,19 +138,166 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "lineSpacingM": { "type": ["number", "null"] },
-            "lineCount": { "type": ["integer", "null"] },
-            "expectedFrames": { "type": ["integer", "null"] },
-            "expectedCoveragePercent": { "type": ["number", "null"] },
-            "routeLengthM": { "type": "number" },
-            "expectedDurationS": { "type": "number" },
-            "expectedEnergyWh": { "type": "number" },
-            "requiredReserveWh": { "type": ["number", "null"] },
-            "dataVolumeMb": { "type": ["number", "null"] },
-            "releaseStatus": { "type": "string", "enum": ["RELEASE_ELIGIBLE", "BLOCKED"] },
-            "verified": { "type": "boolean" }
+            "lineSpacingM": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "lineCount": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "expectedFrames": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "expectedCoveragePercent": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "routeLengthM": {
+              "type": "number"
+            },
+            "expectedDurationS": {
+              "type": "number"
+            },
+            "expectedEnergyWh": {
+              "type": "number"
+            },
+            "requiredReserveWh": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "dataVolumeMb": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "releaseStatus": {
+              "type": "string",
+              "enum": [
+                "RELEASE_ELIGIBLE",
+                "BLOCKED"
+              ]
+            },
+            "verified": {
+              "type": "boolean"
+            }
           },
-          "required": ["lineSpacingM", "lineCount", "expectedFrames", "expectedCoveragePercent", "routeLengthM", "expectedDurationS", "expectedEnergyWh", "requiredReserveWh", "dataVolumeMb", "releaseStatus", "verified"]
+          "required": [
+            "lineSpacingM",
+            "lineCount",
+            "expectedFrames",
+            "expectedCoveragePercent",
+            "routeLengthM",
+            "expectedDurationS",
+            "expectedEnergyWh",
+            "requiredReserveWh",
+            "dataVolumeMb",
+            "releaseStatus",
+            "verified"
+          ]
+        },
+        "routeCandidate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "routeId",
+            "routeVersion",
+            "missionId",
+            "missionVersion",
+            "generatorId",
+            "generatorVersion",
+            "calculationInputVersion",
+            "coordinateReferenceSystem",
+            "waypoints"
+          ],
+          "properties": {
+            "routeId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "routeVersion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "missionId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "missionVersion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "generatorId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "generatorVersion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "calculationInputVersion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "coordinateReferenceSystem": {
+              "const": "EPSG:4326"
+            },
+            "waypoints": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "waypointId",
+                  "latitudeDeg",
+                  "longitudeDeg",
+                  "altitudeM",
+                  "mandatory",
+                  "altitudeReference"
+                ],
+                "properties": {
+                  "waypointId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "latitudeDeg": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitudeDeg": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                  },
+                  "altitudeM": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 5000
+                  },
+                  "mandatory": {
+                    "type": "boolean"
+                  },
+                  "altitudeReference": {
+                    "const": "AGL"
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
