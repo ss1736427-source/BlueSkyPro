@@ -17,6 +17,22 @@ struct MissionIdentity {
     std::string parent_mission_id;
 };
 
+struct MissionGeometryVertex {
+    double longitude_deg = 0.0;
+    double latitude_deg = 0.0;
+    double altitude_m = 0.0;
+    std::string altitude_reference;
+};
+
+struct MissionGeometryObject {
+    std::string geometry_id;
+    std::string geometry_type;
+    std::string coordinate_reference_system = "EPSG:4326";
+    std::vector<MissionGeometryVertex> coordinates;
+    std::vector<std::string> template_ids;
+    std::string version;
+};
+
 struct MissionIntent {
     std::string objective;
     std::string task_type;
@@ -97,6 +113,10 @@ struct ExecutionReference {
 
 struct Mission {
     MissionIdentity identity;
+    // AUTO and MANUAL share the same canonical model and safety pipeline.
+    std::string mission_mode = "AUTO";
+    std::vector<std::string> selected_template_ids;
+    std::vector<MissionGeometryObject> geometry_objects;
     MissionIntent intent;
     TaskDefinition task;
     ConstraintSet constraints;
