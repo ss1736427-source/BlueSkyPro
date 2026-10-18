@@ -152,7 +152,8 @@ Item {
 
     WebEngineView {
         id: webMap
-        webChannel: mapWebChannel
+        // Only initialize the Qt WebChannel when the MapTiler page is enabled.
+        webChannel: root.apiKey.length > 0 ? mapWebChannel : null
         anchors.fill: parent
         visible: root.apiKey.length > 0
         backgroundColor: "#071321"
