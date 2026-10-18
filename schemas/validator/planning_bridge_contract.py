@@ -53,6 +53,18 @@ def build_result_message(
 
     result: dict[str, Any] = {}
     if route_candidate is not None:
+        # Keep the serializer aligned with the canonical bridge schema: a route
+        # without immutable environment snapshot references is not traceable.
+        environment = route_candidate.get("environmentSnapshotRefs")
+        environment_fields = (
+            "terrainSnapshotId", "airspaceSnapshotId",
+            "weatherSnapshotId", "windSnapshotId",
+        )
+        if not isinstance(environment, dict):
+            raise PlanningBridgeContractError("ROUTE_CANDIDATE_ENVIRONMENT_SNAPSHOT_REFS_REQUIRED")
+        for key in environment_fields:
+            if not isinstance(environment.get(key), str) or not environment[key].strip():
+                raise PlanningBridgeContractError(f"ROUTE_CANDIDATE_ENVIRONMENT_SNAPSHOT_REQUIRED:{key}")
         # Explicit geodetic input only; never derive this from planar x/y routes.
         result["routeCandidate"] = route_candidate
     if three_d_mapping is not None:
