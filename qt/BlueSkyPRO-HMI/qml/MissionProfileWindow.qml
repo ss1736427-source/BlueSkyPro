@@ -347,9 +347,15 @@ Item {
         root.loadedUavId = id
 
         var routes = root.routeDataByUav[id]
-        if (Array.isArray(routes) && routes.length > 0) {
-            routeModel.clear()
-            for (var i = 0; i < routes.length; ++i) routeModel.append(routes[i])
+        var routeToLoad = Array.isArray(routes) && routes.length > 0
+                          ? routes : null
+
+        // Do not let the previous aircraft's route remain visible when the
+        // selected aircraft has no persisted route snapshot.
+        routeModel.clear()
+        if (routeToLoad) {
+            for (var i = 0; i < routeToLoad.length; ++i)
+                routeModel.append(routeToLoad[i])
         }
 
         var points = root.mandatoryPointsByUav[id]
