@@ -30,6 +30,8 @@
         <file>qml/TaskCreation.ui.qml</file>
         <file>qml/Theme.qml</file>
         <file>qml/ToolContext.ui.qml</file>
+        <file>qml/IntegrationConsole.qml</file>
+        <file>qml/VirtualFlightTestConsole.qml</file>
         <file>qml/TopHeader.ui.qml</file>
         <file>qml/UAVFleetPanel.qml</file>
         <file>qml/UAVFleetPanelForm.ui.qml</file>
