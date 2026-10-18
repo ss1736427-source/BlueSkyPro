@@ -101,7 +101,8 @@ bool validRestriction(const SpatialRestriction& restriction) {
 
 bool validEdge(const SpatialEdge& edge) {
     if (!validCoordinate(edge.from) || !validCoordinate(edge.to) ||
-        !std::isfinite(edge.altitude_m)) {
+        !std::isfinite(edge.altitude_m) ||
+        edge.altitude_reference != AltitudeReference::AGL) {
         return false;
     }
     const double minimum = std::isnan(edge.altitude_min_m)
@@ -208,6 +209,12 @@ OpenSpaceResult ConstrainedOpenSpace::evaluateSegment(
         return result;
     }
     for (const auto& restriction : environment.restrictions) {
+        if (restriction.active &&
+            restriction.altitude_reference != AltitudeReference::AGL) {
+            reject(result, "UNSUPPORTED_RESTRICTION_ALTITUDE_DATUM:"
+                           + restriction.restriction_id);
+            return result;
+        }
         if (restriction.active && !validRestriction(restriction)) {
             reject(result, "INVALID_RESTRICTION_GEOMETRY:" + restriction.restriction_id);
             return result;
@@ -250,12 +257,17 @@ OpenSpaceResult ConstrainedOpenSpace::evaluateRoute(
             reject(result, "INVALID_ROUTE_WAYPOINT_ALTITUDE:" + segment.segment_id);
             continue;
         }
+        if (from->altitude_reference != AltitudeReference::AGL ||
+            to->altitude_reference != AltitudeReference::AGL) {
+            reject(result, "UNSUPPORTED_ROUTE_ALTITUDE_DATUM:" + segment.segment_id);
+            continue;
+        }
 
         const double min_altitude = std::min(from->altitude_m, to->altitude_m);
         const double max_altitude = std::max(from->altitude_m, to->altitude_m);
         auto segment_result = evaluateSegment(environment,
             {from->position, to->position, (min_altitude + max_altitude) * 0.5,
-             min_altitude, max_altitude});
+             min_altitude, max_altitude, AltitudeReference::AGL});
         result.blocking_restriction_ids.insert(result.blocking_restriction_ids.end(),
             segment_result.blocking_restriction_ids.begin(),
             segment_result.blocking_restriction_ids.end());
