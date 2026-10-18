@@ -112,7 +112,6 @@ target_link_libraries(wind_performance_trajectory_test PRIVATE bluesky_planning)
 
 add_executable(route_constraint_validator_test
     route_constraint_validator_test.cpp
-    route_constraint_validator.cpp
 )
 target_link_libraries(route_constraint_validator_test PRIVATE bluesky_planning)
 
