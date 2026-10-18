@@ -219,6 +219,7 @@
             "generatorId",
             "generatorVersion",
             "calculationInputVersion",
+            "environmentSnapshotRefs",
             "coordinateReferenceSystem",
             "waypoints"
           ],
@@ -250,6 +251,22 @@
             "calculationInputVersion": {
               "type": "string",
               "minLength": 1
+            },
+            "environmentSnapshotRefs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "terrainSnapshotId",
+                "airspaceSnapshotId",
+                "weatherSnapshotId",
+                "windSnapshotId"
+              ],
+              "properties": {
+                "terrainSnapshotId": { "type": "string", "minLength": 1 },
+                "airspaceSnapshotId": { "type": "string", "minLength": 1 },
+                "weatherSnapshotId": { "type": "string", "minLength": 1 },
+                "windSnapshotId": { "type": "string", "minLength": 1 }
+              }
             },
             "coordinateReferenceSystem": {
               "const": "EPSG:4326"
