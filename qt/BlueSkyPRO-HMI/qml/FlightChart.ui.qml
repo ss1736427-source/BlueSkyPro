@@ -17,6 +17,7 @@ Item {
     property bool manualCompositionComplete: false
     // Geographic route geometry must be supplied by the mission/planning layer.
     property var routeCoordinates: []
+    property var manualTemplateIds: []
     property real leftPanelWidth: 0
     property real rightPanelWidth: 0
     // Pan offset for mouse-driven map dragging (visual preview interaction).
