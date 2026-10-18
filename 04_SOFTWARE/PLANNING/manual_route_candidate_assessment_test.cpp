@@ -96,6 +96,16 @@ int main()
     assert(!blocked.flight_release_eligible);
     assert(hasError(blocked, "AIRSPACE_CHECK_BLOCKED:NOTAM-TEST-001"));
 
+    auto staleRestriction = environment;
+    auto oldNoFly = noFly;
+    oldNoFly.snapshot_version = "AS-OLD";
+    staleRestriction.restrictions.push_back(oldNoFly);
+    const auto staleRestrictionResult =
+        assessManualRouteCandidateAirspace(candidate, staleRestriction);
+    assert(!staleRestrictionResult.assessed);
+    assert(hasError(staleRestrictionResult,
+                    "RESTRICTION_SNAPSHOT_VERSION_MISMATCH:NOTAM-TEST-001"));
+
     auto staleSnapshot = environment;
     staleSnapshot.snapshot_id = "AIRSPACE-OLD";
     const auto stale = assessManualRouteCandidateAirspace(candidate, staleSnapshot);
