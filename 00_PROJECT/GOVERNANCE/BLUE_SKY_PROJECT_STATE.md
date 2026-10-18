@@ -376,11 +376,11 @@ The repository-wide audit does not promote draft or working records to certifica
 ### 12.6 Mainline implementation progress — 2026-10-18
 
 - Last fully verified code baseline before planning-hardening integration: `38639c66eee7fff077f2d9e964db4303ad0b085a`; all 12 associated GitHub Actions workflows completed successfully, including Linux HMI build/test and Windows build/test/startup smoke test.
-- Map implementation was ported directly to main from the reviewed PR #36 snapshot. The active chart retains `GoogleMapView` with selectable Yandex/MapTiler raster providers; `MapTilerWebMap` remains a separate prototype and is not claimed as the active 3D map.
+- Map implementation was ported directly to main from the reviewed PR #36 snapshot. The active chart defaults to `MapTilerWebMap` (Qt WebEngine/MapLibre prototype); `GoogleMapView` remains the legacy/fallback raster map with selectable Yandex/MapTiler providers. CI verifies build/startup only, not visual correctness or flight-grade 3D-map behavior.
 - Panel wheel isolation and fixed/free right-panel section layout were ported from the reviewed unique changes in PR #50.
 - Provider-aware cache policy permits disk caching only for MapTiler keys with explicit freshness headers. Yandex/CARTO tiles are transient unless the applicable license is reviewed and explicitly permits persistent storage. Production licensing for Yandex and the selected MapTiler subscription remains a deployment check.
-- PR #37 planning hardening is being ported from exact head `6c9c1f61a757fdbabc693c7aad7a0792d9dd047e`. Preserve the current main versions of `model/route_model.hpp` and the NOTAM validator files, which contain newer vertical-reference safeguards not present on the PR #37 branch.
-- CI for the planning-hardening commit must be checked against its exact resulting SHA before advancing to PR #39/#40 route-preview containment and the dependent altitude telemetry stack.
+- PR #37 planning hardening is integrated at `10c6d4ac411b06657e03c1ef261cfdb43473f1cf`; all 12 associated workflows completed successfully, including planning benchmark and normalized telemetry state. The current main versions of `model/route_model.hpp` and the NOTAM validator files were preserved.
+- PR #39/#40 route-preview containment and restoration of the corrupted flight-profile interaction reference are applied in this commit; its exact SHA must pass CI before advancing to PR #41/#42 route-constraint validation, then PR #43–#49 altitude semantics/telemetry. Keep issue #48 open until the live bridge/runtime behavior is validated.
 
 
 

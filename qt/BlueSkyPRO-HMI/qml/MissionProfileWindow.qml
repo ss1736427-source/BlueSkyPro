@@ -11,10 +11,14 @@ Item {
     signal uavSelectionRequested(int index)
     property var routeDataByUav: ({})
     property var mandatoryPointsByUav: ({})
+    // Coordinates derived from the session-only route preview; not planner-authoritative.
+    property var routeCoordinates: []
     property string loadedUavId: ""
     property string missionSummary: ""
     property string missionReviewState: ""
     property var missionTemplateIndices: []
+    // The current route is a design-preview/editing buffer until the canonical planner is connected.
+    readonly property string routeAuthorityStatus: "PREVIEW ONLY · NOT VALIDATED"
     signal closeRequested()
     signal applyRequested()
 
@@ -275,8 +279,6 @@ Item {
         category: "BlueSkyPRO/MissionProfile"
         property string columnOrderJson: ""
         property real tableSplitRatio: 0.47
-        property string routeDataByUavJson: "{}"
-        property string mandatoryPointsByUavJson: "{}"
     }
 
     function assignmentForUav(uavId) {
@@ -301,7 +303,34 @@ Item {
         return root.missionSummary
     }
 
+    function rebuildRouteCoordinates() {
+        var coordinates = []
+        for (var i = 0; i < routeModel.count; ++i) {
+            var textValue = String(routeModel.get(i).coordinates || "")
+            var parts = textValue.split(",")
+            if (parts.length !== 2
+                    || parts[0].trim().length === 0
+                    || parts[1].trim().length === 0) {
+                root.routeCoordinates = []
+                return
+            }
+            var latitude = Number(parts[0].trim())
+            var longitude = Number(parts[1].trim())
+            if (!isFinite(latitude) || !isFinite(longitude)
+                    || latitude < -90 || latitude > 90
+                    || longitude < -180 || longitude > 180) {
+                // Fail closed: never draw a partial route if one waypoint is invalid.
+                root.routeCoordinates = []
+                return
+            }
+            coordinates.push({ lat: latitude, lon: longitude })
+        }
+        // A single point is not a route and must not be drawn as one.
+        root.routeCoordinates = coordinates.length >= 2 ? coordinates : []
+    }
+
     function saveCurrentAircraftData() {
+        // Session-only editing buffer. Operational route data must be persisted by the canonical mission model.
         var id = root.loadedUavId.length > 0 ? root.loadedUavId : root.selectedAircraftId()
         var routes = Object.assign({}, root.routeDataByUav)
         var points = Object.assign({}, root.mandatoryPointsByUav)
@@ -315,8 +344,6 @@ Item {
         points[id] = root.mandatoryPoints
         root.routeDataByUav = routes
         root.mandatoryPointsByUav = points
-        profileSettings.routeDataByUavJson = JSON.stringify(routes)
-        profileSettings.mandatoryPointsByUavJson = JSON.stringify(points)
     }
 
     function loadAircraftData(index) {
@@ -331,6 +358,7 @@ Item {
         root.mandatoryPoints = Array.isArray(root.mandatoryPointsByUav[id])
                                ? root.mandatoryPointsByUav[id] : []
         root.rebuildTableRows()
+        root.rebuildRouteCoordinates()
         profileCanvas.requestPaint()
     }
 
@@ -345,10 +373,8 @@ Item {
     Component.onCompleted: {
         root.recalculateColumnLayout()
         root.tableSplitRatio = Math.max(0.25, Math.min(0.75, profileSettings.tableSplitRatio))
-        try { root.routeDataByUav = JSON.parse(profileSettings.routeDataByUavJson) || ({}) }
-        catch (e) { root.routeDataByUav = ({}) }
-        try { root.mandatoryPointsByUav = JSON.parse(profileSettings.mandatoryPointsByUavJson) || ({}) }
-        catch (e) { root.mandatoryPointsByUav = ({}) }
+        // Route and mandatory-point data are intentionally not restored from QSettings.
+        // Until the canonical route controller is connected, this remains a preview-only buffer.
         var initialRoute = []
         for (var ri = 0; ri < routeModel.count; ++ri) {
             var source = routeModel.get(ri), item = {}
@@ -368,6 +394,7 @@ Item {
         root.routeDataByUav = routes
         root.mandatoryPointsByUav = points
         root.loadAircraftData(root.selectedUavIndex)
+        root.rebuildRouteCoordinates()
         if (profileSettings.columnOrderJson.length > 0) {
             try {
                 var saved = JSON.parse(profileSettings.columnOrderJson)
@@ -380,7 +407,6 @@ Item {
     onTableSplitRatioChanged: profileSettings.tableSplitRatio = tableSplitRatio
     onMandatoryPointsChanged: {
         root.mandatoryPointsByUav[root.selectedAircraftId()] = mandatoryPoints
-        profileSettings.mandatoryPointsByUavJson = JSON.stringify(root.mandatoryPointsByUav)
         rebuildTableRows()
         profileCanvas.requestPaint()
     }
@@ -435,10 +461,21 @@ Item {
                     font.family: "B612 Mono"
                     font.pixelSize: 12
                 }
+                Text {
+                    id: routeAuthorityLabel
+                    anchors.left: missionIdText.right
+                    anchors.leftMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.routeAuthorityStatus
+                    color: "#FFD339"
+                    font.family: "B612"
+                    font.pixelSize: 9
+                    font.bold: true
+                }
                 Row {
                     id: uavTabs
-                    anchors.left: missionIdText.right
-                    anchors.leftMargin: 14
+                    anchors.left: routeAuthorityLabel.right
+                    anchors.leftMargin: 10
                     anchors.verticalCenter: parent.verticalCenter
                     width: Math.min(implicitWidth, Math.max(0, collapsedToolsToggle.x - x - 12))
                     height: 34
@@ -1306,8 +1343,17 @@ Item {
             }
         }
 
+    Timer {
+        id: routePreviewRefresh
+        interval: 0
+        repeat: false
+        onTriggered: root.rebuildRouteCoordinates()
+    }
+
     ListModel {
         id: routeModel
+        onDataChanged: routePreviewRefresh.restart()
+        onCountChanged: routePreviewRefresh.restart()
         ListElement { pointType: "Старт"; pointName: "WP Start"; coordinates: "55.7522, 37.6156"; course: "—"; distance: "0.0"; altitude: "120"; airspeed: "—"; groundspeed: "—"; time: "00:00"; deltaHeight: "—"; energy: "100"; note: "Взлёт (VTOL)" }
         ListElement { pointType: "Участок"; pointName: "WP 1"; coordinates: "55.7801, 37.6923"; course: "087"; distance: "12.4"; altitude: "150"; airspeed: "28.0"; groundspeed: "25.4"; time: "04:52"; deltaHeight: "+30"; energy: "92"; note: "Набор высоты" }
         ListElement { pointType: "Участок"; pointName: "WP 2"; coordinates: "55.8065, 37.8041"; course: "095"; distance: "18.7"; altitude: "150"; airspeed: "30.0"; groundspeed: "27.1"; time: "06:54"; deltaHeight: "0"; energy: "81"; note: "Патрулирование" }

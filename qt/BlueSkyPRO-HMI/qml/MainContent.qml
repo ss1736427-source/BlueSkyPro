@@ -157,6 +157,8 @@ Item {
             mapPanX: root.mapPanX
             mapPanY: root.mapPanY
             mapZoom: root.mapZoom
+            // Preview route is visible only while its non-authoritative editor is open.
+            routeCoordinates: root.missionProfileOpen ? missionProfileWindow.routeCoordinates : []
             // Keep the map as the persistent workspace in every mode.
             visible: true
             onMapViewChangeRequested: function(panX, panY, zoom) {
