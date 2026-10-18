@@ -129,7 +129,6 @@ public:
             if (waypoint.waypoint_id != waypointId.toStdString())
                 continue;
             waypoint.altitude_m = altitudeM;
-            m_waypoints[i].toMap(); // Preserve QVariantMap value semantics before replacement.
             QVariantMap point = m_waypoints[i].toMap();
             point.insert(QStringLiteral("altitudeM"), altitudeM);
             m_waypoints[i] = point;
@@ -156,7 +155,9 @@ public:
             return reject(QStringLiteral("NO_CANDIDATE_ROUTE"));
         if (validatedRouteVersion != m_routeVersion
             || validatedInputVersion != m_calculationInputVersion) {
-            return reject(QStringLiteral("STALE_VALIDATION_RESULT"));
+            m_validationReason = QStringLiteral("STALE_VALIDATION_RESULT");
+            emit validationChanged();
+            return false;
         }
         m_validationState = accepted ? QStringLiteral("VALIDATED")
                                      : QStringLiteral("BLOCKED");
