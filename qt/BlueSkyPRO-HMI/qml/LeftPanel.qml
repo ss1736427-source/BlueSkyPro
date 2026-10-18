@@ -132,6 +132,12 @@ Item {
         color: root.bg
     }
 
+    // Consume wheel input within the panel so it cannot zoom the underlying map.
+    WheelHandler {
+        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+        onWheel: function(event) { event.accepted = true }
+    }
+
     // Edge ownership is configurable. When a neighboring component already
     // draws a shared separator, disable this edge to prevent a doubled stroke.
     Rectangle {
