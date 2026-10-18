@@ -55,6 +55,7 @@ qt_add_qml_module(appBlueSkyPRO
         qml/assets/uav_vtol.svg
 )
 
+target_include_directories(appBlueSkyPRO PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/OPERATIONS/core)
 target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Quick Qt6::Location Qt6::Positioning)
 
 enable_testing()
@@ -63,7 +64,10 @@ add_executable(altitude_display_bridge_test
     src/AltitudeDisplayBridge.cpp
     src/AltitudeDisplayBridge.h
 )
-target_include_directories(altitude_display_bridge_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(altitude_display_bridge_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/OPERATIONS/core
+)
 target_link_libraries(altitude_display_bridge_test PRIVATE Qt6::Core)
 add_test(NAME altitude_display_bridge_test COMMAND altitude_display_bridge_test)
 
