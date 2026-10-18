@@ -57,6 +57,15 @@ qt_add_qml_module(appBlueSkyPRO
 
 target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Quick Qt6::Location Qt6::Positioning)
 
+enable_testing()
+add_executable(altitude_display_bridge_test
+    tests/altitude_display_bridge_test.cpp
+    src/AltitudeDisplayBridge.cpp
+    src/AltitudeDisplayBridge.h
+)
+target_link_libraries(altitude_display_bridge_test PRIVATE Qt6::Core)
+add_test(NAME altitude_display_bridge_test COMMAND altitude_display_bridge_test)
+
 set_target_properties(appBlueSkyPRO PROPERTIES
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
