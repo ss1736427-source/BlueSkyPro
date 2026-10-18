@@ -113,6 +113,26 @@ int main() {
     assert(!non_finite_invalid.valid);
     assert(non_finite_invalid.points.empty());
 
+    // Matching route/trajectory coordinates outside geodetic bounds must still be rejected.
+    auto out_of_range_route = route;
+    auto out_of_range_trajectory = trajectory;
+    out_of_range_route.waypoints[1].position.latitude_deg = 91.0;
+    out_of_range_trajectory.points[1].position.latitude_deg = 91.0;
+    const auto out_of_range_profile = FlightProfileBuilder::build(
+        selected,out_of_range_route,out_of_range_trajectory,"FP-OUT-OF-RANGE","1.0.0");
+    assert(!out_of_range_profile.valid);
+    assert(out_of_range_profile.points.empty());
+
+    auto out_of_range_longitude_route = route;
+    auto out_of_range_longitude_trajectory = trajectory;
+    out_of_range_longitude_route.waypoints[1].position.longitude_deg = 181.0;
+    out_of_range_longitude_trajectory.points[1].position.longitude_deg = 181.0;
+    const auto out_of_range_longitude_profile = FlightProfileBuilder::build(
+        selected,out_of_range_longitude_route,out_of_range_longitude_trajectory,
+        "FP-OUT-OF-RANGE-LON","1.0.0");
+    assert(!out_of_range_longitude_profile.valid);
+    assert(out_of_range_longitude_profile.points.empty());
+
     // Segment durations must match the differences between cumulative point times.
     Route multi_segment_route = route;
     multi_segment_route.waypoints.push_back({"WP3",{0.0,0.002},120.0,true});
