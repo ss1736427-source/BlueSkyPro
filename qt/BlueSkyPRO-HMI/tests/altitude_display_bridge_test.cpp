@@ -42,9 +42,13 @@ int main(int argc, char **argv)
     assert(bridge.sourceText() == QStringLiteral("BARO · STD 1013.25 hPa"));
     assert(bridge.statusText() == QStringLiteral("DEGRADED"));
 
-    assert(bridge.publishDecision(123.4, QStringLiteral("BARO_STD"), false, false));
-    assert(bridge.degraded());
-    assert(bridge.statusText() == QStringLiteral("DEGRADED"));
+    assert(!bridge.publishDecision(123.4, QStringLiteral("BARO_STD"), false, false));
+    assert(!bridge.available());
+    assert(bridge.statusText() == QStringLiteral("UNAVAILABLE"));
+
+    assert(bridge.publishDecision(123.4, QStringLiteral("BARO_STD"), false, true));
+    assert(bridge.available());
+    assert(!bridge.degraded());
 
     bridge.markUnavailable();
     assert(!bridge.available());
