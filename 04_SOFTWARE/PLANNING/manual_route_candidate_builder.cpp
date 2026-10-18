@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <sstream>
+#include <utility>
 
 namespace bluesky::planning {
 namespace {
@@ -65,6 +66,8 @@ ManualRouteBuildResult buildManualRouteCandidate(
     requireNonEmpty(result.errors, mission.identity.mission_id, "MISSION_ID_REQUIRED");
     requireNonEmpty(result.errors, mission.identity.mission_version, "MISSION_VERSION_REQUIRED");
     requireNonEmpty(result.errors, geometry.geometry_id, "GEOMETRY_ID_REQUIRED");
+    if (geometry.version < 1)
+        result.errors.emplace_back("GEOMETRY_VERSION_INVALID");
 
     if (geometry.coordinate_reference_system != "EPSG:4326")
         result.errors.emplace_back("GEOMETRY_CRS_UNSUPPORTED");
@@ -98,7 +101,7 @@ ManualRouteBuildResult buildManualRouteCandidate(
         || !finite(requirements.minimum_clearance_m)
         || requirements.minimum_target_agl_m <= 0.0
         || requirements.maximum_target_agl_m < requirements.minimum_target_agl_m
-        || requirements.minimum_clearance_m < 0.0) {
+        || requirements.minimum_clearance_m <= 0.0) {
         result.errors.emplace_back("EXPLICIT_VALID_TARGET_AGL_LIMITS_REQUIRED");
     }
     if (!finite(requirements.nominal_speed_mps) || requirements.nominal_speed_mps <= 0.0)
