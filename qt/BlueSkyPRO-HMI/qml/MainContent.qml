@@ -172,7 +172,7 @@ Item {
             }
             onManualTemplateSelectionCommitted: function(indices) {
                 var nextIds = indices.map(function(index) {
-                    return "MT-" + String(index + 1).padStart(2, "0")
+                    return "MT-" + (index + 1 < 10 ? "0" : "") + String(index + 1)
                 })
                 root.manualSelectedTemplateIds = nextIds
                 root.manualMissionVersion += 1
