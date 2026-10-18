@@ -24,6 +24,7 @@ struct OpenSpaceResult {
 class ConstrainedOpenSpace {
 public:
  static OpenSpaceResult evaluateSegment(const ConstrainedEnvironmentSnapshot&, const SpatialEdge&);
+ static OpenSpaceResult evaluatePolygon(const ConstrainedEnvironmentSnapshot&, const std::vector<GeoPoint>& polygon, double altitude_min_m, double altitude_max_m);
  static OpenSpaceResult evaluateRoute(const ConstrainedEnvironmentSnapshot&, const Route&);
 };
 } // namespace bluesky::planning
