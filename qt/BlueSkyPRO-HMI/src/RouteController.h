@@ -43,6 +43,16 @@ public:
         snapshot.insert(QStringLiteral("generatorId"), QString::fromStdString(m_route.lineage.generator_id));
         snapshot.insert(QStringLiteral("generatorVersion"), QString::fromStdString(m_route.lineage.generator_version));
         snapshot.insert(QStringLiteral("calculationInputVersion"), m_calculationInputVersion);
+        QVariantMap environmentSnapshotRefs;
+        environmentSnapshotRefs.insert(QStringLiteral("terrainSnapshotId"),
+                                        QString::fromStdString(m_route.environment.terrain_snapshot_id));
+        environmentSnapshotRefs.insert(QStringLiteral("airspaceSnapshotId"),
+                                        QString::fromStdString(m_route.environment.airspace_snapshot_id));
+        environmentSnapshotRefs.insert(QStringLiteral("weatherSnapshotId"),
+                                        QString::fromStdString(m_route.environment.weather_snapshot_id));
+        environmentSnapshotRefs.insert(QStringLiteral("windSnapshotId"),
+                                        QString::fromStdString(m_route.environment.wind_snapshot_id));
+        snapshot.insert(QStringLiteral("environmentSnapshotRefs"), environmentSnapshotRefs);
         snapshot.insert(QStringLiteral("waypoints"), m_waypoints);
         snapshot.insert(QStringLiteral("validationState"), m_validationState);
         snapshot.insert(QStringLiteral("validationReason"), m_validationReason);
@@ -61,12 +71,21 @@ public:
         const QString generatorVersion = candidate.value(QStringLiteral("generatorVersion")).toString().trimmed();
         const QString inputVersion = candidate.value(QStringLiteral("calculationInputVersion")).toString().trimmed();
         const QString crs = candidate.value(QStringLiteral("coordinateReferenceSystem")).toString().trimmed();
+        const QVariantMap environment = candidate.value(QStringLiteral("environmentSnapshotRefs")).toMap();
+        const QString terrainSnapshotId = environment.value(QStringLiteral("terrainSnapshotId")).toString().trimmed();
+        const QString airspaceSnapshotId = environment.value(QStringLiteral("airspaceSnapshotId")).toString().trimmed();
+        const QString weatherSnapshotId = environment.value(QStringLiteral("weatherSnapshotId")).toString().trimmed();
+        const QString windSnapshotId = environment.value(QStringLiteral("windSnapshotId")).toString().trimmed();
         const QVariantList points = candidate.value(QStringLiteral("waypoints")).toList();
 
         if (routeId.isEmpty() || routeVersion.isEmpty() || missionId.isEmpty()
             || missionVersion.isEmpty() || generatorId.isEmpty()
             || generatorVersion.isEmpty() || inputVersion.isEmpty() || crs.isEmpty()) {
             return rejectCandidate(QStringLiteral("ROUTE_LINEAGE_REQUIRED"));
+        }
+        if (terrainSnapshotId.isEmpty() || airspaceSnapshotId.isEmpty()
+            || weatherSnapshotId.isEmpty() || windSnapshotId.isEmpty()) {
+            return rejectCandidate(QStringLiteral("ENVIRONMENT_SNAPSHOT_LINEAGE_REQUIRED"));
         }
         if (points.size() < 2)
             return rejectCandidate(QStringLiteral("AT_LEAST_TWO_WAYPOINTS_REQUIRED"));
@@ -115,6 +134,10 @@ public:
         m_route.lineage.generator_id = generatorId.toStdString();
         m_route.lineage.generator_version = generatorVersion.toStdString();
         m_route.lineage.calculation_input_version = inputVersion.toStdString();
+        m_route.environment.terrain_snapshot_id = terrainSnapshotId.toStdString();
+        m_route.environment.airspace_snapshot_id = airspaceSnapshotId.toStdString();
+        m_route.environment.weather_snapshot_id = weatherSnapshotId.toStdString();
+        m_route.environment.wind_snapshot_id = windSnapshotId.toStdString();
         for (const QVariant &value : normalized) {
             const QVariantMap point = value.toMap();
             bluesky::planning::RouteWaypoint waypoint;
