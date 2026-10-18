@@ -104,6 +104,8 @@ Item {
     signal uavDecisionRequested(string decision, int uavIndex)
     signal workspaceContextRequested(string context)
     property string workspaceContext: bottomToolbar.activeTool
+    // Shared non-operational integration fixture switch for ADMIN and VIRTUAL FLT.
+    property bool integrationTestStubsEnabled: true
 
     // Persist the operator-positioned alert overlay across application launches.
     Settings {
@@ -350,6 +352,8 @@ Item {
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             visible: !root.missionCreationMode && root.activeTool === "ADMIN"
+            testStubsEnabled: root.integrationTestStubsEnabled
+            onTestStubsEnabledRequested: function(enabled) { root.integrationTestStubsEnabled = enabled }
         }
 
         VirtualFlightTestConsole {
@@ -359,6 +363,7 @@ Item {
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             visible: !root.missionCreationMode && root.activeTool === "VIRTUAL FLT"
+            testStubsEnabled: root.integrationTestStubsEnabled
         }
 
         RightPanel {
