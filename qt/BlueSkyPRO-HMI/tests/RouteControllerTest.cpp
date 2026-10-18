@@ -29,6 +29,12 @@ static QVariantMap candidate()
         {QStringLiteral("generatorId"), QStringLiteral("planner-test")},
         {QStringLiteral("generatorVersion"), QStringLiteral("1")},
         {QStringLiteral("calculationInputVersion"), QStringLiteral("input-1")},
+        {QStringLiteral("environmentSnapshotRefs"), QVariantMap{
+             {QStringLiteral("terrainSnapshotId"), QStringLiteral("terrain-snapshot-001")},
+             {QStringLiteral("airspaceSnapshotId"), QStringLiteral("airspace-snapshot-001")},
+             {QStringLiteral("weatherSnapshotId"), QStringLiteral("weather-snapshot-001")},
+             {QStringLiteral("windSnapshotId"), QStringLiteral("wind-snapshot-001")}
+         }},
         {QStringLiteral("coordinateReferenceSystem"), QStringLiteral("EPSG:4326")},
         {QStringLiteral("waypoints"), QVariantList{
              waypoint(QStringLiteral("WP-1"), 60.0, 24.0, 100.0),
@@ -50,6 +56,11 @@ int main(int argc, char *argv[])
     const QVariantMap snapshot = controller.routeSnapshot();
     assert(snapshot.value(QStringLiteral("routeId")).toString() == QStringLiteral("ROUTE-TEST-01"));
     assert(snapshot.value(QStringLiteral("missionVersion")).toString() == QStringLiteral("m1"));
+    const QVariantMap environmentSnapshotRefs = snapshot.value(QStringLiteral("environmentSnapshotRefs")).toMap();
+    assert(environmentSnapshotRefs.value(QStringLiteral("terrainSnapshotId")).toString()
+           == QStringLiteral("terrain-snapshot-001"));
+    assert(environmentSnapshotRefs.value(QStringLiteral("windSnapshotId")).toString()
+           == QStringLiteral("wind-snapshot-001"));
     const QVariantMap snapshotWaypoint = snapshot.value(QStringLiteral("waypoints")).toList()[0].toMap();
     assert(snapshotWaypoint.value(QStringLiteral("waypointId")).toString() == QStringLiteral("WP-1"));
     assert(snapshotWaypoint.value(QStringLiteral("latitudeDeg")).toDouble() == 60.0);
@@ -123,6 +134,12 @@ int main(int argc, char *argv[])
     assert(!controller.loadCandidate(invalid));
     assert(controller.validationState() == QStringLiteral("BLOCKED"));
     assert(controller.validationReason() == QStringLiteral("INVALID_WAYPOINT_POSITION"));
+    assert(controller.waypoints().isEmpty());
+
+    invalid = candidate();
+    invalid.remove(QStringLiteral("environmentSnapshotRefs"));
+    assert(!controller.loadCandidate(invalid));
+    assert(controller.validationReason() == QStringLiteral("ENVIRONMENT_SNAPSHOT_LINEAGE_REQUIRED"));
     assert(controller.waypoints().isEmpty());
 
     invalid = candidate();
