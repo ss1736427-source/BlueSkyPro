@@ -1,12 +1,12 @@
 {
-  "last_main_sha": "435e6bbd367d3c36a1efc32130387b5315ed225e",
+  "last_main_sha": "4b1989151a831bf424dc91ca38dddceeaedf8f50",
   "verified_sha": null,
   "decision_required": false,
   "ci_required": true,
-  "current_work_package": "HMI FLIGHT PROFILE — route isolation and edit persistence verification",
-  "checkpoint": "Main moved to checkpoint commit while reviewing the route-selection edge case. Dynamic altitude scale edit from 4433fba was not CI-confirmed before supersession. Load path now identified: routeModel is cleared only when a saved snapshot exists, so a UAV with no saved route can inherit the previously selected UAV route. Fix in the same canonical HMI component, then wait for CI on the resulting SHA.",
+  "current_work_package": "HMI FLIGHT PROFILE — verify dynamic altitude editing and per-UAV route isolation, then resume remaining canonical PR reconciliation",
+  "checkpoint": "HMI commit 917dd87b502759c0ed66925bfc3e962e1266e0ec: CI 12/12 PASS. Follow-up commits fix a fixed 400 m scale left in new profile-point creation and route leakage when switching to a UAV with no saved route. Latest HMI code commit: 89e07b7ed665f258125ad6365e685c5d39d0c961; checkpoint metadata commit: 4b1989151a831bf424dc91ca38dddceeaedf8f50. Latest SHA is UNVERIFIED; workflows are queued/running. PR #49 remains Draft and is not merged to main.",
   "real_execution": "DEFERRED",
   "quantitative_c2_basis": "DEFERRED",
   "current_ci_status": "UNVERIFIED_FOR_CURRENT_MAIN_SHA",
-  "next_deterministic_action": "Commit the minimal routeModel clear-before-load fix after confirming the current file and head SHA. Then verify all relevant workflows for that exact SHA. Keep PR #49 Draft; no branches or local E: changes."
+  "next_deterministic_action": "Check all GitHub Actions runs for exact HEAD 4b1989151a831bf424dc91ca38dddceeaedf8f50. If any HMI/Windows Map/Multi-UAV validation fails, fetch job logs and fix the root cause on main. If CI passes, perform focused audit of the HMI change: startup QML, route persistence/isolation, and whether profile state is saved on every altitude edit/drag. Then continue open PR audit; keep PR #49 Draft. Do not touch E: or create branches."
 }
