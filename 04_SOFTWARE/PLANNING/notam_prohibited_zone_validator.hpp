@@ -11,9 +11,14 @@ namespace bluesky::planning {
 enum class NotamGeometryType { Circle, Polygon };
 enum class NotamRestrictionType { Prohibited };
 
+// A NOTAM vertical limit must declare its reference. The validator currently
+// compares only explicit AGL-to-AGL values; other references require conversion.
+enum class NotamAltitudeReference { Unknown, AGL, AMSL, FlightLevel };
+
 enum class NotamValidationCode {
     MissingSnapshotReference,
     SnapshotNotValid,
+    UnsupportedAltitudeReference,
     WaypointInsideProhibitedZone,
     SegmentIntersectsProhibitedZone
 };
@@ -29,6 +34,7 @@ struct NotamZone {
     double upper_altitude_m{0.0};
     std::int64_t valid_from_epoch_s{0};
     std::int64_t valid_to_epoch_s{0};
+    NotamAltitudeReference altitude_reference{NotamAltitudeReference::Unknown};
 };
 
 struct NotamSnapshot {
@@ -52,7 +58,7 @@ struct NotamValidationResult {
     RouteValidationStatus status{RouteValidationStatus::Allowed};
     std::vector<NotamValidationFinding> findings;
     std::string validator_id{"NOTAM-PROHIBITED-ZONE-VALIDATOR"};
-    std::string validator_version{"1.0"};
+    std::string validator_version{"1.1"};
     std::string snapshot_id;
 };
 
