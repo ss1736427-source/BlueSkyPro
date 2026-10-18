@@ -10,6 +10,7 @@
 
 #include <cmath>
 #include <string>
+#include <utility>
 
 using bluesky::planning::Mission;
 using bluesky::planning::MissionGeometryObject;
