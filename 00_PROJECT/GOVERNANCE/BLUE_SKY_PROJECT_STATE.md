@@ -365,8 +365,8 @@ The repository-wide audit does not promote draft or working records to certifica
 ### 12.5 Current GitHub reconciliation checkpoint — 2026-10-18
 
 - Canonical repository: `ss1736427-source/BlueSkyPro`; canonical branch: `main`.
-- Current main SHA at this checkpoint: `d06434b9e45d6e8e2bb56168d8779d5391a775ac`.
-- Available checks attached to this exact SHA were observed as completed successfully; this does not establish full application, Qt runtime, HIL, physical-UAV or certification verification.
+- Current main SHA at this checkpoint: `c3f12a2ba9ecf8fc44d135ca0919369470f3b641`.
+- GitHub Actions checks for this exact SHA completed successfully (10/10 observed successful). This does not establish full application, Qt runtime, HIL, physical-UAV or certification verification.
 - PR #52 and #53 remain open Drafts based on the older main SHA `9f60746d6de6d80ad9afc1ee16722843ed02a8ad`. PR #52's branch-selection rules conflict with the later explicit project rule that routine work is committed directly to canonical main; do not merge it as written.
 - PR #53 is a useful source for state reconciliation, but its recorded main snapshot `9f60746d6de6d80ad9afc1ee16722843ed02a8ad` is stale. Any accepted synchronization must be recalculated against the current main SHA, not copied verbatim.
 - PR #55 is still open Draft and its branch diverges from current main. The main tree already contains the explicit route/NOTAM vertical-reference fields, fail-closed checks and regression coverage. Do not merge the stale PR without a fresh unique-diff comparison.
