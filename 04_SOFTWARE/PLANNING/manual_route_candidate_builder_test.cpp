@@ -66,6 +66,7 @@ int main()
 
     const auto valid = buildManualRouteCandidate(mission, geometry, requirements);
     assert(valid.valid);
+    assert(!valid.flight_release_eligible);
     assert(valid.errors.empty());
     assert(valid.route.lineage.mission_id == mission.identity.mission_id);
     assert(valid.route.lineage.mission_version == mission.identity.mission_version);
