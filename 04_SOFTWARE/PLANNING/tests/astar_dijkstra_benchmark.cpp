@@ -125,6 +125,6 @@ int main() {
     assert(nonfinite_heuristic.run(invalid_heuristic_ctx) == RunState::Failed);
     assert(invalid_heuristic_ctx.candidates_.empty());
 
-    std::cout << "Benchmark: PASS\\n";
+    std::cout << "Benchmark: PASS\n";
     return 0;
 }
