@@ -63,6 +63,9 @@ int main()
         ConstrainedPlanningGraphBuilder::build(graph, unrestricted);
     assert(explicitAglGraph.graph.edges.size() == 1);
     assert(explicitAglGraph.rejected_edges == 0);
+    // Environment lineage must remain available even when a complete snapshot
+    // legitimately contains no active restrictions.
+    assert(!explicitAglGraph.dependency_identity.empty());
 
     return 0;
 }
