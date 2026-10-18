@@ -1,6 +1,7 @@
 #include "ManualMissionModelAdapter.h"
 
 #include <QCoreApplication>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QVariantMap>
