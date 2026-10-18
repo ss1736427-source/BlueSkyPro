@@ -56,6 +56,6 @@ int main(int argc, char **argv)
     assert(bridge.sourceText() == QStringLiteral("ALTITUDE"));
     assert(bridge.statusText() == QStringLiteral("UNAVAILABLE"));
 
-    std::cout << "altitude_display_bridge_test: PASS\\n";
+    std::cout << "altitude_display_bridge_test: PASS\n";
     return 0;
 }
