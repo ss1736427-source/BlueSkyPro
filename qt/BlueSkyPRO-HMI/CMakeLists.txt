@@ -18,6 +18,8 @@ qt_add_executable(appBlueSkyPRO
     src/main.cpp
     src/PlanningBridge.cpp
     src/PlanningBridge.h
+    src/AltitudeDisplayBridge.cpp
+    src/AltitudeDisplayBridge.h
 )
 
 qt_add_qml_module(appBlueSkyPRO
