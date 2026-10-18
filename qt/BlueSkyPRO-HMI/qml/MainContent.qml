@@ -194,6 +194,16 @@ Item {
             onApplyRequested: root.missionProfileOpen = false
         }
 
+        Connections {
+            target: planningBridge
+            function onResultChanged() {
+                var result = planningBridge.result
+                var candidate = result && result.result ? result.result.routeCandidate : null
+                if (candidate !== null && candidate !== undefined)
+                    routeController.loadCandidate(candidate)
+            }
+        }
+
         ThreeDMappingProfile {
             id: threeDMappingProfile
             // 3D-specific overlay is disabled here; the canonical mission profile owns the route table.
