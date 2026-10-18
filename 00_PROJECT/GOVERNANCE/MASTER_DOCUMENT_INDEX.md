@@ -404,4 +404,15 @@ For the current development sequence, work proceeds from the existing architectu
 
 ## 17. Latest repository-wide documentation audit
 
-`TRACEABILITY/REPOSITORY_DOCUMENTATION_AUDIT_REPORT_004.md` is the current repository-wide reconciliation update. Audit 003 remains preserved as historical evidence; Audit 004 is the current interpretation of repository state at HEAD `d020995c25838f25cac767d1fff481cb80ca8e6a`.
+`TRACEABILITY/REPOSITORY_DOCUMENTATION_AUDIT_REPORT_004.md` остаётся историческим controlled audit record и описывает репозиторий на SHA, записанном в самом отчёте. Он не является текущим снимком main.
+
+### Current state pointer — 2026-10-18
+
+- Последняя проверенная вершина main на момент синхронизации: `9f60746d6de6d80ad9afc1ee16722843ed02a8ad`.
+- Текущий handover snapshot: `00_PROJECT/GOVERNANCE/BLUE_SKY_PROJECT_STATE.md` §12.
+- Последовательность работ и условия reconciliation: `00_PROJECT/GOVERNANCE/BLUE_SKY_WORK_PLAN.md` §13.
+- Runtime state orchestrator: `.bluesky_orchestrator_state.json`. Поле `last_main_sha` — указатель на репозиторий, не доказательство CI; `verified_sha` должен ссылаться только на SHA с подтверждённой соответствующей проверкой.
+- Правила работы и иерархия источников: `00_PROJECT/BLUE_SKY_PRO_WORKING_RULES.md`, `00_PROJECT/GITHUB_DEVELOPMENT_PROTOCOL.md` и этот индекс.
+- PR #52 — открытое Draft-изменение протокола; оно не входит в main до merge.
+
+Перед значимой задачей обновлять refs GitHub, head/base открытых PR, diff и CI для точного SHA. Audit 004 сохраняется как историческое доказательство и не переписывается под новый аудит. Этот указатель не означает, что все файлы репозитория вручную проверены на техническую корректность.

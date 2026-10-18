@@ -1,7 +1,8 @@
 # BLUE SKY — PROJECT STATE
 
 > Контрольное состояние проекта для передачи между чатами.
-> Дата состояния: 2026-09-20.
+> Дата состояния: 2026-10-18.
+> Снимок сверён с main SHA 9f60746d6de6d80ad9afc1ee16722843ed02a8ad; PR/ветки/CI не считаются частью main, пока не интегрированы.
 
 ## 1. Project Identity
 
@@ -330,38 +331,52 @@ Data classes:
 
 ## 12. Current Repository State and Work Package
 
-Последнее проверенное состояние main:
+### 12.1 Verified repository snapshot
 
-- current HEAD: 69fe8dfe51b3aa18a56009c178f8243babe6b99a;
-- HMI reconciliation HMI-RECONCILIATION-001;
-- operational execution architecture through ARCH-OPS-051;
-- PH4-INT-005 failure-path propagation fixture;
-- PH4-INT-006 operational failure evidence binding;
-- PH4-INT-007 failure/evidence execution binding;
-- PH4-INT-025 clean-close and archive lifecycle — CLOSED — CI VERIFIED;
-- PH4-INT-026 capability manifest and compatibility gate — CLOSED — CI VERIFIED;
-- current documentation reconciliation: REPOSITORY-DOCUMENTATION-AUDIT-004.
+Последняя проверенная вершина main на дату синхронизации:
 
-### Verified PH4 closure evidence
+- main HEAD: `9f60746d6de6d80ad9afc1ee16722843ed02a8ad`.
+- GitHub commit search вернул этот SHA как самый новый коммит репозитория.
+- Прежняя ссылка на HEAD `69fe8dfe51b3aa18a56009c178f8243babe6b99a` устарела и не является текущим состоянием main.
+- Master Document Index ранее указывал Audit 004 на SHA `d020995c25838f25cac767d1fff481cb80ca8e6a`; это историческая точка, не текущий main.
+- PR #52 (`docs/assistant-action-protocol-2026-10-17`) открыт как Draft и направлен в main. Он не объединён и не входит в этот снимок.
+- Изменения в других PR-ветках, включая stacked HMI/planning и MapTiler, проверяются по текущим head/base SHA, diff и CI. Наличие ветки или успешный CI старого SHA не доказывают интеграцию в main.
 
-- PH4-INT-025 implementation commit 608785d3dbb703033231db5adfb8643096feba27 has a directly retrievable GitHub Actions run #570 with conclusion success.
-- PH4-INT-025 merged main commit: b298a1ea9beac3502bf779b6ac28c8940b5e52a5.
-- PH4-INT-026 is merged by PR #55 into main at 5a9ba793c05ed12f5180280b657d7eeb83887085; its controlled status record states CI run #578 succeeded. A direct commit-workflow lookup for the merge commit did not return a workflow run, so this audit does not independently promote that CI claim beyond the controlled project record.
-- Both stages remain bounded to SIL_FIXTURE_ONLY; no HIL, physical-UAV, flight-test, certification or real transport evidence is claimed.
+### 12.2 Existing state-source reconciliation
 
-### Current deterministic sequence
+У проекта несколько разных источников состояния; они не взаимозаменяемы:
 
-1. Complete repository/documentation reconciliation against current HEAD.
-2. Reconcile requirements ↔ architecture ↔ software ↔ verification.
-3. Continue C2 source/clause/applicability closure.
-4. Reconcile safety/certification/evidence dependencies.
-5. Reconcile AI/data/offline layers.
-6. Reconcile HMI/UI traceability.
-7. Continue Phase 4 from PH4-INT-027 only after the affected documentation/evidence chain is consistent.
-8. Freeze the next implementation work package only after its requirements, design, verification and evidence records are aligned.
+- `.bluesky_orchestrator_state.json` — runtime-состояние внешнего цикла автоматизации. Его прежние SHA, work package и next action были устаревшими относительно main. Синхронизированная версия указывает текущий наблюдаемый main SHA, но не заявляет, что этот SHA прошёл CI.
+- `BLUE_SKY_PROJECT_STATE.md` — передача контекста и текущий проектный снимок.
+- `BLUE_SKY_WORK_PLAN.md` — последовательность работ и предварительные условия.
+- `MASTER_DOCUMENT_INDEX.md` — контролируемый реестр документов и указатель на аудит репозитория.
+- `BLUE_SKY_DOCUMENT_CONTROL_MAP.md` — связи и обязанности документов.
+- `BLUE_SKY_DECISIONS_LOG.md` — утверждённые решения.
+- `CHANGE_AND_PROBLEM_REGISTER.md` и связанный процесс — формальный контроль изменений и проблем.
+- GitHub — актуальные refs, PR, commit SHA, diff и CI.
 
-The repository-wide audit does not promote draft or working records to certification baseline.
+Не создавать ещё один общий журнал состояния. Обновлять существующий источник по его назначению, сохраняя исторические записи.
 
+### 12.3 Current repository reconciliation status
+
+- Выполнена инвентаризация дерева репозитория и аудит управляющих источников состояния. Это структурный аудит, а не построчная проверка корректности всех файлов репозитория.
+- `00_PROJECT/GITHUB_DEVELOPMENT_PROTOCOL.md` изменяется через открытый Draft PR #52. Не считать предлагаемое изменение активным на main до merge.
+- Внешний orchestrator ранее использовал по умолчанию `ss1736427-source/BlueSky-PRO-Knowledge`, что не является текущим репозиторием HMI/software. Значение по умолчанию и README исправляются на `ss1736427-source/BlueSkyPro`.
+- CI-контроль orchestrator остаётся ограниченным каталогом `04_SOFTWARE/PLANNING/` и workflow `.github/workflows/planning-benchmark.yml`; его нельзя описывать как проверку всего репозитория.
+- Orchestrator не должен считать commit проверенным лишь потому, что CI прошёл на предыдущем SHA. Верификация привязана к точному SHA и соответствующему workflow.
+- Прямых изменений main нет. Синхронизация подготовлена в отдельной ветке обслуживания документации и требует проверки PR до интеграции.
+
+### 12.4 Next deterministic sequence
+
+1. Проверить полный diff этого PR синхронизации состояния и CI для точного head SHA.
+2. Не изменять main до явного разрешения пользователя на merge.
+3. После merge перечитать main и синхронизировать runtime-state с фактическим merged SHA; не отмечать ожидающий PR SHA как текущий main заранее.
+4. Проверить открытые PR по текущим head/base, зависимостям, уникальным diff и CI точного SHA; сначала определить порядок зависимостей.
+5. Сопоставить HMI и MapTiler ветки с текущим main, сохранив уникальные изменения и не создавая дублирующих реализаций.
+6. После этого выбрать следующий implementation work package в существующих state-записях.
+7. HIL, реальные БАС, лётные испытания и сертификационные утверждения остаются отложенными, пока не существуют контролируемые доказательства.
+
+Снимок ограничен датой проверки. Перед следующим значимым действием повторно читать состояние GitHub.
 ## 13. Project Rules
 
 1. Не называть систему или конфигурацию сертифицированной до получения соответствующего основания/сертификата.
