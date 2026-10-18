@@ -4,7 +4,7 @@ project(BlueSkyPRO_HMI VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Quick Location Positioning Network WebEngineQuick)
+find_package(Qt6 REQUIRED COMPONENTS Core Quick Location Positioning Network WebEngineQuick WebChannel)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -18,6 +18,8 @@ qt_add_executable(appBlueSkyPRO
     src/main.cpp
     src/PlanningBridge.cpp
     src/PlanningBridge.h
+    src/ManualGeometryBridge.cpp
+    src/ManualGeometryBridge.h
     src/RouteController.h
     src/TileCacheManager.cpp
     src/TileCacheManager.h
@@ -58,7 +60,7 @@ qt_add_qml_module(appBlueSkyPRO
 )
 
 target_include_directories(appBlueSkyPRO PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../..)
-target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Core Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::WebEngineQuick)
+target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Core Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::WebEngineQuick Qt6::WebChannel)
 
 enable_testing()
 add_executable(tile_cache_manager_test
