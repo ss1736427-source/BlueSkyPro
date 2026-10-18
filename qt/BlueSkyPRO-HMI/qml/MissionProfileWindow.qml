@@ -11,14 +11,10 @@ Item {
     signal uavSelectionRequested(int index)
     property var routeDataByUav: ({})
     property var mandatoryPointsByUav: ({})
-    // Coordinates derived from the session-only route preview; not planner-authoritative.
-    property var routeCoordinates: []
     property string loadedUavId: ""
     property string missionSummary: ""
     property string missionReviewState: ""
     property var missionTemplateIndices: []
-    // The current route is a design-preview/editing buffer until the canonical planner is connected.
-    readonly property string routeAuthorityStatus: "PREVIEW ONLY · NOT VALIDATED"
     signal closeRequested()
     signal applyRequested()
 
@@ -225,6 +221,22 @@ Item {
         return Math.max(0, d1 + (d2 - d1) * fraction)
     }
 
+    // Keep all profile elements visible when route altitude exceeds the preview scale.
+    function profileAltitudeScaleMax() {
+        var highest = 400
+        for (var i = 0; i < routeModel.count; ++i) {
+            var routeAltitude = Number(routeModel.get(i).altitude)
+            if (isFinite(routeAltitude)) highest = Math.max(highest, routeAltitude)
+        }
+        for (var j = 0; j < root.mandatoryPoints.length; ++j) {
+            var mandatoryAltitude = Number(root.mandatoryPoints[j].altitude)
+            if (isFinite(mandatoryAltitude)) highest = Math.max(highest, mandatoryAltitude)
+        }
+        if (root.liveFlightActive) highest = Math.max(highest, Number(root.liveAltitudeM) || 0)
+        else if (root.showAircraftPreview) highest = Math.max(highest, Number(root.previewAltitudeM) || 0)
+        return Math.max(400, Math.ceil(highest * 1.10 / 100) * 100)
+    }
+
     function columnValue(rowIndex, key) {
         var row = root.tableRows[rowIndex]
         if (!row) return ""
@@ -257,11 +269,17 @@ Item {
                         routeModel.setProperty(boundIndex, "altitude", String(altitude))
                     root.mandatoryPoints = next
                     root.rebuildTableRows()
+                    root.saveCurrentAircraftData()
                     profileCanvas.requestPaint()
                     return
                 }
             }
-        } else if (row.routeIndex >= 0) routeModel.setProperty(row.routeIndex, "altitude", String(altitude))
+        } else if (row.routeIndex >= 0) {
+            routeModel.setProperty(row.routeIndex, "altitude", String(altitude))
+            root.rebuildTableRows()
+            root.saveCurrentAircraftData()
+            profileCanvas.requestPaint()
+        }
     }
     function parameterKey(i) {
         return ["number", "type", "point", "course", "distance", "altitude",
@@ -279,6 +297,8 @@ Item {
         category: "BlueSkyPRO/MissionProfile"
         property string columnOrderJson: ""
         property real tableSplitRatio: 0.47
+        property string routeDataByUavJson: "{}"
+        property string mandatoryPointsByUavJson: "{}"
     }
 
     function assignmentForUav(uavId) {
@@ -303,34 +323,7 @@ Item {
         return root.missionSummary
     }
 
-    function rebuildRouteCoordinates() {
-        var coordinates = []
-        for (var i = 0; i < routeModel.count; ++i) {
-            var textValue = String(routeModel.get(i).coordinates || "")
-            var parts = textValue.split(",")
-            if (parts.length !== 2
-                    || parts[0].trim().length === 0
-                    || parts[1].trim().length === 0) {
-                root.routeCoordinates = []
-                return
-            }
-            var latitude = Number(parts[0].trim())
-            var longitude = Number(parts[1].trim())
-            if (!isFinite(latitude) || !isFinite(longitude)
-                    || latitude < -90 || latitude > 90
-                    || longitude < -180 || longitude > 180) {
-                // Fail closed: never draw a partial route if one waypoint is invalid.
-                root.routeCoordinates = []
-                return
-            }
-            coordinates.push({ lat: latitude, lon: longitude })
-        }
-        // A single point is not a route and must not be drawn as one.
-        root.routeCoordinates = coordinates.length >= 2 ? coordinates : []
-    }
-
     function saveCurrentAircraftData() {
-        // Session-only editing buffer. Operational route data must be persisted by the canonical mission model.
         var id = root.loadedUavId.length > 0 ? root.loadedUavId : root.selectedAircraftId()
         var routes = Object.assign({}, root.routeDataByUav)
         var points = Object.assign({}, root.mandatoryPointsByUav)
@@ -344,6 +337,8 @@ Item {
         points[id] = root.mandatoryPoints
         root.routeDataByUav = routes
         root.mandatoryPointsByUav = points
+        profileSettings.routeDataByUavJson = JSON.stringify(routes)
+        profileSettings.mandatoryPointsByUavJson = JSON.stringify(points)
     }
 
     function loadAircraftData(index) {
@@ -358,7 +353,6 @@ Item {
         root.mandatoryPoints = Array.isArray(root.mandatoryPointsByUav[id])
                                ? root.mandatoryPointsByUav[id] : []
         root.rebuildTableRows()
-        root.rebuildRouteCoordinates()
         profileCanvas.requestPaint()
     }
 
@@ -372,9 +366,11 @@ Item {
 
     Component.onCompleted: {
         root.recalculateColumnLayout()
-        root.tableSplitRatio = Math.max(0.25, Math.min(0.75, profileSettings.tableSplitRatio))
-        // Route and mandatory-point data are intentionally not restored from QSettings.
-        // Until the canonical route controller is connected, this remains a preview-only buffer.
+        root.tableSplitRatio = Math.max(0, Math.min(1, profileSettings.tableSplitRatio))
+        try { root.routeDataByUav = JSON.parse(profileSettings.routeDataByUavJson) || ({}) }
+        catch (e) { root.routeDataByUav = ({}) }
+        try { root.mandatoryPointsByUav = JSON.parse(profileSettings.mandatoryPointsByUavJson) || ({}) }
+        catch (e) { root.mandatoryPointsByUav = ({}) }
         var initialRoute = []
         for (var ri = 0; ri < routeModel.count; ++ri) {
             var source = routeModel.get(ri), item = {}
@@ -394,7 +390,6 @@ Item {
         root.routeDataByUav = routes
         root.mandatoryPointsByUav = points
         root.loadAircraftData(root.selectedUavIndex)
-        root.rebuildRouteCoordinates()
         if (profileSettings.columnOrderJson.length > 0) {
             try {
                 var saved = JSON.parse(profileSettings.columnOrderJson)
@@ -407,6 +402,7 @@ Item {
     onTableSplitRatioChanged: profileSettings.tableSplitRatio = tableSplitRatio
     onMandatoryPointsChanged: {
         root.mandatoryPointsByUav[root.selectedAircraftId()] = mandatoryPoints
+        profileSettings.mandatoryPointsByUavJson = JSON.stringify(root.mandatoryPointsByUav)
         rebuildTableRows()
         profileCanvas.requestPaint()
     }
@@ -461,21 +457,10 @@ Item {
                     font.family: "B612 Mono"
                     font.pixelSize: 12
                 }
-                Text {
-                    id: routeAuthorityLabel
-                    anchors.left: missionIdText.right
-                    anchors.leftMargin: 10
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: root.routeAuthorityStatus
-                    color: "#FFD339"
-                    font.family: "B612"
-                    font.pixelSize: 9
-                    font.bold: true
-                }
                 Row {
                     id: uavTabs
-                    anchors.left: routeAuthorityLabel.right
-                    anchors.leftMargin: 10
+                    anchors.left: missionIdText.right
+                    anchors.leftMargin: 14
                     anchors.verticalCenter: parent.verticalCenter
                     width: Math.min(implicitWidth, Math.max(0, collapsedToolsToggle.x - x - 12))
                     height: 34
@@ -730,27 +715,25 @@ Item {
                         }
                     }
 
-                    // Transparent vertical splitter: drag up/down to resize the
-                    // table viewport and the flight-profile plot proportionally.
+                    // Draggable splitter with a wide hit target and fully collapsible panes.
                     Item {
                         id: splitHandle
                         width: parent.width
-                        height: 1
-                        z: 2
+                        height: 2
+                        z: 20
 
                         Rectangle {
                             anchors.centerIn: parent
                             width: parent.width
-                            height: 1
+                            height: splitMouse.containsMouse ? 2 : 1
                             color: splitMouse.containsMouse ? root.cyan : root.line
-                            opacity: splitMouse.containsMouse ? 0.95 : 0.65
+                            opacity: splitMouse.containsMouse ? 1.0 : 0.8
                         }
 
                         MouseArea {
                             id: splitMouse
                             anchors.fill: parent
-                            // Keep a practical drag target while the visual gap is 1 px.
-                            anchors.margins: -5
+                            anchors.margins: -7
                             hoverEnabled: true
                             cursorShape: Qt.SplitVCursor
                             property real lastY: 0
@@ -761,11 +744,16 @@ Item {
                                 var delta = mouse.y - lastY
                                 lastY = mouse.y
                                 var available = mainColumn.height - splitHandle.height
-                                var minTable = 150
-                                var minProfile = 190
+                                if (available <= 0) return
                                 var nextHeight = tablePanel.height + delta
-                                nextHeight = Math.max(minTable, Math.min(available - minProfile, nextHeight))
+                                nextHeight = Math.max(0, Math.min(available, nextHeight))
                                 root.tableSplitRatio = nextHeight / available
+                            }
+                            onDoubleClicked: {
+                                if (root.tableSplitRatio <= 0.02 || root.tableSplitRatio >= 0.98)
+                                    root.tableSplitRatio = 0.47
+                                else
+                                    root.tableSplitRatio = root.tableSplitRatio < 0.5 ? 0 : 1
                             }
                         }
                     }
@@ -839,7 +827,7 @@ Item {
                                     ctx.beginPath(); ctx.moveTo(left, bottom)
                                     for (var i = 0; i < terrain.length; i++) {
                                         var tx = left + plotW * i / (terrain.length - 1)
-                                        var ty = bottom - (terrain[i] / 400) * plotH
+                                        var ty = bottom - (terrain[i] / root.profileAltitudeScaleMax()) * plotH
                                         ctx.lineTo(tx, ty)
                                     }
                                     ctx.lineTo(right, bottom); ctx.closePath()
@@ -876,7 +864,7 @@ Item {
                                         var mp = root.mandatoryPoints[mi]
                                         if (Number(mp.routeIndex) >= 0) continue
                                         profileNodes.push({ progress: Math.max(0, Math.min(1, Number(mp.progress))),
-                                                            altitude: Math.max(0, Math.min(400, Number(mp.altitude))),
+                                                            altitude: Math.max(0, Math.min(5000, Number(mp.altitude))),
                                                             mandatory: true, mandatoryId: mp.id })
                                     }
                                     profileNodes.sort(function(a, b) { return a.progress - b.progress })
@@ -885,7 +873,7 @@ Item {
                                     ctx.beginPath()
                                     for (var p = 0; p < profileNodes.length; p++) {
                                         var px = left + plotW * profileNodes[p].progress
-                                        var py = bottom - (profileNodes[p].altitude / 400) * plotH
+                                        var py = bottom - (profileNodes[p].altitude / root.profileAltitudeScaleMax()) * plotH
                                         if (p === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py)
                                     }
                                     ctx.strokeStyle = root.cyan; ctx.lineWidth = 3; ctx.stroke()
@@ -893,7 +881,7 @@ Item {
                                     for (var rn = 0; rn < profileNodes.length; rn++) {
                                         var routeNode = profileNodes[rn]
                                         var labelX = left + plotW * routeNode.progress
-                                        var labelY = bottom - (routeNode.altitude / 400) * plotH - 17
+                                        var labelY = bottom - (routeNode.altitude / root.profileAltitudeScaleMax()) * plotH - 17
                                         ctx.beginPath(); ctx.arc(labelX, labelY, 8, 0, Math.PI * 2)
                                         ctx.fillStyle = routeNode.mandatory ? "#155BFF" : "#071321"
                                         ctx.fill()
@@ -916,7 +904,7 @@ Item {
                                             }
                                         }
                                         var mx = left + plotW * nodeProgress
-                                        var my = bottom - (nodeAltitude / 400) * plotH
+                                        var my = bottom - (nodeAltitude / root.profileAltitudeScaleMax()) * plotH
                                         ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI * 2)
                                         ctx.fillStyle = "#EAF7FF"; ctx.fill()
                                         ctx.strokeStyle = root.cyan; ctx.lineWidth = 2; ctx.stroke()
@@ -924,7 +912,7 @@ Item {
                                     for (var mi2 = 0; mi2 < root.mandatoryPoints.length; mi2++) {
                                         var mandatory = root.mandatoryPoints[mi2]
                                         var mandatoryX = left + plotW * Number(mandatory.progress)
-                                        var mandatoryY = bottom - (Number(mandatory.altitude) / 400) * plotH
+                                        var mandatoryY = bottom - (Number(mandatory.altitude) / root.profileAltitudeScaleMax()) * plotH
                                         ctx.strokeStyle = "#155BFF"; ctx.lineWidth = 2; ctx.setLineDash([4, 3])
                                         ctx.beginPath(); ctx.moveTo(mandatoryX, mandatoryY + 10); ctx.lineTo(mandatoryX, bottom); ctx.stroke()
                                         ctx.setLineDash([])
@@ -938,7 +926,7 @@ Item {
                                     // Time axis: elapsed mission time, from departure to planned ETA.
                                     ctx.fillText("Время полёта", Math.max(45, width / 2 - 35), height - 4)
                                     ctx.fillText("00:00", left - 18, bottom + 14)
-                                    ctx.fillText("400", left - 32, top + 4)
+                                    ctx.fillText(String(root.profileAltitudeScaleMax()), left - 32, top + 4)
                                     ctx.fillText("01:18", right - 24, bottom + 14)
                                     for (var ti = 1; ti < 8; ti++) {
                                         var totalMinutes = Math.floor(78 * ti / 8)
@@ -962,7 +950,7 @@ Item {
                                                         ? root.liveAltitudeM
                                                         : (root.liveFlightActive ? routeAlt : root.previewAltitudeM)
                                         var aircraftX = left + plotW * progress
-                                        var aircraftY = bottom - (markerAlt / 400) * plotH
+                                        var aircraftY = bottom - (markerAlt / root.profileAltitudeScaleMax()) * plotH
 
                                         // Halo and vertical leader make the aircraft easy to locate.
                                         ctx.strokeStyle = "#FFFFFF"
@@ -1043,7 +1031,7 @@ Item {
                                         var best = -1, bestD = 18 * 18
                                         for (var i = 0; i < root.mandatoryPoints.length; i++) {
                                             var px = plotLeft + Number(root.mandatoryPoints[i].progress) * (plotRight - plotLeft)
-                                            var py = plotBottom - Number(root.mandatoryPoints[i].altitude) / 400 * (plotBottom - plotTop)
+                                            var py = plotBottom - Number(root.mandatoryPoints[i].altitude) / root.profileAltitudeScaleMax() * (plotBottom - plotTop)
                                             var dx = x - px, dy = y - py, d = dx * dx + dy * dy
                                             if (d <= bestD) { best = i; bestD = d }
                                         }
@@ -1054,7 +1042,7 @@ Item {
                                         var best = -1, bestD = 28 * 28
                                         for (var i = 0; i < routeModel.count; i++) {
                                             var px = plotLeft + i / Math.max(1, routeModel.count - 1) * (plotRight - plotLeft)
-                                            var py = plotBottom - Number(routeModel.get(i).altitude) / 400 * (plotBottom - plotTop)
+                                            var py = plotBottom - Number(routeModel.get(i).altitude) / root.profileAltitudeScaleMax() * (plotBottom - plotTop)
                                             var dx = x - px, dy = y - py, d = dx * dx + dy * dy
                                             if (d <= bestD) { best = i; bestD = d }
                                         }
@@ -1067,8 +1055,8 @@ Item {
                                         for (var i = 0; i < routeModel.count - 1; i++) {
                                             var x1 = plotLeft + i / Math.max(1, routeModel.count - 1) * (plotRight - plotLeft)
                                             var x2 = plotLeft + (i + 1) / Math.max(1, routeModel.count - 1) * (plotRight - plotLeft)
-                                            var y1 = plotBottom - Number(routeModel.get(i).altitude) / 400 * (plotBottom - plotTop)
-                                            var y2 = plotBottom - Number(routeModel.get(i + 1).altitude) / 400 * (plotBottom - plotTop)
+                                            var y1 = plotBottom - Number(routeModel.get(i).altitude) / root.profileAltitudeScaleMax() * (plotBottom - plotTop)
+                                            var y2 = plotBottom - Number(routeModel.get(i + 1).altitude) / root.profileAltitudeScaleMax() * (plotBottom - plotTop)
                                             var dx = x2 - x1, dy = y2 - y1
                                             var t = Math.max(0, Math.min(1, ((x-x1)*dx + (y-y1)*dy) / Math.max(1, dx*dx + dy*dy)))
                                             var qx = x1 + t*dx, qy = y1 + t*dy
@@ -1084,7 +1072,7 @@ Item {
                                         var next = root.mandatoryPoints.slice(0)
                                         next.push({ id: "mandatory-" + Date.now().toString() + "-" + next.length,
                                             progress: Math.max(0, Math.min(1, progress)),
-                                            altitude: Math.round(Math.max(0, Math.min(400, altitude))),
+                                            altitude: Math.round(Math.max(0, Math.min(5000, altitude))),
                                             routeIndex: routeIndex === undefined ? -1 : routeIndex })
                                         root.mandatoryPoints = next
                                         return next.length - 1
@@ -1095,7 +1083,7 @@ Item {
                                         var next = root.mandatoryPoints.slice(0)
                                         var selected = next[index]
                                         var nextProgress = Math.max(0, Math.min(1, (mouseX - plotLeft) / Math.max(1, plotRight - plotLeft)))
-                                        var nextAltitude = Math.round(Math.max(0, Math.min(400, (plotBottom - mouseY) / Math.max(1, plotBottom - plotTop) * 400)))
+                                        var nextAltitude = Math.round(Math.max(0, Math.min(5000, (plotBottom - mouseY) / Math.max(1, plotBottom - plotTop) * root.profileAltitudeScaleMax())))
                                         next[index] = {
                                             id: selected.id,
                                             progress: nextProgress,
@@ -1133,7 +1121,7 @@ Item {
                                         if (hit >= 0) {
                                             dragMandatoryIndex = hit
                                             dragOffsetX = mouse.x - (plotLeft + Number(root.mandatoryPoints[hit].progress) * (plotRight - plotLeft))
-                                            dragOffsetY = mouse.y - (plotBottom - Number(root.mandatoryPoints[hit].altitude) / 400 * (plotBottom - plotTop))
+                                            dragOffsetY = mouse.y - (plotBottom - Number(root.mandatoryPoints[hit].altitude) / root.profileAltitudeScaleMax() * (plotBottom - plotTop))
                                             return
                                         }
 
@@ -1147,7 +1135,7 @@ Item {
                                             if (!exists) {
                                                 dragMandatoryIndex = addMandatoryPoint(routeProgress, routeAltitude, routeHit)
                                                 dragOffsetX = mouse.x - (plotLeft + routeProgress * (plotRight - plotLeft))
-                                                dragOffsetY = mouse.y - (plotBottom - routeAltitude / 400 * (plotBottom - plotTop))
+                                                dragOffsetY = mouse.y - (plotBottom - routeAltitude / root.profileAltitudeScaleMax() * (plotBottom - plotTop))
                                             }
                                             return
                                         }
@@ -1185,7 +1173,7 @@ Item {
                                         z: 20
                                         x: 42 + Number(modelData.progress) * (profileCanvas.width - 54) - width / 2
                                         y: profileCanvas.height - 28
-                                           - (Number(modelData.altitude) / 400) * (profileCanvas.height - 46)
+                                           - (Number(modelData.altitude) / root.profileAltitudeScaleMax()) * (profileCanvas.height - 46)
                                            - height / 2
 
                                         Rectangle {
@@ -1343,17 +1331,8 @@ Item {
             }
         }
 
-    Timer {
-        id: routePreviewRefresh
-        interval: 0
-        repeat: false
-        onTriggered: root.rebuildRouteCoordinates()
-    }
-
     ListModel {
         id: routeModel
-        onDataChanged: routePreviewRefresh.restart()
-        onCountChanged: routePreviewRefresh.restart()
         ListElement { pointType: "Старт"; pointName: "WP Start"; coordinates: "55.7522, 37.6156"; course: "—"; distance: "0.0"; altitude: "120"; airspeed: "—"; groundspeed: "—"; time: "00:00"; deltaHeight: "—"; energy: "100"; note: "Взлёт (VTOL)" }
         ListElement { pointType: "Участок"; pointName: "WP 1"; coordinates: "55.7801, 37.6923"; course: "087"; distance: "12.4"; altitude: "150"; airspeed: "28.0"; groundspeed: "25.4"; time: "04:52"; deltaHeight: "+30"; energy: "92"; note: "Набор высоты" }
         ListElement { pointType: "Участок"; pointName: "WP 2"; coordinates: "55.8065, 37.8041"; course: "095"; distance: "18.7"; altitude: "150"; airspeed: "30.0"; groundspeed: "27.1"; time: "06:54"; deltaHeight: "0"; energy: "81"; note: "Патрулирование" }
