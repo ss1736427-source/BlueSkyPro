@@ -27,6 +27,7 @@ def build_result_message(
     input_refs: tuple[str, ...] = (),
     artifact_refs: tuple[str, ...] = (),
     evidence_refs: tuple[str, ...] = (),
+    route_candidate: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not mission_id or not result_id:
         raise PlanningBridgeContractError("MISSION_AND_RESULT_IDS_REQUIRED")
@@ -51,6 +52,9 @@ def build_result_message(
         source["runId"] = run_id
 
     result: dict[str, Any] = {}
+    if route_candidate is not None:
+        # Explicit geodetic input only; never derive this from planar x/y routes.
+        result["routeCandidate"] = route_candidate
     if three_d_mapping is not None:
         if not is_dataclass(three_d_mapping):
             raise PlanningBridgeContractError("3D_MAPPING_RESULT_MUST_BE_DATACLASS")
