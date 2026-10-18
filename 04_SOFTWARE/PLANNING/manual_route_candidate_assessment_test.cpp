@@ -85,6 +85,7 @@ int main()
     noFly.geometry_type = RestrictionGeometryType::Circle;
     noFly.center = {59.005, 30.010};
     noFly.radius_m = 300.0;
+    noFly.altitude_reference = AltitudeReference::AGL;
     noFly.minimum_altitude_m = 0.0;
     noFly.maximum_altitude_m = 100.0;
     noFly.active = true;
@@ -105,6 +106,26 @@ int main()
     assert(!staleRestrictionResult.assessed);
     assert(hasError(staleRestrictionResult,
                     "RESTRICTION_SNAPSHOT_VERSION_MISMATCH:NOTAM-TEST-001"));
+
+    auto unknownDatum = environment;
+    auto unknownRestriction = noFly;
+    unknownRestriction.altitude_reference = AltitudeReference::Unknown;
+    unknownDatum.restrictions.push_back(unknownRestriction);
+    const auto unknownDatumResult =
+        assessManualRouteCandidateAirspace(candidate, unknownDatum);
+    assert(!unknownDatumResult.assessed);
+    assert(hasError(unknownDatumResult,
+                    "RESTRICTION_ALTITUDE_DATUM_UNSUPPORTED:NOTAM-TEST-001"));
+
+    auto amslDatum = environment;
+    auto amslRestriction = noFly;
+    amslRestriction.altitude_reference = AltitudeReference::AMSL;
+    amslDatum.restrictions.push_back(amslRestriction);
+    const auto amslDatumResult =
+        assessManualRouteCandidateAirspace(candidate, amslDatum);
+    assert(!amslDatumResult.assessed);
+    assert(hasError(amslDatumResult,
+                    "RESTRICTION_ALTITUDE_DATUM_UNSUPPORTED:NOTAM-TEST-001"));
 
     auto staleSnapshot = environment;
     staleSnapshot.snapshot_id = "AIRSPACE-OLD";
