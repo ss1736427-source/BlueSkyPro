@@ -167,6 +167,7 @@ Item {
                 root.missionState = "MANUAL"
                 root.manualCompositionComplete = false
                 root.manualSetRequested = false
+                root.manualSetBlocked = false
                 root.manualSetBaselineResultId = ""
                 root.manualSelectedTemplateIds = []
                 root.manualMissionVersion += 1
@@ -268,6 +269,7 @@ Item {
             function onGeometryChanged() {
                 root.manualMissionVersion += 1
                 root.manualSetRequested = false
+                root.manualSetBlocked = false
                 root.manualSetBaselineResultId = ""
                 if (root.missionState === "VALIDATING")
                     root.missionState = "MANUAL"
