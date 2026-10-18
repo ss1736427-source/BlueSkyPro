@@ -48,6 +48,26 @@ ManualRouteCandidateAssessment assessManualRouteCandidateAirspace(
     }
     result.snapshot_lineage_matches = true;
 
+    // Every active restriction must belong to the exact environment version being
+    // assessed. A matching top-level snapshot ID is insufficient if its contents
+    // accidentally include stale restriction records.
+    for (const auto& restriction : environment.restrictions) {
+        if (!restriction.active) continue;
+        if (restriction.restriction_id.empty()) {
+            addError(result, "ACTIVE_RESTRICTION_ID_REQUIRED");
+        }
+        if (restriction.snapshot_version != environment.snapshot_version) {
+            addError(result, "RESTRICTION_SNAPSHOT_VERSION_MISMATCH:"
+                             + restriction.restriction_id);
+        }
+    }
+    if (!result.errors.empty()) {
+        std::sort(result.errors.begin(), result.errors.end());
+        result.errors.erase(std::unique(result.errors.begin(), result.errors.end()),
+                            result.errors.end());
+        return result;
+    }
+
     const auto route_validation = RouteConstraintValidator::validate(candidate.route);
     if (!route_validation.findings.empty()) {
         for (const auto& finding : route_validation.findings)
