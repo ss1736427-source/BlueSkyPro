@@ -151,6 +151,8 @@ Item {
             missionVisible: root.missionVisible
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
+            leftPanelWidth: root.leftPanelOpen ? root.leftWidth : 0
+            rightPanelWidth: root.rightPanelOpen ? root.rightWidth : 0
             useExternalMapState: true
             mapPanX: root.mapPanX
             mapPanY: root.mapPanY
