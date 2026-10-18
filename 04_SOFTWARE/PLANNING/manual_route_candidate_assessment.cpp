@@ -100,4 +100,53 @@ ManualRouteCandidateAssessment assessManualRouteCandidateAirspace(
     return result;
 }
 
+ManualRouteNotamAssessment assessManualRouteCandidateNotams(
+    const ManualRouteBuildResult& candidate,
+    const NotamSnapshot& snapshot,
+    const std::string& current_calculation_input_version)
+{
+    ManualRouteNotamAssessment result;
+
+    if (!candidate.valid) {
+        result.errors.emplace_back("MANUAL_ROUTE_CANDIDATE_NOT_STRUCTURALLY_VALID");
+        for (const auto& error : candidate.errors)
+            result.errors.push_back("CANDIDATE_BUILD:" + error);
+        return result;
+    }
+    result.candidate_structurally_valid = true;
+
+    if (snapshot.snapshot_id.empty() || snapshot.source_id.empty()
+        || snapshot.source_version.empty() || snapshot.evaluation_epoch_s <= 0) {
+        result.errors.emplace_back("NOTAM_SNAPSHOT_LINEAGE_OR_EVALUATION_TIME_REQUIRED");
+        return result;
+    }
+    if (candidate.route.environment.airspace_snapshot_id != snapshot.snapshot_id) {
+        result.errors.emplace_back("NOTAM_SNAPSHOT_ID_MISMATCH");
+        return result;
+    }
+    if (current_calculation_input_version.empty()
+        || candidate.route.lineage.calculation_input_version
+           != current_calculation_input_version) {
+        result.errors.emplace_back("CALCULATION_INPUT_VERSION_MISMATCH");
+        return result;
+    }
+    result.snapshot_lineage_matches = true;
+
+    result.notam_result = NotamProhibitedZoneValidator::validate(candidate.route, snapshot);
+    result.assessed = true;
+    result.notam_clear = result.notam_result.status == RouteValidationStatus::Allowed;
+    for (const auto& finding : result.notam_result.findings) {
+        result.errors.push_back("NOTAM_VALIDATION_FAILED:"
+            + std::to_string(static_cast<int>(finding.code))
+            + ":" + finding.notam_id + ":" + finding.waypoint_id
+            + ":" + finding.segment_start_waypoint_id
+            + ":" + finding.segment_end_waypoint_id);
+    }
+    std::sort(result.errors.begin(), result.errors.end());
+    result.errors.erase(std::unique(result.errors.begin(), result.errors.end()),
+                        result.errors.end());
+    // Intentionally no release transition: this only assesses NOTAM intersections.
+    return result;
+}
+
 } // namespace bluesky::planning
