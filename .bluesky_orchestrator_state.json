@@ -1,12 +1,12 @@
 {
-  "last_main_sha": "d556f814b0a28fad432adcad660e2ec4ab05456c",
-  "verified_sha": null,
+  "last_main_sha": "260b4965a60d6b81fd101156e1e92cff46b8ec18",
+  "verified_sha": "260b4965a60d6b81fd101156e1e92cff46b8ec18",
   "decision_required": false,
   "ci_required": true,
-  "current_work_package": "HMI FLIGHT PROFILE — exact-SHA CI verification and final interaction-state audit",
-  "checkpoint": "At 20e56048af9c8233a45e2491063a4cdaffaa2455, Multi-UAV Validator is PASS. HMI Qt Build and Windows Map Build are running; both currently in Qt installation steps. The QML diff fixes drag persistence, dynamic-scale point creation, and clearing routeModel before loading saved per-UAV data. This main SHA is immediately followed by the checkpoint metadata change; do not treat any old CI as verification for a later SHA.",
+  "current_work_package": "REPOSITORY RECONCILIATION — continue auditing open PR unique diffs against canonical main",
+  "checkpoint": "HMI flight-profile correction set has been verified. Code SHA 20e56048af9c8233a45e2491063a4cdaffaa2455 passed exact-SHA Linux HMI build/test, Windows Map build/test/deploy/startup smoke, and Multi-UAV Validator. Checkpoint-only follow-up commits on main culminated in 260b4965a60d6b81fd101156e1e92cff46b8ec18; all 10 workflows for that exact HEAD passed. MissionProfileWindow.qml confirms dynamic altitude scale for edit/create, save on profile drag, and routeModel clear before per-UAV restore. Visual Qt Design Studio inspection remains outstanding. PR #49 remains Draft and unmerged.",
   "real_execution": "DEFERRED",
   "quantitative_c2_basis": "DEFERRED",
-  "current_ci_status": "UNVERIFIED_FOR_CURRENT_MAIN_SHA",
-  "next_deterministic_action": "Wait for exact current main SHA CI to complete; because the checkpoint file is also committed on main, CI must be checked for the actual current HEAD, not only 20e56048af9c8233a45e2491063a4cdaffaa2455. If HMI or Windows Map fails, inspect step logs. If success, audit QML reload/default-route semantics and continue PR reconciliation; PR #49 remains Draft."
+  "current_ci_status": "PASS_FOR_260b4965a60d6b81fd101156e1e92cff46b8ec18; HMI_CODE_CI_PASS_FOR_20e56048af9c8233a45e2491063a4cdaffaa2455",
+  "next_deterministic_action": "Continue audit of open PRs file-by-file. PR #40's corrupted documentation has already been restored in main (02_SYSTEM/Design/Interface/Flight Profile Interaction.md is valid); compare its exact content for any missing unique intent but avoid replacement if already present. Then prioritize PRs #32/#25 map cache unique changes and remaining stacked planning/altitude PRs. Never merge/import PR #49, don't create branches, don't touch E:."
 }
