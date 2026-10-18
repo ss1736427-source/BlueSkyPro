@@ -1145,7 +1145,7 @@ Item {
                                             return
                                         }
                                         dragMandatoryIndex = addMandatoryPoint(progress,
-                                            (plotBottom - mouse.y) / Math.max(1, plotBottom - plotTop) * 400)
+                                            (plotBottom - mouse.y) / Math.max(1, plotBottom - plotTop) * root.profileAltitudeScaleMax())
                                         dragOffsetX = 0
                                         dragOffsetY = 0
                                     }
