@@ -152,6 +152,7 @@ std::string dependencyIdentity(const ConstrainedEnvironmentSnapshot& environment
         key << restriction.restriction_id << '|' << restriction.source_id << '|'
             << restriction.snapshot_version << '|'
             << static_cast<int>(restriction.geometry_type) << '|'
+            << static_cast<int>(restriction.altitude_reference) << '|'
             << restriction.active << '|'
             << canonicalDouble(restriction.minimum_altitude_m) << '|'
             << canonicalDouble(restriction.maximum_altitude_m) << '|'
