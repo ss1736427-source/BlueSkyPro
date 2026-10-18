@@ -199,8 +199,11 @@ Item {
             function onResultChanged() {
                 var result = planningBridge.result
                 var candidate = result && result.result ? result.result.routeCandidate : null
-                if (candidate !== null && candidate !== undefined)
+                // Never let a late result for another mission replace this mission's route.
+                if (result && String(result.missionId) === String(root.missionId)
+                        && candidate !== null && candidate !== undefined) {
                     routeController.loadCandidate(candidate)
+                }
             }
         }
 
