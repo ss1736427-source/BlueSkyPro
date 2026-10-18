@@ -83,8 +83,11 @@ public:
             const double lon = point.value(QStringLiteral("longitudeDeg")).toDouble(&lonOk);
             const double alt = point.value(QStringLiteral("altitudeM")).toDouble(&altOk);
             const QString datum = point.value(QStringLiteral("altitudeReference")).toString();
+            const QVariant mandatoryValue = point.value(QStringLiteral("mandatory"));
             if (id.isEmpty() || !ids.insert(id.toStdString()).second)
                 return reject(QStringLiteral("WAYPOINT_ID_MISSING_OR_DUPLICATE"));
+            if (mandatoryValue.metaType().id() != QMetaType::Bool)
+                return reject(QStringLiteral("MANDATORY_FLAG_INVALID"));
             if (!latOk || !lonOk || !std::isfinite(lat) || !std::isfinite(lon)
                 || lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0)
                 return reject(QStringLiteral("INVALID_WAYPOINT_POSITION"));
