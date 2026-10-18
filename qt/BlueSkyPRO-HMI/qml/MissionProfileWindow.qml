@@ -445,10 +445,29 @@ Item {
                     font.family: "B612 Mono"
                     font.pixelSize: 12
                 }
+                Text {
+                    id: routeStatusText
+                    anchors.left: missionIdText.right
+                    anchors.leftMargin: 12
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 142
+                    text: root.routeValidationState === "VALIDATED" ? "МАРШРУТ ПРОВЕРЕН"
+                          : root.routeValidationState === "RECALCULATION_REQUIRED" ? "ТРЕБУЕТСЯ ПЕРЕСЧЁТ"
+                          : root.routeValidationState === "BLOCKED" ? "МАРШРУТ ЗАБЛОКИРОВАН"
+                          : root.routeValidationState === "CANDIDATE_UNVALIDATED" ? "КАНДИДАТ · НЕ ПРОВЕРЕН"
+                          : "МАРШРУТ НЕ ГОТОВ"
+                    color: root.routeValidationState === "VALIDATED" ? root.switchGreen
+                           : root.routeValidationState === "BLOCKED" ? "#FF625A" : root.warning
+                    font.family: "B612"
+                    font.pixelSize: 10
+                    font.bold: true
+                    horizontalAlignment: Text.AlignLeft
+                    elide: Text.ElideRight
+                }
                 Row {
                     id: uavTabs
-                    anchors.left: missionIdText.right
-                    anchors.leftMargin: 14
+                    anchors.left: routeStatusText.right
+                    anchors.leftMargin: 10
                     anchors.verticalCenter: parent.verticalCenter
                     width: Math.min(implicitWidth, Math.max(0, collapsedToolsToggle.x - x - 12))
                     height: 34
