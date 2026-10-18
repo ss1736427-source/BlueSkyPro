@@ -1,7 +1,7 @@
 # HMI Live Altitude Telemetry Bridge
 
 **ID:** OPS-HMI-ALT-BRIDGE-001  
-**Status:** CONTRACT DRAFT — implementation and runtime verification pending  
+**Status:** IMPLEMENTED — automated verification added; runtime/HIL verification UNVERIFIED  
 **Related:** Issue #48, OPS-ALT-ADAPTER-001
 
 ## Purpose
@@ -12,7 +12,7 @@ Define the narrow, display-only contract between accepted source-specific MAVLin
 
 - `qt/BlueSkyPRO-HMI/src/main.cpp` creates `PlanningBridge` and exposes it to QML as `planningBridge`.
 - `PlanningBridge` accepts only `planning.result` schema 1.0 and validates mission verification fields. Do not overload that schema with live telemetry.
-- `MavlinkTransportChannelRuntime::receive()` currently consumes a frame and returns the original bytes; the accepted `DecodedMavlinkMessage` is not exposed to a live HMI consumer.
+- `MavlinkTransportChannelRuntime::receive()` returns the original frame and exposes the session-accepted decoded message through `takeAcceptedMessage()` for the live HMI consumer.
 - `MavlinkAltitudeDisplayAdapter` consumes a `MavlinkTelemetrySample`, but the current sample structure has a single optional distance-sensor sample. A caller must not overwrite a configured source with a different sensor ID or an older sample.
 
 ## Required component
@@ -57,7 +57,7 @@ Do not bind this value to `ready`, mission validation, authorization or start-fl
 - Missing/stale data becomes unavailable; barometric fallback is labelled degraded.
 - Thresholds at 99.9 m, 100.0 m, 100.1 m.
 - Timestamp fallback is visibly degraded.
-- Qt-facing tests for initial unavailable state, state-change notifications and QML property shape.
+- Qt-facing tests for initial unavailable state, state-change notifications and QML property shape remain a separate verification item unless added by a dedicated HMI test target.
 - HMI build and CI for the exact integration commit.
 - Real-autopilot configuration and hardware-in-loop evidence remain **UNVERIFIED** until tested.
 

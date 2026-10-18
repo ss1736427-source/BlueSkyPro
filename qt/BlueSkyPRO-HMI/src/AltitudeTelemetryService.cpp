@@ -178,6 +178,7 @@ bool AltitudeTelemetryService::startFromEnvironment()
 void AltitudeTelemetryService::stop()
 {
     m_timer.stop();
+    m_bridge.clearTelemetry(QStringLiteral("MISSING"));
     if (m_transport && !m_channelId.isEmpty())
         m_transport->disconnect(m_channelId.toStdString());
     m_transport.reset();
@@ -193,6 +194,7 @@ void AltitudeTelemetryService::poll()
     const qint64 nowMs = qMax<qint64>(1, m_clock.elapsed());
 
     if (m_reconnectPending) {
+        m_bridge.clearTelemetry(QStringLiteral("STALE_OR_MISSING"));
         if (nowMs >= m_reconnectAtMs) {
             if (m_transport->reconnect(m_channelId.toStdString())) {
                 m_reconnectPending = false;
@@ -212,6 +214,7 @@ void AltitudeTelemetryService::poll()
 
     const auto session = m_transport->tickSession(m_sessionId.toStdString(), nowMs);
     if (session.heartbeat_seen && session.link_state == MavlinkLinkState::Lost) {
+        m_bridge.clearTelemetry(QStringLiteral("STALE_OR_MISSING"));
         m_transport->fail(m_channelId.toStdString());
         m_reconnectPending = true;
         m_reconnectAtMs = nowMs + 1000;

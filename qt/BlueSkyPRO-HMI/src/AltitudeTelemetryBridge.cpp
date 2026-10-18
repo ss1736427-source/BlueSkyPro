@@ -78,6 +78,13 @@ bool AltitudeTelemetryBridge::configure(const QString &vehicleId,
     return true;
 }
 
+void AltitudeTelemetryBridge::clearTelemetry(const QString &freshness)
+{
+    if (m_runtime)
+        m_runtime->clear();
+    publishUnavailable(freshness);
+}
+
 void AltitudeTelemetryBridge::refresh(qint64 nowMonotonicMs)
 {
     if (!m_configured || !m_runtime || nowMonotonicMs <= 0) {

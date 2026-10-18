@@ -205,6 +205,11 @@ MavlinkAltitudeDisplayRuntime::evaluate(std::int64_t now_ms) const {
     return {};
 }
 
+void MavlinkAltitudeDisplayRuntime::clear() {
+    distance_by_source_.clear();
+    pressure_by_source_.clear();
+}
+
 bool MavlinkAltitudeDisplayRuntime::hasAnyAltitudeInput() const {
     return !distance_by_source_.empty() || !pressure_by_source_.empty();
 }

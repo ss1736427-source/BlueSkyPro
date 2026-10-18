@@ -151,6 +151,18 @@ void testNoFallbackToGlobalPositionAltitude() {
     assert(!runtime.evaluate(10100).decision.value_available);
 }
 
+void testLifecycleClearRemovesPreviouslyAcceptedSamples() {
+    MavlinkAltitudeDisplayRuntime runtime(config(), "UAV-ALT-01", "PX4:MAVLink2:1:1", 1, 1);
+    assert(runtime.ingestAccepted(distanceMessage(1, 4, 1000, 10000, 40.0)));
+    assert(runtime.ingestAccepted(pressureMessage(1001, 10010, 1008.0)));
+    assert(runtime.evaluate(10020).decision.value_available);
+    runtime.clear();
+    assert(!runtime.hasAnyAltitudeInput());
+    const auto cleared = runtime.evaluate(10021);
+    assert(!cleared.decision.value_available);
+    assert(cleared.decision.source == AltitudeDisplaySource::Unavailable);
+}
+
 void testStaleSamplesBecomeUnavailable() {
     MavlinkAltitudeDisplayRuntime runtime(config(), "UAV-ALT-01", "PX4:MAVLink2:1:1", 1, 1);
     assert(runtime.ingestAccepted(distanceMessage(1, 4, 1000, 10000, 40.0)));
@@ -170,6 +182,7 @@ int main() {
     testRadioAltimeterWorksWithoutBarometricPressure();
     testBaroOnlyFallbackIsExplicitlyDegraded();
     testNoFallbackToGlobalPositionAltitude();
+    testLifecycleClearRemovesPreviouslyAcceptedSamples();
     testStaleSamplesBecomeUnavailable();
     std::cout << "mavlink_altitude_display_runtime_test: PASS\n";
     return 0;

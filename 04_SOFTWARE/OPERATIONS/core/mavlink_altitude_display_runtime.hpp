@@ -24,6 +24,8 @@ public:
     // Returns true only when the accepted telemetry advanced the cached state.
     // A duplicate or out-of-order source update never replaces newer data.
     bool ingestAccepted(const DecodedMavlinkMessage& message);
+    // Clear cached readings at transport/session lifecycle boundaries.
+    void clear();
 
     MavlinkAltitudeDisplayAdapterResult evaluate(std::int64_t now_ms) const;
     bool hasAnyAltitudeInput() const;

@@ -44,6 +44,8 @@ public:
     bool ingestAcceptedMessage(const bluesky::operations::DecodedMavlinkMessage &message,
                                qint64 nowMonotonicMs);
     Q_INVOKABLE void refresh(qint64 nowMonotonicMs);
+    // Called whenever the transport/session is stopped, lost, or restarted.
+    void clearTelemetry(const QString &freshness = QStringLiteral("MISSING"));
 
 signals:
     void stateChanged();
