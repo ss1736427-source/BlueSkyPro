@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-REPO = os.getenv("BS_REPO", "ss1736427-source/BlueSky-PRO-Knowledge")
+REPO = os.getenv("BS_REPO", "ss1736427-source/BlueSkyPro")
 BRANCH = os.getenv("BS_BRANCH", "main")
 POLL_SECONDS = int(os.getenv("BS_POLL_SECONDS", "5"))
 CI_GRACE_SECONDS = int(os.getenv("BS_CI_GRACE_SECONDS", "5"))

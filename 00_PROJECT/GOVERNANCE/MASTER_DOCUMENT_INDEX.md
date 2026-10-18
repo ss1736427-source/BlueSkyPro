@@ -411,4 +411,14 @@ For the current development sequence, work proceeds from the existing architectu
 
 ## 17. Latest repository-wide documentation audit
 
-`TRACEABILITY/REPOSITORY_DOCUMENTATION_AUDIT_REPORT_004.md` is the current repository-wide reconciliation update. Audit 003 remains preserved as historical evidence; Audit 004 is the current interpretation of repository state at HEAD `d020995c25838f25cac767d1fff481cb80ca8e6a`.
+`TRACEABILITY/REPOSITORY_DOCUMENTATION_AUDIT_REPORT_004.md` remains a historical controlled audit record. It describes the repository at the SHA recorded in the report; it is not a current snapshot of `main`.
+
+### Current state pointer — 2026-10-18
+
+- Last code baseline with all 13 associated GitHub Actions workflows passing: `150eaf91f6228c566c2370fd29355f52fe398efd`.
+- Current handover and integration checkpoint: `00_PROJECT/GOVERNANCE/BLUE_SKY_PROJECT_STATE.md` §12.6.
+- External orchestrator runtime state: `.bluesky_orchestrator_state.json`. `last_main_sha` is a state pointer, not proof of CI; `verified_sha` records the last exact SHA whose applicable checks passed.
+- Canonical development procedure: `00_PROJECT/GITHUB_DEVELOPMENT_PROTOCOL.md` §17 — `main` is canonical; ordinary development uses direct mainline commits, without new branches or PRs.
+- PR #52 is not adopted as written because its proposed rules conflict with the existing protocol and the user's explicit instruction.
+- PR #53 is not merged wholesale: its repository-default correction and CI-scope documentation were selectively applied; its stale state snapshot was not copied.
+- The latest orchestrator/documentation correction has not yet been covered by CI for its resulting SHA. This pointer does not imply a repository-wide code audit or HIL/real-UAV verification.

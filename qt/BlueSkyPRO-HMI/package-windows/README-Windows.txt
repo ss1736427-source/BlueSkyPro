@@ -29,7 +29,7 @@ SECURITY
 The key is entered at runtime and is not stored in this package or source code. Do not commit the key to Git.
 
 MAP PROVIDER
-MapTiler Hybrid v4 is the only basemap provider in this verification build. Google Maps and Yandex Maps are not used.
+The active chart defaults to MapTiler Hybrid v4. The packaged `GoogleMapView` remains available as a legacy/fallback component with provider selection; actual provider access depends on API configuration, service availability and licensing.
 
 ALTITUDE TELEMETRY
 The altitude service is intentionally unavailable unless every required BLUESKY_* telemetry configuration variable is supplied. Do not invent sensor IDs, UDP ports, or source identities. This package alone does not validate live autopilot telemetry.

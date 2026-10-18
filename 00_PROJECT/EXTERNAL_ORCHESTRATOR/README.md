@@ -19,7 +19,7 @@ git pull --ff-only
 Затем задай:
 
 ```cmd
-set BS_REPO=ss1736427-source/BlueSky-PRO-Knowledge
+set BS_REPO=ss1736427-source/BlueSkyPro
 set BS_BRANCH=main
 set BS_POLL_SECONDS=5
 set BS_CI_GRACE_SECONDS=5
@@ -49,6 +49,8 @@ Agent должен вернуть:
 - другой ненулевой код — ошибка агента.
 
 `UNVERIFIED` никогда не считается `PASS`, а старый CI не подтверждает новый SHA.
+
+**Граница текущего CI-контроля:** `bluesky_orchestrator.py` отслеживает только `04_SOFTWARE/PLANNING/` и `.github/workflows/planning-benchmark.yml`. Это не общий контроль CI для всего репозитория и не подтверждение сборки HMI/MapTiler.
 
 ## Windows PATH
 

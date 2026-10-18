@@ -1,12 +1,12 @@
 {
-  "last_main_sha": "e4f19e98276afe378de85eb48df3361779d5c215",
-  "verified_sha": "5310fd9683b6b198917b4cb65253aabc9607b812",
+  "last_main_sha": "150eaf91f6228c566c2370fd29355f52fe398efd",
+  "verified_sha": "150eaf91f6228c566c2370fd29355f52fe398efd",
   "decision_required": false,
   "ci_required": true,
-  "current_work_package": "Phase 5 Universal Autopilot Integration — ARCH-OPS-053 manual / override authority gate",
-  "checkpoint": "G0-08 SAFETY RECONCILIATION IMPLEMENTED; CI PASS AT 5310fd9683b6b198917b4cb65253aabc9607b812; ARCH-OPS-053 GATE IMPLEMENTED AND REGISTERED; CI PENDING FOR CURRENT CODE",
+  "current_work_package": "REPOSITORY RECONCILIATION — audit PR #52/#53 and correct external orchestrator repository default",
+  "checkpoint": "PR #49 live altitude telemetry integration CI PASS at 48d41c823d83cba1db9d27903fe098b120145f8e (13/13); PR #51 validated planning-result binding CI PASS at 150eaf91f6228c566c2370fd29355f52fe398efd (13/13); PR #52 conflicts with canonical main-only protocol; PR #53 stale snapshot is selectively reconciled",
   "real_execution": "DEFERRED",
   "quantitative_c2_basis": "DEFERRED",
-  "current_ci_status": "PENDING_FOR_CURRENT_CODE",
-  "next_deterministic_action": "Run the Autopilot Adapter workflow on main at current HEAD and inspect the result. If it passes, close ARCH-OPS-053 implementation slice at that exact SHA; if it fails, fix the failing checks. Keep HIL and real-UAV verification deferred."
+  "current_ci_status": "UNVERIFIED_FOR_NEW_MAIN_SHA_AFTER_ORCHESTRATOR_AND_DOCUMENTATION_UPDATE",
+  "next_deterministic_action": "Re-read the actual main SHA after this commit, run available Python syntax/configuration checks for the external orchestrator, and do not treat CI for 150eaf91f6228c566c2370fd29355f52fe398efd as verification for the new SHA. Continue auditing remaining open PRs; keep HIL and real-UAV verification deferred."
 }
