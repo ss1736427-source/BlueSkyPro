@@ -16,7 +16,7 @@ int main() {
         "GEO-001", "POLYGON_AOI", "EPSG:4326",
         {{37.6000, 55.7000, 0.0, "UNRESOLVED"}, {37.6100, 55.7000, 0.0, "UNRESOLVED"},
          {37.6100, 55.7100, 0.0, "UNRESOLVED"}, {37.6000, 55.7000, 0.0, "UNRESOLVED"}},
-        {"MT-01", "MT-02"}, "1"});
+        {"MT-01", "MT-02"}, 1});
     mission.identity.mission_version = "1";
     mission.identity.organization_id = "ORG-001";
     mission.identity.operator_id = "OP-001";
