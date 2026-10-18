@@ -9,8 +9,8 @@ static Route route() {
     r.lineage.route_version = "1";
     r.environment.airspace_snapshot_id = "NOTAM-SNAP-1";
     r.constraints.avoid_restricted_areas = true;
-    r.waypoints = {{"WP-1", {60.0, 25.0}, 100.0, true},
-                   {"WP-2", {60.01, 25.01}, 100.0, false}};
+    r.waypoints = {{"WP-1", {60.0, 25.0}, 100.0, true, AltitudeReference::AGL},
+                   {"WP-2", {60.01, 25.01}, 100.0, false, AltitudeReference::AGL}};
     return r;
 }
 
@@ -21,7 +21,7 @@ static NotamSnapshot snapshot() {
     s.source_version = "2026-09-24T12:00Z";
     s.evaluation_epoch_s = 1000;
     s.zones.push_back({"N-001", NotamRestrictionType::Prohibited, NotamGeometryType::Circle,
-                       {60.0, 25.0}, 1000.0, {}, 0.0, 500.0, 900, 1100});
+                       {60.0, 25.0}, 1000.0, {}, 0.0, 500.0, 900, 1100, NotamAltitudeReference::AGL});
     return s;
 }
 
@@ -35,8 +35,8 @@ int main() {
     assert(blocked.findings.front().notam_id == "N-001");
 
     // A segment crossing a circle must be rejected even when both endpoints are outside.
-    r.waypoints = {{"A", {60.0, 24.98}, 100.0, true},
-                   {"B", {60.0, 25.02}, 100.0, false}};
+    r.waypoints = {{"A", {60.0, 24.98}, 100.0, true, AltitudeReference::AGL},
+                   {"B", {60.0, 25.02}, 100.0, false, AltitudeReference::AGL}};
     s.zones.front().center = {60.0, 25.0};
     s.zones.front().radius_m = 150.0;
     auto circle_crossing = NotamProhibitedZoneValidator::validate(r, s);
@@ -49,7 +49,7 @@ int main() {
     s.zones.front() = {"N-POLY", NotamRestrictionType::Prohibited, NotamGeometryType::Polygon,
                        {}, 0.0, {{59.999, 24.999}, {60.001, 24.999},
                                  {60.001, 25.001}, {59.999, 25.001}},
-                       0.0, 500.0, 900, 1100};
+                       0.0, 500.0, 900, 1100, NotamAltitudeReference::AGL};
     auto polygon_crossing = NotamProhibitedZoneValidator::validate(r, s);
     assert(polygon_crossing.status == RouteValidationStatus::Rejected);
     bool polygon_finding = false;
@@ -82,6 +82,31 @@ int main() {
     auto invalid_waypoint = NotamProhibitedZoneValidator::validate(r, snapshot());
     assert(invalid_waypoint.status == RouteValidationStatus::Rejected);
     assert(invalid_waypoint.findings.front().code == NotamValidationCode::SnapshotNotValid);
+
+    // Unknown and non-AGL vertical references must fail closed rather than compare raw numbers.
+    r = route();
+    r.waypoints.front().altitude_reference = AltitudeReference::Unknown;
+    auto unknown_route_datum = NotamProhibitedZoneValidator::validate(r, snapshot());
+    assert(unknown_route_datum.status == RouteValidationStatus::Rejected);
+    assert(unknown_route_datum.findings.front().code == NotamValidationCode::UnsupportedAltitudeReference);
+
+    r = route();
+    r.waypoints.front().altitude_reference = AltitudeReference::AMSL;
+    auto amsl_route_datum = NotamProhibitedZoneValidator::validate(r, snapshot());
+    assert(amsl_route_datum.status == RouteValidationStatus::Rejected);
+    assert(amsl_route_datum.findings.front().code == NotamValidationCode::UnsupportedAltitudeReference);
+
+    auto unknown_notam_datum = snapshot();
+    unknown_notam_datum.zones.front().altitude_reference = NotamAltitudeReference::Unknown;
+    auto unknown_notam_result = NotamProhibitedZoneValidator::validate(route(), unknown_notam_datum);
+    assert(unknown_notam_result.status == RouteValidationStatus::Rejected);
+    assert(unknown_notam_result.findings.front().code == NotamValidationCode::UnsupportedAltitudeReference);
+
+    auto amsl_notam_datum = snapshot();
+    amsl_notam_datum.zones.front().altitude_reference = NotamAltitudeReference::AMSL;
+    auto amsl_notam_result = NotamProhibitedZoneValidator::validate(route(), amsl_notam_datum);
+    assert(amsl_notam_result.status == RouteValidationStatus::Rejected);
+    assert(amsl_notam_result.findings.front().code == NotamValidationCode::UnsupportedAltitudeReference);
 
     r = route();
     r.environment.airspace_snapshot_id.clear();

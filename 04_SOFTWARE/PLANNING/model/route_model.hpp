@@ -5,6 +5,9 @@
 
 namespace bluesky::planning {
 
+// Route altitude datum must be explicit before comparing it with airspace limits.
+enum class AltitudeReference { Unknown, AGL, AMSL, FlightLevel };
+
 struct GeoPoint {
     double latitude_deg{0.0};
     double longitude_deg{0.0};
@@ -15,6 +18,7 @@ struct RouteWaypoint {
     GeoPoint position;
     double altitude_m{0.0};
     bool mandatory{false};
+    AltitudeReference altitude_reference{AltitudeReference::Unknown};
 };
 
 struct RouteSegment {

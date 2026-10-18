@@ -25,6 +25,7 @@ add_library(bluesky_planning
     selected_route_set.cpp
     flight_profile.cpp
     vehicle_mission_compiler.cpp
+    notam_prohibited_zone_validator.cpp
     final_planning_integrity.cpp
     multi_uav_zonal_planning.cpp
     zonal_route_graph.cpp
@@ -117,7 +118,6 @@ target_link_libraries(route_constraint_validator_test PRIVATE bluesky_planning)
 
 add_executable(notam_prohibited_zone_validator_test
     notam_prohibited_zone_validator_test.cpp
-    notam_prohibited_zone_validator.cpp
 )
 target_link_libraries(notam_prohibited_zone_validator_test PRIVATE bluesky_planning)
 
