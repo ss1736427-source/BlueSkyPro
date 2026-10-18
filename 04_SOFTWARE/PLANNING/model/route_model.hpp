@@ -16,8 +16,11 @@ struct GeoPoint {
 struct RouteWaypoint {
     std::string waypoint_id;
     GeoPoint position;
+    // Planned target height above the local ground surface (AGL), in metres.
+    // This is not AMSL/ellipsoidal altitude or a live radio-altimeter reading.
     double altitude_m{0.0};
     bool mandatory{false};
+    // The current route validator accepts only explicit AGL; other datums need conversion.
     AltitudeReference altitude_reference{AltitudeReference::Unknown};
 };
 
@@ -30,8 +33,11 @@ struct RouteSegment {
 };
 
 struct RouteConstraints {
+    // Bounds for the planned target height above local ground (AGL), in metres.
     double minimum_altitude_m{0.0};
+    // Zero means no configured upper bound; negative values are invalid.
     double maximum_altitude_m{0.0};
+    // Minimum terrain/obstacle clearance; distinct from target AGL height.
     double minimum_clearance_m{0.0};
     bool avoid_restricted_areas{true};
 };

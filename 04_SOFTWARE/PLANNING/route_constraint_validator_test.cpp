@@ -12,8 +12,8 @@ static Route base()
     route.constraints = {80, 120, 30, true};
     route.environment = {"DEM-1", "AIRSPACE-1", "WX-1", "WIND-1"};
     route.waypoints = {
-        {"WP-1", {60.0, 25.0}, 100.0, true},
-        {"WP-2", {60.1, 25.1}, 100.0, false}
+        {"WP-1", {60.0, 25.0}, 100.0, true, AltitudeReference::AGL},
+        {"WP-2", {60.1, 25.1}, 100.0, false, AltitudeReference::AGL}
     };
     route.segments = {{"S-1", "WP-1", "WP-2", 1000.0, 20.0}};
     return route;
@@ -34,8 +34,23 @@ int main()
     const auto valid = RouteConstraintValidator::validate(base());
     assert(valid.status == RouteValidationStatus::Allowed);
     assert(valid.findings.empty());
-    assert(valid.validator_version == "3");
+    assert(valid.validator_version == "4");
     assert(valid.calculation_input_version == "INPUT-1");
+
+    auto unknownDatum = base();
+    unknownDatum.waypoints[0].altitude_reference = AltitudeReference::Unknown;
+    assert(hasCode(RouteConstraintValidator::validate(unknownDatum),
+                   RouteFindingCode::UnsupportedAltitudeReference));
+
+    auto amslDatum = base();
+    amslDatum.waypoints[0].altitude_reference = AltitudeReference::AMSL;
+    assert(hasCode(RouteConstraintValidator::validate(amslDatum),
+                   RouteFindingCode::UnsupportedAltitudeReference));
+
+    auto flightLevelDatum = base();
+    flightLevelDatum.waypoints[0].altitude_reference = AltitudeReference::FlightLevel;
+    assert(hasCode(RouteConstraintValidator::validate(flightLevelDatum),
+                   RouteFindingCode::UnsupportedAltitudeReference));
 
     auto low = base();
     low.waypoints[0].altitude_m = 50.0;
@@ -50,7 +65,7 @@ int main()
     assert(hasCode(RouteConstraintValidator::validate(missingReference), RouteFindingCode::MissingWaypointReference));
 
     auto disconnected = base();
-    disconnected.waypoints.push_back({"WP-3", {60.2, 25.2}, 100.0, false});
+    disconnected.waypoints.push_back({"WP-3", {60.2, 25.2}, 100.0, false, AltitudeReference::AGL});
     assert(hasCode(RouteConstraintValidator::validate(disconnected), RouteFindingCode::SegmentEndpointMismatch));
     assert(hasCode(RouteConstraintValidator::validate(disconnected), RouteFindingCode::SegmentOrderMismatch));
 
@@ -105,7 +120,7 @@ int main()
     assert(hasCode(reversedResult, RouteFindingCode::SegmentOrderMismatch));
 
     auto skipped = base();
-    skipped.waypoints.push_back({"WP-3", {60.2, 25.2}, 100.0, false});
+    skipped.waypoints.push_back({"WP-3", {60.2, 25.2}, 100.0, false, AltitudeReference::AGL});
     skipped.segments.push_back({"S-2", "WP-1", "WP-3", 2000.0, 20.0});
     assert(hasCode(RouteConstraintValidator::validate(skipped), RouteFindingCode::SegmentOrderMismatch));
 

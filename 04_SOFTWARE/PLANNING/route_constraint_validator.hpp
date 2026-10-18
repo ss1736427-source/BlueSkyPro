@@ -21,6 +21,7 @@ enum class RouteFindingCode {
     DuplicateWaypointId,
     InvalidWaypointPosition,
     InvalidWaypointAltitude,
+    UnsupportedAltitudeReference,
     InvalidSegmentId,
     DuplicateSegmentId,
     SelfReferencingSegment,

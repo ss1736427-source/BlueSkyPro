@@ -31,7 +31,7 @@ Each participating UAV has its own route candidate and vehicle-specific planning
 - immutable route identity and version;
 - Mission ID and Mission Version;
 - ordered waypoints;
-- explicit altitude per waypoint;
+- explicit target height above local ground (AGL) per waypoint;
 - mandatory waypoint flag;
 - route segments with source/target identity and geometry summary;
 - hard route constraints;
@@ -39,12 +39,24 @@ Each participating UAV has its own route candidate and vehicle-specific planning
 - generator and generator-version lineage;
 - calculation-input version.
 
+## Vertical reference and radio-altimeter semantics
+
+The planned route height is defined as **AGL (height above the local ground surface)**. The existing `RouteWaypoint::altitude_m` field therefore represents a target AGL height in metres; it is not AMSL or ellipsoidal altitude.
+
+The radio altimeter provides a measured AGL value relative to the surface directly below the aircraft during flight. It is feedback for monitoring/control and verification of the achieved height; it does not provide advance knowledge of the terrain ahead and must not be treated as the terrain database used for route planning.
+
+Before flight, the planner uses a versioned terrain snapshot to estimate the ground surface along the route and check terrain-following feasibility. In flight, measured radio-altimeter data is compared with the target AGL and applicable limits. The actual control loop belongs to the aircraft/autopilot integration and its declared capabilities; BlueSky must not assume every vehicle has a radio altimeter or can accept direct height-control commands.
+
+A route cannot be considered terrain/obstacle validated merely because target AGL values are present or a radio-altimeter measurement is available. Terrain coverage/freshness, obstacle data, vehicle capability, measurement validity and applicable clearance rules remain separate validation inputs. Missing or invalid required inputs must produce an explicit blocked/rejected result, not an implicit pass.
+
+The `minimum_altitude_m` and `maximum_altitude_m` constraints bound target AGL height. `minimum_clearance_m` is a separate terrain/obstacle safety constraint to be verified by the relevant validators; it must not be silently equated with target AGL or with a radio-altimeter reading.
+
 ## Design rules
 
 1. A route candidate may be generated before it is validated.
 2. Mandatory constraints are feasibility conditions, not optimization weights.
 3. External data is referenced by versioned snapshots; stale or missing inputs are not silently substituted.
-4. A route change that materially changes geometry, altitude, constraints or planning inputs creates a new route version.
+4. A route change that materially changes geometry, target AGL height, constraints or planning inputs creates a new route version.
 5. Wind remains an explicit environmental reference and may trigger recalculation or re-optimization.
 6. Vehicle-specific executable semantics are created only after route validation and later compilation.
 7. AI may propose route variants later, but the canonical Route object is accepted only through deterministic validation and the existing proposal/safety/authorization boundaries.
@@ -59,4 +71,4 @@ See the approved [Interactive Flight Profile — Data Synchronization and Recalc
 
 ## Next block
 
-Implement deterministic **Route Constraint Validation** against the canonical Route model, followed by terrain/obstacle and airspace adapters.
+Implement deterministic Route Constraint Validation against the canonical Route model, followed by terrain/obstacle and airspace adapters.

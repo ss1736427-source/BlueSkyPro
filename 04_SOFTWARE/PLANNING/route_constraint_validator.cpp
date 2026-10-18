@@ -40,7 +40,7 @@ RouteValidationResult RouteConstraintValidator::validate(const Route& route)
 {
     RouteValidationResult result;
     result.validator_id = "canonical-route-constraint-validator";
-    result.validator_version = "3";
+    result.validator_version = "4";
     result.calculation_input_version = route.lineage.calculation_input_version;
 
     if (!hasRequiredLineage(route.lineage)) {
@@ -58,7 +58,7 @@ RouteValidationResult RouteConstraintValidator::validate(const Route& route)
         || (constraints.maximum_altitude_m > 0.0
             && constraints.minimum_altitude_m > constraints.maximum_altitude_m)) {
         addFinding(result, RouteFindingCode::InvalidRouteConstraints, route.lineage.route_id,
-                   "route altitude limits and minimum clearance must be finite and internally consistent");
+                   "route target AGL limits and minimum terrain/obstacle clearance must be finite and internally consistent");
     }
 
     if (route.waypoints.size() < 2) {
@@ -88,9 +88,14 @@ RouteValidationResult RouteConstraintValidator::validate(const Route& route)
                        "geodetic position must use finite latitude [-90, 90] and longitude [-180, 180]");
         }
 
+        if (waypoint.altitude_reference != AltitudeReference::AGL) {
+            addFinding(result, RouteFindingCode::UnsupportedAltitudeReference, waypoint.waypoint_id,
+                       "current route validation requires explicit target AGL; AMSL and flight-level inputs need conversion");
+        }
+
         if (!isFinite(waypoint.altitude_m)) {
             addFinding(result, RouteFindingCode::InvalidWaypointAltitude, waypoint.waypoint_id,
-                       "waypoint altitude must be finite");
+                       "waypoint target AGL height must be finite");
         } else {
             if (waypoint.altitude_m < constraints.minimum_altitude_m) {
                 addFinding(result, RouteFindingCode::AltitudeBelowMinimum, waypoint.waypoint_id,
