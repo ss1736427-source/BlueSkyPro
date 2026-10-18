@@ -23,6 +23,7 @@ add_library(bluesky_planning
     multi_uav_conflict_resolution.cpp
     candidate_comparison.cpp
     selected_route_set.cpp
+    route_constraint_validator.cpp
     flight_profile.cpp
     vehicle_mission_compiler.cpp
     notam_prohibited_zone_validator.cpp
