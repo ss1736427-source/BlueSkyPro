@@ -17,7 +17,7 @@ struct ConstrainedEnvironmentSnapshot {
  std::string snapshot_id; std::string snapshot_version; std::string calculation_input_version;
  std::vector<SpatialRestriction> restrictions; bool complete{true};
 };
-struct SpatialEdge { GeoPoint from; GeoPoint to; double altitude_m{0.0}; double altitude_min_m{std::numeric_limits<double>::quiet_NaN()}; double altitude_max_m{std::numeric_limits<double>::quiet_NaN()}; };
+struct SpatialEdge { GeoPoint from; GeoPoint to; double altitude_m{0.0}; double altitude_min_m{std::numeric_limits<double>::quiet_NaN()}; double altitude_max_m{std::numeric_limits<double>::quiet_NaN()}; AltitudeReference altitude_reference{AltitudeReference::Unknown}; };
 struct OpenSpaceResult {
  bool allowed{true}; std::string snapshot_id; std::string snapshot_version;
  std::string calculation_input_version; std::string dependency_identity;
