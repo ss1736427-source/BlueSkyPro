@@ -4,43 +4,120 @@
   "title": "BlueSky PRO Common Mission Model",
   "type": "object",
   "additionalProperties": false,
-  "required": ["missionId", "version", "intent", "objectiveProfile", "environment", "vehicles", "constraints"],
+  "required": [
+    "missionId",
+    "version",
+    "intent",
+    "objectiveProfile",
+    "environment",
+    "vehicles",
+    "constraints",
+    "missionMode",
+    "selectedTemplateIds"
+  ],
   "properties": {
-    "missionId": {"type": "string", "minLength": 1},
-    "version": {"type": "integer", "minimum": 1},
-    "parentMissionId": {"type": ["string", "null"]},
-    "status": {"type": "string"},
+    "missionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "parentMissionId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string"
+    },
     "intent": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
-        "type": {"type": "string"},
-        "description": {"type": "string"},
-        "timeWindow": {"type": ["object", "null"]}
+        "type": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "timeWindow": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
       }
     },
     "objectiveProfile": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["profileId"],
+      "required": [
+        "profileId"
+      ],
       "properties": {
-        "profileId": {"type": "string"},
-        "objectives": {"type": "array", "items": {"type": "object"}},
-        "acceptanceCriteria": {"type": "array", "items": {"type": "object"}}
+        "profileId": {
+          "type": "string"
+        },
+        "objectives": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "acceptanceCriteria": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
       }
     },
     "environment": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "operatingArea": {"type": "object"},
-        "terrain": {"type": ["object", "null"]},
-        "airspace": {"type": ["object", "null"]},
-        "weather": {"type": ["object", "null"]},
-        "wind": {"type": ["object", "null"]},
-        "timestamp": {"type": ["string", "null"]},
-        "sourceVersions": {"type": "object"}
+        "operatingArea": {
+          "type": "object"
+        },
+        "terrain": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "airspace": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "weather": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "wind": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "timestamp": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceVersions": {
+          "type": "object"
+        }
       }
     },
     "vehicles": {
@@ -49,16 +126,35 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["vehicleId", "configurationId"],
+        "required": [
+          "vehicleId",
+          "configurationId"
+        ],
         "properties": {
-          "vehicleId": {"type": "string"},
-          "configurationId": {"type": "string"},
-          "autopilot": {"type": "object"},
-          "propulsion": {"type": "object"},
-          "battery": {"type": "object"},
-          "payload": {"type": "object"},
-          "communications": {"type": "object"},
-          "performanceEnvelope": {"type": "object"}
+          "vehicleId": {
+            "type": "string"
+          },
+          "configurationId": {
+            "type": "string"
+          },
+          "autopilot": {
+            "type": "object"
+          },
+          "propulsion": {
+            "type": "object"
+          },
+          "battery": {
+            "type": "object"
+          },
+          "payload": {
+            "type": "object"
+          },
+          "communications": {
+            "type": "object"
+          },
+          "performanceEnvelope": {
+            "type": "object"
+          }
         }
       }
     },
@@ -66,13 +162,216 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "hard": {"type": "array", "items": {"type": "object"}},
-        "soft": {"type": "array", "items": {"type": "object"}}
+        "hard": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "soft": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
       }
     },
-    "geometry": {"type": ["object", "null"]},
-    "algorithmContext": {"type": ["object", "null"]},
-    "validation": {"type": ["object", "null"]},
-    "traceability": {"type": ["object", "null"]}
-  }
+    "geometry": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "objects"
+          ],
+          "properties": {
+            "objects": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "geometryId",
+                  "geometryType",
+                  "coordinateReferenceSystem",
+                  "coordinates",
+                  "templateIds",
+                  "version"
+                ],
+                "properties": {
+                  "geometryId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "geometryType": {
+                    "type": "string",
+                    "enum": [
+                      "POINT",
+                      "WAYPOINT_ROUTE",
+                      "POLYGON_AOI",
+                      "COVERAGE_GRID",
+                      "CORRIDOR",
+                      "ORBIT",
+                      "INSPECTION_POINTS",
+                      "SEARCH_AREA",
+                      "DELIVERY_ROUTE",
+                      "OBSERVATION_POINTS"
+                    ]
+                  },
+                  "coordinateReferenceSystem": {
+                    "type": "string",
+                    "const": "EPSG:4326"
+                  },
+                  "coordinates": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 3,
+                      "items": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "templateIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "MT-01",
+                        "MT-02",
+                        "MT-03",
+                        "MT-04",
+                        "MT-05",
+                        "MT-06",
+                        "MT-07",
+                        "MT-08",
+                        "MT-09",
+                        "MT-10",
+                        "MT-11",
+                        "MT-12",
+                        "MT-13"
+                      ]
+                    }
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "algorithmContext": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "validation": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "traceability": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "missionMode": {
+      "type": "string",
+      "enum": [
+        "AUTO",
+        "MANUAL"
+      ]
+    },
+    "selectedTemplateIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "MT-01",
+          "MT-02",
+          "MT-03",
+          "MT-04",
+          "MT-05",
+          "MT-06",
+          "MT-07",
+          "MT-08",
+          "MT-09",
+          "MT-10",
+          "MT-11",
+          "MT-12",
+          "MT-13"
+        ]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "missionMode": {
+            "const": "MANUAL"
+          }
+        },
+        "required": [
+          "missionMode"
+        ]
+      },
+      "then": {
+        "properties": {
+          "selectedTemplateIds": {
+            "minItems": 1
+          },
+          "geometry": {
+            "type": "object",
+            "required": [
+              "objects"
+            ],
+            "properties": {
+              "objects": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        "required": [
+          "selectedTemplateIds",
+          "geometry"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "missionMode": {
+            "const": "AUTO"
+          }
+        },
+        "required": [
+          "missionMode"
+        ]
+      },
+      "then": {
+        "properties": {
+          "selectedTemplateIds": {
+            "minItems": 0
+          }
+        }
+      }
+    }
+  ]
 }
