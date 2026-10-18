@@ -374,9 +374,6 @@ Item {
         root.recalculateColumnLayout()
         root.tableSplitRatio = Math.max(0, Math.min(1, profileSettings.tableSplitRatio))
 
-        catch (e) { root.routeDataByUav = ({}) }
-
-        catch (e) { root.mandatoryPointsByUav = ({}) }
         var initialRoute = []
         for (var ri = 0; ri < routeModel.count; ++ri) {
             var source = routeModel.get(ri), item = {}
