@@ -33,6 +33,22 @@ public:
     QString validationState() const { return m_validationState; }
     QString validationReason() const { return m_validationReason; }
 
+    Q_INVOKABLE QVariantMap routeSnapshot() const
+    {
+        QVariantMap snapshot;
+        snapshot.insert(QStringLiteral("routeId"), m_routeId);
+        snapshot.insert(QStringLiteral("routeVersion"), m_routeVersion);
+        snapshot.insert(QStringLiteral("missionId"), QString::fromStdString(m_route.lineage.mission_id));
+        snapshot.insert(QStringLiteral("missionVersion"), QString::fromStdString(m_route.lineage.mission_version));
+        snapshot.insert(QStringLiteral("generatorId"), QString::fromStdString(m_route.lineage.generator_id));
+        snapshot.insert(QStringLiteral("generatorVersion"), QString::fromStdString(m_route.lineage.generator_version));
+        snapshot.insert(QStringLiteral("calculationInputVersion"), m_calculationInputVersion);
+        snapshot.insert(QStringLiteral("waypoints"), m_waypoints);
+        snapshot.insert(QStringLiteral("validationState"), m_validationState);
+        snapshot.insert(QStringLiteral("validationReason"), m_validationReason);
+        return snapshot;
+    }
+
     // Input is a projection of the canonical Route model, not an arbitrary QML
     // ListModel. Unknown/missing lineage and invalid waypoint data are rejected.
     Q_INVOKABLE bool loadCandidate(const QVariantMap &candidate)
