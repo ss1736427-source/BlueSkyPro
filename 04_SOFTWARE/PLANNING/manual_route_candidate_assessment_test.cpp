@@ -77,6 +77,51 @@ int main()
     assert(!clear.flight_release_eligible);
     assert(clear.errors.empty());
 
+    // Exercise the actual NOTAM snapshot contract, including snapshot lineage,
+    // evaluation time, active-zone intersection and calculation-input freshness.
+    NotamSnapshot notamSnapshot;
+    notamSnapshot.snapshot_id = "AIRSPACE-17";
+    notamSnapshot.source_id = "AUTH-NOTAM-TEST";
+    notamSnapshot.source_version = "NOTAM-v3";
+    notamSnapshot.evaluation_epoch_s = 1000;
+    const auto notamClear = assessManualRouteCandidateNotams(
+        candidate, notamSnapshot, "INPUT-7");
+    assert(notamClear.assessed);
+    assert(notamClear.snapshot_lineage_matches);
+    assert(notamClear.notam_clear);
+    assert(!notamClear.flight_release_eligible);
+
+    NotamZone prohibited;
+    prohibited.notam_id = "NOTAM-CANONICAL-001";
+    prohibited.restriction_type = NotamRestrictionType::Prohibited;
+    prohibited.geometry_type = NotamGeometryType::Circle;
+    prohibited.center = {59.005, 30.010};
+    prohibited.radius_m = 300.0;
+    prohibited.lower_altitude_m = 0.0;
+    prohibited.upper_altitude_m = 100.0;
+    prohibited.valid_from_epoch_s = 900;
+    prohibited.valid_to_epoch_s = 1100;
+    prohibited.altitude_reference = NotamAltitudeReference::AGL;
+    auto notamBlockedSnapshot = notamSnapshot;
+    notamBlockedSnapshot.zones.push_back(prohibited);
+    const auto notamBlocked = assessManualRouteCandidateNotams(
+        candidate, notamBlockedSnapshot, "INPUT-7");
+    assert(notamBlocked.assessed);
+    assert(!notamBlocked.notam_clear);
+    assert(!notamBlocked.flight_release_eligible);
+
+    const auto staleNotamInputs = assessManualRouteCandidateNotams(
+        candidate, notamSnapshot, "INPUT-OLD");
+    assert(!staleNotamInputs.assessed);
+    assert(hasError(staleNotamInputs, "CALCULATION_INPUT_VERSION_MISMATCH"));
+
+    auto missingNotamLineage = notamSnapshot;
+    missingNotamLineage.source_version.clear();
+    const auto noNotamLineage = assessManualRouteCandidateNotams(
+        candidate, missingNotamLineage, "INPUT-7");
+    assert(!noNotamLineage.assessed);
+    assert(hasError(noNotamLineage, "NOTAM_SNAPSHOT_LINEAGE_OR_EVALUATION_TIME_REQUIRED"));
+
     auto restricted = environment;
     SpatialRestriction noFly;
     noFly.restriction_id = "NOTAM-TEST-001";
