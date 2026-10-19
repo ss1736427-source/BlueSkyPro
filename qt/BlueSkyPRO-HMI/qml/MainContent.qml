@@ -358,8 +358,6 @@ Item {
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             visible: !root.missionCreationMode && root.activeTool === "ADMIN"
-            testStubsEnabled: root.integrationTestStubsEnabled
-            onTestStubsEnabledRequested: function(enabled) { integrationSettings.testStubsEnabled = enabled }
         }
 
         VirtualFlightTestConsole {
