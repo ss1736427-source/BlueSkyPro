@@ -3,135 +3,296 @@ import QtQuick.Controls
 
 Item {
     id: root
-    property bool testStubsEnabled: true
     property int selectedIntegration: 0
-    signal testStubsEnabledRequested(bool enabled)
+    property string latitudeText: ""
+    property string longitudeText: ""
+    property string wxStatus: "NOT TESTED"
+    property string demStatus: "NOT TESTED"
+    property string notamStatus: "ACCESS NOT CONFIGURED"
+    property var wxResult: null
+    property var demResult: null
+    property string wxError: ""
+    property string demError: ""
     readonly property color panel: "#0B1724"
     readonly property color line: "#26394B"
     readonly property color text: "#E8EEF5"
     readonly property color muted: "#8EA2B8"
     readonly property color cyan: "#00B9F0"
     readonly property color amber: "#FFD166"
+    readonly property color green: "#38C172"
+    readonly property color red: "#E74C3C"
 
-    function integrationName(index) {
-        return [
-            "NOTAM / AIP", "WX / METEO", "AIRSPACE / RESTRICTIONS",
-            "TERRAIN / DEM", "OBSTACLES", "TRAFFIC / UTM",
-            "ATM / FPL / ЕС ОрВД", "AUTHORIZATION / PERMITS", "GIS / MAPTILER",
-            "GNSS / RTK / PPK", "UAV / FCS / MAVLINK", "C2 / DATA LINKS",
-            "PAYLOAD / CAMERA / VIDEO", "IDENTITY / ACCESS / SECURITY",
-            "INSURANCE", "FLIGHT RECORD / LOGS", "SYNC / EXTERNAL API",
-            "ALERTS / OPERATIONAL EVENTS"
-        ][index]
+    function coordinatesValid() {
+        var lat = Number(latitudeText)
+        var lon = Number(longitudeText)
+        return latitudeText.trim() !== "" && longitudeText.trim() !== ""
+                && isFinite(lat) && isFinite(lon)
+                && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
     }
-    function integrationDescription(index) {
-        return [
-            "NOTAM messages, validity windows, cancellation and replacement chain",
-            "METAR, SPECI, TAF, GAMET, SIGWX, SIGMET/AIRMET, wind and hazards",
-            "Controlled, restricted and prohibited areas, temporary regimes, altitude limits",
-            "Terrain elevation model, vertical datum, resolution and coverage",
-            "Obstacle positions, elevations, source date and reference datum",
-            "Traffic information, UTM services and availability state",
-            "Flight-plan exchange, acknowledgements, status and external references",
-            "Permission identity, scope, conditions, validity and mission-version binding",
-            "Map tiles/styles, geospatial services, coordinate reference and dataset version",
-            "GNSS corrections, RTK/PPK service, correction age and quality",
-            "Autopilot/FCS protocols, MAVLink, capability and firmware compatibility",
-            "C2 transports, link quality, latency, failover and recovery",
-            "Payload control, camera/sensor SDKs, video and metadata",
-            "Operator/device identity, authentication, roles, credentials and audit",
-            "Insurance provider interface, policy scope, status and evidence",
-            "Flight Record, logs, replay, provenance and retention",
-            "Offline queue, synchronization, conflict resolution and external APIs",
-            "System warnings, external-service failures and change notifications"
-        ][index]
+
+    function requestWeather() {
+        if (!coordinatesValid()) {
+            wxStatus = "INVALID COORDINATES"
+            wxError = "Enter latitude (-90…90) and longitude (-180…180)."
+            wxResult = null
+            return
+        }
+        wxStatus = "CONNECTING"
+        wxError = ""
+        wxResult = null
+        var lat = Number(latitudeText)
+        var lon = Number(longitudeText)
+        var url = "https://api.open-meteo.com/v1/forecast?latitude=" + lat
+                + "&longitude=" + lon
+                + "&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m"
+                + "&hourly=visibility,cloud_base"
+                + "&forecast_days=1&timezone=UTC"
+        var request = new XMLHttpRequest()
+        request.onreadystatechange = function() {
+            if (request.readyState !== XMLHttpRequest.DONE)
+                return
+            if (request.status >= 200 && request.status < 300) {
+                try {
+                    var parsed = JSON.parse(request.responseText)
+                    if (!parsed.current || !parsed.current.time)
+                        throw new Error("Response has no current observation/model snapshot")
+                    root.wxResult = parsed
+                    root.wxStatus = "CONNECTED / DATA RECEIVED"
+                    root.wxError = ""
+                } catch (error) {
+                    root.wxStatus = "INVALID RESPONSE"
+                    root.wxError = String(error)
+                }
+            } else {
+                root.wxStatus = "CONNECTION FAILED"
+                root.wxError = "HTTP " + request.status + ": " + request.statusText
+            }
+        }
+        request.open("GET", url)
+        request.send()
+    }
+
+    function requestElevation() {
+        if (!coordinatesValid()) {
+            demStatus = "INVALID COORDINATES"
+            demError = "Enter latitude (-90…90) and longitude (-180…180)."
+            demResult = null
+            return
+        }
+        demStatus = "CONNECTING"
+        demError = ""
+        demResult = null
+        var url = "https://api.open-meteo.com/v1/elevation?latitude="
+                + Number(latitudeText) + "&longitude=" + Number(longitudeText)
+        var request = new XMLHttpRequest()
+        request.onreadystatechange = function() {
+            if (request.readyState !== XMLHttpRequest.DONE)
+                return
+            if (request.status >= 200 && request.status < 300) {
+                try {
+                    var parsed = JSON.parse(request.responseText)
+                    if (!parsed.elevation || parsed.elevation.length < 1
+                            || !isFinite(Number(parsed.elevation[0])))
+                        throw new Error("Response has no valid elevation value")
+                    root.demResult = parsed
+                    root.demStatus = "CONNECTED / DATA RECEIVED"
+                    root.demError = ""
+                } catch (error) {
+                    root.demStatus = "INVALID RESPONSE"
+                    root.demError = String(error)
+                }
+            } else {
+                root.demStatus = "CONNECTION FAILED"
+                root.demError = "HTTP " + request.status + ": " + request.statusText
+            }
+        }
+        request.open("GET", url)
+        request.send()
+    }
+
+    function statusColor(status) {
+        if (status.indexOf("CONNECTED") === 0)
+            return green
+        if (status.indexOf("FAILED") >= 0 || status.indexOf("INVALID") >= 0)
+            return red
+        if (status.indexOf("NOT TESTED") >= 0 || status.indexOf("ACCESS") >= 0)
+            return amber
+        return cyan
     }
 
     Rectangle { anchors.fill: parent; color: "transparent" }
 
     Flickable {
-        id: flick
         anchors.fill: parent
         contentWidth: width
-        contentHeight: contentColumn.implicitHeight + 48
+        contentHeight: column.implicitHeight + 48
         clip: true
         boundsBehavior: Flickable.StopAtBounds
 
         Column {
-            id: contentColumn
+            id: column
             x: 24
             y: 24
-            width: flick.width - 48
+            width: parent.width - 48
             spacing: 14
 
-            Row {
+            Column {
                 width: parent.width
-                spacing: 14
-                Column {
-                    width: parent.width - 250
-                    spacing: 5
-                    Text { text: "EXTERNAL INTEGRATIONS"; color: root.text; font.family: "B612"; font.pixelSize: 22; font.bold: true }
-                    Text { text: "ADMINISTRATOR / CONNECTORS / DATA QUALITY"; color: root.muted; font.family: "B612 Mono"; font.pixelSize: 10 }
-                }
-                Rectangle {
-                    width: 220; height: 38; radius: 3
-                    color: root.testStubsEnabled ? "#332A1B" : "#182330"
-                    border.color: root.testStubsEnabled ? root.amber : root.line
-                    Text {
-                        anchors.centerIn: parent
-                        text: root.testStubsEnabled ? "TEST STUBS: ENABLED" : "TEST STUBS: DISABLED"
-                        color: root.testStubsEnabled ? root.amber : root.muted
-                        font.family: "B612 Mono"; font.pixelSize: 10; font.bold: true
-                    }
-                    MouseArea { anchors.fill: parent; onClicked: root.testStubsEnabledRequested(!root.testStubsEnabled) }
-                }
+                spacing: 5
+                Text { text: "EXTERNAL INTEGRATIONS"; color: root.text; font.family: "B612"; font.pixelSize: 22; font.bold: true }
+                Text { text: "ADMINISTRATOR / LIVE SOURCE CONNECTIONS"; color: root.muted; font.family: "B612 Mono"; font.pixelSize: 10 }
             }
 
             Rectangle {
-                width: parent.width; height: 62; radius: 3
-                color: "#2B2115"; border.color: "#8B682F"
+                width: parent.width
+                height: 112
+                radius: 4
+                color: root.panel
+                border.color: root.line
                 Column {
-                    anchors.fill: parent; anchors.margins: 10; spacing: 4
-                    Text { text: "NON-OPERATIONAL TEST CONTOUR"; color: root.amber; font.family: "B612 Mono"; font.pixelSize: 11; font.bold: true }
-                    Text { text: "No live provider is connected. Test fixtures must never be used to authorize or release a flight."; color: root.text; font.family: "B612"; font.pixelSize: 11; wrapMode: Text.Wrap; width: parent.width }
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 8
+                    Text { text: "TEST LOCATION / WGS84"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 10; font.bold: true }
+                    Row {
+                        width: parent.width
+                        spacing: 12
+                        Column {
+                            width: (parent.width - 12) / 2
+                            spacing: 4
+                            Text { text: "LATITUDE"; color: root.muted; font.family: "B612 Mono"; font.pixelSize: 9 }
+                            TextField {
+                                width: parent.width
+                                height: 34
+                                text: root.latitudeText
+                                placeholderText: "e.g. 55.7558"
+                                color: root.text
+                                onTextChanged: root.latitudeText = text
+                                background: Rectangle { color: "#07111B"; border.color: root.line; radius: 3 }
+                            }
+                        }
+                        Column {
+                            width: (parent.width - 12) / 2
+                            spacing: 4
+                            Text { text: "LONGITUDE"; color: root.muted; font.family: "B612 Mono"; font.pixelSize: 9 }
+                            TextField {
+                                width: parent.width
+                                height: 34
+                                text: root.longitudeText
+                                placeholderText: "e.g. 37.6173"
+                                color: root.text
+                                onTextChanged: root.longitudeText = text
+                                background: Rectangle { color: "#07111B"; border.color: root.line; radius: 3 }
+                            }
+                        }
+                    }
+                    Text { text: "For this initial test, enter a location manually. Route-based sampling is not connected yet."; color: root.muted; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
                 }
             }
 
             Grid {
                 width: parent.width
-                columns: 3
-                spacing: 10
-                Repeater {
-                    model: 18
-                    delegate: Rectangle {
-                        width: (root.width - 48 - 20) / 3
-                        height: 102
-                        radius: 3
-                        color: root.selectedIntegration === index ? "#10283A" : root.panel
-                        border.color: root.selectedIntegration === index ? root.cyan : root.line
-                        Column {
-                            anchors.fill: parent; anchors.margins: 10; spacing: 6
-                            Row {
-                                width: parent.width
-                                Text { width: parent.width - 40; text: root.integrationName(index); color: root.text; font.family: "B612"; font.pixelSize: 10; font.bold: true; elide: Text.ElideRight }
-                                Text { text: "STUB"; color: root.testStubsEnabled ? root.amber : root.muted; font.family: "B612 Mono"; font.pixelSize: 8 }
-                            }
-                            Text { width: parent.width; height: 42; text: root.integrationDescription(index); color: root.muted; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap; elide: Text.ElideRight }
-                            Text { text: root.testStubsEnabled ? "LIVE: DISCONNECTED / TEST: AVAILABLE" : "LIVE: DISCONNECTED / TEST: OFF"; color: root.testStubsEnabled ? root.amber : root.muted; font.family: "B612 Mono"; font.pixelSize: 7 }
+                columns: 2
+                spacing: 12
+
+                Rectangle {
+                    width: (column.width - 12) / 2
+                    height: wxCard.implicitHeight + 24
+                    radius: 4
+                    color: root.panel
+                    border.color: root.line
+                    Column {
+                        id: wxCard
+                        x: 12; y: 12
+                        width: parent.width - 24
+                        spacing: 8
+                        Text { text: "WX / OPEN-METEO"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 11; font.bold: true }
+                        Text { text: root.wxStatus; color: root.statusColor(root.wxStatus); font.family: "B612 Mono"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                        Text {
+                            width: parent.width
+                            text: root.wxResult
+                                  ? "TIME " + root.wxResult.current.time + " UTC"
+                                    + "\\nTEMP " + root.wxResult.current.temperature_2m + " °C"
+                                    + "\\nWIND " + root.wxResult.current.wind_speed_10m + " km/h / DIR " + root.wxResult.current.wind_direction_10m + "°"
+                                    + "\\nGUST " + root.wxResult.current.wind_gusts_10m + " km/h"
+                                    + "\\nCLOUD " + root.wxResult.current.cloud_cover + "% / RH " + root.wxResult.current.relative_humidity_2m + "%"
+                                    + "\\nPRESSURE " + root.wxResult.current.pressure_msl + " hPa"
+                                  : "Live current model data and timestamp will appear here after a successful request."
+                            color: root.text; font.family: "B612 Mono"; font.pixelSize: 9; wrapMode: Text.Wrap
                         }
-                        MouseArea { anchors.fill: parent; onClicked: root.selectedIntegration = index }
+                        Text { visible: root.wxError !== ""; width: parent.width; text: root.wxError; color: root.red; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                        Rectangle {
+                            width: parent.width; height: 34; radius: 3; color: "#10283A"; border.color: root.cyan
+                            Text { anchors.centerIn: parent; text: "FETCH LIVE WEATHER"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                            MouseArea { anchors.fill: parent; onClicked: root.requestWeather() }
+                        }
+                        Text { width: parent.width; text: "Provider: Open-Meteo public API. Prototype use only; no commercial licence or SLA is implied."; color: root.muted; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                    }
+                }
+
+                Rectangle {
+                    width: (column.width - 12) / 2
+                    height: demCard.implicitHeight + 24
+                    radius: 4
+                    color: root.panel
+                    border.color: root.line
+                    Column {
+                        id: demCard
+                        x: 12; y: 12
+                        width: parent.width - 24
+                        spacing: 8
+                        Text { text: "TERRAIN / OPEN-METEO ELEVATION"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 11; font.bold: true; wrapMode: Text.Wrap }
+                        Text { text: root.demStatus; color: root.statusColor(root.demStatus); font.family: "B612 Mono"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                        Text {
+                            width: parent.width
+                            text: root.demResult
+                                  ? "COORDINATE " + root.latitudeText + ", " + root.longitudeText
+                                    + "\\nELEVATION " + root.demResult.elevation[0] + " m"
+                                  : "Point elevation will appear here after a successful request."
+                            color: root.text; font.family: "B612 Mono"; font.pixelSize: 9; wrapMode: Text.Wrap
+                        }
+                        Text { visible: root.demError !== ""; width: parent.width; text: root.demError; color: root.red; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                        Rectangle {
+                            width: parent.width; height: 34; radius: 3; color: "#10283A"; border.color: root.cyan
+                            Text { anchors.centerIn: parent; text: "FETCH POINT ELEVATION"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                            MouseArea { anchors.fill: parent; onClicked: root.requestElevation() }
+                        }
+                        Text { width: parent.width; text: "This is a point query, not a terrain profile or obstacle database. Source resolution and vertical datum must be verified before operational use."; color: root.muted; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
                     }
                 }
             }
 
-            Rectangle { width: parent.width; height: 1; color: root.line }
-
-            Column {
+            Rectangle {
                 width: parent.width
-                spacing: 7
-                Text { text: "SELECTED CONNECTOR / " + root.integrationName(root.selectedIntegration); color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 11; font.bold: true }
-                Text { width: parent.width; text: root.integrationDescription(root.selectedIntegration); color: root.text; font.family: "B612"; font.pixelSize: 11; wrapMode: Text.Wrap }
-                Text { width: parent.width; text: "Endpoint, credentials, licence, protocol, coverage, update cadence and freshness limits are not configured. Selecting a card only inspects its contract; this screen does not establish a network connection."; color: root.muted; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap }
+                height: notamColumn.implicitHeight + 24
+                radius: 4
+                color: root.panel
+                border.color: root.line
+                Column {
+                    id: notamColumn
+                    x: 12; y: 12
+                    width: parent.width - 24
+                    spacing: 8
+                    Text { text: "NOTAM / AIP — RUSSIAN FEDERATION"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 11; font.bold: true }
+                    Text { text: root.notamStatus; color: root.amber; font.family: "B612 Mono"; font.pixelSize: 9 }
+                    Text {
+                        width: parent.width
+                        text: "Official source: Centre for Aeronautical Information (CAI), State ATM Corporation. The official NOTAM service is identified, but a public machine-readable API, automated access terms and credentials have not been verified. No NOTAM feed is being parsed or treated as connected."
+                        color: root.text; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap
+                    }
+                    Rectangle {
+                        width: 240; height: 34; radius: 3; color: "#10283A"; border.color: root.cyan
+                        Text { anchors.centerIn: parent; text: "OPEN OFFICIAL NOTAM PORTAL"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                        MouseArea { anchors.fill: parent; onClicked: Qt.openUrlExternally("https://aip.caica.ru/notam/") }
+                    }
+                    Text { width: parent.width; text: "Next integration step: confirm the official machine-readable delivery channel and access rights. Until then, NOTAM status remains UNAVAILABLE and must block operational release."; color: root.amber; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap }
+                }
+            }
+
+            Text {
+                width: parent.width
+                text: "DATA SAFETY: a successful HTTP response proves transport only. Source timestamp, coverage, integrity, freshness, licence, vertical datum and schema must be validated separately. These initial requests do not authorise flight release."
+                color: root.muted; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap
             }
         }
     }
