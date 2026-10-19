@@ -482,9 +482,10 @@ Item {
 
                     Rectangle {
                         width: parent.width
-                        height: 104
+                        height: icaoNode.implicitHeight + 24
                         color: "#101F2D"; border.color: root.line; radius: 4
                         Column {
+                            id: icaoNode
                             x: 12; y: 12; width: parent.width - 24; spacing: 6
                             Text { text: "ICAO NOTAM API / FUTURE ALTERNATE"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 11; font.bold: true }
                             Text { text: "Key field is provided for configuration planning. Endpoint parameters and Russian/UAS coverage must be verified before enabling a live test."; width: parent.width; color: root.muted; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap }

@@ -36,6 +36,8 @@ QString CredentialVault::readSecret(const QString &provider) const {
         setLastError(QStringLiteral("Credential not found or unavailable (Windows error %1).").arg(GetLastError())); return {};
     }
     const QString value = QString::fromUtf8(reinterpret_cast<const char *>(credential->CredentialBlob), static_cast<qsizetype>(credential->CredentialBlobSize));
+    if (credential->CredentialBlobSize > 0)
+        SecureZeroMemory(credential->CredentialBlob, credential->CredentialBlobSize);
     CredFree(credential); setLastError({}); return value;
 #else
     Q_UNUSED(provider); setLastError(QStringLiteral("Native credential vault is unsupported on this platform.")); return {};
