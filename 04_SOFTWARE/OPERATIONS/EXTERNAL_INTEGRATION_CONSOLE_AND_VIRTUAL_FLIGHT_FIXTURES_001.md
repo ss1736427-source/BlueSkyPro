@@ -1,6 +1,6 @@
 # External Integration Console and Virtual Flight Test Fixtures
 
-**Status:** HMI prototype implemented; live adapters and planning-kernel binding not implemented  
+**Status:** ADMIN has initial live WX and point-elevation HTTP queries; NOTAM machine feed remains unconnected  
 **Updated:** 2026-10-19  
 **Canonical branch:** `main`
 
@@ -29,7 +29,7 @@ The current HMI catalogue covers:
 17. Synchronization / external APIs
 18. Alerts / operational events
 
-Every catalogue entry currently reports **LIVE: DISCONNECTED**. The TEST STUBS control is stored in local application settings and is shared between ADMIN and VIRTUAL FLT; it does not connect a provider or configure credentials. Endpoint, authentication, licensing, protocol, geographic coverage, update cadence and freshness limits remain unconfigured.
+ADMIN no longer exposes the TEST STUBS switch as its integration mechanism. It now provides live HTTP queries to Open-Meteo for current weather and point elevation, using operator-entered WGS84 coordinates. This is an initial connectivity probe, not a production adapter: credentials are not required for the public prototype endpoint, but licence, rate limits, provenance, source freshness, schema and commercial-use conditions still require policy enforcement. The NOTAM card links to the official Russian CAI portal but explicitly reports that no machine-readable feed is connected.
 
 ## 2. Virtual Flight test console
 
@@ -37,7 +37,7 @@ The VIRTUAL FLT workspace provides selectable mock scenarios for exercising the 
 
 **Data qualification:** these values are demonstration fixtures, not measurements downloaded from an identified station or a verified historical climatology dataset. They are not tied to a geographic location or date range. They must not be described as authoritative historical weather.
 
-The current `SELECT TEST PROFILE` action only selects a UI fixture. It does not execute the planning kernel, generate a route, assess a real NOTAM snapshot or produce a safety verdict.
+The current `SELECT TEST PROFILE` action selects a versioned synthetic fixture for repeatable Virtual Flight testing. It must remain isolated from live provider results and must not imply a current operational weather/NOTAM assessment.
 
 ## 3. Requirements for the next test-data adapter
 
@@ -61,15 +61,30 @@ Historical averages are useful for repeatable performance and interface tests, b
 - The production release path must reject test-profile provenance, stale or incomplete source snapshots, unknown altitude references and unresolved regulatory blockers.
 - The planning and safety core remains authoritative; QML must not calculate or infer release status.
 - The Admin console is a catalogue/configuration shell until provider adapters and secure credential handling are implemented.
-- No live NOTAM or weather feed is connected by this change.
+- Live weather HTTP queries are available for prototype testing; they are not yet an operational weather service or flight-release input.
+- Point elevation can be queried live; it is not a terrain/obstacle profile and is not sufficient for route clearance.
+- NOTAM remains unavailable to the automated planning path until an authorized machine-readable source and access terms are confirmed.
 
 ## 5. Current implementation checkpoint — 2026-10-19
 
 - `MainContent.qml` stores the shared TEST STUBS switch under `BlueSkyPRO/ExternalIntegrations`; the ADMIN action writes to the settings property rather than breaking the binding to the displayed state.
 - Virtual Flight scenarios now use a structured, versioned fixture record (`VF-FIXTURES-1.0`) with numeric weather values, profile ID, `SYNTHETIC_AVERAGE` classification, and explicit `UNSPECIFIED` location/averaging period. UI labels say `SYNTHETIC AVERAGE`, not `HISTORICAL AVERAGE`, because no identified historical dataset, station/grid, averaging period or licence is configured.
-- The HMI fixture selection remains presentation-only. Planning-kernel binding, weather snapshot construction, georeferenced NOTAM fixture geometry and an end-to-end test request are still not implemented.
+- ADMIN live WX/point-elevation requests are now implemented in QML; results remain in the console and are not yet converted into canonical typed source snapshots for the planning core.
+- NOTAM/AIP is not connected. The official CAI page is linked for operator access; no HTML scraping or false LIVE status is used.
+- Route-based sampling, terrain-profile generation, source freshness/coverage validation, secure provider configuration and end-to-end planning-core consumption remain unimplemented.
 - The CMake include-path correction and CI for `daabb8e` passed. CI for the newer toggle, labels, structured fixture and this document update must be checked against their exact SHAs before closure.
 
 ## 6. Acceptance criteria for production integration
 
 For each provider, record and verify connection state, authentication, protocol/schema version, provider identity, geographic/time coverage, source timestamp, retrieval timestamp, freshness policy, completeness, integrity, error/retry state, last successful synchronization and audit trail. Exercise timeout, malformed response, partial coverage, stale data, cancellation/replacement, offline startup and recovery. A successful transport exchange is not equivalent to valid data or authorization.
+
+
+## 7. Initial live-source implementation — 2026-10-19
+
+- `qt/BlueSkyPRO-HMI/qml/IntegrationConsole.qml` exposes WGS84 latitude/longitude inputs and explicit actions to query:
+  - Open-Meteo forecast endpoint for current model snapshot (timestamp, temperature, wind speed/direction/gust, cloud cover, humidity and pressure);
+  - Open-Meteo Elevation API for point elevation.
+- HTTP status and JSON validation errors are displayed. A transport success is not represented as flight readiness.
+- The public Open-Meteo endpoint is suitable only for non-commercial prototyping under its published terms; production commercial use requires an appropriate commercial licence or a separately operated deployment.
+- Official Russian NOTAM portal: https://aip.caica.ru/notam/. This is a source reference only; automated feed access, machine-readable format, authentication and reuse rights are not verified. The console must continue to report NOTAM as unavailable and keep operational release blocked.
+- No user PC drive was accessed. Changes were made directly to canonical `main`; no branch or PR was created.
