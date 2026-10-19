@@ -1,7 +1,7 @@
 # External Integration Console and Virtual Flight Test Fixtures
 
 **Status:** HMI prototype implemented; live adapters and planning-kernel binding not implemented  
-**Updated:** 2026-10-18  
+**Updated:** 2026-10-19  
 **Canonical branch:** `main`
 
 ## 1. Administrator integration console
@@ -29,7 +29,7 @@ The current HMI catalogue covers:
 17. Synchronization / external APIs
 18. Alerts / operational events
 
-Every catalogue entry currently reports **LIVE: DISCONNECTED**. The TEST STUBS control only changes the local HMI presentation state; it does not connect a provider or configure credentials. Endpoint, authentication, licensing, protocol, geographic coverage, update cadence and freshness limits remain unconfigured.
+Every catalogue entry currently reports **LIVE: DISCONNECTED**. The TEST STUBS control is stored in local application settings and is shared between ADMIN and VIRTUAL FLT; it does not connect a provider or configure credentials. Endpoint, authentication, licensing, protocol, geographic coverage, update cadence and freshness limits remain unconfigured.
 
 ## 2. Virtual Flight test console
 
@@ -63,6 +63,13 @@ Historical averages are useful for repeatable performance and interface tests, b
 - The Admin console is a catalogue/configuration shell until provider adapters and secure credential handling are implemented.
 - No live NOTAM or weather feed is connected by this change.
 
-## 5. Acceptance criteria for production integration
+## 5. Current implementation checkpoint — 2026-10-19
+
+- `MainContent.qml` stores the shared TEST STUBS switch under `BlueSkyPRO/ExternalIntegrations`; the ADMIN action writes to the settings property rather than breaking the binding to the displayed state.
+- Virtual Flight scenario labels now say `SYNTHETIC AVERAGE`, not `HISTORICAL AVERAGE`, because no identified historical dataset, station/grid, averaging period or licence is configured.
+- The HMI fixture selection remains presentation-only. Planning-kernel binding, structured weather snapshots, georeferenced NOTAM fixture geometry and an end-to-end test request are still not implemented.
+- The CMake include-path correction and previous CI for commit `daabb8e` passed. The latest HMI toggle and synthetic-label commits require CI confirmation on their own SHAs before closure.
+
+## 6. Acceptance criteria for production integration
 
 For each provider, record and verify connection state, authentication, protocol/schema version, provider identity, geographic/time coverage, source timestamp, retrieval timestamp, freshness policy, completeness, integrity, error/retry state, last successful synchronization and audit trail. Exercise timeout, malformed response, partial coverage, stale data, cancellation/replacement, offline startup and recovery. A successful transport exchange is not equivalent to valid data or authorization.
