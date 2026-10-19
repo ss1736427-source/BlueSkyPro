@@ -106,12 +106,27 @@ The ADMIN integration console now includes provider configuration nodes for:
 3. Verify the API base URL and paste the token into the masked **API TOKEN** field.
 4. Select **TEST NOTAM API CONNECTION**.
 5. Read the status and HTTP error. A successful test confirms only network/authentication/JSON-envelope handling against the US test query.
-6. Clear the field when finished. The current prototype keeps secret fields in UI memory only: keys are not persisted to QSettings or written into the repository and are lost when the console/application is recreated.
+6. Use SAVE KEY to store the secret, then TEST API. A saved key is not shown back in the field; the NOTAC test retrieves it from the vault when the field is empty. Use DELETE KEY to remove the saved value.
 
 ### Security and implementation boundary
 
-- A masked field is not secure credential storage. Production credential persistence must use an OS credential vault or a protected backend; never commit keys or store them as plain application settings.
+- qt/BlueSkyPRO-HMI/src/CredentialVault.cpp implements a native Windows Credential Manager adapter. It stores per-provider generic credentials for the current Windows user; it does not write secrets to QSettings or repository files.
+- Provider identifiers are allow-listed (notam, icao, maptiler, weather). Empty values and unknown identifiers are rejected.
+- The HMI exposes saved/not-saved status, save and delete actions. The UI clears the key field after successful save. NOTAC reads the saved key only when the input field is empty.
+- MapTiler is loaded from the vault at application startup only when BLUESKY_MAPTILER_API_KEY is not supplied in the environment. The environment value takes precedence.
+- Non-Windows platforms report native vault support as unavailable and refuse to save; there is no plaintext fallback. macOS Keychain and Linux Secret Service adapters remain future work.
+- Credential vault support is not the same as provider activation: ICAO and commercial-weather keys are stored but not used by live adapters yet.
 - The NOTAC key is sent only in the HTTPS Authorization header for the explicit test action, never as a query parameter. The other key fields are not transmitted.
 - The current console does not yet provide a general save/activate provider lifecycle, secure key persistence, key rotation, provider selection in the planning core, retry/backoff policy, or normalized source snapshots.
 - The NOTAC feed is FAA-sourced. It is used as a temporary integration test only; it must not be treated as a Russian lower-airspace restriction source or used to authorize a flight.
 - A successful connection must remain distinct from data validity, geographic completeness, freshness, operational authorization and flight-release eligibility.
+
+
+## 9. Secure credential persistence implementation — 2026-10-19
+
+- Native bridge: qt/BlueSkyPRO-HMI/src/CredentialVault.h/.cpp, exposed to QML as credentialVault.
+- Windows backend: Windows Credential Manager generic credentials, scoped by provider identifier and application namespace. Save/replace, read, existence check and delete operations are provided.
+- Credential errors expose only provider/backend status and Windows error numbers; secret values are not logged.
+- Automated contract test: qt/BlueSkyPRO-HMI/tests/CredentialVaultTest.cpp. On Windows it exercises save → read → delete using an isolated test namespace; on non-Windows it verifies fail-closed behavior.
+- The exact resulting commit must be built and tested on the supported CI matrix before this implementation is considered verified. No local Qt build or interactive restart test was performed during this change.
+- Remaining platform gap: macOS Keychain and Linux Secret Service are not implemented. This does not justify writing secrets to plain settings or files.

@@ -32,6 +32,8 @@ qt_add_executable(appBlueSkyPRO
     src/RouteController.h
     src/TileCacheManager.cpp
     src/TileCacheManager.h
+    src/CredentialVault.cpp
+    src/CredentialVault.h
 )
 
 qt_add_qml_module(appBlueSkyPRO
@@ -73,6 +75,9 @@ qt_add_qml_module(appBlueSkyPRO
 target_compile_features(appBlueSkyPRO PRIVATE cxx_std_20)
 target_include_directories(appBlueSkyPRO PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Core Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::WebEngineQuick Qt6::WebChannel)
+if(WIN32)
+    target_link_libraries(appBlueSkyPRO PRIVATE Advapi32)
+endif()
 
 enable_testing()
 add_executable(tile_cache_manager_test
@@ -125,3 +130,14 @@ set_target_properties(appBlueSkyPRO PROPERTIES
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
 )
+
+add_executable(credential_vault_test
+    tests/CredentialVaultTest.cpp
+    src/CredentialVault.cpp
+    src/CredentialVault.h
+)
+target_link_libraries(credential_vault_test PRIVATE Qt6::Core)
+if(WIN32)
+    target_link_libraries(credential_vault_test PRIVATE Advapi32)
+endif()
+add_test(NAME credential_vault_contract COMMAND credential_vault_test)

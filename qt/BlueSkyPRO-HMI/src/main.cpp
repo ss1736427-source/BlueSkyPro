@@ -9,6 +9,7 @@
 #include "ManualMissionModelAdapter.h"
 #include "RouteController.h"
 #include "TileCacheManager.h"
+#include "CredentialVault.h"
 #include <QQmlApplicationEngine>
 #include <QUrl>
 #include <QString>
@@ -30,15 +31,18 @@ int main(int argc, char *argv[])
     ManualMissionModelAdapter manualMissionModelAdapter;
     RouteController routeController;
     TileCacheManager tileCacheManager;
+    CredentialVault credentialVault;
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("virtualFlightAssessmentBridge"), &virtualFlightAssessmentBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("manualGeometryBridge"), &manualGeometryBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("manualMissionModelAdapter"), &manualMissionModelAdapter);
     engine.rootContext()->setContextProperty(QStringLiteral("routeController"), &routeController);
     engine.rootContext()->setContextProperty(QStringLiteral("tileCacheManager"), &tileCacheManager);
+    engine.rootContext()->setContextProperty(QStringLiteral("credentialVault"), &credentialVault);
     const QString yandexMapsApiKey = qEnvironmentVariable("BLUESKY_YANDEX_MAPS_API_KEY");
     engine.rootContext()->setContextProperty(QStringLiteral("yandexMapsApiKey"), yandexMapsApiKey);
-    const QString mapTilerApiKey = qEnvironmentVariable("BLUESKY_MAPTILER_API_KEY");
+    QString mapTilerApiKey = qEnvironmentVariable("BLUESKY_MAPTILER_API_KEY");
+    if (mapTilerApiKey.isEmpty()) mapTilerApiKey = credentialVault.readSecret(QStringLiteral("maptiler"));
     engine.rootContext()->setContextProperty(QStringLiteral("mapTilerApiKey"), mapTilerApiKey);
     const QString cartoApiKey = qEnvironmentVariable("BLUESKY_CARTO_API_KEY");
     engine.rootContext()->setContextProperty(QStringLiteral("cartoApiKey"), cartoApiKey);

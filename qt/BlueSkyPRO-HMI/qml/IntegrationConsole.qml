@@ -18,6 +18,12 @@ Item {
     property string icaoApiKey: ""
     property string mapTilerApiKey: ""
     property string wxCommercialApiKey: ""
+    property bool notamSecretSaved: false
+    property bool icaoSecretSaved: false
+    property bool mapTilerSecretSaved: false
+    property bool wxSecretSaved: false
+    property string credentialStoreStatus: "CHECKING"
+    property string credentialStoreMessage: ""
     property var wxResult: null
     property var demResult: null
     property string wxError: ""
@@ -30,6 +36,48 @@ Item {
     readonly property color amber: "#FFD166"
     readonly property color green: "#38C172"
     readonly property color red: "#E74C3C"
+
+
+    function credentialVaultAvailable() { return typeof credentialVault !== "undefined" && credentialVault !== null }
+    function refreshCredentialStates() {
+        if (!credentialVaultAvailable()) {
+            notamSecretSaved = false; icaoSecretSaved = false; mapTilerSecretSaved = false; wxSecretSaved = false
+            credentialStoreStatus = "NATIVE VAULT UNAVAILABLE"; return
+        }
+        notamSecretSaved = credentialVault.hasSecret("notam")
+        icaoSecretSaved = credentialVault.hasSecret("icao")
+        mapTilerSecretSaved = credentialVault.hasSecret("maptiler")
+        wxSecretSaved = credentialVault.hasSecret("weather")
+        credentialStoreStatus = credentialVault.backendStatus()
+    }
+    function providerSecret(provider, enteredValue) {
+        var candidate = String(enteredValue || "").trim()
+        if (candidate.length > 0) return candidate
+        if (credentialVaultAvailable() && credentialVault.hasSecret(provider)) return credentialVault.readSecret(provider)
+        return ""
+    }
+    function saveProviderSecret(provider) {
+        if (!credentialVaultAvailable()) { credentialStoreMessage = "Native credential vault unavailable. No key saved."; return }
+        var candidate = ""
+        if (provider === "notam") candidate = notamApiKey
+        else if (provider === "icao") candidate = icaoApiKey
+        else if (provider === "maptiler") candidate = mapTilerApiKey
+        else if (provider === "weather") candidate = wxCommercialApiKey
+        if (String(candidate || "").trim().length === 0) { credentialStoreMessage = "Enter a key before saving."; return }
+        if (!credentialVault.saveSecret(provider, candidate)) { credentialStoreMessage = "SAVE FAILED: " + credentialVault.lastError; return }
+        if (provider === "notam") notamApiKey = ""
+        else if (provider === "icao") icaoApiKey = ""
+        else if (provider === "maptiler") mapTilerApiKey = ""
+        else if (provider === "weather") wxCommercialApiKey = ""
+        credentialStoreMessage = provider.toUpperCase() + " key saved to " + credentialVault.backendStatus() + "."
+        refreshCredentialStates()
+    }
+    function deleteProviderSecret(provider) {
+        if (!credentialVaultAvailable()) { credentialStoreMessage = "Native credential vault unavailable. No key deleted."; return }
+        if (!credentialVault.deleteSecret(provider)) { credentialStoreMessage = "DELETE FAILED: " + credentialVault.lastError; return }
+        credentialStoreMessage = provider.toUpperCase() + " saved key deleted."
+        refreshCredentialStates()
+    }
 
     function coordinatesValid() {
         var lat = Number(latitudeText)
@@ -128,9 +176,10 @@ Item {
             notamApiError = "Enter the provider API base URL."
             return
         }
-        if (notamApiKey.trim().length === 0) {
+        var apiKey = providerSecret("notam", notamApiKey)
+        if (apiKey.length === 0) {
             notamApiStatus = "KEY REQUIRED"
-            notamApiError = "Paste the NOTAC API token in the password field first."
+            notamApiError = "Enter a token or save one to the system credential vault."
             return
         }
         notamApiStatus = "CONNECTING"
@@ -180,7 +229,7 @@ Item {
             root.notamApiError = "Request failed. Check network access, TLS and provider availability."
         }
         request.open("GET", base + "/notam/?country_code=US&status=active&page=1")
-        request.setRequestHeader("Authorization", "Bearer " + notamApiKey.trim())
+        request.setRequestHeader("Authorization", "Bearer " + apiKey)
         request.setRequestHeader("Accept", "application/json")
         request.send()
     }
@@ -194,6 +243,8 @@ Item {
             return amber
         return cyan
     }
+
+    Component.onCompleted: root.refreshCredentialStates()
 
     Rectangle { anchors.fill: parent; color: "transparent" }
 
@@ -378,7 +429,7 @@ Item {
                     Text { text: "PROVIDER CONNECTION NODES"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 12; font.bold: true }
                     Text {
                         width: parent.width
-                        text: "Setup: (1) obtain a provider key from its official account/support channel; (2) select the provider and enter its base URL if configurable; (3) paste the key into the masked field; (4) run the connection test; (5) review HTTP status and JSON validation. Secret fields are session-only in this prototype and are not written to QSettings or the repository."
+                        text: "Setup: obtain the provider key, paste it into the masked field, select SAVE KEY, then test the connection. Keys are stored in the current Windows user Credential Manager, not in QSettings or the repository. Unsupported platforms fail closed."
                         color: root.text; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap
                     }
 
@@ -406,14 +457,21 @@ Item {
                                 onTextChanged: root.notamApiKey = text
                                 echoMode: TextInput.Password
                                 passwordCharacter: "•"
-                                placeholderText: "NOTAC token (lb_…)"
+                                placeholderText: "NOTAC token; save before restart"
                                 color: root.text; selectByMouse: true
                                 background: Rectangle { color: "#07111B"; border.color: root.line; radius: 3 }
                             }
-                            Rectangle {
-                                width: 220; height: 34; radius: 3; color: "#10283A"; border.color: root.cyan
-                                Text { anchors.centerIn: parent; text: "TEST NOTAM API CONNECTION"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
-                                MouseArea { anchors.fill: parent; onClicked: root.requestNotamApiTest() }
+                            Text { text: root.notamSecretSaved ? "KEY SAVED IN SYSTEM VAULT" : "NO SAVED KEY"; color: root.notamSecretSaved ? root.green : root.muted; font.family: "B612 Mono"; font.pixelSize: 9 }
+                            Row { width: parent.width; spacing: 6
+                                Rectangle { width: (parent.width - 12) / 3; height: 32; radius: 3; color: "#10283A"; border.color: root.cyan
+                                    Text { anchors.centerIn: parent; text: "SAVE KEY"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                                    MouseArea { anchors.fill: parent; onClicked: root.saveProviderSecret("notam") } }
+                                Rectangle { width: (parent.width - 12) / 3; height: 32; radius: 3; color: "#241D20"; border.color: root.red
+                                    Text { anchors.centerIn: parent; text: "DELETE KEY"; color: root.red; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                                    MouseArea { anchors.fill: parent; onClicked: root.deleteProviderSecret("notam") } }
+                                Rectangle { width: (parent.width - 12) / 3; height: 32; radius: 3; color: "#10283A"; border.color: root.cyan
+                                    Text { anchors.centerIn: parent; text: "TEST API"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                                    MouseArea { anchors.fill: parent; onClicked: root.requestNotamApiTest() } }
                             }
                             Text { text: root.notamApiStatus; color: root.statusColor(root.notamApiStatus); font.family: "B612 Mono"; font.pixelSize: 9; wrapMode: Text.Wrap }
                             Text { visible: root.notamApiError !== ""; text: root.notamApiError; width: parent.width; color: root.red; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
@@ -436,9 +494,18 @@ Item {
                                 onTextChanged: root.icaoApiKey = text
                                 echoMode: TextInput.Password
                                 passwordCharacter: "•"
-                                placeholderText: "ICAO API key — session only"
+                                placeholderText: "ICAO API key"
                                 color: root.text
                                 background: Rectangle { color: "#07111B"; border.color: root.line; radius: 3 }
+                            }
+                            Text { text: root.icaoSecretSaved ? "KEY SAVED IN SYSTEM VAULT" : "NO SAVED KEY"; color: root.icaoSecretSaved ? root.green : root.muted; font.family: "B612 Mono"; font.pixelSize: 9 }
+                            Row { width: parent.width; spacing: 8
+                                Rectangle { width: (parent.width - 8) / 2; height: 30; radius: 3; color: "#10283A"; border.color: root.cyan
+                                    Text { anchors.centerIn: parent; text: "SAVE KEY"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                                    MouseArea { anchors.fill: parent; onClicked: root.saveProviderSecret("icao") } }
+                                Rectangle { width: (parent.width - 8) / 2; height: 30; radius: 3; color: "#241D20"; border.color: root.red
+                                    Text { anchors.centerIn: parent; text: "DELETE KEY"; color: root.red; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                                    MouseArea { anchors.fill: parent; onClicked: root.deleteProviderSecret("icao") } }
                             }
                         }
                     }
@@ -458,9 +525,18 @@ Item {
                                 onTextChanged: root.mapTilerApiKey = text
                                 echoMode: TextInput.Password
                                 passwordCharacter: "•"
-                                placeholderText: "MapTiler API key — session only"
+                                placeholderText: "MapTiler API key"
                                 color: root.text
                                 background: Rectangle { color: "#07111B"; border.color: root.line; radius: 3 }
+                            }
+                            Text { text: root.mapTilerSecretSaved ? "KEY SAVED IN SYSTEM VAULT" : "NO SAVED KEY"; color: root.mapTilerSecretSaved ? root.green : root.muted; font.family: "B612 Mono"; font.pixelSize: 9 }
+                            Row { width: parent.width; spacing: 8
+                                Rectangle { width: (parent.width - 8) / 2; height: 30; radius: 3; color: "#10283A"; border.color: root.cyan
+                                    Text { anchors.centerIn: parent; text: "SAVE KEY"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                                    MouseArea { anchors.fill: parent; onClicked: root.saveProviderSecret("maptiler") } }
+                                Rectangle { width: (parent.width - 8) / 2; height: 30; radius: 3; color: "#241D20"; border.color: root.red
+                                    Text { anchors.centerIn: parent; text: "DELETE KEY"; color: root.red; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                                    MouseArea { anchors.fill: parent; onClicked: root.deleteProviderSecret("maptiler") } }
                             }
                         }
                     }
@@ -480,16 +556,25 @@ Item {
                                 onTextChanged: root.wxCommercialApiKey = text
                                 echoMode: TextInput.Password
                                 passwordCharacter: "•"
-                                placeholderText: "Future commercial WX key — session only"
+                                placeholderText: "Future commercial WX key"
                                 color: root.text
                                 background: Rectangle { color: "#07111B"; border.color: root.line; radius: 3 }
+                            }
+                            Text { text: root.wxSecretSaved ? "KEY SAVED IN SYSTEM VAULT" : "NO SAVED KEY"; color: root.wxSecretSaved ? root.green : root.muted; font.family: "B612 Mono"; font.pixelSize: 9 }
+                            Row { width: parent.width; spacing: 8
+                                Rectangle { width: (parent.width - 8) / 2; height: 30; radius: 3; color: "#10283A"; border.color: root.cyan
+                                    Text { anchors.centerIn: parent; text: "SAVE KEY"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                                    MouseArea { anchors.fill: parent; onClicked: root.saveProviderSecret("weather") } }
+                                Rectangle { width: (parent.width - 8) / 2; height: 30; radius: 3; color: "#241D20"; border.color: root.red
+                                    Text { anchors.centerIn: parent; text: "DELETE KEY"; color: root.red; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                                    MouseArea { anchors.fill: parent; onClicked: root.deleteProviderSecret("weather") } }
                             }
                         }
                     }
 
                     Text {
                         width: parent.width
-                        text: "SECURITY / IMPLEMENTATION LIMIT: key fields are masked but are held only in UI memory. They are not saved after restart and are not sent to the planning core except the explicit NOTAC test request. Before production, move secrets to an OS credential vault or protected backend and keep provider HTTP outside the safety-critical core."
+                        text: "SECURITY: secrets are stored in Windows Credential Manager. They are not written to QSettings or the repository. ICAO and commercial-weather keys are stored for future adapter work but are not used by a live adapter yet. MapTiler is loaded at startup from the vault when no environment-variable key is supplied."
                         color: root.amber; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap
                     }
                 }
@@ -497,7 +582,7 @@ Item {
 
             Text {
                 width: parent.width
-                text: "DATA SAFETY: a successful HTTP response proves transport only. Source timestamp, coverage, integrity, freshness, licence, vertical datum and schema must be validated separately. These initial requests do not authorise flight release."
+                text: "CREDENTIAL VAULT: " + root.credentialStoreStatus + (root.credentialStoreMessage === "" ? "" : "\n" + root.credentialStoreMessage) + "\nDATA SAFETY: a successful HTTP response proves transport only. Source timestamp, coverage, integrity, freshness, licence, vertical datum and schema must be validated separately. These initial requests do not authorise flight release."
                 color: root.muted; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap
             }
         }
