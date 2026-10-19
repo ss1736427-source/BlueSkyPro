@@ -134,6 +134,8 @@ def download(url: str, destination: Path, timeout: float, max_bytes: int) -> tup
         raise ProbeError(f"NOMADS returned HTTP {exc.code}: {exc.reason}") from exc
     except urllib.error.URLError as exc:
         raise ProbeError(f"Network/TLS error while contacting NOMADS: {exc.reason}") from exc
+    except TimeoutError as exc:
+        raise ProbeError(f"NOMADS request timed out after {timeout:g} seconds.") from exc
     finally:
         if temporary.exists():
             temporary.unlink()
