@@ -120,7 +120,9 @@ Item {
     }
 
     function requestNotamApiTest() {
-        var base = notamBaseUrl.trim().replace(/\\/+$/, "")
+        var base = notamBaseUrl.trim()
+        while (base.endsWith("/"))
+            base = base.slice(0, -1)
         if (base.length === 0) {
             notamApiStatus = "CONFIGURATION ERROR"
             notamApiError = "Enter the provider API base URL."
