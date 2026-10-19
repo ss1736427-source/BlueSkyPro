@@ -15,6 +15,10 @@ Item {
     property string notamApiError: ""
     property int notamApiCount: -1
     property string notamApiSample: ""
+    property string natsXmlStatus: "NOT TESTED"
+    property string natsXmlError: ""
+    property int natsXmlNotamCount: -1
+    property string natsXmlSample: ""
     property string icaoApiKey: ""
     property string mapTilerApiKey: ""
     property string wxCommercialApiKey: ""
@@ -231,6 +235,49 @@ Item {
         request.open("GET", base + "/notam/?country_code=US&status=active&page=1")
         request.setRequestHeader("Authorization", "Bearer " + apiKey)
         request.setRequestHeader("Accept", "application/json")
+        request.send()
+    }
+
+    // Public NATS contingency PIB is used only as a free UK NOTAM/XML integration test source.
+    // Its XML schema is not declared by NATS and may change; this does not cover Russian airspace.
+    function requestNatsPibTest() {
+        natsXmlStatus = "CONNECTING"
+        natsXmlError = ""
+        natsXmlNotamCount = -1
+        natsXmlSample = ""
+        var request = new XMLHttpRequest()
+        request.timeout = 20000
+        request.onreadystatechange = function() {
+            if (request.readyState !== XMLHttpRequest.DONE)
+                return
+            if (request.status >= 200 && request.status < 300) {
+                var body = String(request.responseText || "").trim()
+                if (body.length === 0 || body.charAt(0) !== "<" || body.indexOf(">") < 0) {
+                    root.natsXmlStatus = "INVALID XML RESPONSE"
+                    root.natsXmlError = "Response is empty or does not look like XML."
+                    return
+                }
+                // Connectivity/schema smoke test only. Do not treat this heuristic count as a
+                // validated NOTAM count until a versioned XML parser is implemented.
+                var matches = body.match(/<(?:[A-Za-z0-9_]+:)?NOTAM(?:\\s|>)/gi)
+                root.natsXmlNotamCount = matches ? matches.length : 0
+                root.natsXmlSample = body.slice(0, 260).replace(/\\s+/g, " ")
+                root.natsXmlStatus = "CONNECTED / XML RECEIVED — PARSER NOT VALIDATED"
+            } else {
+                root.natsXmlStatus = "HTTP " + request.status + " FAILED"
+                root.natsXmlError = request.statusText || "HTTP request failed."
+            }
+        }
+        request.ontimeout = function() {
+            root.natsXmlStatus = "TIMEOUT"
+            root.natsXmlError = "No response within 20 seconds."
+        }
+        request.onerror = function() {
+            root.natsXmlStatus = "NETWORK ERROR"
+            root.natsXmlError = "Request failed. Check network/TLS access and whether the source permits this client request."
+        }
+        request.open("GET", "https://pibs.nats.co.uk/operational/pibs/PIB.xml")
+        request.setRequestHeader("Accept", "application/xml, text/xml")
         request.send()
     }
 
@@ -477,6 +524,26 @@ Item {
                             Text { visible: root.notamApiError !== ""; text: root.notamApiError; width: parent.width; color: root.red; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
                             Text { visible: root.notamApiCount >= 0; text: "MATCHING RECORDS: " + root.notamApiCount + "\\nSAMPLE: " + root.notamApiSample; width: parent.width; color: root.text; font.family: "B612 Mono"; font.pixelSize: 9; wrapMode: Text.Wrap }
                             Text { text: "API docs: https://notac.aero/api/ · token is sent in the Authorization: Bearer header, never in the URL."; width: parent.width; color: root.muted; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: natsNode.implicitHeight + 24
+                        color: "#101F2D"; border.color: root.line; radius: 4
+                        Column {
+                            id: natsNode
+                            x: 12; y: 12; width: parent.width - 24; spacing: 7
+                            Text { text: "FREE TEST SOURCE / NATS UK PUBLIC PIB XML"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 11; font.bold: true }
+                            Text { text: "No API key configured. Public UK NOTAM PIB is updated hourly and covers UK notices; it is a connectivity/XML smoke test only, not a Russian source or operational briefing."; width: parent.width; color: root.amber; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap }
+                            Text { text: root.natsXmlStatus; width: parent.width; color: root.statusColor(root.natsXmlStatus); font.family: "B612 Mono"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                            Text { visible: root.natsXmlError !== ""; text: root.natsXmlError; width: parent.width; color: root.red; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                            Text { visible: root.natsXmlNotamCount >= 0; text: "HEURISTIC <NOTAM> TAG COUNT: " + root.natsXmlNotamCount + "\\nXML PREVIEW: " + root.natsXmlSample; width: parent.width; color: root.text; font.family: "B612 Mono"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                            Rectangle { width: parent.width; height: 34; radius: 3; color: "#10283A"; border.color: root.cyan
+                                Text { anchors.centerIn: parent; text: "FETCH PUBLIC UK NOTAM XML"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                                MouseArea { anchors.fill: parent; onClicked: root.requestNatsPibTest() }
+                            }
+                            Text { text: "Source: https://pibs.nats.co.uk/operational/pibs/PIB.xml · NATS states the XML schema is undeclared and may change. Tag count is diagnostic only; no normalized NOTAM records are passed to the safety core."; width: parent.width; color: root.muted; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
                         }
                     }
 
