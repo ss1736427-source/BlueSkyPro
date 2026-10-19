@@ -147,3 +147,13 @@ The ADMIN integration console now includes provider configuration nodes for:
 - The probe now requests this full level set by default for both `UGRD` and `VGRD`; operators may narrow it using `--levels`.
 - Catalogue availability is not proof that every requested field/level is present in a specific downloaded payload. The live GRIB inventory must be decoded and checked before treating any height as supported.
 - Official catalogue reference: https://nomads.ncep.noaa.gov/gribfilter.php?ds=gfs_0p25
+
+
+## 11. Free NOTAM integration smoke test — NATS UK public PIB XML — 2026-10-19
+
+- Added an unauthenticated test action to ADMIN → External Integrations → Provider Connection Nodes: FETCH PUBLIC UK NOTAM XML.
+- Source: https://pibs.nats.co.uk/operational/pibs/PIB.xml. NATS publishes this contingency PIB with current UK NOTAM valid at generation time and for the next seven days; the source page says the XML schema is not declared and may change. This is a free test source for transport and XML ingestion only, not a production feed or Russian airspace coverage.
+- The QML probe reports HTTP/network/timeout errors and checks that the response looks like XML. Its NOTAM-tag count is explicitly heuristic; it is not a validated record count, does not normalize notices, does not perform spatial/time/altitude filtering, and does not pass records to the planning/safety core.
+- If the runtime blocks the cross-origin request or the provider changes access behavior, the console will show the error. If this occurs, implement the same source using a native Qt network adapter rather than weakening browser/network security.
+- Acceptance remains open until the application is built and the button is exercised on the target Windows runtime. A successful response must be recorded with retrieval timestamp, response size and sample structure before implementing a versioned parser. Do not infer flight readiness from this probe.
+- Source reference: NATS Contingency PIB page https://nats-uk.ead-it.com/cms-nats/opencms/en/Briefing/contingency-pibs/.
