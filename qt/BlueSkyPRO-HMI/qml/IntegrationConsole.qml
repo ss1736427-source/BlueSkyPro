@@ -9,6 +9,15 @@ Item {
     property string wxStatus: "NOT TESTED"
     property string demStatus: "NOT TESTED"
     property string notamStatus: "ACCESS NOT CONFIGURED"
+    property string notamBaseUrl: "https://notac.aero/api/v1"
+    property string notamApiKey: ""
+    property string notamApiStatus: "NOT CONFIGURED"
+    property string notamApiError: ""
+    property int notamApiCount: -1
+    property string notamApiSample: ""
+    property string icaoApiKey: ""
+    property string mapTilerApiKey: ""
+    property string wxCommercialApiKey: ""
     property var wxResult: null
     property var demResult: null
     property string wxError: ""
@@ -107,6 +116,70 @@ Item {
             }
         }
         request.open("GET", url)
+        request.send()
+    }
+
+    function requestNotamApiTest() {
+        var base = notamBaseUrl.trim().replace(/\\/+$/, "")
+        if (base.length === 0) {
+            notamApiStatus = "CONFIGURATION ERROR"
+            notamApiError = "Enter the provider API base URL."
+            return
+        }
+        if (notamApiKey.trim().length === 0) {
+            notamApiStatus = "KEY REQUIRED"
+            notamApiError = "Paste the NOTAC API token in the password field first."
+            return
+        }
+        notamApiStatus = "CONNECTING"
+        notamApiError = ""
+        notamApiCount = -1
+        notamApiSample = ""
+        var request = new XMLHttpRequest()
+        request.timeout = 15000
+        request.onreadystatechange = function() {
+            if (request.readyState !== XMLHttpRequest.DONE)
+                return
+            if (request.status >= 200 && request.status < 300) {
+                try {
+                    var parsed = JSON.parse(request.responseText)
+                    if (!parsed || !Array.isArray(parsed.results) || parsed.count === undefined)
+                        throw new Error("Response does not match the expected NOTAC NOTAM search envelope.")
+                    root.notamApiCount = Number(parsed.count)
+                    if (parsed.results.length > 0) {
+                        var first = parsed.results[0]
+                        root.notamApiSample = String(first.number || first.id || "NOTICE")
+                                + " | " + String(first.status || "STATUS UNKNOWN")
+                                + " | " + String(first.text || "No source text returned").slice(0, 240)
+                    } else {
+                        root.notamApiSample = "Valid API response; no matching notices returned for the test query."
+                    }
+                    root.notamApiStatus = "CONNECTED / JSON VALID"
+                    root.notamApiError = ""
+                } catch (error) {
+                    root.notamApiStatus = "INVALID RESPONSE"
+                    root.notamApiError = String(error)
+                }
+            } else {
+                root.notamApiStatus = request.status === 401 ? "AUTHENTICATION FAILED"
+                    : request.status === 402 ? "API QUOTA EXHAUSTED"
+                    : request.status === 403 ? "ACCESS DENIED"
+                    : request.status === 429 ? "RATE LIMITED"
+                    : "CONNECTION FAILED"
+                root.notamApiError = "HTTP " + request.status + ": " + request.statusText
+            }
+        }
+        request.ontimeout = function() {
+            root.notamApiStatus = "TIMEOUT"
+            root.notamApiError = "No response within 15 seconds."
+        }
+        request.onerror = function() {
+            root.notamApiStatus = "NETWORK ERROR"
+            root.notamApiError = "Request failed. Check network access, TLS and provider availability."
+        }
+        request.open("GET", base + "/notam/?country_code=US&status=active&page=1")
+        request.setRequestHeader("Authorization", "Bearer " + notamApiKey.trim())
+        request.setRequestHeader("Accept", "application/json")
         request.send()
     }
 
@@ -286,6 +359,137 @@ Item {
                         MouseArea { anchors.fill: parent; onClicked: Qt.openUrlExternally("https://aip.caica.ru/notam/") }
                     }
                     Text { width: parent.width; text: "Next integration step: confirm the official machine-readable delivery channel and access rights. Until then, NOTAM status remains UNAVAILABLE and must block operational release."; color: root.amber; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap }
+                }
+            }
+
+            Rectangle {
+                width: parent.width
+                height: providerNodes.implicitHeight + 28
+                radius: 4
+                color: root.panel
+                border.color: root.line
+                Column {
+                    id: providerNodes
+                    x: 14; y: 14
+                    width: parent.width - 28
+                    spacing: 12
+                    Text { text: "PROVIDER CONNECTION NODES"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 12; font.bold: true }
+                    Text {
+                        width: parent.width
+                        text: "Setup: (1) obtain a provider key from its official account/support channel; (2) select the provider and enter its base URL if configurable; (3) paste the key into the masked field; (4) run the connection test; (5) review HTTP status and JSON validation. Secret fields are session-only in this prototype and are not written to QSettings or the repository."
+                        color: root.text; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: notacNode.implicitHeight + 24
+                        color: "#101F2D"; border.color: root.line; radius: 4
+                        Column {
+                            id: notacNode
+                            x: 12; y: 12; width: parent.width - 24; spacing: 7
+                            Text { text: "NOTAM NODE / NOTAC REST JSON"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 11; font.bold: true }
+                            Text { text: "TEST PROVIDER · NOTAM dataset is FAA-sourced; this tests transport/auth/schema only, not Russian airspace coverage."; width: parent.width; color: root.amber; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap }
+                            Text { text: "API BASE URL"; color: root.muted; font.family: "B612 Mono"; font.pixelSize: 9 }
+                            TextField {
+                                width: parent.width; height: 34
+                                text: root.notamBaseUrl
+                                onTextChanged: root.notamBaseUrl = text
+                                color: root.text; selectByMouse: true
+                                background: Rectangle { color: "#07111B"; border.color: root.line; radius: 3 }
+                            }
+                            Text { text: "API TOKEN · paste the secret key here"; color: root.muted; font.family: "B612 Mono"; font.pixelSize: 9 }
+                            TextField {
+                                width: parent.width; height: 34
+                                text: root.notamApiKey
+                                onTextChanged: root.notamApiKey = text
+                                echoMode: TextInput.Password
+                                passwordCharacter: "•"
+                                placeholderText: "NOTAC token (lb_…)"
+                                color: root.text; selectByMouse: true
+                                background: Rectangle { color: "#07111B"; border.color: root.line; radius: 3 }
+                            }
+                            Rectangle {
+                                width: 220; height: 34; radius: 3; color: "#10283A"; border.color: root.cyan
+                                Text { anchors.centerIn: parent; text: "TEST NOTAM API CONNECTION"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                                MouseArea { anchors.fill: parent; onClicked: root.requestNotamApiTest() }
+                            }
+                            Text { text: root.notamApiStatus; color: root.statusColor(root.notamApiStatus); font.family: "B612 Mono"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                            Text { visible: root.notamApiError !== ""; text: root.notamApiError; width: parent.width; color: root.red; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                            Text { visible: root.notamApiCount >= 0; text: "MATCHING RECORDS: " + root.notamApiCount + "\\nSAMPLE: " + root.notamApiSample; width: parent.width; color: root.text; font.family: "B612 Mono"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                            Text { text: "API docs: https://notac.aero/api/ · token is sent in the Authorization: Bearer header, never in the URL."; width: parent.width; color: root.muted; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: 104
+                        color: "#101F2D"; border.color: root.line; radius: 4
+                        Column {
+                            x: 12; y: 12; width: parent.width - 24; spacing: 6
+                            Text { text: "ICAO NOTAM API / FUTURE ALTERNATE"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 11; font.bold: true }
+                            Text { text: "Key field is provided for configuration planning. Endpoint parameters and Russian/UAS coverage must be verified before enabling a live test."; width: parent.width; color: root.muted; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap }
+                            TextField {
+                                width: parent.width; height: 32
+                                text: root.icaoApiKey
+                                onTextChanged: root.icaoApiKey = text
+                                echoMode: TextInput.Password
+                                passwordCharacter: "•"
+                                placeholderText: "ICAO API key — session only"
+                                color: root.text
+                                background: Rectangle { color: "#07111B"; border.color: root.line; radius: 3 }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: mapNode.implicitHeight + 24
+                        color: "#101F2D"; border.color: root.line; radius: 4
+                        Column {
+                            id: mapNode
+                            x: 12; y: 12; width: parent.width - 24; spacing: 7
+                            Text { text: "MAP NODE / MAPTILER"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 11; font.bold: true }
+                            Text { text: "Paste the MapTiler key issued for the BlueSky PRO application. This field does not replace or alter the currently configured map provider yet."; width: parent.width; color: root.muted; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap }
+                            TextField {
+                                width: parent.width; height: 34
+                                text: root.mapTilerApiKey
+                                onTextChanged: root.mapTilerApiKey = text
+                                echoMode: TextInput.Password
+                                passwordCharacter: "•"
+                                placeholderText: "MapTiler API key — session only"
+                                color: root.text
+                                background: Rectangle { color: "#07111B"; border.color: root.line; radius: 3 }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: wxNode.implicitHeight + 24
+                        color: "#101F2D"; border.color: root.line; radius: 4
+                        Column {
+                            id: wxNode
+                            x: 12; y: 12; width: parent.width - 24; spacing: 7
+                            Text { text: "WEATHER NODE / OPEN-METEO"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 11; font.bold: true }
+                            Text { text: "The current prototype uses public Open-Meteo endpoints without an API key. Do not paste a paid-provider key here expecting it to affect the current request; commercial-provider adapter selection is not implemented."; width: parent.width; color: root.muted; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap }
+                            TextField {
+                                width: parent.width; height: 34
+                                text: root.wxCommercialApiKey
+                                onTextChanged: root.wxCommercialApiKey = text
+                                echoMode: TextInput.Password
+                                passwordCharacter: "•"
+                                placeholderText: "Future commercial WX key — session only"
+                                color: root.text
+                                background: Rectangle { color: "#07111B"; border.color: root.line; radius: 3 }
+                            }
+                        }
+                    }
+
+                    Text {
+                        width: parent.width
+                        text: "SECURITY / IMPLEMENTATION LIMIT: key fields are masked but are held only in UI memory. They are not saved after restart and are not sent to the planning core except the explicit NOTAC test request. Before production, move secrets to an OS credential vault or protected backend and keep provider HTTP outside the safety-critical core."
+                        color: root.amber; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap
+                    }
                 }
             }
 
