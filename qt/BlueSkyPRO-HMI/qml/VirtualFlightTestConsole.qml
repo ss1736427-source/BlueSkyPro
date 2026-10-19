@@ -14,9 +14,9 @@ Item {
     readonly property color amber: "#FFD166"
 
     readonly property var scenarios: [
-        { name: "HISTORICAL AVERAGE / CALM", wind: "3.0 m/s", gust: "5.0 m/s", temp: "15 °C", visibility: "10 km", cloud: "FEW / 1 500 m", notam: "2 synthetic test records", profile: "Illustrative averaged profile — not tied to a real station or date" },
-        { name: "HISTORICAL AVERAGE / WINDY", wind: "8.0 m/s", gust: "12.0 m/s", temp: "9 °C", visibility: "8 km", cloud: "BKN / 900 m", notam: "4 synthetic test records", profile: "Illustrative averaged profile — not tied to a real station or date" },
-        { name: "HISTORICAL AVERAGE / LOW VIS", wind: "4.0 m/s", gust: "7.0 m/s", temp: "6 °C", visibility: "3 km", cloud: "OVC / 450 m", notam: "3 synthetic test records", profile: "Illustrative averaged profile — not tied to a real station or date" }
+        { name: "SYNTHETIC AVERAGE / CALM", wind: "3.0 m/s", gust: "5.0 m/s", temp: "15 °C", visibility: "10 km", cloud: "FEW / 1 500 m", notam: "2 synthetic test records", profile: "Illustrative averaged profile — not tied to a real station or date" },
+        { name: "SYNTHETIC AVERAGE / WINDY", wind: "8.0 m/s", gust: "12.0 m/s", temp: "9 °C", visibility: "8 km", cloud: "BKN / 900 m", notam: "4 synthetic test records", profile: "Illustrative averaged profile — not tied to a real station or date" },
+        { name: "SYNTHETIC AVERAGE / LOW VIS", wind: "4.0 m/s", gust: "7.0 m/s", temp: "6 °C", visibility: "3 km", cloud: "OVC / 450 m", notam: "3 synthetic test records", profile: "Illustrative averaged profile — not tied to a real station or date" }
     ]
     readonly property var scenario: scenarios[scenarioIndex]
 
