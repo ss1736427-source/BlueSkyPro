@@ -66,9 +66,9 @@ Historical averages are useful for repeatable performance and interface tests, b
 ## 5. Current implementation checkpoint — 2026-10-19
 
 - `MainContent.qml` stores the shared TEST STUBS switch under `BlueSkyPRO/ExternalIntegrations`; the ADMIN action writes to the settings property rather than breaking the binding to the displayed state.
-- Virtual Flight scenario labels now say `SYNTHETIC AVERAGE`, not `HISTORICAL AVERAGE`, because no identified historical dataset, station/grid, averaging period or licence is configured.
-- The HMI fixture selection remains presentation-only. Planning-kernel binding, structured weather snapshots, georeferenced NOTAM fixture geometry and an end-to-end test request are still not implemented.
-- The CMake include-path correction and previous CI for commit `daabb8e` passed. The latest HMI toggle and synthetic-label commits require CI confirmation on their own SHAs before closure.
+- Virtual Flight scenarios now use a structured, versioned fixture record (`VF-FIXTURES-1.0`) with numeric weather values, profile ID, `SYNTHETIC_AVERAGE` classification, and explicit `UNSPECIFIED` location/averaging period. UI labels say `SYNTHETIC AVERAGE`, not `HISTORICAL AVERAGE`, because no identified historical dataset, station/grid, averaging period or licence is configured.
+- The HMI fixture selection remains presentation-only. Planning-kernel binding, weather snapshot construction, georeferenced NOTAM fixture geometry and an end-to-end test request are still not implemented.
+- The CMake include-path correction and CI for `daabb8e` passed. CI for the newer toggle, labels, structured fixture and this document update must be checked against their exact SHAs before closure.
 
 ## 6. Acceptance criteria for production integration
 
