@@ -116,8 +116,8 @@ The ADMIN integration console now includes provider configuration nodes for:
 - MapTiler is loaded from the vault at application startup only when BLUESKY_MAPTILER_API_KEY is not supplied in the environment. The environment value takes precedence.
 - Non-Windows platforms report native vault support as unavailable and refuse to save; there is no plaintext fallback. macOS Keychain and Linux Secret Service adapters remain future work.
 - Credential vault support is not the same as provider activation: ICAO and commercial-weather keys are stored but not used by live adapters yet.
-- The NOTAC key is sent only in the HTTPS Authorization header for the explicit test action, never as a query parameter. The other key fields are not transmitted.
-- The current console does not yet provide a general save/activate provider lifecycle, secure key persistence, key rotation, provider selection in the planning core, retry/backoff policy, or normalized source snapshots.
+- The NOTAC key is sent only in the HTTPS Authorization header for the explicit test action, never as a query parameter. ICAO and commercial-weather keys are stored but not currently sent to a provider. The MapTiler key is passed to the map renderer at application startup when no environment-variable key is supplied; the renderer may include it in provider requests as required by the MapTiler URL contract.
+- The current console does not yet provide a general provider activation lifecycle, key rotation, provider selection in the planning core, retry/backoff policy, or normalized source snapshots. Secure persistence exists for the four configured provider key slots, but saving a key does not activate an adapter.
 - The NOTAC feed is FAA-sourced. It is used as a temporary integration test only; it must not be treated as a Russian lower-airspace restriction source or used to authorize a flight.
 - A successful connection must remain distinct from data validity, geographic completeness, freshness, operational authorization and flight-release eligibility.
 
