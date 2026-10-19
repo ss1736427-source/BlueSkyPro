@@ -1,6 +1,6 @@
 # NOAA GFS GRIB2 spatial weather prototype
 
-**Status:** acquisition probe committed; live download and scientific decode remain **UNVERIFIED**.  
+**Status:** offline probe contract CI passed on commit `d00a9508281a1d95380a8d073836eab83891e807`; live download and scientific decode remain **UNVERIFIED**.  
 **Canonical branch:** `main`  
 **Purpose:** verify the first link in the spatial-weather pipeline before integrating a GRIB decoder into the Qt application.
 
@@ -45,7 +45,7 @@ Expected output:
 SELF-TEST PASS: URL construction, selected levels/variables, bbox and GRIB2 guards.
 ```
 
-This self-test makes no network request and is not evidence of live NOAA availability.
+This self-test makes no network request and is not evidence of live NOAA availability. GitHub Actions `probe-contract` passed (compile + offline self-test) for code commit `d00a9508281a1d95380a8d073836eab83891e807`: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/39310532160. Later commits only update the documented level set and operational records; the probe code SHA tested by this run is explicitly recorded here.
 
 ### Live acquisition example
 
