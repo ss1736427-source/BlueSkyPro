@@ -7,7 +7,7 @@ Item {
     property bool testStubsEnabled: true
     property bool runRequested: false
     property var assessmentResult: ({})
-    property string manualGeometryJson: "{\\"objects\\":[]}"
+    property string manualGeometryJson: "{}"
     property var manualTemplateIds: []
     property string manualMissionId: "VF-MANUAL-MISSION"
     property int manualMissionVersion: 1

@@ -17,12 +17,12 @@ int main(int argc,char **argv) {
  const auto invalid=b.assessSyntheticFixture(99);
  assert(!invalid.value("assessed").toBool()); assert(!invalid.value("flightReleaseEligible").toBool());
  const QString manualGeometry = QStringLiteral(
-     "{\\"objects\\":[{"
-     "\\"geometryId\\":\\"GEO-MT-05-TEST\\","
-     "\\"geometryType\\":\\"CORRIDOR\\","
-     "\\"coordinateReferenceSystem\\":\\"EPSG:4326\\","
-     "\\"coordinates\\":[[30.0,59.0,40.0,\\"AGL\\"],[30.01,59.01,45.0,\\"AGL\\"]],"
-     "\\"templateIds\\":[\\"MT-05\\"],\\"version\\":1}]}");
+     "{\"objects\":[{"
+     "\"geometryId\":\"GEO-MT-05-TEST\","
+     "\"geometryType\":\"CORRIDOR\","
+     "\"coordinateReferenceSystem\":\"EPSG:4326\","
+     "\"coordinates\":[[30.0,59.0,40.0,\"AGL\"],[30.01,59.01,45.0,\"AGL\"]],"
+     "\"templateIds\":[\"MT-05\"],\"version\":1}]}");
  const auto manualClear = b.assessManualGeometry(manualGeometry,
      {QStringLiteral("MT-05")}, QStringLiteral("VF-MANUAL-TEST"), 1, true, 0);
  assert(manualClear.value("assessed").toBool());
@@ -37,12 +37,12 @@ int main(int argc,char **argv) {
  assert(!manualBlocked.value("combinedClear").toBool());
  assert(!manualBlocked.value("flightReleaseEligible").toBool());
  const QString missingDatum = QStringLiteral(
-     "{\\"objects\\":[{"
-     "\\"geometryId\\":\\"GEO-MT-05-NO-DATUM\\","
-     "\\"geometryType\\":\\"CORRIDOR\\","
-     "\\"coordinateReferenceSystem\\":\\"EPSG:4326\\","
-     "\\"coordinates\\":[[30.0,59.0,40.0],[30.01,59.01,45.0]],"
-     "\\"templateIds\\":[\\"MT-05\\"],\\"version\\":1}]}");
+     "{\"objects\":[{"
+     "\"geometryId\":\"GEO-MT-05-NO-DATUM\","
+     "\"geometryType\":\"CORRIDOR\","
+     "\"coordinateReferenceSystem\":\"EPSG:4326\","
+     "\"coordinates\":[[30.0,59.0,40.0],[30.01,59.01,45.0]],"
+     "\"templateIds\":[\"MT-05\"],\"version\":1}]}");
  const auto noDatum = b.assessManualGeometry(missingDatum,
      {QStringLiteral("MT-05")}, QStringLiteral("VF-MANUAL-TEST"), 1, true, 0);
  assert(!noDatum.value("assessed").toBool());
