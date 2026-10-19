@@ -259,9 +259,9 @@ Item {
                 }
                 // Connectivity/schema smoke test only. Do not treat this heuristic count as a
                 // validated NOTAM count until a versioned XML parser is implemented.
-                var matches = body.match(/<(?:[A-Za-z0-9_]+:)?NOTAM(?:\\s|>)/gi)
+                var matches = body.match(/<(?:[A-Za-z0-9_]+:)?NOTAM(?:\s|>)/gi)
                 root.natsXmlNotamCount = matches ? matches.length : 0
-                root.natsXmlSample = body.slice(0, 260).replace(/\\s+/g, " ")
+                root.natsXmlSample = body.slice(0, 260).replace(/\s+/g, " ")
                 root.natsXmlStatus = "CONNECTED / XML RECEIVED — PARSER NOT VALIDATED"
             } else {
                 root.natsXmlStatus = "HTTP " + request.status + " FAILED"
