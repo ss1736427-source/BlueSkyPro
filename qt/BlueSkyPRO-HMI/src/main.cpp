@@ -4,6 +4,7 @@
 #include <QQmlContext>
 
 #include "PlanningBridge.h"
+#include "VirtualFlightAssessmentBridge.h"
 #include "ManualGeometryBridge.h"
 #include "ManualMissionModelAdapter.h"
 #include "RouteController.h"
@@ -24,11 +25,13 @@ int main(int argc, char *argv[])
 
     QQmlApplicationEngine engine;
     PlanningBridge planningBridge;
+    VirtualFlightAssessmentBridge virtualFlightAssessmentBridge;
     ManualGeometryBridge manualGeometryBridge;
     ManualMissionModelAdapter manualMissionModelAdapter;
     RouteController routeController;
     TileCacheManager tileCacheManager;
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
+    engine.rootContext()->setContextProperty(QStringLiteral("virtualFlightAssessmentBridge"), &virtualFlightAssessmentBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("manualGeometryBridge"), &manualGeometryBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("manualMissionModelAdapter"), &manualMissionModelAdapter);
     engine.rootContext()->setContextProperty(QStringLiteral("routeController"), &routeController);

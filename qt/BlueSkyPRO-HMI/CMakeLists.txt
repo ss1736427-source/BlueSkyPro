@@ -18,6 +18,13 @@ qt_add_executable(appBlueSkyPRO
     src/main.cpp
     src/PlanningBridge.cpp
     src/PlanningBridge.h
+    src/VirtualFlightAssessmentBridge.cpp
+    src/VirtualFlightAssessmentBridge.h
+    ../../04_SOFTWARE/PLANNING/manual_route_candidate_builder.cpp
+    ../../04_SOFTWARE/PLANNING/manual_route_candidate_assessment.cpp
+    ../../04_SOFTWARE/PLANNING/constrained_open_space.cpp
+    ../../04_SOFTWARE/PLANNING/notam_prohibited_zone_validator.cpp
+    ../../04_SOFTWARE/PLANNING/route_constraint_validator.cpp
     src/ManualGeometryBridge.cpp
     src/ManualGeometryBridge.h
     src/ManualMissionModelAdapter.cpp
@@ -63,6 +70,7 @@ qt_add_qml_module(appBlueSkyPRO
         qml/assets/uav_vtol.svg
 )
 
+target_compile_features(appBlueSkyPRO PRIVATE cxx_std_20)
 target_include_directories(appBlueSkyPRO PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Core Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::WebEngineQuick Qt6::WebChannel)
 
@@ -91,6 +99,21 @@ add_executable(manual_mission_model_adapter_test
 target_include_directories(manual_mission_model_adapter_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.. ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(manual_mission_model_adapter_test PRIVATE Qt6::Core)
 add_test(NAME manual_mission_model_adapter_contract COMMAND manual_mission_model_adapter_test)
+
+add_executable(virtual_flight_assessment_bridge_test
+    tests/VirtualFlightAssessmentBridgeTest.cpp
+    src/VirtualFlightAssessmentBridge.cpp
+    src/VirtualFlightAssessmentBridge.h
+    ../../04_SOFTWARE/PLANNING/manual_route_candidate_builder.cpp
+    ../../04_SOFTWARE/PLANNING/manual_route_candidate_assessment.cpp
+    ../../04_SOFTWARE/PLANNING/constrained_open_space.cpp
+    ../../04_SOFTWARE/PLANNING/notam_prohibited_zone_validator.cpp
+    ../../04_SOFTWARE/PLANNING/route_constraint_validator.cpp
+)
+target_compile_features(virtual_flight_assessment_bridge_test PRIVATE cxx_std_20)
+target_include_directories(virtual_flight_assessment_bridge_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.. ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(virtual_flight_assessment_bridge_test PRIVATE Qt6::Core)
+add_test(NAME virtual_flight_assessment_bridge_contract COMMAND virtual_flight_assessment_bridge_test)
 
 set_target_properties(appBlueSkyPRO PROPERTIES
     MACOSX_BUNDLE TRUE

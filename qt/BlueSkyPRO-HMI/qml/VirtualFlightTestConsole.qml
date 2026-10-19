@@ -6,6 +6,7 @@ Item {
     property int scenarioIndex: 0
     property bool testStubsEnabled: true
     property bool runRequested: false
+    property var assessmentResult: ({})
     readonly property color panel: "#0B1724"
     readonly property color line: "#26394B"
     readonly property color text: "#E8EEF5"
@@ -132,21 +133,33 @@ Item {
             }
         }
 
+        Rectangle {
+            visible: root.runRequested
+            width: parent.width; height: 90; radius: 3
+            color: "#0B1724"; border.color: root.assessmentResult.combinedClear ? "#8B682F" : "#8B3A3A"
+            Column {
+                anchors.fill: parent; anchors.margins: 10; spacing: 4
+                Text { text: "CANONICAL CORE RESULT / " + String(root.assessmentResult.profileId || "NO PROFILE"); color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 10; font.bold: true }
+                Text { width: parent.width; text: "ROUTE: " + String(root.assessmentResult.routeSource || "UNAVAILABLE") + " / NOTAM: " + String(root.assessmentResult.notamRecordCount || 0) + " / FIXTURE: " + String(root.assessmentResult.datasetVersion || "UNKNOWN") + " / RELEASE ELIGIBLE: NO"; color: root.text; font.family: "B612 Mono"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                Text { width: parent.width; text: (root.assessmentResult.errors || []).join(" · ") || "Airspace/NOTAM clear only; all other operational gates remain unchecked."; color: root.assessmentResult.combinedClear ? root.amber : "#FF8C8C"; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
+            }
+        }
+
         Row {
             spacing: 12
             Rectangle {
                 width: 190; height: 42; radius: 3
                 color: "#10283A"; border.color: root.cyan
-                Text { anchors.centerIn: parent; text: !root.testStubsEnabled ? "TEST STUBS OFF" : (root.runRequested ? "TEST PROFILE SELECTED" : "SELECT TEST PROFILE"); color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 10; font.bold: true }
-                MouseArea { anchors.fill: parent; onClicked: { if (root.testStubsEnabled) root.runRequested = true } }
+                Text { anchors.centerIn: parent; text: !root.testStubsEnabled ? "TEST STUBS OFF" : (root.runRequested ? "ASSESSMENT COMPLETE" : "RUN CORE ASSESSMENT"); color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 10; font.bold: true }
+                MouseArea { anchors.fill: parent; onClicked: { if (root.testStubsEnabled) { root.assessmentResult = virtualFlightAssessmentBridge.assessSyntheticFixture(root.scenarioIndex); root.runRequested = true } } }
             }
             Text {
                 width: root.width - 260
                 text: !root.testStubsEnabled
                       ? "Test fixtures are disabled in Administrator. No profile is available for this session."
                       : (root.runRequested
-                         ? "Profile selected in the HMI fixture. No planning kernel was executed and no route or safety result was produced."
-                         : "Select a scenario to exercise the Virtual Flight test interface. This control does not launch or authorize a flight.")
+                         ? "Canonical core assessment completed. See result panel. Flight release is always blocked."
+                         : "Run the canonical planning-core assessment against a fixed synthetic route and synthetic NOTAM snapshot. This does not use the operator map route or authorize a flight.")
                 color: root.muted; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap; verticalAlignment: Text.AlignVCenter
             }
         }
