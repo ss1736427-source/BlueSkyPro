@@ -130,3 +130,14 @@ The ADMIN integration console now includes provider configuration nodes for:
 - Automated contract test: qt/BlueSkyPRO-HMI/tests/CredentialVaultTest.cpp. On Windows it exercises save → read → delete using an isolated test namespace; on non-Windows it verifies fail-closed behavior.
 - The exact resulting commit must be built and tested on the supported CI matrix before this implementation is considered verified. No local Qt build or interactive restart test was performed during this change.
 - Remaining platform gap: macOS Keychain and Linux Secret Service are not implemented. This does not justify writing secrets to plain settings or files.
+
+## 10. Spatial weather GRIB2 acquisition prototype — 2026-10-19
+
+- Initial source selected for a bounded acquisition test: NOAA/NCEP GFS 0.25-degree GRIB2 through NOMADS.
+- Probe: `tools/weather/noaa_gfs_grib_probe.py`; work package: `04_SOFTWARE/WEATHER/GRIB2_SPATIAL_WEATHER_PROTOTYPE_001.md`.
+- Requested fields: `UGRD` and `VGRD` at explicitly selected metres-above-ground levels, for one model cycle, forecast hour and WGS84 bounding box.
+- The probe checks the GRIB2 edition/end marker, enforces a download size limit and writes a provenance manifest with SHA-256. It does not decode fields or calculate route weather.
+- A dedicated offline contract workflow was added at `.github/workflows/weather-grib-probe.yml`. Its result must be checked against the exact `main` SHA before marking the probe contract as CI-verified.
+- **Current evidence status: UNVERIFIED for live acquisition and meteorological decoding.** No actual downloaded NOAA payload, decoded field inventory, or scientific-value comparison has yet been recorded. The probe cannot be used as operational weather evidence or to authorize flight.
+- Next gate: run the offline test; download a small area for a currently available cycle; inspect the resulting file with ecCodes; verify field names, levels, units, grid, valid time and missing values. Only then design the C++ decoding/cache/interpolation adapter.
+
