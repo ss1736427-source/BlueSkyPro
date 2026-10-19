@@ -1,0 +1,31 @@
+name: Weather GRIB2 Probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/weather/noaa_gfs_grib_probe.py"
+      - ".github/workflows/weather-grib-probe.yml"
+  pull_request:
+    paths:
+      - "tools/weather/noaa_gfs_grib_probe.py"
+      - ".github/workflows/weather-grib-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile probe
+        run: python -m py_compile tools/weather/noaa_gfs_grib_probe.py
+      - name: Run offline contract tests
+        run: python tools/weather/noaa_gfs_grib_probe.py --self-test
