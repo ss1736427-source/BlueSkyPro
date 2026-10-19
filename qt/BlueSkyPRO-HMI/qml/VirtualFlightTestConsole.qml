@@ -13,10 +13,45 @@ Item {
     readonly property color cyan: "#00B9F0"
     readonly property color amber: "#FFD166"
 
+    // Versioned non-operational fixture contract. These are synthetic values,
+    // not observations or a sourced historical climatology dataset.
     readonly property var scenarios: [
-        { name: "SYNTHETIC AVERAGE / CALM", wind: "3.0 m/s", gust: "5.0 m/s", temp: "15 °C", visibility: "10 km", cloud: "FEW / 1 500 m", notam: "2 synthetic test records", profile: "Illustrative averaged profile — not tied to a real station or date" },
-        { name: "SYNTHETIC AVERAGE / WINDY", wind: "8.0 m/s", gust: "12.0 m/s", temp: "9 °C", visibility: "8 km", cloud: "BKN / 900 m", notam: "4 synthetic test records", profile: "Illustrative averaged profile — not tied to a real station or date" },
-        { name: "SYNTHETIC AVERAGE / LOW VIS", wind: "4.0 m/s", gust: "7.0 m/s", temp: "6 °C", visibility: "3 km", cloud: "OVC / 450 m", notam: "3 synthetic test records", profile: "Illustrative averaged profile — not tied to a real station or date" }
+        {
+            profileId: "VF-WX-SYN-001",
+            sourceType: "SYNTHETIC_AVERAGE",
+            datasetVersion: "VF-FIXTURES-1.0",
+            locationId: "UNSPECIFIED",
+            averagingPeriod: "UNSPECIFIED",
+            name: "SYNTHETIC AVERAGE / CALM",
+            windMeanMps: 3.0, windGustMps: 5.0, temperatureC: 15,
+            visibilityKm: 10, cloudAmount: "FEW", cloudBaseM: 1500,
+            syntheticNotamRecordCount: 2,
+            profile: "Synthetic average fixture — no real station, location, date range or historical source"
+        },
+        {
+            profileId: "VF-WX-SYN-002",
+            sourceType: "SYNTHETIC_AVERAGE",
+            datasetVersion: "VF-FIXTURES-1.0",
+            locationId: "UNSPECIFIED",
+            averagingPeriod: "UNSPECIFIED",
+            name: "SYNTHETIC AVERAGE / WINDY",
+            windMeanMps: 8.0, windGustMps: 12.0, temperatureC: 9,
+            visibilityKm: 8, cloudAmount: "BKN", cloudBaseM: 900,
+            syntheticNotamRecordCount: 4,
+            profile: "Synthetic average fixture — no real station, location, date range or historical source"
+        },
+        {
+            profileId: "VF-WX-SYN-003",
+            sourceType: "SYNTHETIC_AVERAGE",
+            datasetVersion: "VF-FIXTURES-1.0",
+            locationId: "UNSPECIFIED",
+            averagingPeriod: "UNSPECIFIED",
+            name: "SYNTHETIC AVERAGE / LOW VIS",
+            windMeanMps: 4.0, windGustMps: 7.0, temperatureC: 6,
+            visibilityKm: 3, cloudAmount: "OVC", cloudBaseM: 450,
+            syntheticNotamRecordCount: 3,
+            profile: "Synthetic average fixture — no real station, location, date range or historical source"
+        }
     ]
     readonly property var scenario: scenarios[scenarioIndex]
 
@@ -65,12 +100,12 @@ Item {
             spacing: 10
             Repeater {
                 model: [
-                    { label: "WIND / MEAN", value: root.scenario.wind },
-                    { label: "WIND / GUST", value: root.scenario.gust },
-                    { label: "AIR TEMPERATURE", value: root.scenario.temp },
-                    { label: "VISIBILITY", value: root.scenario.visibility },
-                    { label: "CLOUD BASE", value: root.scenario.cloud },
-                    { label: "NOTAM STUBS", value: root.scenario.notam }
+                    { label: "WIND / MEAN", value: root.scenario.windMeanMps.toFixed(1) + " m/s" },
+                    { label: "WIND / GUST", value: root.scenario.windGustMps.toFixed(1) + " m/s" },
+                    { label: "AIR TEMPERATURE", value: root.scenario.temperatureC + " °C" },
+                    { label: "VISIBILITY", value: root.scenario.visibilityKm + " km" },
+                    { label: "CLOUD BASE", value: root.scenario.cloudAmount + " / " + root.scenario.cloudBaseM + " m" },
+                    { label: "NOTAM STUBS", value: root.scenario.syntheticNotamRecordCount + " synthetic test records" }
                 ]
                 delegate: Rectangle {
                     width: (root.width - 48 - 20) / 3
@@ -93,7 +128,7 @@ Item {
             Column {
                 anchors.fill: parent; anchors.margins: 10; spacing: 5
                 Text { text: "DATA PROVENANCE"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 10; font.bold: true }
-                Text { width: parent.width; text: root.scenario.profile; color: root.muted; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap }
+                Text { width: parent.width; text: "PROFILE " + root.scenario.profileId + " / " + root.scenario.sourceType + " / " + root.scenario.datasetVersion + " / LOCATION " + root.scenario.locationId + " / PERIOD " + root.scenario.averagingPeriod + " — " + root.scenario.profile; color: root.muted; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap }
             }
         }
 
