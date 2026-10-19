@@ -115,10 +115,12 @@ def download(url: str, destination: Path, timeout: float, max_bytes: int) -> tup
                     raise ProbeError(f"Download exceeded configured limit ({max_bytes} bytes); narrow the region/levels.")
                 output.write(chunk)
                 digest.update(chunk)
-        data_prefix = temporary.read_bytes()[:16]
+        with temporary.open("rb") as source:
+            data_prefix = source.read(16)
         # Validate the container without loading the complete file into memory.
         if len(data_prefix) < 8 or data_prefix[:4] != b"GRIB" or data_prefix[7] != 2:
-            preview = temporary.read_bytes()[:120].decode("utf-8", errors="replace").replace("\n", " ")
+            with temporary.open("rb") as source:
+                preview = source.read(120).decode("utf-8", errors="replace").replace("\\n", " ")
             raise ProbeError(f"Response is not a GRIB2 payload (possible unavailable cycle/level): {preview!r}")
         with temporary.open("rb") as source:
             source.seek(-4, 2)
@@ -146,9 +148,9 @@ def run_self_test() -> int:
     assert query["lev_80_m_above_ground"] == ["on"]
     assert query["lev_100_m_above_ground"] == ["on"]
     assert query["var_UGRD"] == ["on"] and query["var_VGRD"] == ["on"]
-    validate_grib2(b"GRIB" + b"\x00\x00\x00\x02" + b"payload" + b"7777")
-    for invalid in (b"<html>not grib</html>", b"GRIB" + b"\x00\x00\x00\x01" + b"payload" + b"7777",
-                    b"GRIB" + b"\x00\x00\x00\x02" + b"truncated"):
+    validate_grib2(b"GRIB" + b"\x00\x00\x00\x02" + b"payload-data" + b"7777")
+    for invalid in (b"<html>not grib</html>", b"GRIB" + b"\x00\x00\x00\x01" + b"payload-data" + b"7777",
+                    b"GRIB" + b"\x00\x00\x00\x02" + b"truncated-data"):
         try:
             validate_grib2(invalid)
         except ProbeError:
