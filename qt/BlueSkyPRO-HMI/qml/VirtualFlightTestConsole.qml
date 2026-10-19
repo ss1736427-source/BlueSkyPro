@@ -157,7 +157,7 @@ Item {
                 width: 190; height: 42; radius: 3
                 color: "#10283A"; border.color: root.cyan
                 Text { anchors.centerIn: parent; text: !root.testStubsEnabled ? "TEST STUBS OFF" : (root.runRequested ? "ASSESSMENT COMPLETE" : "RUN CORE ASSESSMENT"); color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 10; font.bold: true }
-                MouseArea { anchors.fill: parent; onClicked: { if (root.testStubsEnabled) { root.assessmentResult = root.manualCompositionComplete && root.manualTemplateIds.length > 0 && JSON.parse(root.manualGeometryJson).objects.length > 0 ? virtualFlightAssessmentBridge.assessManualGeometry(root.manualGeometryJson, root.manualTemplateIds, root.manualMissionId, root.manualMissionVersion, root.manualCompositionComplete, root.scenarioIndex) : virtualFlightAssessmentBridge.assessSyntheticFixture(root.scenarioIndex); root.runRequested = true } } }
+                MouseArea { anchors.fill: parent; onClicked: { if (root.testStubsEnabled) { root.assessmentResult = root.manualCompositionComplete && root.manualTemplateIds.length > 0 && ((JSON.parse(root.manualGeometryJson).objects || []).length > 0) ? virtualFlightAssessmentBridge.assessManualGeometry(root.manualGeometryJson, root.manualTemplateIds, root.manualMissionId, root.manualMissionVersion, root.manualCompositionComplete, root.scenarioIndex) : virtualFlightAssessmentBridge.assessSyntheticFixture(root.scenarioIndex); root.runRequested = true } } }
             }
             Text {
                 width: root.width - 260
@@ -165,6 +165,8 @@ Item {
                       ? "Test fixtures are disabled in Administrator. No profile is available for this session."
                       : (root.runRequested
                          ? "Canonical core assessment completed. See result panel. Flight release is always blocked."
+                         : root.manualCompositionComplete && root.manualTemplateIds.length > 0 && ((JSON.parse(root.manualGeometryJson).objects || []).length > 0)
+                         ? "Run the canonical planning-core assessment against the current manual geometry and synthetic airspace/NOTAM fixtures. Flight release remains blocked."
                          : "Run the canonical planning-core assessment against a fixed synthetic route and synthetic NOTAM snapshot. This does not use the operator map route or authorize a flight.")
                 color: root.muted; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap; verticalAlignment: Text.AlignVCenter
             }
