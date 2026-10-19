@@ -122,6 +122,8 @@ def download(url: str, destination: Path, timeout: float, max_bytes: int) -> tup
             with temporary.open("rb") as source:
                 preview = source.read(120).decode("utf-8", errors="replace").replace("\\n", " ")
             raise ProbeError(f"Response is not a GRIB2 payload (possible unavailable cycle/level): {preview!r}")
+        if received < 20:
+            raise ProbeError("Response is too small to be a valid GRIB2 payload.")
         with temporary.open("rb") as source:
             source.seek(-4, 2)
             if source.read(4) != b"7777":
@@ -139,14 +141,13 @@ def download(url: str, destination: Path, timeout: float, max_bytes: int) -> tup
 
 def run_self_test() -> int:
     bbox = (-123.0, 37.0, -121.0, 39.0)
-    url = build_request_url("20261019", "00", 3, bbox, (10, 80, 100))
+    url = build_request_url("20261019", "00", 3, bbox, (2, 10, 20, 30, 40, 50, 80, 100))
     parsed = urllib.parse.urlparse(url)
     query = urllib.parse.parse_qs(parsed.query)
     assert parsed.netloc == "nomads.ncep.noaa.gov"
     assert query["file"] == ["gfs.t00z.pgrb2.0p25.f003"]
-    assert query["lev_10_m_above_ground"] == ["on"]
-    assert query["lev_80_m_above_ground"] == ["on"]
-    assert query["lev_100_m_above_ground"] == ["on"]
+    for level in (2, 10, 20, 30, 40, 50, 80, 100):
+        assert query[f"lev_{level}_m_above_ground"] == ["on"]
     assert query["var_UGRD"] == ["on"] and query["var_VGRD"] == ["on"]
     validate_grib2(b"GRIB" + b"\x00\x00\x00\x02" + b"payload-data" + b"7777")
     for invalid in (b"<html>not grib</html>", b"GRIB" + b"\x00\x00\x00\x01" + b"payload-data" + b"7777",
@@ -175,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--forecast-hour", type=int, help="forecast lead hour, e.g. 3, 6, 12")
     parser.add_argument("--bbox", nargs=4, type=float, metavar=("WEST", "SOUTH", "EAST", "NORTH"),
                         help="WGS84 bounding box; antimeridian-crossing boxes are not supported")
-    parser.add_argument("--levels", default="10,80,100", help="comma-separated metres above ground (default: 10,80,100)")
+    parser.add_argument("--levels", default="2,10,20,30,40,50,80,100", help="comma-separated metres above ground (default: 2,10,20,30,40,50,80,100)")
     parser.add_argument("--output", type=Path, help="output GRIB2 path")
     parser.add_argument("--timeout", type=float, default=90.0, help="network timeout seconds (default: 90)")
     parser.add_argument("--max-bytes", type=int, default=MAX_BYTES_DEFAULT, help="download ceiling (default: 256 MiB)")
