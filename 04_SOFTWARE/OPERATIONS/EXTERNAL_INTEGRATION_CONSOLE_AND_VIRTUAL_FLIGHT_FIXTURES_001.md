@@ -88,3 +88,30 @@ For each provider, record and verify connection state, authentication, protocol/
 - The public Open-Meteo endpoint is suitable only for non-commercial prototyping under its published terms; production commercial use requires an appropriate commercial licence or a separately operated deployment.
 - Official Russian NOTAM portal: https://aip.caica.ru/notam/. This is a source reference only; automated feed access, machine-readable format, authentication and reuse rights are not verified. The console must continue to report NOTAM as unavailable and keep operational release blocked.
 - No user PC drive was accessed. Changes were made directly to canonical `main`; no branch or PR was created.
+
+
+## 8. Provider connection nodes — 2026-10-19
+
+The ADMIN integration console now includes provider configuration nodes for:
+
+- **NOTAM / NOTAC REST JSON** — editable API base URL (default `https://notac.aero/api/v1`), masked token field, and an explicit connection test. The test sends `GET /notam/?country_code=US&status=active&page=1` with `Authorization: Bearer <token>`, validates the JSON envelope (`count`, `results`) and reports transport/auth/quota/rate-limit/schema status. The US query is only a connectivity fixture; it does not validate Russian NOTAM coverage.
+- **ICAO NOTAM API** — masked key-entry field and setup note. No request is sent yet because endpoint parameters, credentials and data coverage must first be confirmed.
+- **MapTiler** — masked key-entry field. This is a configuration placeholder; it is not yet bound to the map renderer or the existing map-provider setting.
+- **Commercial weather provider** — masked key-entry field for future use. The current Open-Meteo query does not consume this field.
+
+### Operator setup flow
+
+1. Request a NOTAC API token from the provider using its official API documentation/contact channel.
+2. Open **ADMIN → External Integrations → Provider Connection Nodes → NOTAM / NOTAC REST JSON**.
+3. Verify the API base URL and paste the token into the masked **API TOKEN** field.
+4. Select **TEST NOTAM API CONNECTION**.
+5. Read the status and HTTP error. A successful test confirms only network/authentication/JSON-envelope handling against the US test query.
+6. Clear the field when finished. The current prototype keeps secret fields in UI memory only: keys are not persisted to QSettings or written into the repository and are lost when the console/application is recreated.
+
+### Security and implementation boundary
+
+- A masked field is not secure credential storage. Production credential persistence must use an OS credential vault or a protected backend; never commit keys or store them as plain application settings.
+- The NOTAC key is sent only in the HTTPS Authorization header for the explicit test action, never as a query parameter. The other key fields are not transmitted.
+- The current console does not yet provide a general save/activate provider lifecycle, secure key persistence, key rotation, provider selection in the planning core, retry/backoff policy, or normalized source snapshots.
+- The NOTAC feed is FAA-sourced. It is used as a temporary integration test only; it must not be treated as a Russian lower-airspace restriction source or used to authorize a flight.
+- A successful connection must remain distinct from data validity, geographic completeness, freshness, operational authorization and flight-release eligibility.
