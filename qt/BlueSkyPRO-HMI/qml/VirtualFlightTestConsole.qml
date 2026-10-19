@@ -135,13 +135,14 @@ Item {
 
         Rectangle {
             visible: root.runRequested
-            width: parent.width; height: 90; radius: 3
+            width: parent.width; height: 108; radius: 3
             color: "#0B1724"; border.color: root.assessmentResult.combinedClear ? "#8B682F" : "#8B3A3A"
             Column {
                 anchors.fill: parent; anchors.margins: 10; spacing: 4
                 Text { text: "CANONICAL CORE RESULT / " + String(root.assessmentResult.profileId || "NO PROFILE"); color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 10; font.bold: true }
                 Text { width: parent.width; text: "ROUTE: " + String(root.assessmentResult.routeSource || "UNAVAILABLE") + " / NOTAM: " + String(root.assessmentResult.notamRecordCount || 0) + " / FIXTURE: " + String(root.assessmentResult.datasetVersion || "UNKNOWN") + " / RELEASE ELIGIBLE: NO"; color: root.text; font.family: "B612 Mono"; font.pixelSize: 9; wrapMode: Text.Wrap }
                 Text { width: parent.width; text: (root.assessmentResult.errors || []).join(" · ") || "Airspace/NOTAM clear only; all other operational gates remain unchecked."; color: root.assessmentResult.combinedClear ? root.amber : "#FF8C8C"; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                Text { width: parent.width; text: String(root.assessmentResult.scope || "Scope unavailable") ; color: root.muted; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
             }
         }
 

@@ -113,6 +113,10 @@ add_executable(virtual_flight_assessment_bridge_test
 target_compile_features(virtual_flight_assessment_bridge_test PRIVATE cxx_std_20)
 target_include_directories(virtual_flight_assessment_bridge_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.. ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(virtual_flight_assessment_bridge_test PRIVATE Qt6::Core)
+target_compile_options(virtual_flight_assessment_bridge_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
 add_test(NAME virtual_flight_assessment_bridge_contract COMMAND virtual_flight_assessment_bridge_test)
 
 set_target_properties(appBlueSkyPRO PROPERTIES
