@@ -120,7 +120,7 @@ def download(url: str, destination: Path, timeout: float, max_bytes: int) -> tup
         # Validate the container without loading the complete file into memory.
         if len(data_prefix) < 8 or data_prefix[:4] != b"GRIB" or data_prefix[7] != 2:
             with temporary.open("rb") as source:
-                preview = source.read(120).decode("utf-8", errors="replace").replace("\\n", " ")
+                preview = source.read(120).decode("utf-8", errors="replace").replace("\n", " ")
             raise ProbeError(f"Response is not a GRIB2 payload (possible unavailable cycle/level): {preview!r}")
         if received < 20:
             raise ProbeError("Response is too small to be a valid GRIB2 payload.")
