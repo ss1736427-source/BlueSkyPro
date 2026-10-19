@@ -48,7 +48,7 @@ bool CredentialVault::saveSecret(const QString &provider, const QString &secret)
     QByteArray payload = secret.toUtf8();
     if (payload.isEmpty()) { setLastError(QStringLiteral("Refusing to save an empty credential.")); return false; }
 #ifdef Q_OS_WIN
-    if (payload.size() > CRED_MAX_CREDENTIAL_BLOB_SIZE) { payload.fill('\\0'); setLastError(QStringLiteral("Credential exceeds the Windows vault size limit.")); return false; }
+    if (payload.size() > CRED_MAX_CREDENTIAL_BLOB_SIZE) { payload.fill('\0'); setLastError(QStringLiteral("Credential exceeds the Windows vault size limit.")); return false; }
     const QString target = targetName(provider);
     CREDENTIALW credential {};
     credential.Type = CRED_TYPE_GENERIC;
@@ -59,11 +59,11 @@ bool CredentialVault::saveSecret(const QString &provider, const QString &secret)
     credential.UserName = const_cast<LPWSTR>(L"BlueSky PRO");
     const BOOL saved = CredWriteW(&credential, 0);
     const DWORD error = saved ? ERROR_SUCCESS : GetLastError();
-    payload.fill('\\0');
+    payload.fill('\0');
     if (!saved) { setLastError(QStringLiteral("Windows Credential Manager write failed (error %1).").arg(error)); return false; }
     setLastError({}); return true;
 #else
-    payload.fill('\\0'); Q_UNUSED(provider);
+    payload.fill('\0'); Q_UNUSED(provider);
     setLastError(QStringLiteral("Native credential vault is unsupported on this platform; no plaintext fallback is permitted.")); return false;
 #endif
 }
