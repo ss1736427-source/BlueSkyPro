@@ -141,3 +141,9 @@ The ADMIN integration console now includes provider configuration nodes for:
 - **Current evidence status: UNVERIFIED for live acquisition and meteorological decoding.** No actual downloaded NOAA payload, decoded field inventory, or scientific-value comparison has yet been recorded. The probe cannot be used as operational weather evidence or to authorize flight.
 - Next gate: run the offline test; download a small area for a currently available cycle; inspect the resulting file with ecCodes; verify field names, levels, units, grid, valid time and missing values. Only then design the C++ decoding/cache/interpolation adapter.
 
+### Low-altitude wind-level coverage correction — 2026-10-19
+
+- The NOAA/NCEP GFS 0.25-degree filter catalogue lists above-ground levels at 2, 10, 20, 30, 40, 50, 80 and 100 m.
+- The probe now requests this full level set by default for both `UGRD` and `VGRD`; operators may narrow it using `--levels`.
+- Catalogue availability is not proof that every requested field/level is present in a specific downloaded payload. The live GRIB inventory must be decoded and checked before treating any height as supported.
+- Official catalogue reference: https://nomads.ncep.noaa.gov/gribfilter.php?ds=gfs_0p25
