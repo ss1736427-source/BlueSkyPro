@@ -111,8 +111,27 @@ QVariantMap ManualMissionModelAdapter::buildMission(const QString &geometryJson,
                 MissionGeometryVertex vertex;
                 vertex.longitude_deg = point.at(0).toDouble();
                 vertex.latitude_deg = point.at(1).toDouble();
-                if (point.size() > 2 && point.at(2).isDouble())
-                    vertex.altitude_m = point.at(2).toDouble();
+                if (point.size() > 2) {
+                    if (point.at(2).isDouble()) {
+                        vertex.altitude_m = point.at(2).toDouble();
+                    } else {
+                        errors.push_back(QStringLiteral("GEOMETRY_ALTITUDE_INVALID:%1:%2")
+                                             .arg(i).arg(pointIndex));
+                    }
+                }
+                if (point.size() > 3) {
+                    if (point.at(3).isString()
+                        && !point.at(3).toString().trimmed().isEmpty()) {
+                        vertex.altitude_reference = point.at(3).toString().toStdString();
+                    } else {
+                        errors.push_back(QStringLiteral("GEOMETRY_ALTITUDE_REFERENCE_INVALID:%1:%2")
+                                             .arg(i).arg(pointIndex));
+                    }
+                }
+                if (vertex.altitude_reference && !vertex.altitude_m) {
+                    errors.push_back(QStringLiteral("GEOMETRY_ALTITUDE_REFERENCE_WITHOUT_ALTITUDE:%1:%2")
+                                         .arg(i).arg(pointIndex));
+                }
                 if (!std::isfinite(vertex.longitude_deg) || !std::isfinite(vertex.latitude_deg))
                     errors.push_back(QStringLiteral("GEOMETRY_COORDINATE_NONFINITE:%1:%2")
                                          .arg(i).arg(pointIndex));
@@ -138,8 +157,11 @@ QVariantMap ManualMissionModelAdapter::buildMission(const QString &geometryJson,
             QJsonArray coordinate;
             coordinate.append(point.longitude_deg);
             coordinate.append(point.latitude_deg);
-            if (point.altitude_m)
+            if (point.altitude_m) {
                 coordinate.append(*point.altitude_m);
+                if (point.altitude_reference)
+                    coordinate.append(QString::fromStdString(*point.altitude_reference));
+            }
             coordinateArray.append(coordinate);
         }
         QJsonArray geometryTemplates;

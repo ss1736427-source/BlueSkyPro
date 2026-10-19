@@ -33,6 +33,44 @@ int main(int argc, char **argv)
     assert(canonical.object().value(QStringLiteral("missionMode")).toString() == QStringLiteral("MANUAL"));
     assert(canonical.object().value(QStringLiteral("geometryObjects")).toArray().size() == 1);
 
+    // Explicit altitude and its datum must survive map JSON -> typed model -> canonical JSON.
+    const QString routeWithDatum = QStringLiteral(
+        "{\\"objects\\":[{"
+        "\\"geometryId\\":\\"GEO-MT-05-1\\","
+        "\\"geometryType\\":\\"CORRIDOR\\","
+        "\\"coordinateReferenceSystem\\":\\"EPSG:4326\\","
+        "\\"coordinates\\":[[30.0,59.0,40.0,\\"AGL\\"],[30.01,59.01,45.0,\\"AGL\\"]],"
+        "\\"templateIds\\":[\\"MT-05\\"],\\"version\\":1}]}");
+    const QVariantMap route = adapter.buildMission(
+        routeWithDatum, {QStringLiteral("MT-05")}, QStringLiteral("MISSION-ROUTE"), 1, true);
+    assert(route.value(QStringLiteral("valid")).toBool());
+    const QJsonDocument routeCanonical = QJsonDocument::fromJson(
+        route.value(QStringLiteral("missionModelJson")).toString().toUtf8());
+    const QJsonArray routeObjects = routeCanonical.object()
+        .value(QStringLiteral("geometryObjects")).toArray();
+    const QJsonArray routeCoordinates = routeObjects.at(0).toObject()
+        .value(QStringLiteral("coordinates")).toArray();
+    assert(routeCoordinates.at(0).toArray().at(2).toDouble() == 40.0);
+    assert(routeCoordinates.at(0).toArray().at(3).toString() == QStringLiteral("AGL"));
+
+    // Missing datum is preserved as missing, never silently inferred by the adapter.
+    const QString routeWithoutDatum = QStringLiteral(
+        "{\\"objects\\":[{"
+        "\\"geometryId\\":\\"GEO-MT-05-2\\","
+        "\\"geometryType\\":\\"CORRIDOR\\","
+        "\\"coordinateReferenceSystem\\":\\"EPSG:4326\\","
+        "\\"coordinates\\":[[30.0,59.0,40.0],[30.01,59.01,45.0]],"
+        "\\"templateIds\\":[\\"MT-05\\"],\\"version\\":1}]}");
+    const QVariantMap routeNoDatum = adapter.buildMission(
+        routeWithoutDatum, {QStringLiteral("MT-05")}, QStringLiteral("MISSION-ROUTE"), 2, true);
+    assert(routeNoDatum.value(QStringLiteral("valid")).toBool());
+    const QJsonDocument noDatumCanonical = QJsonDocument::fromJson(
+        routeNoDatum.value(QStringLiteral("missionModelJson")).toString().toUtf8());
+    const QJsonArray noDatumCoordinates = noDatumCanonical.object()
+        .value(QStringLiteral("geometryObjects")).toArray().at(0).toObject()
+        .value(QStringLiteral("coordinates")).toArray();
+    assert(noDatumCoordinates.at(0).toArray().size() == 3);
+
     const QVariantMap incomplete = adapter.buildMission(
         geometry, {QStringLiteral("MT-01")}, QStringLiteral("MISSION-1"), 4, false);
     assert(!incomplete.value(QStringLiteral("valid")).toBool());
