@@ -103,6 +103,10 @@ add_executable(manual_mission_model_adapter_test
 )
 target_include_directories(manual_mission_model_adapter_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.. ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(manual_mission_model_adapter_test PRIVATE Qt6::Core)
+target_compile_options(manual_mission_model_adapter_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
 add_test(NAME manual_mission_model_adapter_contract COMMAND manual_mission_model_adapter_test)
 
 add_executable(virtual_flight_assessment_bridge_test
