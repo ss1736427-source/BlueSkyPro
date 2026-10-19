@@ -368,8 +368,13 @@ Item {
             anchors.right: rightPanel.left
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            visible: !root.missionCreationMode && root.activeTool === "VIRTUAL FLT"
+            visible: root.activeTool === "VIRTUAL FLT"
             testStubsEnabled: root.integrationTestStubsEnabled
+            manualGeometryJson: manualGeometryBridge.geometryJson
+            manualTemplateIds: root.manualSelectedTemplateIds
+            manualMissionId: root.missionId
+            manualMissionVersion: root.manualMissionVersion
+            manualCompositionComplete: root.manualCompositionComplete
         }
 
         RightPanel {

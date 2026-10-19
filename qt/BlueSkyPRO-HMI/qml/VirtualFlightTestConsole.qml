@@ -7,6 +7,11 @@ Item {
     property bool testStubsEnabled: true
     property bool runRequested: false
     property var assessmentResult: ({})
+    property string manualGeometryJson: "{\\"objects\\":[]}"
+    property var manualTemplateIds: []
+    property string manualMissionId: "VF-MANUAL-MISSION"
+    property int manualMissionVersion: 1
+    property bool manualCompositionComplete: false
     readonly property color panel: "#0B1724"
     readonly property color line: "#26394B"
     readonly property color text: "#E8EEF5"
@@ -152,7 +157,7 @@ Item {
                 width: 190; height: 42; radius: 3
                 color: "#10283A"; border.color: root.cyan
                 Text { anchors.centerIn: parent; text: !root.testStubsEnabled ? "TEST STUBS OFF" : (root.runRequested ? "ASSESSMENT COMPLETE" : "RUN CORE ASSESSMENT"); color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 10; font.bold: true }
-                MouseArea { anchors.fill: parent; onClicked: { if (root.testStubsEnabled) { root.assessmentResult = virtualFlightAssessmentBridge.assessSyntheticFixture(root.scenarioIndex); root.runRequested = true } } }
+                MouseArea { anchors.fill: parent; onClicked: { if (root.testStubsEnabled) { root.assessmentResult = root.manualCompositionComplete && root.manualTemplateIds.length > 0 && JSON.parse(root.manualGeometryJson).objects.length > 0 ? virtualFlightAssessmentBridge.assessManualGeometry(root.manualGeometryJson, root.manualTemplateIds, root.manualMissionId, root.manualMissionVersion, root.manualCompositionComplete, root.scenarioIndex) : virtualFlightAssessmentBridge.assessSyntheticFixture(root.scenarioIndex); root.runRequested = true } } }
             }
             Text {
                 width: root.width - 260

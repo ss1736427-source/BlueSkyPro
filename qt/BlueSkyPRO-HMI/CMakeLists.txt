@@ -20,6 +20,8 @@ qt_add_executable(appBlueSkyPRO
     src/PlanningBridge.h
     src/VirtualFlightAssessmentBridge.cpp
     src/VirtualFlightAssessmentBridge.h
+    src/ManualMissionModelAdapter.cpp
+    src/ManualMissionModelAdapter.h
     ../../04_SOFTWARE/PLANNING/manual_route_candidate_builder.cpp
     ../../04_SOFTWARE/PLANNING/manual_route_candidate_assessment.cpp
     ../../04_SOFTWARE/PLANNING/constrained_open_space.cpp
