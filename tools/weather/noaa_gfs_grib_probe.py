@@ -22,7 +22,6 @@ from typing import Iterable
 
 ENDPOINT = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl"
 USER_AGENT = "BlueSkyPRO-GRIB2-Prototype/0.1 (weather data acquisition; contact: project maintainers)"
-DEFAULT_LEVELS = (10, 20, 30, 40, 50, 80, 100)
 MAX_BYTES_DEFAULT = 256 * 1024 * 1024
 
 
@@ -98,6 +97,7 @@ def validate_grib2(data: bytes) -> None:
 
 def download(url: str, destination: Path, timeout: float, max_bytes: int) -> tuple[int, str]:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/octet-stream"})
+    destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(destination.suffix + ".part")
     digest = hashlib.sha256()
     received = 0
@@ -124,7 +124,6 @@ def download(url: str, destination: Path, timeout: float, max_bytes: int) -> tup
             source.seek(-4, 2)
             if source.read(4) != b"7777":
                 raise ProbeError("GRIB2 end marker 7777 is missing; response may be truncated.")
-        destination.parent.mkdir(parents=True, exist_ok=True)
         temporary.replace(destination)
         return received, digest.hexdigest()
     except urllib.error.HTTPError as exc:
