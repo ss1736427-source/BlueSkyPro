@@ -11,7 +11,7 @@ NOAA/NCEP NOMADS GFS 0.25-degree GRIB filter:
 - Endpoint: https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl
 - Official variable/level mapping: https://nomads.ncep.noaa.gov/info.php?page=opendap_grib_migration
 - The filter supports selection by GFS initialization date/cycle, forecast hour, variable, above-ground level and geographic bounding box.
-- Requested wind components are `UGRD` and `VGRD`; requested heights are metres above ground (AGL), not barometric altitude.
+- Requested wind components are `UGRD` and `VGRD`; the default requested heights are 2, 10, 20, 30, 40, 50, 80 and 100 metres above ground (AGL), not barometric altitude. NOMADS lists these height levels in the GFS 0.25-degree filter; each requested variable/level combination must still be confirmed in the downloaded file inventory.
 
 The exact availability of a requested level/file is determined by the selected product and cycle. An unavailable file or unsupported field must be reported as an error, not replaced silently.
 
