@@ -4,8 +4,8 @@ import QtQuick.Controls
 ApplicationWindow {
     id: root
     visible: true
-    width: 1920
-    height: 1080
+    width: Math.min(Screen.width * 0.96, 1920)
+    height: Math.min(Screen.height * 0.90, 1080)
     minimumWidth: 1280
     minimumHeight: 720
     title: "BlueSky PRO"
