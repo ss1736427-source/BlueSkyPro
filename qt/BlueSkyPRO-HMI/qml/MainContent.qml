@@ -133,6 +133,7 @@ Item {
     TopHeader {
         id: topHeader
         z: 100
+        visible: root.activeTool !== "ADMIN"
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
@@ -151,10 +152,10 @@ Item {
 
     Item {
         id: workspace
-        anchors.top: topHeader.bottom
+        anchors.top: root.activeTool === "ADMIN" ? parent.top : topHeader.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: bottomToolbar.top
+        anchors.bottom: root.activeTool === "ADMIN" ? parent.bottom : bottomToolbar.top
 
         LeftPanel {
             id: leftPanel
@@ -746,6 +747,7 @@ Item {
 
     BottomToolbar {
         id: bottomToolbar
+        visible: root.activeTool !== "ADMIN"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
