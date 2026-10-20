@@ -143,7 +143,7 @@ Item {
                         background: Rectangle { color: "#0B1724"; border.color: root.line; radius: 5 }
                     }
                     Text {
-                        visible: root.wizardMessage.length > 0
+                        visible: root.wizardStep === 2 || root.wizardMessage.length > 0
                         width: parent.width; wrapMode: Text.Wrap
                         text: root.wizardStep === 2 && root.selectedKind === "notam"
                             ? "Результат теста: " + legacyConsole.notamApiStatus
