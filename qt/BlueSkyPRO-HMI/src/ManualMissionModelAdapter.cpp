@@ -88,6 +88,8 @@ QVariantMap ManualMissionModelAdapter::buildMission(const QString &geometryJson,
             }
             if (!crs.isString() || crs.toString().trimmed().isEmpty()) {
                 errors.push_back(QStringLiteral("MISSION_ORIGIN_CRS_REQUIRED"));
+            } else if (crs.toString() != QStringLiteral("EPSG:4326")) {
+                errors.push_back(QStringLiteral("MISSION_ORIGIN_CRS_UNSUPPORTED"));
             } else {
                 origin.coordinate_reference_system = crs.toString().toStdString();
             }
