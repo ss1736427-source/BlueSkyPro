@@ -3,6 +3,13 @@ import QtQuick.Controls
 
 Item {
     id: root
+    property string selectedKind: ""
+    property int wizardStep: 0
+    property string endpointText: "https://notac.aero/api/v1"
+    property string keyText: ""
+    property string endpointCheck: ""
+    property string wizardMessage: ""
+    property string wizardState: "idle"
     property bool showTechnicalConsole: false
     readonly property color bg: "#07111B"
     readonly property color card: "#152431"
@@ -12,8 +19,54 @@ Item {
     readonly property color cyan: "#00B9F0"
     readonly property color amber: "#F5BE42"
     readonly property color green: "#36D6A0"
+    readonly property color red: "#F28B82"
+
+    function chooseSource(kind) {
+        selectedKind = kind
+        wizardStep = 0
+        wizardMessage = ""
+        wizardState = "idle"
+        if (kind !== "notam") showTechnicalConsole = true
+    }
+    function validateEndpoint() {
+        var value = endpointText.trim()
+        if (!(value.indexOf("https://") === 0 || value.indexOf("http://") === 0)) {
+            wizardState = "error"
+            wizardMessage = "Адрес должен начинаться с https:// или http://."
+            return
+        }
+        if (value.indexOf(" ") >= 0 || value.length < 12) {
+            wizardState = "error"
+            wizardMessage = "Проверьте адрес: он выглядит неполным или содержит пробелы."
+            return
+        }
+        endpointText = value.replace(/\/+$/, "")
+        endpointCheck = endpointText
+        wizardState = "accepted"
+        wizardMessage = "Формат адреса принят. Это ещё не подтверждает доступность источника."
+        wizardStep = 1
+    }
+    function runNotamTest() {
+        if (!legacyConsole) return
+        legacyConsole.notamBaseUrl = endpointText
+        legacyConsole.notamApiKey = keyText
+        if (keyText.trim().length > 0) {
+            legacyConsole.saveProviderSecret("notam")
+            keyText = ""
+        }
+        wizardStep = 2
+        wizardState = "testing"
+        wizardMessage = "Проверяем авторизацию и ответ NOTAC API…"
+        legacyConsole.requestNotamApiTest()
+        wizardState = "result"
+        wizardMessage = "Результат теста: " + legacyConsole.notamApiStatus
+            + (legacyConsole.notamApiError.length ? "\n" + legacyConsole.notamApiError : "")
+            + (legacyConsole.notamApiSample.length ? "\nПример данных: " + legacyConsole.notamApiSample : "")
+    }
 
     Rectangle { anchors.fill: parent; color: root.bg }
+    IntegrationConsole { id: legacyConsole; visible: false; width: 1; height: 1 }
+
     Loader {
         anchors.fill: parent
         active: root.showTechnicalConsole
@@ -26,11 +79,12 @@ Item {
                     width: backLabel.implicitWidth + 26; height: 34; radius: 5
                     color: "#17394E"; border.color: root.line
                     Text { id: backLabel; anchors.centerIn: parent; text: "←  К интеграциям"; color: root.fg; font.pixelSize: 11 }
-                    MouseArea { anchors.fill: parent; onClicked: root.showTechnicalConsole = false }
+                    MouseArea { anchors.fill: parent; onClicked: { root.showTechnicalConsole = false; root.selectedKind = "" } }
                 }
             }
         }
     }
+
     Flickable {
         anchors.fill: parent
         visible: !root.showTechnicalConsole
@@ -42,65 +96,124 @@ Item {
             x: 30; y: 26
             width: Math.max(320, parent.width - 60)
             spacing: 18
-            Text { text: "Внешние интеграции"; color: root.fg; font.pixelSize: 26; font.bold: true }
+            Text { text: root.selectedKind === "notam" ? "Подключение NOTAM / AIP" : "Внешние интеграции"; color: root.fg; font.pixelSize: 26; font.bold: true }
             Text {
                 width: parent.width; wrapMode: Text.Wrap
-                text: "Подключайте источники по одному. Сначала выберите направление — подробные поля появятся только на следующем шаге."
+                text: root.selectedKind === "notam" ? "Настройка по шагам. Адрес принят — далее система запросит ключ и проверит чтение данных." : "Выберите направление. Подробные настройки появятся только после выбора источника."
                 color: root.muted; font.pixelSize: 13
             }
+
+            Rectangle {
+                visible: root.selectedKind === "notam"
+                width: parent.width; height: wizardCard.implicitHeight + 36
+                radius: 9; color: root.card; border.color: root.line
+                Column {
+                    id: wizardCard; anchors.fill: parent; anchors.margins: 20; spacing: 16
+                    Row { spacing: 8
+                        Repeater { model: ["Адрес","Ключ","Проверка"]
+                            delegate: Row { required property string modelData; required property int index; spacing: 6
+                                Rectangle { width: 22; height: 22; radius: 11; color: root.wizardStep >= index ? root.cyan : "#26394B"
+                                    Text { anchors.centerIn: parent; text: String(index + 1); color: root.wizardStep >= index ? "#07111B" : root.muted; font.pixelSize: 10; font.bold: true } }
+                                Text { anchors.verticalCenter: parent.verticalCenter; text: modelData; color: root.wizardStep === index ? root.fg : root.muted; font.pixelSize: 11 }
+                            }
+                        }
+                    }
+                    Text { text: root.wizardStep === 0 ? "Шаг 1. Укажите адрес источника" : root.wizardStep === 1 ? "Шаг 2. Ключ доступа" : "Шаг 3. Проверка источника"; color: root.fg; font.pixelSize: 18; font.bold: true }
+                    Text {
+                        width: parent.width; wrapMode: Text.Wrap; color: root.muted; font.pixelSize: 12
+                        text: root.wizardStep === 0 ? "Введите базовый URL API, предоставленный оператором источника. Мы проверим формат адреса перед переходом дальше." : root.wizardStep === 1 ? "Если источник требует токен, введите его сейчас. Ключ сохраняется в системном защищённом хранилище; поле останется пустым после сохранения." : "Тест проверяет ответ NOTAC REST API по ожидаемой JSON-схеме. Он использует тестовый запрос активных NOTAM для США и не подтверждает покрытие воздушного пространства РФ."
+                    }
+                    TextField {
+                        visible: root.wizardStep === 0
+                        width: parent.width
+                        text: root.endpointText
+                        onTextChanged: root.endpointText = text
+                        placeholderText: "https://provider.example/api"
+                        color: root.fg; placeholderTextColor: root.muted
+                        background: Rectangle { color: "#0B1724"; border.color: root.line; radius: 5 }
+                    }
+                    TextField {
+                        visible: root.wizardStep === 1
+                        width: parent.width
+                        text: root.keyText
+                        onTextChanged: root.keyText = text
+                        placeholderText: "Ключ / токен (если требуется)"
+                        echoMode: TextInput.Password
+                        color: root.fg; placeholderTextColor: root.muted
+                        background: Rectangle { color: "#0B1724"; border.color: root.line; radius: 5 }
+                    }
+                    Text {
+                        visible: root.wizardMessage.length > 0
+                        width: parent.width; wrapMode: Text.Wrap
+                        text: root.wizardMessage
+                        color: root.wizardState === "error" ? root.red : root.wizardState === "result" ? (root.wizardMessage.indexOf("CONNECTED / JSON VALID") >= 0 ? root.green : root.amber) : root.cyan
+                        font.pixelSize: 11
+                    }
+                    Row { spacing: 10
+                        Rectangle { visible: root.wizardStep > 0 && root.wizardStep < 2; width: 100; height: 38; radius: 5; color: "#223442"
+                            Text { anchors.centerIn: parent; text: "Назад"; color: root.fg; font.pixelSize: 12 }
+                            MouseArea { anchors.fill: parent; onClicked: { root.wizardStep -= 1; root.wizardState = "idle"; root.wizardMessage = "" } }
+                        }
+                        Rectangle { visible: root.wizardStep === 0; width: 170; height: 38; radius: 5; color: root.cyan
+                            Text { anchors.centerIn: parent; text: "Принять адрес  →"; color: "#07111B"; font.pixelSize: 12; font.bold: true }
+                            MouseArea { anchors.fill: parent; onClicked: root.validateEndpoint() }
+                        }
+                        Rectangle { visible: root.wizardStep === 1; width: 190; height: 38; radius: 5; color: root.cyan
+                            Text { anchors.centerIn: parent; text: "Сохранить и проверить  →"; color: "#07111B"; font.pixelSize: 12; font.bold: true }
+                            MouseArea { anchors.fill: parent; onClicked: root.runNotamTest() }
+                        }
+                        Rectangle { visible: root.wizardStep === 2; width: 130; height: 38; radius: 5; color: "#223442"
+                            Text { anchors.centerIn: parent; text: "Повторить тест"; color: root.fg; font.pixelSize: 12 }
+                            MouseArea { anchors.fill: parent; onClicked: root.runNotamTest() }
+                        }
+                        Rectangle { visible: root.wizardStep === 2; width: 100; height: 38; radius: 5; color: root.cyan
+                            Text { anchors.centerIn: parent; text: "Готово"; color: "#07111B"; font.pixelSize: 12; font.bold: true }
+                            MouseArea { anchors.fill: parent; onClicked: { root.selectedKind = ""; root.wizardStep = 0; root.wizardMessage = ""; root.wizardState = "idle" } }
+                        }
+                    }
+                }
+            }
+
             Grid {
-                width: parent.width
-                columns: width < 700 ? 1 : 2
-                spacing: 14
+                visible: root.selectedKind === ""
+                width: parent.width; columns: width < 700 ? 1 : 2; spacing: 14
                 Repeater {
                     model: [
-                        {title:"NOTAM / AIP",desc:"Аэронавигационные ограничения и извещения.",status:"Источник РФ не подключён",kind:"notam",state:2},
+                        {title:"NOTAM / AIP",desc:"Аэронавигационные ограничения и извещения.",status:"Требуется настройка источника",kind:"notam",state:2},
                         {title:"Погода / WX",desc:"Погода и прогноз для оценки условий полёта.",status:"Open-Meteo · тестовый запрос",kind:"weather",state:1},
                         {title:"Карты и GIS",desc:"Картографическая подложка и стили карты.",status:"MapTiler · ключ настраивается отдельно",kind:"maps",state:1},
                         {title:"Рельеф / DEM",desc:"Точечная высота местности; профиль рельефа отдельно не подключён.",status:"Open-Meteo Elevation · тестовый запрос",kind:"terrain",state:1},
                         {title:"Воздушное пространство",desc:"Зоны, ограничения и геозоны.",status:"Адаптер не подключён",kind:"airspace",state:0},
                         {title:"Препятствия",desc:"Источники препятствий и покрытие.",status:"Источник не подключён",kind:"obstacles",state:0},
-                        {title:"БПЛА и каналы связи",desc:"Автопилот, телеметрия, C2 и поддерживаемые протоколы.",status:"Единый адаптерный каталог не реализован",kind:"uav",state:0},
+                        {title:"БПЛА и каналы связи",desc:"Автопилот, телеметрия, C2 и поддерживаемые протоколы.",status:"Адаптерный каталог в разработке",kind:"uav",state:0},
                         {title:"GNSS / RTK / PPK",desc:"Навигационные поправки и связанные сервисы.",status:"Адаптер не подключён",kind:"gnss",state:0},
                         {title:"Страхование",desc:"Проверка страхового покрытия и обмен данными.",status:"Провайдер не подключён",kind:"insurance",state:0},
-                        {title:"Другие источники",desc:"Трафик/UTM, площадки, ATM, видео, журналы и внешние API.",status:"Настраиваются после определения интерфейсов",kind:"other",state:0}
+                        {title:"Другие источники",desc:"Трафик/UTM, площадки, ATM, видео, журналы и внешние API.",status:"Требуется определить интерфейсы",kind:"other",state:0}
                     ]
                     delegate: Rectangle {
                         required property var modelData
                         width: (page.width - (page.width < 700 ? 0 : 14)) / (page.width < 700 ? 1 : 2)
                         height: 142; radius: 8; color: root.card; border.color: root.line
-                        Column {
-                            anchors.fill: parent; anchors.margins: 16; spacing: 8
-                            Row {
-                                width: parent.width; spacing: 8
-                                Rectangle { width: 7; height: 7; radius: 4; anchors.verticalCenter: parent.verticalCenter; color: modelData.state === 0 ? root.muted : modelData.state === 1 ? root.amber : "#F28B82" }
+                        Column { anchors.fill: parent; anchors.margins: 16; spacing: 8
+                            Row { width: parent.width; spacing: 8
+                                Rectangle { width: 7; height: 7; radius: 4; anchors.verticalCenter: parent.verticalCenter; color: modelData.state === 0 ? root.muted : modelData.state === 1 ? root.amber : root.red }
                                 Text { text: modelData.title; color: root.fg; font.pixelSize: 15; font.bold: true; width: parent.width - 20; wrapMode: Text.Wrap }
                             }
                             Text { text: modelData.desc; color: root.muted; font.pixelSize: 11; wrapMode: Text.Wrap; width: parent.width; maximumLineCount: 2 }
-                            Item { width: 1; height: 1 }
                             Text { text: modelData.status; color: modelData.state === 0 ? root.muted : root.amber; font.pixelSize: 10; wrapMode: Text.Wrap; width: parent.width }
-                            Text {
-                                text: modelData.state === 0 ? "Требуется настройка интерфейса" : "Открыть настройки и проверки  →"
-                                color: modelData.state === 0 ? root.muted : root.cyan
-                                font.pixelSize: 10
-                            }
+                            Text { text: modelData.state === 0 ? "Интерфейс ещё не подключён" : "Настроить  →"; color: modelData.state === 0 ? root.muted : root.cyan; font.pixelSize: 10 }
                         }
-                        MouseArea {
-                            anchors.fill: parent
-                            enabled: modelData.state !== 0
-                            onClicked: root.showTechnicalConsole = true
-                        }
+                        MouseArea { anchors.fill: parent; enabled: modelData.state !== 0; onClicked: root.chooseSource(modelData.kind) }
                     }
                 }
             }
             Rectangle {
-                width: parent.width; height: note.implicitHeight + 28; radius: 7
-                color: "#101D28"; border.color: root.line
+                visible: root.selectedKind === ""
+                width: parent.width; height: note.implicitHeight + 28; radius: 7; color: "#101D28"; border.color: root.line
                 Column { id: note; anchors.fill: parent; anchors.margins: 14; spacing: 7
                     Text { text: "ВАЖНО"; color: root.cyan; font.pixelSize: 10; font.bold: true }
-                    Text {
-                        width: parent.width; wrapMode: Text.Wrap
-                        text: "Статусы отражают текущее состояние прототипа. Доступность URL сама по себе не означает, что данные проверены и пригодны для планирования. Российский NOTAM-источник пока не подключён; бесплатные тестовые источники не заменяют эксплуатационные данные."
+                    Text { width: parent.width; wrapMode: Text.Wrap
+                        text: "Статус соединения не равен готовности данных к планированию. Российский NOTAM-источник пока не подключён; бесплатные тестовые источники не заменяют эксплуатационные данные."
                         color: root.muted; font.pixelSize: 11
                     }
                 }
