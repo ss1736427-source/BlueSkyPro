@@ -157,3 +157,11 @@ The ADMIN integration console now includes provider configuration nodes for:
 - If the runtime blocks the cross-origin request or the provider changes access behavior, the console will show the error. If this occurs, implement the same source using a native Qt network adapter rather than weakening browser/network security.
 - Acceptance remains open until the application is built and the button is exercised on the target Windows runtime. A successful response must be recorded with retrieval timestamp, response size and sample structure before implementing a versioned parser. Do not infer flight readiness from this probe.
 - Source reference: NATS Contingency PIB page https://nats-uk.ead-it.com/cms-nats/opencms/en/Briefing/contingency-pibs/.
+
+### NATS XML probe CI evidence — 2026-10-20
+
+- The QML probe implementation and its whitespace-matching correction are present in commit `3f473b806bf43040349c9e2c2e88091528d00343`.
+- Linux Qt HMI configure/build/CTest passed for that exact source commit: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/39314036129
+- Windows MSVC Qt HMI configure/build/CTest and application-startup smoke test passed for that exact source commit: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/39314035981
+- The current documentation-only HEAD `639cd9ccefdf00560f59f5c13fb2967279294565` has 10/10 reported check runs successful. The HMI build workflows are path-filtered and did not rerun on the later documentation-only commits; the latest successful HMI build evidence therefore remains tied to `3f473b8`, which contains the probe implementation.
+- These CI checks prove compilation, automated contract tests and an 8-second process-startup smoke test. They do **not** prove that the button can fetch the XML from the user's target Windows runtime or that the returned document has a stable, parseable structure. Target-runtime acceptance remains `UNVERIFIED` until the button is exercised and response metadata/sample structure are captured.
