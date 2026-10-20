@@ -64,7 +64,9 @@ Item {
     // Do not expose a late planning result to a different active mission.
     readonly property var planningResult:
         typeof planningBridge !== "undefined"
-        && planningBridge.result
+        && planningBridge !== null
+        && planningBridge.result !== undefined
+        && planningBridge.result !== null
         && String(planningBridge.result.missionId) === String(root.missionId)
         ? planningBridge.result : null
     // A green SET requires a fresh result for this mission and an authoritative PASS.
@@ -80,11 +82,13 @@ Item {
         var candidate = result && result.result ? result.result.routeCandidate : null
         if (candidate !== null && candidate !== undefined
                 && String(candidate.missionId) === String(root.missionId)) {
-            routeController.loadCandidate(candidate)
+            if (typeof routeController !== "undefined" && routeController !== null)
+                routeController.loadCandidate(candidate)
         } else {
             // Never leave a route from the previous mission visible when the
             // active mission changes or the bridge no longer has its candidate.
-            routeController.clear()
+            if (typeof routeController !== "undefined" && routeController !== null)
+                routeController.clear()
         }
     }
     readonly property bool is3DMappingProfile: root.missionTemplateIds.indexOf("3D_MAPPING") >= 0
@@ -227,7 +231,10 @@ Item {
             mapPanY: root.mapPanY
             mapZoom: root.mapZoom
             // Preview route is visible only while its non-authoritative editor is open.
-            routeCoordinates: routeController.waypoints.map(function(p) { return [Number(p.longitudeDeg), Number(p.latitudeDeg)] })
+            routeCoordinates: typeof routeController !== "undefined" && routeController !== null
+                && routeController.waypoints !== undefined && routeController.waypoints !== null
+                ? routeController.waypoints.map(function(p) { return [Number(p.longitudeDeg), Number(p.latitudeDeg)] })
+                : []
             manualTemplateIds: root.manualSelectedTemplateIds
             // Keep the map as the persistent workspace in every mode.
             visible: true
@@ -368,7 +375,8 @@ Item {
             anchors.bottom: parent.bottom
             visible: root.activeTool === "VIRTUAL FLT"
             testStubsEnabled: root.integrationTestStubsEnabled
-            manualGeometryJson: manualGeometryBridge.geometryJson
+            manualGeometryJson: typeof manualGeometryBridge !== "undefined" && manualGeometryBridge !== null
+                ? manualGeometryBridge.geometryJson : ""
             manualTemplateIds: root.manualSelectedTemplateIds
             manualMissionId: root.missionId
             manualMissionVersion: root.manualMissionVersion
