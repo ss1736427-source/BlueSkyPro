@@ -65,6 +65,8 @@ QVariantMap ManualMissionModelAdapter::buildMission(const QString &geometryJson,
 
     const QJsonObject rootObject = document.object();
     const QJsonValue originValue = rootObject.value(QStringLiteral("origin"));
+    if (originValue.isUndefined() || originValue.isNull())
+        errors.push_back(QStringLiteral("MISSION_ORIGIN_REQUIRED"));
     if (!originValue.isUndefined() && !originValue.isNull()) {
         if (!originValue.isObject()) {
             errors.push_back(QStringLiteral("MISSION_ORIGIN_INVALID"));
