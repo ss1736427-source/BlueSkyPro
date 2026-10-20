@@ -252,7 +252,7 @@ Item {
         MissionProfileWindow {
             id: missionProfileWindow
             visible: root.missionProfileOpen
-            routeController: routeController
+            routeController: canonicalRouteController
             missionId: root.missionId
             missionSummary: root.missionSummary
             missionReviewState: root.missionReviewState
