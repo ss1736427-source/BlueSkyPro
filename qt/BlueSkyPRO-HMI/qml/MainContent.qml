@@ -166,7 +166,7 @@ Item {
             showTopBorder: false
             // BottomToolbar owns the shared seam; avoid drawing a second line here.
             showBottomBorder: false
-            visible: root.leftPanelOpen
+            visible: root.leftPanelOpen && root.activeTool !== "ADMIN"
             width: visible ? root.leftWidth : 0
             missionVisible: root.missionVisible
             missionCreationMode: root.missionCreationMode
@@ -358,12 +358,9 @@ Item {
                       : ["VIRTUAL UAV", "SIMULATION", "ENVIRONMENT", "SCENARIOS", "PLANNED / SIMULATED / ACTUAL", "RESULTS"]
         }
 
-        IntegrationConsole {
-            id: integrationConsole
-            anchors.left: leftPanel.right
-            anchors.right: rightPanel.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
+        AdminWorkspace {
+            anchors.fill: parent
+            z: 40
             visible: !root.missionCreationMode && root.activeTool === "ADMIN"
         }
 
@@ -392,7 +389,7 @@ Item {
             // A zero-width panel does not clip its children: hide the whole
             // component when collapsed so buttons/text/popups cannot leak
             // into the Flight Chart.
-            visible: root.rightPanelOpen
+            visible: root.rightPanelOpen && root.activeTool !== "ADMIN"
             width: visible ? root.rightWidth : 0
             // RightPanel is already anchored above the BottomToolbar; do not subtract the toolbar twice.
             bottomInset: 0

@@ -60,6 +60,7 @@ qt_add_qml_module(appBlueSkyPRO
         qml/ContextOverlay.ui.qml
         qml/ToolContext.ui.qml
         qml/IntegrationConsole.qml
+        qml/AdminWorkspace.qml
         qml/VirtualFlightTestConsole.qml
         qml/PanelSettingsButton.ui.qml
         qml/PanelSettingsPopup.qml
