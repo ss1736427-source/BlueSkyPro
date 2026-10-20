@@ -34,6 +34,34 @@ int main(int argc, char **argv)
     assert(canonical.object().value(QStringLiteral("missionMode")).toString() == QStringLiteral("MANUAL"));
     assert(canonical.object().value(QStringLiteral("geometryObjects")).toArray().size() == 1);
 
+    // A planned takeoff origin is explicit and remains separate from work geometry.
+    const QString withOrigin = QString::fromUtf8(
+        R"json({"origin":{"longitudeDeg":30.2,"latitudeDeg":59.3,"
+        "\"coordinateReferenceSystem\":\"EPSG:4326\","
+        "\"originKind\":\"PLANNED_TAKEOFF\","
+        "\"horizontalAccuracyM\":1.5,\"trueNorthBearingDeg\":12.0},"
+        "\"objects\":[]})json");
+    const QVariantMap anchored = adapter.buildMission(
+        withOrigin, {}, QStringLiteral("MISSION-ORIGIN"), 1, true);
+    assert(anchored.value(QStringLiteral("valid")).toBool());
+    const QJsonDocument anchoredCanonical = QJsonDocument::fromJson(
+        anchored.value(QStringLiteral("missionModelJson")).toString().toUtf8());
+    const QJsonObject origin = anchoredCanonical.object().value(QStringLiteral("origin")).toObject();
+    assert(origin.value(QStringLiteral("originKind")).toString() == QStringLiteral("PLANNED_TAKEOFF"));
+    assert(origin.value(QStringLiteral("longitudeDeg")).toDouble() == 30.2);
+    assert(origin.value(QStringLiteral("horizontalAccuracyM")).toDouble() == 1.5);
+    assert(origin.value(QStringLiteral("trueNorthBearingDeg")).toDouble() == 12.0);
+
+    const QString invalidOrigin = QString::fromUtf8(
+        R"json({"origin":{"longitudeDeg":181.0,"latitudeDeg":59.3,"
+        "\"coordinateReferenceSystem\":\"EPSG:4326\","
+        "\"originKind\":\"PLANNED_TAKEOFF\"},\"objects\":[]})json");
+    const QVariantMap rejectedOrigin = adapter.buildMission(
+        invalidOrigin, {}, QStringLiteral("MISSION-ORIGIN-BAD"), 1, true);
+    assert(!rejectedOrigin.value(QStringLiteral("valid")).toBool());
+    assert(rejectedOrigin.value(QStringLiteral("errors")).toStringList().contains(
+        QStringLiteral("MISSION_ORIGIN_COORDINATE_INVALID")));
+
     // Explicit altitude and its datum must survive map JSON -> typed model -> canonical JSON.
     const QString routeWithDatum = QString::fromUtf8(R"json({"objects":[{"geometryId":"GEO-MT-05-1","geometryType":"CORRIDOR","coordinateReferenceSystem":"EPSG:4326","coordinates":[[30.0,59.0,40.0,"AGL"],[30.01,59.01,45.0,"AGL"]],"templateIds":["MT-05"],"version":1}]})json");
     const QVariantMap route = adapter.buildMission(
