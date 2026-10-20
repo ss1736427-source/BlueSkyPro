@@ -58,8 +58,31 @@ Item {
             }
         }
         Item { id: contentArea; width: Math.max(0, root.width - navigation.width); height: root.height
-            Loader { anchors.fill: parent; active: root.activeSection === "Integrations"; visible: active; sourceComponent: Component { ExternalIntegrationsWorkspace { anchors.fill: parent } } }
-            Flickable { anchors.fill: parent; visible: root.activeSection !== "Integrations"; clip: true; contentWidth: width; contentHeight: page.implicitHeight + 52
+            // Compact administrator top bar; flight header and toolbar are hidden in ADMIN mode.
+            Rectangle {
+                id: adminTopBar
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                height: 48
+                color: "#0B1722"
+                border.color: root.line
+                border.width: 1
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: 20
+                    anchors.rightMargin: 22
+                    spacing: 12
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: "⌂"; color: root.cyan; font.pixelSize: 22 }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: "Администратор"; color: root.muted; font.pixelSize: 11 }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: "›"; color: root.muted; font.pixelSize: 18 }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: root.titleFor(root.activeSection); color: root.fg; font.pixelSize: 11; font.bold: true }
+                    Item { width: Math.max(10, parent.width - 530); height: 1 }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: "ADMINISTRATOR"; color: root.muted; font.pixelSize: 9; font.letterSpacing: 1 }
+                }
+            }
+            Loader { anchors.fill: parent; anchors.topMargin: adminTopBar.height; active: root.activeSection === "Integrations"; visible: active; sourceComponent: Component { ExternalIntegrationsWorkspace { anchors.fill: parent } } }
+            Flickable { anchors.fill: parent; anchors.topMargin: adminTopBar.height; visible: root.activeSection !== "Integrations"; clip: true; contentWidth: width; contentHeight: page.implicitHeight + 52
                 Column { id: page; x: 28; y: 24; width: Math.max(300, parent.width - 56); spacing: 18
                     Text { text: root.titleFor(root.activeSection); color: root.fg; font.pixelSize: 25; font.bold: true }
                     Text { width: parent.width; wrapMode: Text.Wrap; text: root.descriptionFor(root.activeSection); color: root.muted; font.pixelSize: 13 }
