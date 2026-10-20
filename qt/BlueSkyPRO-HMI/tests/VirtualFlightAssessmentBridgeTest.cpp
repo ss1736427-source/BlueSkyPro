@@ -17,7 +17,7 @@ int main(int argc,char **argv) {
  const auto invalid=b.assessSyntheticFixture(99);
  assert(!invalid.value("assessed").toBool()); assert(!invalid.value("flightReleaseEligible").toBool());
  const QString manualGeometry = QStringLiteral(
-     "{\"objects\":[{"
+     "{\"origin\":{\"longitudeDeg\":30.0,\"latitudeDeg\":59.0,\"coordinateReferenceSystem\":\"EPSG:4326\",\"originKind\":\"PLANNED_TAKEOFF\"},\"objects\":[{"
      "\"geometryId\":\"GEO-MT-05-TEST\","
      "\"geometryType\":\"CORRIDOR\","
      "\"coordinateReferenceSystem\":\"EPSG:4326\","
@@ -37,7 +37,7 @@ int main(int argc,char **argv) {
  assert(!manualBlocked.value("combinedClear").toBool());
  assert(!manualBlocked.value("flightReleaseEligible").toBool());
  const QString missingDatum = QStringLiteral(
-     "{\"objects\":[{"
+     "{\"origin\":{\"longitudeDeg\":30.0,\"latitudeDeg\":59.0,\"coordinateReferenceSystem\":\"EPSG:4326\",\"originKind\":\"PLANNED_TAKEOFF\"},\"objects\":[{"
      "\"geometryId\":\"GEO-MT-05-NO-DATUM\","
      "\"geometryType\":\"CORRIDOR\","
      "\"coordinateReferenceSystem\":\"EPSG:4326\","
