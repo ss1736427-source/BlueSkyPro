@@ -49,10 +49,17 @@ Item {
     function runNotamTest() {
         if (!legacyConsole) return
         legacyConsole.notamBaseUrl = endpointText
-        legacyConsole.notamApiKey = keyText
         if (keyText.trim().length > 0) {
+            legacyConsole.notamApiKey = keyText
             legacyConsole.saveProviderSecret("notam")
             keyText = ""
+        } else if (!legacyConsole.credentialVaultAvailable()
+                   || !credentialVault.hasSecret("notam")) {
+            wizardState = "error"
+            wizardMessage = "Для проверки этого источника нужен токен. Введите ключ или сначала сохраните его в системном хранилище."
+            return
+        } else {
+            legacyConsole.notamApiKey = ""
         }
         wizardStep = 2
         wizardState = "testing"
