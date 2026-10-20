@@ -57,7 +57,7 @@ Item {
             }
         }
         Item { id: contentArea; width: Math.max(0, root.width - navigation.width); height: root.height
-            Loader { anchors.fill: parent; active: root.activeSection === "Integrations"; visible: active; sourceComponent: Component { IntegrationConsole { anchors.fill: parent } } }
+            Loader { anchors.fill: parent; active: root.activeSection === "Integrations"; visible: active; sourceComponent: Component { ExternalIntegrationsWorkspace { anchors.fill: parent } } }
             Flickable { anchors.fill: parent; visible: root.activeSection !== "Integrations"; clip: true; contentWidth: width; contentHeight: page.implicitHeight + 52
                 Column { id: page; x: 28; y: 24; width: Math.max(300, parent.width - 56); spacing: 18
                     Text { text: root.titleFor(root.activeSection); color: root.fg; font.pixelSize: 25; font.bold: true }
