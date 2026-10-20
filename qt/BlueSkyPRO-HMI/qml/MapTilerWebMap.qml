@@ -56,7 +56,7 @@ Item {
             "const geometryControls=document.getElementById('geometry-controls');const geometrySelect=document.getElementById('geometry-template');const geometryStatus=document.getElementById('geometry-status');",
             "function publishGeometry(complete){if(geometryBridge)geometryBridge.publishGeometry(JSON.stringify({objects:objects}),complete);}",
             "function syncGeometryTemplates(ids){selectedTemplates=Array.isArray(ids)?ids.filter(id=>geometryTypes[id]):[];geometrySelect.replaceChildren();selectedTemplates.forEach(id=>{const option=document.createElement('option');option.value=id;option.textContent=id+' · '+geometryTypes[id];geometrySelect.appendChild(option);});activeTemplate=selectedTemplates.includes(activeTemplate)?activeTemplate:(selectedTemplates[0]||'');geometrySelect.value=activeTemplate;geometryControls.style.display=selectedTemplates.length?'flex':'none';publishGeometry(false);}",
-            "new QWebChannel(qt.webChannelTransport,channel=>{geometryBridge=channel.objects.manualGeometryBridge;publishGeometry(false);});",
+            "if(window.qt&&qt.webChannelTransport){new QWebChannel(qt.webChannelTransport,channel=>{geometryBridge=channel.objects.manualGeometryBridge;publishGeometry(false);});}",
             "if(!apiKey){statusEl.textContent='BLUESKY_MAPTILER_API_KEY NOT SET';}",
             "else{",
             "",
@@ -145,16 +145,10 @@ Item {
         }
     }
 
-    // Avoid resolving the C++ context object from a registeredObjects binding
-    // during QML object-creation finalization. Qt 6.8.3 has been observed to
-    // crash in QQmlWebChannel::registeredObjects_append on that path.
-    WebChannel {
-        id: mapWebChannel
-    }
-
+    // Diagnostic isolation: keep the map renderer independent from Qt WebChannel.
+    // CI reproduced an access violation even when bridge registration was deferred.
     WebEngineView {
         id: webMap
-        webChannel: root.apiKey.length > 0 ? mapWebChannel : null
         anchors.fill: parent
         visible: root.apiKey.length > 0
         backgroundColor: "#071321"
@@ -175,12 +169,8 @@ Item {
             }
         }
         Component.onCompleted: {
-            if (root.apiKey.length > 0) {
-                // Register after QML object creation, not during property binding finalization.
-                if (typeof manualGeometryBridge !== "undefined" && manualGeometryBridge !== null)
-                    mapWebChannel.registeredObjects = [manualGeometryBridge]
+            if (root.apiKey.length > 0)
                 loadHtml(root.buildHtml(), "https://unpkg.com/")
-            }
         }
     }
 
