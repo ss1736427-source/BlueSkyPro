@@ -221,15 +221,48 @@ Item {
                     delegate: Rectangle {
                         required property var modelData
                         width: (page.width - (page.width < 700 ? 0 : page.width < 1120 ? 12 : 24)) / (page.width < 700 ? 1 : page.width < 1120 ? 2 : 3)
-                        height: 142; radius: 8; color: root.card; border.color: root.line
-                        Column { anchors.fill: parent; anchors.margins: 16; spacing: 8
-                            Row { width: parent.width; spacing: 8
-                                Rectangle { width: 7; height: 7; radius: 4; anchors.verticalCenter: parent.verticalCenter; color: modelData.state === 0 ? root.muted : modelData.state === 1 ? root.amber : root.red }
-                                Text { text: modelData.title; color: root.fg; font.pixelSize: 15; font.bold: true; width: parent.width - 20; wrapMode: Text.Wrap }
+                        height: 148; radius: 8; color: root.card; border.color: root.line
+                        Row {
+                            anchors.fill: parent
+                            anchors.margins: 14
+                            spacing: 14
+                            Rectangle {
+                                width: 64; height: 64; radius: 9
+                                color: "#1C3447"
+                                anchors.verticalCenter: parent.verticalCenter
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: modelData.kind === "notam" ? "➤"
+                                        : modelData.kind === "weather" ? "☁"
+                                        : modelData.kind === "maps" ? "⌖"
+                                        : modelData.kind === "terrain" ? "▲"
+                                        : modelData.kind === "uav" ? "⌘"
+                                        : modelData.kind === "c2" ? "⌁"
+                                        : modelData.kind === "insurance" ? "◆" : "▤"
+                                    color: "#35BDF5"
+                                    font.pixelSize: 30
+                                }
                             }
-                            Text { text: modelData.desc; color: root.muted; font.pixelSize: 11; wrapMode: Text.Wrap; width: parent.width; maximumLineCount: 2 }
-                            Text { text: modelData.status; color: modelData.state === 0 ? root.muted : root.amber; font.pixelSize: 10; wrapMode: Text.Wrap; width: parent.width }
-                            Text { text: modelData.state === 0 ? "Интерфейс ещё не подключён" : "Настроить  →"; color: modelData.state === 0 ? root.muted : root.cyan; font.pixelSize: 10 }
+                            Column {
+                                width: parent.width - 78
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 7
+                                Row {
+                                    width: parent.width
+                                    spacing: 6
+                                    Text { text: modelData.title; color: root.fg; font.pixelSize: 14; font.bold: true; width: parent.width - 18; wrapMode: Text.Wrap }
+                                    Text { text: "›"; color: root.muted; font.pixelSize: 22; anchors.verticalCenter: parent.verticalCenter }
+                                }
+                                Text { text: modelData.desc; color: root.muted; font.pixelSize: 11; wrapMode: Text.Wrap; width: parent.width; maximumLineCount: 2 }
+                                Row {
+                                    spacing: 6
+                                    Rectangle {
+                                        width: 9; height: 9; radius: 5; anchors.verticalCenter: parent.verticalCenter
+                                        color: modelData.state === 0 ? "#AFC4D9" : modelData.state === 1 ? root.amber : root.red
+                                    }
+                                    Text { text: modelData.status; color: modelData.state === 0 ? root.muted : root.amber; font.pixelSize: 10; wrapMode: Text.Wrap; width: parent.width - 16 }
+                                }
+                            }
                         }
                         MouseArea { anchors.fill: parent; enabled: modelData.state !== 0; onClicked: root.chooseSource(modelData.kind) }
                     }
