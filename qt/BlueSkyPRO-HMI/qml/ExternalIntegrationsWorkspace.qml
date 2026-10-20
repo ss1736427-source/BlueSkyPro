@@ -58,10 +58,10 @@ Item {
         wizardState = "testing"
         wizardMessage = "Проверяем авторизацию и ответ NOTAC API…"
         legacyConsole.requestNotamApiTest()
+        // The request completes asynchronously; the result Text binds directly
+        // to the live IntegrationConsole properties instead of snapshotting CONNECTING.
         wizardState = "result"
-        wizardMessage = "Результат теста: " + legacyConsole.notamApiStatus
-            + (legacyConsole.notamApiError.length ? "\n" + legacyConsole.notamApiError : "")
-            + (legacyConsole.notamApiSample.length ? "\nПример данных: " + legacyConsole.notamApiSample : "")
+        wizardMessage = ""
     }
 
     Rectangle { anchors.fill: parent; color: root.bg }
@@ -145,8 +145,14 @@ Item {
                     Text {
                         visible: root.wizardMessage.length > 0
                         width: parent.width; wrapMode: Text.Wrap
-                        text: root.wizardMessage
-                        color: root.wizardState === "error" ? root.red : root.wizardState === "result" ? (root.wizardMessage.indexOf("CONNECTED / JSON VALID") >= 0 ? root.green : root.amber) : root.cyan
+                        text: root.wizardStep === 2 && root.selectedKind === "notam"
+                            ? "Результат теста: " + legacyConsole.notamApiStatus
+                                + (legacyConsole.notamApiError.length ? "\n" + legacyConsole.notamApiError : "")
+                                + (legacyConsole.notamApiSample.length ? "\nПример данных: " + legacyConsole.notamApiSample : "")
+                            : root.wizardMessage
+                        color: root.wizardState === "error" ? root.red
+                            : root.wizardStep === 2 && legacyConsole.notamApiStatus === "CONNECTED / JSON VALID" ? root.green
+                            : root.wizardStep === 2 ? root.amber : root.cyan
                         font.pixelSize: 11
                     }
                     Row { spacing: 10

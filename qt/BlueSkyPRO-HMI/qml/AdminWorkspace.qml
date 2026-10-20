@@ -38,7 +38,7 @@ Item {
                             {key:"Documents",title:"Документы и соответствие",glyph:"▤",group:"КОНТРОЛЬ И ОБСЛУЖИВАНИЕ"},
                             {key:"Audit",title:"Журнал аудита",glyph:"▣",group:""},
                             {key:"Diagnostics",title:"Обслуживание и диагностика",glyph:"⌁",group:""}
-                        ]
+                        ];
                         delegate: Column { required property var modelData; width: navItems.width; spacing: 0
                             Rectangle { visible: modelData.group !== ""; width: parent.width; height: visible ? 27 : 0; color: "transparent"
                                 Text { anchors.left: parent.left; anchors.leftMargin: 16; anchors.bottom: parent.bottom; anchors.bottomMargin: 5; text: modelData.group; color: "#71869A"; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1 }
