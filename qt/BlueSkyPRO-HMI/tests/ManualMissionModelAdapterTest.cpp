@@ -56,6 +56,15 @@ int main(int argc, char **argv)
     assert(rejectedOrigin.value(QStringLiteral("errors")).toStringList().contains(
         QStringLiteral("MISSION_ORIGIN_COORDINATE_INVALID")));
 
+    const QString unsupportedOriginCrs = QString::fromUtf8(
+        R"json({"origin":{"longitudeDeg":30.2,"latitudeDeg":59.3,"coordinateReferenceSystem":"EPSG:3857","originKind":"PLANNED_TAKEOFF"},"objects":[{"geometryId":"GEO-ORIGIN-CRS","geometryType":"POLYGON_AOI","coordinateReferenceSystem":"EPSG:4326","coordinates":[[30.0,59.0],[30.01,59.0],[30.01,59.01],[30.0,59.0]],"templateIds":["MT-01"],"version":1}]})json");
+    const QVariantMap rejectedOriginCrs = adapter.buildMission(
+        unsupportedOriginCrs, {QStringLiteral("MT-01")},
+        QStringLiteral("MISSION-ORIGIN-CRS"), 1, true);
+    assert(!rejectedOriginCrs.value(QStringLiteral("valid")).toBool());
+    assert(rejectedOriginCrs.value(QStringLiteral("errors")).toStringList().contains(
+        QStringLiteral("MISSION_ORIGIN_CRS_UNSUPPORTED")));
+
     // Explicit altitude and its datum must survive map JSON -> typed model -> canonical JSON.
     const QString routeWithDatum = QString::fromUtf8(R"json({"origin":{"longitudeDeg":30.2,"latitudeDeg":59.3,"coordinateReferenceSystem":"EPSG:4326","originKind":"PLANNED_TAKEOFF"},"objects":[{"geometryId":"GEO-MT-05-1","geometryType":"CORRIDOR","coordinateReferenceSystem":"EPSG:4326","coordinates":[[30.0,59.0,40.0,"AGL"],[30.01,59.01,45.0,"AGL"]],"templateIds":["MT-05"],"version":1}]})json");
     const QVariantMap route = adapter.buildMission(
