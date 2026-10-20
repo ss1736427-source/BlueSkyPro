@@ -11,7 +11,12 @@ class ManualGeometryBridge final : public QObject
 
 public:
     explicit ManualGeometryBridge(QObject *parent = nullptr)
-        : QObject(parent) {}
+        : QObject(parent)
+    {
+        // Give Qt WebChannel a stable QObject name instead of relying on
+        // QQmlContext::nameForObject() for a C++ context property.
+        setObjectName(QStringLiteral("manualGeometryBridge"));
+    }
 
     QString geometryJson() const { return m_geometryJson; }
     bool compositionComplete() const { return m_compositionComplete; }
