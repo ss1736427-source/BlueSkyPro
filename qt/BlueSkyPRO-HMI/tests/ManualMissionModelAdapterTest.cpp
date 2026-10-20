@@ -15,7 +15,7 @@ int main(int argc, char **argv)
     ManualMissionModelAdapter adapter;
 
     const QString geometry = QStringLiteral(
-        "{\"objects\":[{"
+        "{\"origin\":{\"longitudeDeg\":30.2,\"latitudeDeg\":59.3,\"coordinateReferenceSystem\":\"EPSG:4326\",\"originKind\":\"PLANNED_TAKEOFF\"},\"objects\":[{"
         "\"geometryId\":\"GEO-MT-01-1\","
         "\"geometryType\":\"POLYGON_AOI\","
         "\"coordinateReferenceSystem\":\"EPSG:4326\","
@@ -57,7 +57,7 @@ int main(int argc, char **argv)
         QStringLiteral("MISSION_ORIGIN_COORDINATE_INVALID")));
 
     // Explicit altitude and its datum must survive map JSON -> typed model -> canonical JSON.
-    const QString routeWithDatum = QString::fromUtf8(R"json({"objects":[{"geometryId":"GEO-MT-05-1","geometryType":"CORRIDOR","coordinateReferenceSystem":"EPSG:4326","coordinates":[[30.0,59.0,40.0,"AGL"],[30.01,59.01,45.0,"AGL"]],"templateIds":["MT-05"],"version":1}]})json");
+    const QString routeWithDatum = QString::fromUtf8(R"json({"origin":{"longitudeDeg":30.2,"latitudeDeg":59.3,"coordinateReferenceSystem":"EPSG:4326","originKind":"PLANNED_TAKEOFF"},"objects":[{"geometryId":"GEO-MT-05-1","geometryType":"CORRIDOR","coordinateReferenceSystem":"EPSG:4326","coordinates":[[30.0,59.0,40.0,"AGL"],[30.01,59.01,45.0,"AGL"]],"templateIds":["MT-05"],"version":1}]})json");
     const QVariantMap route = adapter.buildMission(
         routeWithDatum, {QStringLiteral("MT-05")}, QStringLiteral("MISSION-ROUTE"), 1, true);
     assert(route.value(QStringLiteral("valid")).toBool());
@@ -71,7 +71,7 @@ int main(int argc, char **argv)
     assert(routeCoordinates.at(0).toArray().at(3).toString() == QStringLiteral("AGL"));
 
     // Missing datum is preserved as missing, never silently inferred by the adapter.
-    const QString routeWithoutDatum = QString::fromUtf8(R"json({"objects":[{"geometryId":"GEO-MT-05-2","geometryType":"CORRIDOR","coordinateReferenceSystem":"EPSG:4326","coordinates":[[30.0,59.0,40.0],[30.01,59.01,45.0]],"templateIds":["MT-05"],"version":1}]})json");
+    const QString routeWithoutDatum = QString::fromUtf8(R"json({"origin":{"longitudeDeg":30.2,"latitudeDeg":59.3,"coordinateReferenceSystem":"EPSG:4326","originKind":"PLANNED_TAKEOFF"},"objects":[{"geometryId":"GEO-MT-05-2","geometryType":"CORRIDOR","coordinateReferenceSystem":"EPSG:4326","coordinates":[[30.0,59.0,40.0],[30.01,59.01,45.0]],"templateIds":["MT-05"],"version":1}]})json");
     const QVariantMap routeNoDatum = adapter.buildMission(
         routeWithoutDatum, {QStringLiteral("MT-05")}, QStringLiteral("MISSION-ROUTE"), 2, true);
     assert(routeNoDatum.value(QStringLiteral("valid")).toBool());
@@ -89,7 +89,7 @@ int main(int argc, char **argv)
         QStringLiteral("MANUAL_GEOMETRY_COMPOSITION_INCOMPLETE")));
 
     const QString invalidCoordinate = QStringLiteral(
-        "{\"objects\":[{"
+        "{\"origin\":{\"longitudeDeg\":30.2,\"latitudeDeg\":59.3,\"coordinateReferenceSystem\":\"EPSG:4326\",\"originKind\":\"PLANNED_TAKEOFF\"},\"objects\":[{"
         "\"geometryId\":\"GEO-BAD\",\"geometryType\":\"WAYPOINT_ROUTE\","
         "\"coordinateReferenceSystem\":\"EPSG:4326\","
         "\"coordinates\":[[181.0,59.0],[30.0,59.01]],"
