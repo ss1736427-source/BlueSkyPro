@@ -17,15 +17,15 @@ Item {
     function descriptionFor(key) { return ({Overview:"Общий обзор состояния системы, служб, подключений и критических сообщений.",Users:"Индивидуальные учётные записи, блокировка пользователей и процедура сброса доступа.",Roles:"Назначение ролей и разрешений по принципу минимально необходимых полномочий.",Security:"Политика входа, защита сессий и события безопасности.",Settings:"Общие параметры приложения и эксплуатационные политики.",Integrations:"Подключение NOTAM, WX, картографии, рельефа и других внешних источников.",Sync:"Импорт, экспорт, синхронизация и ошибки обмена данными.",Documents:"Контролируемые документы, требования и подтверждения проверок.",Audit:"История входов, отказов доступа и административных изменений.",Diagnostics:"Диагностика служб и отчёты; секреты должны быть скрыты."})[key] || "" }
     Rectangle { anchors.fill: parent; color: root.bg }
     Row { anchors.fill: parent; spacing: 0
-        Rectangle { id: navigation; width: 236; color: root.sidebar; border.color: root.line; border.width: 1
+        Rectangle { id: navigation; width: 248; color: root.sidebar; border.color: root.line; border.width: 1
             Column { anchors.fill: parent; spacing: 0
-                Rectangle { width: parent.width; height: 68; color: "#0B1722"
+                Rectangle { width: parent.width; height: 78; color: "#0B1722"
                     Column { anchors.left: parent.left; anchors.leftMargin: 17; anchors.verticalCenter: parent.verticalCenter; spacing: 3
-                        Text { text: "BlueSky PRO"; color: root.cyan; font.pixelSize: 18; font.bold: true }
+                        Text { text: "◢  BlueSky PRO"; color: root.cyan; font.pixelSize: 19; font.bold: true }
                         Text { text: "ADMINISTRATOR"; color: root.muted; font.pixelSize: 9; font.letterSpacing: 1.2 }
                     }
                 }
-                Flickable { width: parent.width; height: parent.height - 108; clip: true; contentWidth: width; contentHeight: navItems.implicitHeight
+                Flickable { width: parent.width; height: parent.height - 118; clip: true; contentWidth: width; contentHeight: navItems.implicitHeight
                     Column { id: navItems; width: parent.width; spacing: 0
                         Repeater { model: [
                             {key:"Overview",title:"Обзор системы",glyph:"⌂",group:"СИСТЕМА"},
@@ -43,11 +43,11 @@ Item {
                             Rectangle { visible: modelData.group !== ""; width: parent.width; height: visible ? 27 : 0; color: "transparent"
                                 Text { anchors.left: parent.left; anchors.leftMargin: 16; anchors.bottom: parent.bottom; anchors.bottomMargin: 5; text: modelData.group; color: "#71869A"; font.pixelSize: 8; font.bold: true; font.letterSpacing: 1 }
                             }
-                            Rectangle { width: parent.width; height: 42; color: root.activeSection === modelData.key ? "#17394E" : "transparent"
+                            Rectangle { width: parent.width; height: 48; color: root.activeSection === modelData.key ? "#17394E" : "transparent"
                                 Rectangle { width: 4; height: parent.height; color: root.activeSection === modelData.key ? root.cyan : "transparent" }
                                 Row { anchors.fill: parent; anchors.leftMargin: 13; spacing: 10
                                     Text { width: 22; anchors.verticalCenter: parent.verticalCenter; text: modelData.glyph; color: root.activeSection === modelData.key ? root.cyan : root.muted; font.pixelSize: 18; horizontalAlignment: Text.AlignHCenter }
-                                    Text { width: parent.width - 48; anchors.verticalCenter: parent.verticalCenter; text: modelData.title; color: root.activeSection === modelData.key ? root.fg : "#C3CFDA"; font.pixelSize: 11; elide: Text.ElideRight }
+                                    Text { width: parent.width - 48; anchors.verticalCenter: parent.verticalCenter; text: modelData.title; color: root.activeSection === modelData.key ? root.fg : "#C3CFDA"; font.pixelSize: 12; elide: Text.ElideRight }
                                 }
                                 MouseArea { anchors.fill: parent; onClicked: root.activeSection = modelData.key }
                             }
@@ -64,37 +64,37 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
-                height: 48
+                height: 52
                 color: "#0B1722"
                 border.color: root.line
                 border.width: 1
                 Row {
                     anchors.fill: parent
-                    anchors.leftMargin: 20
-                    anchors.rightMargin: 22
+                    anchors.leftMargin: 22
+                    anchors.rightMargin: 24
                     spacing: 12
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "⌂"; color: root.cyan; font.pixelSize: 22 }
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "Администратор"; color: root.muted; font.pixelSize: 11 }
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "›"; color: root.muted; font.pixelSize: 18 }
-                    Text { anchors.verticalCenter: parent.verticalCenter; text: root.titleFor(root.activeSection); color: root.fg; font.pixelSize: 11; font.bold: true }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: root.titleFor(root.activeSection); color: root.fg; font.pixelSize: 12; font.bold: true }
                     Item { width: Math.max(10, parent.width - 530); height: 1 }
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "ADMINISTRATOR"; color: root.muted; font.pixelSize: 9; font.letterSpacing: 1 }
                 }
             }
             Loader { anchors.fill: parent; anchors.topMargin: adminTopBar.height; active: root.activeSection === "Integrations"; visible: active; sourceComponent: Component { ExternalIntegrationsWorkspace { anchors.fill: parent } } }
             Flickable { anchors.fill: parent; anchors.topMargin: adminTopBar.height; visible: root.activeSection !== "Integrations"; clip: true; contentWidth: width; contentHeight: page.implicitHeight + 52
-                Column { id: page; x: 28; y: 24; width: Math.max(300, parent.width - 56); spacing: 18
+                Column { id: page; x: 28; y: 26; width: Math.max(300, parent.width - 56); spacing: 20
                     Text { text: root.titleFor(root.activeSection); color: root.fg; font.pixelSize: 25; font.bold: true }
                     Text { width: parent.width; wrapMode: Text.Wrap; text: root.descriptionFor(root.activeSection); color: root.muted; font.pixelSize: 13 }
                     Grid { width: parent.width; columns: width < 760 ? 1 : 3; spacing: 12
                         Repeater { model: [{title:"Внешние интеграции",desc:"NOTAM · WX · карты · рельеф",target:"Integrations"},{title:"Пользователи и роли",desc:"Учётные записи и разрешения",target:"Users"},{title:"Журнал аудита",desc:"Входы, изменения и события",target:"Audit"}]
-                            delegate: Rectangle { required property var modelData; width: (page.width - (page.width < 760 ? 0 : 24)) / (page.width < 760 ? 1 : 3); height: 108; radius: 7; color: root.card; border.color: root.line
+                            delegate: Rectangle { required property var modelData; width: (page.width - (page.width < 760 ? 0 : 24)) / (page.width < 760 ? 1 : 3); height: 126; radius: 8; color: root.card; border.color: root.line
                                 Column {
                                     anchors.fill: parent
                                     anchors.margins: 14
                                     spacing: 10
-                                    Text { text: modelData.title; color: root.fg; font.pixelSize: 14; font.bold: true }
-                                    Text { text: modelData.desc; color: root.muted; font.pixelSize: 11; wrapMode: Text.Wrap; width: parent.width }
+                                    Text { text: modelData.title; color: root.fg; font.pixelSize: 15; font.bold: true }
+                                    Text { text: modelData.desc; color: root.muted; font.pixelSize: 12; wrapMode: Text.Wrap; width: parent.width }
                                     Text { text: "Открыть  →"; color: root.cyan; font.pixelSize: 11 }
                                 }
                                 MouseArea { anchors.fill: parent; onClicked: root.activeSection = modelData.target }
