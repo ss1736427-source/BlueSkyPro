@@ -236,8 +236,8 @@ Item {
                 ? routeController.waypoints.map(function(p) { return [Number(p.longitudeDeg), Number(p.latitudeDeg)] })
                 : []
             manualTemplateIds: root.manualSelectedTemplateIds
-            // Keep the map as the persistent workspace in every mode.
-            visible: true
+            // ADMIN is a dedicated workspace. Keep map state in memory but suspend map rendering.
+            visible: root.activeTool !== "ADMIN"
             onMapViewChangeRequested: function(panX, panY, zoom) {
                 root.mapPanX = panX
                 root.mapPanY = panY
@@ -258,7 +258,7 @@ Item {
         // Expanded mission profile: route table and flight profile use the available workspace.
         MissionProfileWindow {
             id: missionProfileWindow
-            visible: root.missionProfileOpen
+            visible: root.missionProfileOpen && root.activeTool !== "ADMIN"
             routeController: canonicalRouteController
             missionId: root.missionId
             missionSummary: root.missionSummary
@@ -361,7 +361,9 @@ Item {
         AdminWorkspace {
             anchors.fill: parent
             z: 40
-            visible: !root.missionCreationMode && root.activeTool === "ADMIN"
+            // Entering ADMIN must work from manual mission editing too.
+            // This is a full workspace switch, not a floating layer over the map.
+            visible: root.activeTool === "ADMIN"
         }
 
         VirtualFlightTestConsole {
@@ -752,7 +754,17 @@ Item {
         rightOpen: root.rightPanelOpen
         onLeftPanelToggleRequested: root.leftPanelOpen = !root.leftPanelOpen
         onRightPanelToggleRequested: root.rightPanelOpen = !root.rightPanelOpen
-        onToolActivated: root.contextOverlayOpen = false
+        onToolActivated: {
+            root.contextOverlayOpen = false
+            if (tool === "ADMIN") {
+                // Hide flight-only overlays but preserve the mission and geometry
+                // so returning to MAP does not discard operator work.
+                root.headerAlertsOpen = false
+                root.taskCreationVisible = false
+                root.missionSplashVisible = false
+                root.missionProfileOpen = false
+            }
+        }
     }
 
     // Authorization is the first screen. Pilot proceeds to task composition.
