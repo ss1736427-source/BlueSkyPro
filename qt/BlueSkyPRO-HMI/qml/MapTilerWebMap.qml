@@ -145,16 +145,11 @@ Item {
         }
     }
 
-    // Keep WebChannel outside Loader incubation. Qt 6.8.3 can crash while
-    // resolving a C++ context property's QML name during registeredObjects
-    // binding finalization inside a Loader-created WebChannel.
-    // Register the bridge only while the MapTiler path is enabled.
+    // Avoid resolving the C++ context object from a registeredObjects binding
+    // during QML object-creation finalization. Qt 6.8.3 has been observed to
+    // crash in QQmlWebChannel::registeredObjects_append on that path.
     WebChannel {
         id: mapWebChannel
-        registeredObjects: root.apiKey.length > 0
-                           && typeof manualGeometryBridge !== "undefined"
-                           && manualGeometryBridge !== null
-                           ? [manualGeometryBridge] : []
     }
 
     WebEngineView {
@@ -180,8 +175,12 @@ Item {
             }
         }
         Component.onCompleted: {
-            if (root.apiKey.length > 0)
+            if (root.apiKey.length > 0) {
+                // Register after QML object creation, not during property binding finalization.
+                if (typeof manualGeometryBridge !== "undefined" && manualGeometryBridge !== null)
+                    mapWebChannel.registeredObjects = [manualGeometryBridge]
                 loadHtml(root.buildHtml(), "https://unpkg.com/")
+            }
         }
     }
 
