@@ -258,7 +258,7 @@ Item {
                                     spacing: 6
                                     Rectangle {
                                         width: 9; height: 9; radius: 5; anchors.verticalCenter: parent.verticalCenter
-                                        color: modelData.state === 0 ? "#AFC4D9" : modelData.state === 1 ? root.amber : root.red
+                                        color: modelData.state === 0 ? "#AFC4D9" : root.amber
                                     }
                                     Text { text: modelData.status; color: modelData.state === 0 ? root.muted : root.amber; font.pixelSize: 10; wrapMode: Text.Wrap; width: parent.width - 16 }
                                 }
