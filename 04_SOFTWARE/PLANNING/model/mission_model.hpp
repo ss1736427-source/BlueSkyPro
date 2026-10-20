@@ -112,10 +112,22 @@ struct ExecutionReference {
     std::string c2_session_id;
 };
 
+// Planned launch/origin reference is distinct from the first route waypoint and recovery point.
+// A point-only anchor translates geographic geometry; it does not define local-frame rotation.
+struct MissionOrigin {
+    double longitude_deg = 0.0;
+    double latitude_deg = 0.0;
+    std::string coordinate_reference_system = "EPSG:4326";
+    std::string origin_kind = "PLANNED_TAKEOFF";
+    std::optional<double> horizontal_accuracy_m;
+    std::optional<double> true_north_bearing_deg;
+};
+
 struct Mission {
     MissionIdentity identity;
     // AUTO and MANUAL share the same canonical model and safety pipeline.
     std::string mission_mode = "AUTO";
+    std::optional<MissionOrigin> origin;
     std::vector<std::string> selected_template_ids;
     std::vector<MissionGeometryObject> geometry_objects;
     MissionIntent intent;
