@@ -118,6 +118,20 @@ QVariantMap VirtualFlightAssessmentBridge::assessManualGeometry(
     mission.identity.mission_id = modelObject.value("missionId").toString().toStdString();
     mission.identity.mission_version = std::to_string(modelObject.value("missionVersion").toInt());
     mission.mission_mode = "MANUAL";
+    const QJsonObject originObject = modelObject.value("origin").toObject();
+    if (!originObject.isEmpty()) {
+        MissionOrigin origin;
+        origin.longitude_deg = originObject.value("longitudeDeg").toDouble();
+        origin.latitude_deg = originObject.value("latitudeDeg").toDouble();
+        origin.coordinate_reference_system =
+            originObject.value("coordinateReferenceSystem").toString().toStdString();
+        origin.origin_kind = originObject.value("originKind").toString().toStdString();
+        if (originObject.value("horizontalAccuracyM").isDouble())
+            origin.horizontal_accuracy_m = originObject.value("horizontalAccuracyM").toDouble();
+        if (originObject.value("trueNorthBearingDeg").isDouble())
+            origin.true_north_bearing_deg = originObject.value("trueNorthBearingDeg").toDouble();
+        mission.origin = origin;
+    }
     for (const auto &id : selectedTemplateIds)
         mission.selected_template_ids.push_back(id.toStdString());
 
