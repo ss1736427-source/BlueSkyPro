@@ -15,6 +15,7 @@
 using bluesky::planning::Mission;
 using bluesky::planning::MissionGeometryObject;
 using bluesky::planning::MissionGeometryVertex;
+using bluesky::planning::MissionOrigin;
 using bluesky::planning::validateMissionModelStructure;
 
 namespace
@@ -61,6 +62,59 @@ QVariantMap ManualMissionModelAdapter::buildMission(const QString &geometryJson,
     mission.mission_mode = "MANUAL";
     for (const QString &id : selectedTemplateIds)
         mission.selected_template_ids.push_back(id.toStdString());
+
+    const QJsonObject rootObject = document.object();
+    const QJsonValue originValue = rootObject.value(QStringLiteral("origin"));
+    if (!originValue.isUndefined() && !originValue.isNull()) {
+        if (!originValue.isObject()) {
+            errors.push_back(QStringLiteral("MISSION_ORIGIN_INVALID"));
+        } else {
+            const QJsonObject originObject = originValue.toObject();
+            MissionOrigin origin;
+            const QJsonValue longitude = originObject.value(QStringLiteral("longitudeDeg"));
+            const QJsonValue latitude = originObject.value(QStringLiteral("latitudeDeg"));
+            const QJsonValue crs = originObject.value(QStringLiteral("coordinateReferenceSystem"));
+            const QJsonValue kind = originObject.value(QStringLiteral("originKind"));
+            if (!longitude.isDouble() || !latitude.isDouble()
+                || !std::isfinite(longitude.toDouble()) || !std::isfinite(latitude.toDouble())
+                || longitude.toDouble() < -180.0 || longitude.toDouble() > 180.0
+                || latitude.toDouble() < -90.0 || latitude.toDouble() > 90.0) {
+                errors.push_back(QStringLiteral("MISSION_ORIGIN_COORDINATE_INVALID"));
+            } else {
+                origin.longitude_deg = longitude.toDouble();
+                origin.latitude_deg = latitude.toDouble();
+            }
+            if (!crs.isString() || crs.toString().trimmed().isEmpty()) {
+                errors.push_back(QStringLiteral("MISSION_ORIGIN_CRS_REQUIRED"));
+            } else {
+                origin.coordinate_reference_system = crs.toString().toStdString();
+            }
+            if (!kind.isString() || kind.toString() != QStringLiteral("PLANNED_TAKEOFF")) {
+                errors.push_back(QStringLiteral("MISSION_ORIGIN_KIND_INVALID"));
+            } else {
+                origin.origin_kind = kind.toString().toStdString();
+            }
+            const QJsonValue accuracy = originObject.value(QStringLiteral("horizontalAccuracyM"));
+            if (!accuracy.isUndefined() && !accuracy.isNull()) {
+                if (!accuracy.isDouble() || !std::isfinite(accuracy.toDouble())
+                    || accuracy.toDouble() <= 0.0) {
+                    errors.push_back(QStringLiteral("MISSION_ORIGIN_ACCURACY_INVALID"));
+                } else {
+                    origin.horizontal_accuracy_m = accuracy.toDouble();
+                }
+            }
+            const QJsonValue bearing = originObject.value(QStringLiteral("trueNorthBearingDeg"));
+            if (!bearing.isUndefined() && !bearing.isNull()) {
+                if (!bearing.isDouble() || !std::isfinite(bearing.toDouble())
+                    || bearing.toDouble() < 0.0 || bearing.toDouble() >= 360.0) {
+                    errors.push_back(QStringLiteral("MISSION_ORIGIN_BEARING_INVALID"));
+                } else {
+                    origin.true_north_bearing_deg = bearing.toDouble();
+                }
+            }
+            mission.origin = origin;
+        }
+    }
 
     const QJsonArray objects = document.object().value(QStringLiteral("objects")).toArray();
     for (qsizetype i = 0; i < objects.size(); ++i) {
@@ -179,6 +233,23 @@ QVariantMap ManualMissionModelAdapter::buildMission(const QString &geometryJson,
         geometryArray.append(geometryJsonObject);
     }
 
+    QJsonObject canonicalOrigin;
+    if (mission.origin) {
+        canonicalOrigin = QJsonObject{
+            {QStringLiteral("longitudeDeg"), mission.origin->longitude_deg},
+            {QStringLiteral("latitudeDeg"), mission.origin->latitude_deg},
+            {QStringLiteral("coordinateReferenceSystem"),
+             QString::fromStdString(mission.origin->coordinate_reference_system)},
+            {QStringLiteral("originKind"), QString::fromStdString(mission.origin->origin_kind)}
+        };
+        if (mission.origin->horizontal_accuracy_m)
+            canonicalOrigin.insert(QStringLiteral("horizontalAccuracyM"),
+                                   *mission.origin->horizontal_accuracy_m);
+        if (mission.origin->true_north_bearing_deg)
+            canonicalOrigin.insert(QStringLiteral("trueNorthBearingDeg"),
+                                   *mission.origin->true_north_bearing_deg);
+    }
+
     QJsonObject canonical{
         {QStringLiteral("missionId"), missionId},
         {QStringLiteral("missionVersion"), missionVersion},
@@ -186,6 +257,9 @@ QVariantMap ManualMissionModelAdapter::buildMission(const QString &geometryJson,
         {QStringLiteral("selectedTemplateIds"), templateArray},
         {QStringLiteral("geometryObjects"), geometryArray}
     };
+
+    if (mission.origin)
+        canonical.insert(QStringLiteral("origin"), canonicalOrigin);
 
     result.insert(QStringLiteral("valid"), errors.isEmpty());
     result.insert(QStringLiteral("errors"), errors);
