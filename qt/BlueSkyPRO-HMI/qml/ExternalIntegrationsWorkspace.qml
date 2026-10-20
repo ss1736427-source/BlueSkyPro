@@ -103,10 +103,27 @@ Item {
             x: 30; y: 26
             width: Math.max(320, parent.width - 60)
             spacing: 18
-            Text { text: root.selectedKind === "notam" ? "Подключение NOTAM / AIP" : "Внешние интеграции"; color: root.fg; font.pixelSize: 26; font.bold: true }
+            Row {
+                width: parent.width
+                spacing: 16
+                Text {
+                    width: parent.width - (root.selectedKind === "" ? 174 : 0)
+                    text: root.selectedKind === "notam" ? "Подключение NOTAM / AIP" : "Внешние интеграции"
+                    color: root.fg; font.pixelSize: 26; font.bold: true
+                    anchors.verticalCenter: parent.verticalCenter
+                    wrapMode: Text.Wrap
+                }
+                Rectangle {
+                    visible: root.selectedKind === ""
+                    width: 158; height: 38; radius: 5
+                    color: root.cyan
+                    Text { anchors.centerIn: parent; text: "+  Добавить источник"; color: "#07111B"; font.pixelSize: 11; font.bold: true }
+                    MouseArea { anchors.fill: parent; onClicked: root.chooseSource("notam") }
+                }
+            }
             Text {
                 width: parent.width; wrapMode: Text.Wrap
-                text: root.selectedKind === "notam" ? "Настройка по шагам. Адрес принят — далее система запросит ключ и проверит чтение данных." : "Выберите направление. Подробные настройки появятся только после выбора источника."
+                text: root.selectedKind === "notam" ? "Настройка по шагам. Адрес принят — далее система запросит ключ и проверит чтение данных." : "Выберите направление. Кнопка «Добавить источник» открывает доступный мастер NOTAM; остальные адаптеры подключаются по мере реализации."
                 color: root.muted; font.pixelSize: 13
             }
 
