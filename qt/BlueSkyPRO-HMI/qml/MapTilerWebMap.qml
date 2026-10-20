@@ -174,12 +174,8 @@ Item {
             }
         }
         Component.onCompleted: {
-            if (root.apiKey.length > 0) {
-                // Register only after QML object creation, using the bridge's stable QObject name.
-                if (typeof manualGeometryBridge !== "undefined" && manualGeometryBridge !== null)
-                    mapWebChannel.registeredObjects = [manualGeometryBridge]
+            if (root.apiKey.length > 0)
                 loadHtml(root.buildHtml(), "https://unpkg.com/")
-            }
         }
     }
 
