@@ -65,7 +65,14 @@ Item {
                     Grid { width: parent.width; columns: width < 760 ? 1 : 3; spacing: 12
                         Repeater { model: [{title:"Внешние интеграции",desc:"NOTAM · WX · карты · рельеф",target:"Integrations"},{title:"Пользователи и роли",desc:"Учётные записи и разрешения",target:"Users"},{title:"Журнал аудита",desc:"Входы, изменения и события",target:"Audit"}]
                             delegate: Rectangle { required property var modelData; width: (page.width - (page.width < 760 ? 0 : 24)) / (page.width < 760 ? 1 : 3); height: 108; radius: 7; color: root.card; border.color: root.line
-                                Column { anchors.fill: parent; anchors.margins: 14; spacing: 10; Text { text: modelData.title; color: root.fg; font.pixelSize: 14; font.bold: true }; Text { text: modelData.desc; color: root.muted; font.pixelSize: 11; wrapMode: Text.Wrap; width: parent.width }; Text { text: "Открыть  →"; color: root.cyan; font.pixelSize: 11 } }
+                                Column {
+                                    anchors.fill: parent
+                                    anchors.margins: 14
+                                    spacing: 10
+                                    Text { text: modelData.title; color: root.fg; font.pixelSize: 14; font.bold: true }
+                                    Text { text: modelData.desc; color: root.muted; font.pixelSize: 11; wrapMode: Text.Wrap; width: parent.width }
+                                    Text { text: "Открыть  →"; color: root.cyan; font.pixelSize: 11 }
+                                }
                                 MouseArea { anchors.fill: parent; onClicked: root.activeSection = modelData.target }
                             }
                         }
