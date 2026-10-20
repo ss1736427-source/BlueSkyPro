@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 
 Item {
     id: root
@@ -7,6 +8,19 @@ Item {
 
     // BlueSky PRO — role selection screen, visual HMI layer only.
     property string selectedRole: "PILOT"
+    property var roleCardsModel: [
+        { role: "ADMIN", title: "АДМИНИСТРАТОР", icon: "●", description: ["Управление системой", "Пользователи", "Настройки", "Интеграции"] },
+        { role: "PILOT", title: "ПИЛОТ", icon: "✈", description: ["Управление полётом", "Планирование миссий", "Телеметрия", "Выполнение заданий"] },
+        { role: "TECHNICIAN", title: "ТЕХНИК", icon: "🔧", description: ["Выполнение работ", "Чек-листы", "Отчёты", "Статус оборудования"] },
+        { role: "ENGINEER", title: "ИНЖЕНЕР", icon: "⚙", description: ["Парк БПЛА", "Оборудование", "Техническое состояние", "Документация"] }
+    ]
+    function moveRoleCard(from, to) {
+        if (from < 0 || to < 0 || from >= roleCardsModel.length || to >= roleCardsModel.length || from === to) return
+        var next = roleCardsModel.slice(0)
+        var item = next.splice(from, 1)[0]
+        next.splice(to, 0, item)
+        roleCardsModel = next
+    }
     property string displayDate: "14 Oct 2024"
     property string displayTime: "12:45 (UTC+3)"
     property string languageCode: "RU"
@@ -174,42 +188,54 @@ Item {
         spacing: 14
 
         Repeater {
-            model: [
-                {
-                    role: "ADMIN",
-                    title: "АДМИНИСТРАТОР",
-                    icon: "●",
-                    description: ["Управление системой", "Пользователи", "Настройки", "Интеграции"]
-                },
-                {
-                    role: "ENGINEER",
-                    title: "ИНЖЕНЕР",
-                    icon: "⚙",
-                    description: ["Парк БПЛА", "Оборудование", "Техническое состояние", "Документация"]
-                },
-                {
-                    role: "TECHNICIAN",
-                    title: "ТЕХНИК",
-                    icon: "🔧",
-                    description: ["Выполнение работ", "Чек-листы", "Отчеты", "Статус оборудования"]
-                },
-                {
-                    role: "PILOT",
-                    title: "ПИЛОТ",
-                    icon: "✈",
-                    description: ["Управление полётом", "Планирование миссий", "Телеметрия", "Выполнение заданий"]
-                },
-                {
-                    role: "MECHANIC",
-                    title: "МЕХАНИК",
-                    icon: "🔩",
-                    description: ["Обслуживание БПЛА", "Ремонт и регламент", "Запасные части", "История работ"]
-                }
-            ]
+            id: roleRepeater
+            model: root.roleCardsModel
 
             delegate: Item {
-                width: (roleCards.width - roleCards.spacing * 4) / 5
+                id: roleCard
+                required property int index
+                required property var modelData
+                width: (roleCards.width - roleCards.spacing * 3) / 4
                 height: roleCards.height
+                z: dragHandler.active ? 10 : 1
+                property real dragX: 0
+                property real dragY: 0
+                transform: Translate { x: roleCard.dragX; y: roleCard.dragY }
+                property int cardIndex: index
+
+                DropArea {
+                    anchors.fill: parent
+                    onEntered: function(drag) {
+                        if (drag.source && drag.source.cardIndex !== undefined)
+                            root.moveRoleCard(drag.source.cardIndex, roleCard.index)
+                    }
+                }
+
+                DragHandler {
+                    id: dragHandler
+                    target: null
+                    onActiveChanged: {
+                        if (active) {
+                            roleCard.Drag.active = true
+                            root.draggedRoleIndex = roleCard.index
+                        } else {
+                            roleCard.Drag.active = false
+                            roleCard.dragX = 0
+                            roleCard.dragY = 0
+                        }
+                    }
+                    onTranslationChanged: {
+                        if (active) {
+                            roleCard.dragX = translation.x
+                            roleCard.dragY = translation.y
+                        }
+                    }
+                }
+
+                Drag.active: dragHandler.active
+                Drag.source: roleCard
+                Drag.hotSpot.x: roleCard.width / 2
+                Drag.hotSpot.y: roleCard.height / 2
 
                 Rectangle {
                     anchors.fill: parent
