@@ -17,6 +17,42 @@ Evaluate the FAA source shown in the BlueSky PRO integration setup and define th
 
 The FAA NMS portal describes a modernized NOTAM service. The FAA FAQ says external users should contact `7-AWA-NAIMES@faa.gov` to request access to the NMS-API distribution interface. The portal's public pages do not provide sufficient unauthenticated API endpoint and response-schema detail to implement and verify a production client.
 
+## 2.1 Publicly confirmed API capabilities
+
+The FAA's public NOTAM modernization material describes the NMS-API as available for onboarding and identifies these capabilities:
+
+- query/filter by time and location, including radius-based geospatial queries;
+- retrieve recently created or cancelled NOTAMs;
+- response formats including AIXM 5.1 and GeoJSON;
+- delta queries for incremental updates;
+- support for real-time and batch processing.
+
+These are capability-level statements, not a complete endpoint contract. The precise URL paths, authentication exchange, request parameters, pagination, response envelopes, and schema constraints must come from the official onboarding package. Do not implement guessed URLs or assume OAuth details from third-party code.
+
+## 2.2 Access request checklist
+
+Send an access request to `7-AWA-NAIMES@faa.gov` or use the API access path linked from the official NMS portal. Ask for:
+- developer/onboarding instructions and the current NMS-API specification;
+- access to an approved test/sandbox environment, if available;
+- authentication and credential provisioning instructions;
+- approved usage terms for an external flight-planning application;
+- clarification of whether API access can be granted to an organization based outside the United States.
+
+Suggested request text is maintained below for convenience.
+
+**Subject:** Request for FAA NMS-API access and technical documentation — BlueSky PRO integration
+
+> Hello FAA NOTAM Service Center,
+>
+> We are evaluating an integration between the FAA NOTAM Management Service API and BlueSky PRO, a UAV flight-planning application. Our initial scope is limited to software integration testing using U.S. NOTAM data; it is not intended to replace official FAA services or represent coverage of non-U.S. airspace.
+>
+> Please advise how to request NMS-API access and provide the current technical documentation, including supported environments, authentication, endpoint/query specifications, response schemas, update/delta behavior, rate limits, and applicable terms of use. If a sandbox or non-operational test environment is available, please provide its onboarding procedure.
+>
+> Please also confirm any eligibility requirements for an applicant organization based outside the United States.
+>
+> Regards,  
+> BlueSky PRO Integration Team
+
 ## 3. Current BlueSky PRO state
 
 The current HMI NOTAM test uses the third-party NOTAC REST API, with a default base URL of `https://notac.aero/api/v1`. It sends a bearer token and requests active US notices using the NOTAC-specific route and response envelope. This is **not** a direct FAA NMS adapter.
