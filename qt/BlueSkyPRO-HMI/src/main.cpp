@@ -94,6 +94,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("manualGeometryBridge"), &manualGeometryBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("manualMissionModelAdapter"), &manualMissionModelAdapter);
     engine.rootContext()->setContextProperty(QStringLiteral("routeController"), &routeController);
+    // Explicit alias avoids QML property-name shadowing in component bindings.
+    engine.rootContext()->setContextProperty(QStringLiteral("canonicalRouteController"), &routeController);
     engine.rootContext()->setContextProperty(QStringLiteral("tileCacheManager"), &tileCacheManager);
     engine.rootContext()->setContextProperty(QStringLiteral("credentialVault"), &credentialVault);
     writeStartupLog(QStringLiteral("CHECKPOINT: C++ context properties configured"));
