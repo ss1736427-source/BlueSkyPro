@@ -46,7 +46,8 @@ Item {
     property real liveElapsedSeconds: 0
     property real liveAltitudeM: 0
     // Constraints are derived from the canonical controller route, never cached in this window.
-    readonly property var mandatoryPoints: []
+    // Editable presentation projection; canonical route data remains in RouteController.
+    property var mandatoryPoints: []
     readonly property real plannedDistanceKm: 0
     readonly property real plannedDurationSeconds: 0
     property var parameterVisibility: ({
