@@ -4,6 +4,7 @@ import QtQuick.Controls
 Item {
     id: root
     property string activeSection: "Overview"
+    signal exitRequested()
     readonly property color bg: "#07111B"
     readonly property color sidebar: "#101D28"
     readonly property color card: "#152431"
@@ -77,8 +78,15 @@ Item {
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "Администратор"; color: root.muted; font.pixelSize: 11 }
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "›"; color: root.muted; font.pixelSize: 18 }
                     Text { anchors.verticalCenter: parent.verticalCenter; text: root.titleFor(root.activeSection); color: root.fg; font.pixelSize: 12; font.bold: true }
-                    Item { width: Math.max(10, parent.width - 530); height: 1 }
+                    Item { width: Math.max(10, parent.width - 700); height: 1 }
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "ADMINISTRATOR"; color: root.muted; font.pixelSize: 9; font.letterSpacing: 1 }
+                    Rectangle {
+                        width: 178; height: 34; radius: 5
+                        color: "#17394E"; border.color: root.line
+                        anchors.verticalCenter: parent.verticalCenter
+                        Text { anchors.centerIn: parent; text: "←  Выбор роли"; color: root.fg; font.pixelSize: 11; font.bold: true }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.exitRequested() }
+                    }
                 }
             }
             Loader { anchors.fill: parent; anchors.topMargin: adminTopBar.height; active: root.activeSection === "Integrations"; visible: active; sourceComponent: Component { ExternalIntegrationsWorkspace { anchors.fill: parent } } }
