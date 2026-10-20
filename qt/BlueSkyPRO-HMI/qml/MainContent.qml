@@ -3,9 +3,6 @@ import QtCore
 
 Item {
     id: root
-    width: 1920
-    height: 1080
-
     // BlueSky PRO — Qt Design Studio working screen.
     // Visual composition only. Core / Safety remain authoritative.
     property int toolbarHeight: 54
