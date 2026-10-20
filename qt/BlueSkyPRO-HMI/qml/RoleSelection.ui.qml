@@ -6,7 +6,7 @@ Item {
     height: 1080
 
     // BlueSky PRO — role selection screen, visual HMI layer only.
-    property string selectedRole: "ADMIN"
+    property string selectedRole: "PILOT"
     property string displayDate: "14 Oct 2024"
     property string displayTime: "12:45 (UTC+3)"
     property string languageCode: "RU"
@@ -198,11 +198,17 @@ Item {
                     title: "ПИЛОТ",
                     icon: "✈",
                     description: ["Управление полётом", "Планирование миссий", "Телеметрия", "Выполнение заданий"]
+                },
+                {
+                    role: "MECHANIC",
+                    title: "МЕХАНИК",
+                    icon: "🔩",
+                    description: ["Обслуживание БПЛА", "Ремонт и регламент", "Запасные части", "История работ"]
                 }
             ]
 
             delegate: Item {
-                width: (roleCards.width - roleCards.spacing * 3) / 4
+                width: (roleCards.width - roleCards.spacing * 4) / 5
                 height: roleCards.height
 
                 Rectangle {
