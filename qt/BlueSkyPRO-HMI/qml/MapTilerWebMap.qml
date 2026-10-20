@@ -145,10 +145,15 @@ Item {
         }
     }
 
-    // Diagnostic isolation: keep the map renderer independent from Qt WebChannel.
-    // CI reproduced an access violation even when bridge registration was deferred.
+    // Diagnostic step 2: reconnect the Qt WebChannel transport without registering
+    // any QObject. This separates transport hookup from registered-object lookup.
+    WebChannel {
+        id: mapWebChannel
+    }
+
     WebEngineView {
         id: webMap
+        webChannel: root.apiKey.length > 0 ? mapWebChannel : null
         anchors.fill: parent
         visible: root.apiKey.length > 0
         backgroundColor: "#071321"
