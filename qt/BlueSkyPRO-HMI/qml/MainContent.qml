@@ -362,6 +362,12 @@ Item {
             // Entering ADMIN must work from manual mission editing too.
             // This is a full workspace switch, not a floating layer over the map.
             visible: root.activeTool === "ADMIN"
+            onExitRequested: {
+                root.taskCreationVisible = false
+                root.missionSplashVisible = false
+                root.roleSelectionVisible = true
+                bottomToolbar.activateTool("MAP")
+            }
         }
 
         VirtualFlightTestConsole {
