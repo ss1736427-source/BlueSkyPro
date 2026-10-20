@@ -52,6 +52,7 @@ Item {
                                 MouseArea { anchors.fill: parent; onClicked: root.activeSection = modelData.key }
                             }
                         } }
+                    }
                 }
                 Rectangle { width: parent.width; height: 40; color: "#0B1722"; Text { anchors.left: parent.left; anchors.leftMargin: 16; anchors.verticalCenter: parent.verticalCenter; text: "‹‹  Административная панель"; color: root.muted; font.pixelSize: 10 } }
             }
