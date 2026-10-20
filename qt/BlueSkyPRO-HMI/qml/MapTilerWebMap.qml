@@ -145,21 +145,21 @@ Item {
         }
     }
 
-    // Do not instantiate Qt WebChannel at all when the map key is absent.
-    // This keeps the no-key startup path independent of WebChannel runtime setup.
-    Loader {
-        id: mapWebChannelLoader
-        active: root.apiKey.length > 0
-        sourceComponent: Component {
-            WebChannel {
-                registeredObjects: typeof manualGeometryBridge !== "undefined" ? [manualGeometryBridge] : []
-            }
-        }
+    // Keep WebChannel outside Loader incubation. Qt 6.8.3 can crash while
+    // resolving a C++ context property's QML name during registeredObjects
+    // binding finalization inside a Loader-created WebChannel.
+    // Register the bridge only while the MapTiler path is enabled.
+    WebChannel {
+        id: mapWebChannel
+        registeredObjects: root.apiKey.length > 0
+                           && typeof manualGeometryBridge !== "undefined"
+                           && manualGeometryBridge !== null
+                           ? [manualGeometryBridge] : []
     }
 
     WebEngineView {
         id: webMap
-        webChannel: mapWebChannelLoader.item
+        webChannel: root.apiKey.length > 0 ? mapWebChannel : null
         anchors.fill: parent
         visible: root.apiKey.length > 0
         backgroundColor: "#071321"
