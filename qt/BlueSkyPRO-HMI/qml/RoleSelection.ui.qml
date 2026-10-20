@@ -201,13 +201,21 @@ Item {
                 property real dragX: 0
                 property real dragY: 0
                 transform: Translate { x: roleCard.dragX; y: roleCard.dragY }
-                property int cardIndex: index
+                property string roleName: modelData.role
 
                 DropArea {
                     anchors.fill: parent
                     onEntered: function(drag) {
-                        if (drag.source && drag.source.cardIndex !== undefined)
-                            root.moveRoleCard(drag.source.cardIndex, roleCard.index)
+                        if (drag.source && drag.source.roleName !== undefined) {
+                            var fromIndex = -1
+                            for (var i = 0; i < root.roleCardsModel.length; ++i) {
+                                if (root.roleCardsModel[i].role === drag.source.roleName) {
+                                    fromIndex = i
+                                    break
+                                }
+                            }
+                            root.moveRoleCard(fromIndex, roleCard.index)
+                        }
                     }
                 }
 
@@ -217,7 +225,7 @@ Item {
                     onActiveChanged: {
                         if (active) {
                             roleCard.Drag.active = true
-                            root.draggedRoleIndex = roleCard.index
+                            root.draggedRoleName = roleCard.modelData.role
                         } else {
                             roleCard.Drag.active = false
                             roleCard.dragX = 0
