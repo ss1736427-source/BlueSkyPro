@@ -44,7 +44,6 @@ jobs:
         run: |
           where.exe cl
           where.exe cmake
-          Write-Host "Startup smoke test passed: process remained alive for 8 seconds. This does not verify visual map rendering."
           if (-not (Test-Path "$env:QT_ROOT_DIR\lib\Qt6Core.lib")) { throw "Qt MSVC libraries not found under QT_ROOT_DIR" }
 
       - name: Configure
@@ -67,20 +66,24 @@ jobs:
           & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --qmldir qml build\appBlueSkyPRO.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Windows application startup smoke test
+      - name: Windows application startup smoke test with MapTiler path enabled
         working-directory: qt/BlueSkyPRO-HMI/build
         shell: pwsh
         run: |
+          # A deliberately invalid test key activates the same QML/WebChannel path without exposing a real API key.
+          $env:BLUESKY_MAPTILER_API_KEY = "CI_SMOKE_TEST_KEY_NOT_VALID"
           $app = Start-Process -FilePath "appBlueSkyPRO.exe" -PassThru -RedirectStandardOutput app-smoke.stdout.log -RedirectStandardError app-smoke.stderr.log
-          Start-Sleep -Seconds 8
+          Start-Sleep -Seconds 15
           $app.Refresh()
           if ($app.HasExited) {
+            Write-Host "=== stdout ==="
             Get-Content app-smoke.stdout.log -ErrorAction SilentlyContinue
+            Write-Host "=== stderr ==="
             Get-Content app-smoke.stderr.log -ErrorAction SilentlyContinue
-            throw "appBlueSkyPRO.exe exited during startup smoke test (code $($app.ExitCode))"
+            throw "appBlueSkyPRO.exe exited during MapTiler-enabled startup smoke test (code $($app.ExitCode))"
           }
           Stop-Process -Id $app.Id -Force
-          Write-Host "Startup smoke test passed: process remained alive for 8 seconds. This does not verify visual map rendering."
+          Write-Host "MapTiler-enabled startup smoke test passed: process remained alive for 15 seconds. This checks startup stability, not successful map tile authorization or visual rendering."
 
       - name: Upload Windows application bundle
         uses: actions/upload-artifact@v4
