@@ -36,11 +36,7 @@ int main(int argc, char **argv)
 
     // A planned takeoff origin is explicit and remains separate from work geometry.
     const QString withOrigin = QString::fromUtf8(
-        R"json({"origin":{"longitudeDeg":30.2,"latitudeDeg":59.3,"
-        "\"coordinateReferenceSystem\":\"EPSG:4326\","
-        "\"originKind\":\"PLANNED_TAKEOFF\","
-        "\"horizontalAccuracyM\":1.5,\"trueNorthBearingDeg\":12.0},"
-        "\"objects\":[]})json");
+        R"json({"origin":{"longitudeDeg":30.2,"latitudeDeg":59.3,"coordinateReferenceSystem":"EPSG:4326","originKind":"PLANNED_TAKEOFF","horizontalAccuracyM":1.5,"trueNorthBearingDeg":12.0},"objects":[]})json");
     const QVariantMap anchored = adapter.buildMission(
         withOrigin, {}, QStringLiteral("MISSION-ORIGIN"), 1, true);
     assert(anchored.value(QStringLiteral("valid")).toBool());
@@ -53,9 +49,7 @@ int main(int argc, char **argv)
     assert(origin.value(QStringLiteral("trueNorthBearingDeg")).toDouble() == 12.0);
 
     const QString invalidOrigin = QString::fromUtf8(
-        R"json({"origin":{"longitudeDeg":181.0,"latitudeDeg":59.3,"
-        "\"coordinateReferenceSystem\":\"EPSG:4326\","
-        "\"originKind\":\"PLANNED_TAKEOFF\"},\"objects\":[]})json");
+        R"json({"origin":{"longitudeDeg":181.0,"latitudeDeg":59.3,"coordinateReferenceSystem":"EPSG:4326","originKind":"PLANNED_TAKEOFF"},"objects":[]})json");
     const QVariantMap rejectedOrigin = adapter.buildMission(
         invalidOrigin, {}, QStringLiteral("MISSION-ORIGIN-BAD"), 1, true);
     assert(!rejectedOrigin.value(QStringLiteral("valid")).toBool());
