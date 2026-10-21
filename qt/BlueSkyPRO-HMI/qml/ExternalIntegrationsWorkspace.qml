@@ -13,6 +13,8 @@ Item {
     property string endpointCheck: ""
     property string wizardMessage: ""
     property string wizardState: "idle"
+    property bool notamSourceConfigured: false
+    property string notamSourceStatus: "Требуется настройка источника"
     property bool showTechnicalConsole: false
     readonly property color bg: "#07111B"
     readonly property color card: "#152431"
@@ -116,6 +118,19 @@ Item {
 
     Rectangle { anchors.fill: parent; color: root.bg }
     IntegrationConsole { id: legacyConsole; visible: false; width: 1; height: 1 }
+    Connections {
+        target: typeof faaNmsClient !== "undefined" ? faaNmsClient : null
+        function onConnectionTestFinished(success, message) {
+            if (root.faaNmsMode) {
+                root.notamSourceConfigured = success
+                root.notamSourceStatus = success
+                    ? "Источник настроен · FAA NMS STAGING · соединение проверено"
+                    : "Ошибка подключения · требуется проверка"
+                root.wizardMessage = message
+                root.wizardState = success ? "success" : "error"
+            }
+        }
+    }
 
     Loader {
         anchors.fill: parent
@@ -287,7 +302,7 @@ Item {
                 spacing: 14
                 Repeater {
                     model: [
-                        {title:"NOTAM / AIP",desc:"Аэронавигационные данные и ограничения.",status:"Требуется настройка источника",kind:"notam",state:2},
+                        {title:"NOTAM / AIP",desc:"Аэронавигационные данные и ограничения.",status:root.notamSourceStatus,kind:"notam",state:root.notamSourceConfigured ? 1 : 2},
                         {title:"Погода (WX)",desc:"Метеоданные, прогнозы, METAR / TAF.",status:"Open-Meteo · тестовый источник",kind:"weather",state:1},
                         {title:"Карты и GIS",desc:"Картографические сервисы и спутниковые снимки.",status:"MapTiler · ключ настраивается отдельно",kind:"maps",state:1},
                         {title:"Рельеф и препятствия",desc:"Цифровая модель рельефа, высоты и препятствия.",status:"Рельеф: тестовый запрос · препятствия: не настроены",kind:"terrain",state:1},
@@ -341,9 +356,9 @@ Item {
                                     spacing: 6
                                     Rectangle {
                                         width: 9; height: 9; radius: 5; anchors.verticalCenter: parent.verticalCenter
-                                        color: modelData.state === 0 ? "#AFC4D9" : root.amber
+                                        color: modelData.kind === "notam" && root.notamSourceConfigured ? root.green : (modelData.state === 0 ? "#AFC4D9" : root.amber)
                                     }
-                                    Text { text: modelData.status; color: modelData.state === 0 ? root.muted : root.amber; font.pixelSize: 11; wrapMode: Text.Wrap; width: Math.max(0, parent.width - 16) }
+                                    Text { text: modelData.status; color: modelData.kind === "notam" && root.notamSourceConfigured ? root.green : (modelData.state === 0 ? root.muted : root.amber); font.pixelSize: 11; wrapMode: Text.Wrap; width: Math.max(0, parent.width - 16) }
                                 }
                             }
                         }
