@@ -417,6 +417,8 @@ Item {
             showLeftBorder: true
             showRightBorder: true
             missionReady: root.missionReady
+            notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
+            notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
             warningActive: root.warningActive
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
