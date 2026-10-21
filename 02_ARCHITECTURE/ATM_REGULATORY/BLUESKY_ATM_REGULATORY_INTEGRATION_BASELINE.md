@@ -261,3 +261,8 @@ P0 implementation shall establish:
 ## 17. Important boundary
 
 This baseline defines the product architecture and integration contract. It does not assert that a particular external authority currently exposes a public API or that any automated submission is legally permitted in every operational case. Such capabilities shall be verified against the current official interface and procedure before implementation and certification.
+
+
+## 18. SPPI / CAI research reference
+
+Research findings and the proposed BlueSky integration boundary for the Russian SPPI and CAI ecosystem are recorded in [BLUESKY_SPPI_CAI_RESEARCH_001.md](./BLUESKY_SPPI_CAI_RESEARCH_001.md). This is a source-grounded research note, not an SPPI API specification. Direct endpoint, map-provider, refresh-cadence and submission-interface details remain unverified and must not be assumed by implementation.
