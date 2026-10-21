@@ -404,7 +404,8 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
             record.insert(QStringLiteral("geometryAvailable"), geometry.isObject()
                               && !geometry.toObject().isEmpty());
             if (record.value(QStringLiteral("geometryAvailable")).toBool()) ++featuresWithGeometry;
-            record = NotamGeometryEngine::normalize(record);\n            normalizedRecords.append(record);
+            record = NotamGeometryEngine::normalize(record);
+            normalizedRecords.append(record);
         }
 
         // Publish a new immutable-by-convention result set only after schema/status checks.
