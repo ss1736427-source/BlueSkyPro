@@ -98,7 +98,7 @@ Item {
             "function notamHoverHtml(p){return '';}",
             "function bindNotamLayerInteractions(){if(notamLayerInteractionsBound)return;notamLayerInteractionsBound=true;map.on('click',['bluesky-notam-fill','bluesky-notam-line','bluesky-notam-point'],e=>{if(!e.features||!e.features.length)return;const p=e.features[0].properties||{};if(notamPopup)notamPopup.remove();notamPopup=new maplibregl.Popup({maxWidth:'360px'}).setLngLat(e.lngLat).setHTML(notamPopupHtml(p)).addTo(map);});['bluesky-notam-fill','bluesky-notam-line','bluesky-notam-point'].forEach(id=>{map.on('mouseenter',id,()=>{map.getCanvas().style.cursor='pointer';});map.on('mouseleave',id,()=>{map.getCanvas().style.cursor='';});});}",
             
-            "function selectNotam(id){selectedNotamId=String(id||'');notamData.features.forEach(f=>{f.properties=f.properties||{};f.properties.selected=String(f.properties.id||'UNKNOWN')===selectedNotamId;});if(map.isStyleLoaded())applyNotams();}window.blueskySetNotams=setNotams;window.blueskySelectNotam=selectNotam;",
+            "function selectNotam(id){selectedNotamId=String(id||'');notamData.features.forEach(f=>{f.properties=f.properties||{};f.properties.selected=String(f.properties.id||'UNKNOWN')===selectedNotamId;});if(map.isStyleLoaded())applyNotams();}function centerOnNotam(id){const key=String(id||'');const matches=notamData.features.filter(f=>String((f.properties||{}).id||'UNKNOWN')===key);if(!matches.length){console.warn('NOTAM zone not found on map',key);return false;}const bounds=new maplibregl.LngLatBounds();const addCoords=coords=>{if(!Array.isArray(coords))return;if(coords.length>=2&&typeof coords[0]==='number'&&typeof coords[1]==='number'){bounds.extend(coords);return;}coords.forEach(addCoords);};matches.forEach(f=>{if(f.geometry)addCoords(f.geometry.coordinates);});if(!bounds.isEmpty()){map.fitBounds(bounds,{padding:{top:90,bottom:90,left:100,right:100},maxZoom:13,duration:700});selectNotam(key);return true;}return false;}window.blueskySetNotams=setNotams;window.blueskySelectNotam=selectNotam;window.blueskyCenterOnNotam=centerOnNotam;",
             "let routeData={type:'FeatureCollection',features:[]};",
             "let routeInputSignature=null;",
             "let labelsVisible=true;",
@@ -213,6 +213,13 @@ Item {
     function syncSelectedNotam() {
         if (htmlLoaded && !webMap.loading)
             webMap.runJavaScript("if(window.blueskySelectNotam)window.blueskySelectNotam(" + JSON.stringify(root.selectedNotamId || "") + ");")
+    }
+
+    function centerOnNotam(notamId) {
+        if (htmlLoaded && !webMap.loading) {
+            var payload = JSON.stringify(String(notamId || ""))
+            webMap.runJavaScript("if(window.blueskyCenterOnNotam)window.blueskyCenterOnNotam(" + payload + ");")
+        }
     }
 
     function syncPanelBounds() {
