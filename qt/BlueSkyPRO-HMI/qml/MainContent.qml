@@ -235,6 +235,7 @@ Item {
                 : []
             manualTemplateIds: root.manualSelectedTemplateIds
             selectedNotamId: rightPanel.selectedNotamId
+            notamSearchRadiusNm: rightPanel.notamSearchRadiusNm
             // ADMIN is a dedicated workspace. Keep map state in memory but suspend map rendering.
             visible: root.activeTool !== "ADMIN"
             onMapViewChangeRequested: function(panX, panY, zoom) {
