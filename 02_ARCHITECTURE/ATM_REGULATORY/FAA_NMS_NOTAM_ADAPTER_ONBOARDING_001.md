@@ -144,3 +144,15 @@ The current code now includes a native `FaaNmsClient` and a bounded `queryNotams
 - These CI results confirm the relevant build/validation workflows, not live staging authentication, actual NOTAM ingestion, or interactive map behavior.
 - Still required: run the app with authorized staging credentials and verify pan, zoom, radius change, success, empty result, timeout/auth failure, stale-snapshot messaging and retry behavior. Record the returned snapshot ID and result count. Do not mark the live-query checklist complete based on OAuth/ping alone.
 - This viewport query is currently a test-stage mechanism. Confirm provider rate limits and account terms before any sustained use; do not use rapid map gestures as a production polling strategy without request coalescing/debouncing and rate-limit handling.
+
+
+### Snapshot preservation on failed refresh — verified in CI
+
+- Commit `0eb71e32452c2d0c7090ee14f25b53269fbd19ba` updates the ADMIN console's `onNotamQueryFinished` handler. A failed refresh no longer clears the last accepted record count and snapshot ID from the console status.
+- The status now distinguishes a retained accepted snapshot from the case where no accepted snapshot exists. This is a UI-state correction; it does not make stale data current or valid for release.
+- CI completed successfully for this commit:
+  - HMI Qt Build: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/39584291163
+  - Windows Map Build: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/39584291177
+  - Multi-UAV Validator: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/39584291245
+- Additional Operational Orchestrator and normalized telemetry workflows also completed successfully on the same commit.
+- **Still unverified:** runtime behavior with actual staging credentials, a successful non-empty query, an empty response, and a failed refresh after a non-empty accepted snapshot. The app must label retained data as previous/stale and must not treat it as proof that airspace is clear.
