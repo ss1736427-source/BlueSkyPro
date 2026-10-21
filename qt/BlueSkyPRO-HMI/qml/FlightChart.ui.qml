@@ -18,6 +18,7 @@ Item {
     // Geographic route geometry must be supplied by the mission/planning layer.
     property var routeCoordinates: []
     property var manualTemplateIds: []
+    property string selectedNotamId: ""
     property real leftPanelWidth: 0
     property real rightPanelWidth: 0
     // Pan offset for mouse-driven map dragging (visual preview interaction).
@@ -87,6 +88,7 @@ Item {
         apiKey: typeof mapTilerApiKey !== "undefined" ? mapTilerApiKey : ""
         routeCoordinates: root.routeCoordinates
         manualTemplateIds: root.manualTemplateIds
+        selectedNotamId: root.selectedNotamId
         onUseLegacyMapRequested: root.useMapTilerWebGL = false
     }
 
