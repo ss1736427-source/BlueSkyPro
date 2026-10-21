@@ -31,6 +31,11 @@ Item {
     property string faaClientIdInput: ""
     property string faaClientSecretInput: ""
     property string faaNmsMessage: "Credentials not configured; no live FAA connection has been verified."
+    property int faaNotamRecordCount: -1
+    property int faaNotamGeometryCount: -1
+    property string faaNotamSnapshot: ""
+    property string faaNotamQueryMessage: "NOTAM query not run. Connection test does not download records."
+    property real faaNotamRadiusNm: 25
     property var wxResult: null
     property var demResult: null
     property string wxError: ""
@@ -106,6 +111,21 @@ Item {
     Connections {
         target: typeof faaNmsClient !== "undefined" ? faaNmsClient : null
         function onConnectionTestFinished(success, message) { root.faaNmsMessage = message }
+        function onNotamQueryFinished(success, message) {
+            root.faaNotamQueryMessage = message
+            if (!success) { root.faaNotamRecordCount = -1; root.faaNotamGeometryCount = -1; root.faaNotamSnapshot = "" }
+        }
+        function onNotamRecordsChanged() {
+            if (typeof faaNmsClient === "undefined") return
+            var records = faaNmsClient.notamRecords || []
+            root.faaNotamRecordCount = records.length
+            root.faaNotamGeometryCount = 0
+            for (var i = 0; i < records.length; ++i) {
+                var geometry = records[i].geometryJson || ""
+                try { var parsed = JSON.parse(geometry); if (parsed && parsed.type) root.faaNotamGeometryCount++ } catch (error) {}
+            }
+            root.faaNotamSnapshot = String(faaNmsClient.notamSnapshotId || "")
+        }
     }
 
     function coordinatesValid() {
@@ -540,7 +560,25 @@ Item {
                                     MouseArea { anchors.fill: parent; onClicked: root.deleteFaaNmsCredentials() } }
                             }
                             Text { text: root.faaNmsMessage; width: parent.width; color: root.muted; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
-                            Text { text: "Test scope: OAuth token + /nmsapi/v1/ping only. This does not fetch NOTAM records or feed the flight-safety validator. FAA NMS is a US test source, not an authoritative Russian NOTAM feed."; width: parent.width; color: root.muted; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                            Row { width: parent.width; spacing: 8
+                                Text { text: "SEARCH RADIUS (NM)"; color: root.muted; font.family: "B612 Mono"; font.pixelSize: 9; anchors.verticalCenter: parent.verticalCenter }
+                                TextField { width: 90; height: 30; text: String(root.faaNotamRadiusNm); validator: DoubleValidator { bottom: 0.1; top: 100; decimals: 1 }
+                                    onEditingFinished: { var n = Number(text); if (isFinite(n) && n > 0 && n <= 100) root.faaNotamRadiusNm = n; else text = String(root.faaNotamRadiusNm) }
+                                    color: root.text; background: Rectangle { color: "#07111B"; border.color: root.line; radius: 3 }
+                                }
+                                Rectangle { width: 180; height: 32; radius: 3; color: "#10283A"; border.color: root.cyan
+                                    Text { anchors.centerIn: parent; text: "QUERY NOTAM RECORDS"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                                    MouseArea { anchors.fill: parent; onClicked: {
+                                        if (typeof faaNmsClient === "undefined") { root.faaNotamQueryMessage = "FAA NMS client unavailable."; return }
+                                        if (!root.coordinatesValid()) { root.faaNotamQueryMessage = "Enter valid WGS84 latitude and longitude in TEST LOCATION above."; return }
+                                        root.faaNotamQueryMessage = "NOTAM QUERY IN PROGRESS…"
+                                        faaNmsClient.queryNotams(Number(root.latitudeText), Number(root.longitudeText), root.faaNotamRadiusNm)
+                                    } }
+                                }
+                            }
+                            Text { text: "QUERY RESULT: " + root.faaNotamQueryMessage; width: parent.width; color: root.faaNotamRecordCount >= 0 ? root.green : root.amber; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                            Text { visible: root.faaNotamRecordCount >= 0; text: "NORMALIZED RECORDS: " + root.faaNotamRecordCount + " · RECORDS WITH GEOMETRY JSON: " + root.faaNotamGeometryCount + "\nSNAPSHOT: " + root.faaNotamSnapshot + "\nMAP INPUT: records are bound to MapTilerWebMap; visible zone rendering still requires valid GeoJSON and a loaded map style."; width: parent.width; color: root.text; font.family: "B612 Mono"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                            Text { text: "Test scope: TEST CONNECTION checks OAuth + ping only. QUERY NOTAM RECORDS is a separate data request. This does not feed the flight-safety validator. FAA NMS is a US test source, not an authoritative Russian NOTAM feed."; width: parent.width; color: root.muted; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
                         }
                     }
 
