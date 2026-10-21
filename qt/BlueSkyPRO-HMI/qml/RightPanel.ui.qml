@@ -696,45 +696,50 @@ Item {
                          || root.notamPilotAttentionRequired
                 width: parent.width; height: 23
                 spacing: 4
-                MouseArea {
-                    z: 0
+                Item {
+                    id: notamTextArea
                     width: parent.width - notamRadiusControl.width - parent.spacing
                     height: parent.height
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        root.selectedOperationalTool = "NOTAM"
-                        if (root.notamRecords.length > 0) {
-                            root.selectedNotamId = String(root.notamRecords[0].id || "UNKNOWN")
-                            root.notamSelectionRequested(root.selectedNotamId)
+                    Text {
+                        id: notamStatusLabel
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 48
+                        text: "NOTAM"
+                        color: root.text
+                        font.family: "B612"
+                        font.pixelSize: 11
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    Text {
+                        id: notamRecordCount
+                        anchors.left: notamStatusLabel.right
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: root.notamRecords.length > 0 ? (root.notamRecords.length + " RECORDS") : "NOT CHECKED"
+                        color: root.notamRecords.length > 0 ? root.cyan : root.amber
+                        font.family: "B612"
+                        font.pixelSize: 9
+                        font.bold: true
+                        horizontalAlignment: Text.AlignRight
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        z: -1
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            root.selectedOperationalTool = "NOTAM"
+                            if (root.notamRecords.length > 0) {
+                                root.selectedNotamId = String(root.notamRecords[0].id || "UNKNOWN")
+                                root.notamSelectionRequested(root.selectedNotamId)
+                            }
                         }
                     }
                 }
-                Text {
-                    id: notamStatusLabel
-                    z: 1
-                    width: 48
-                    text: "NOTAM"
-                    color: root.text
-                    font.family: "B612"
-                    font.pixelSize: 11
-                    verticalAlignment: Text.AlignVCenter
-                }
-                Text {
-                    id: notamRecordCount
-                    z: 1
-                    width: parent.width - notamStatusLabel.width - notamRadiusControl.width - parent.spacing * 2
-                    text: root.notamRecords.length > 0 ? (root.notamRecords.length + " RECORDS") : "NOT CHECKED"
-                    color: root.notamRecords.length > 0 ? root.cyan : root.amber
-                    font.family: "B612"
-                    font.pixelSize: 9
-                    font.bold: true
-                    horizontalAlignment: Text.AlignRight
-                    verticalAlignment: Text.AlignVCenter
-                    elide: Text.ElideRight
-                }
                 ComboBox {
                     id: notamRadiusControl
-                    z: 2
                     width: 76
                     height: 22
                     model: ["10 NM", "20 NM", "50 NM", "100 NM"]
