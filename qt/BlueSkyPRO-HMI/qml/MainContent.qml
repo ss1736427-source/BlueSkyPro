@@ -370,20 +370,32 @@ Item {
             }
         }
 
-        VirtualFlightTestConsole {
-            id: virtualFlightTestConsole
+        // Virtual Flight uses the same map and HMI as normal operations.
+        // The only mode-specific visual indicator is a subtle, non-interactive watermark.
+        Item {
+            id: virtualFlightOverlay
             anchors.left: leftPanel.right
             anchors.right: rightPanel.left
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             visible: root.activeTool === "VIRTUAL FLT"
-            testStubsEnabled: root.integrationTestStubsEnabled
-            manualGeometryJson: typeof manualGeometryBridge !== "undefined" && manualGeometryBridge !== null
-                ? manualGeometryBridge.geometryJson : ""
-            manualTemplateIds: root.manualSelectedTemplateIds
-            manualMissionId: root.missionId
-            manualMissionVersion: root.manualMissionVersion
-            manualCompositionComplete: root.manualCompositionComplete
+            z: 10
+            clip: true
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.verticalCenter: parent.verticalCenter
+                text: "VIRTUAL FLIGHT"
+                color: "#B8E8F7"
+                opacity: 0.30
+                font.family: "B612"
+                font.pixelSize: Math.max(22, Math.min(34, parent.width * 0.035))
+                font.bold: true
+                font.letterSpacing: 3
+                horizontalAlignment: Text.AlignHCenter
+                style: Text.Outline
+                styleColor: "#182C3B"
+            }
         }
 
         RightPanel {
