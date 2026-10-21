@@ -83,6 +83,7 @@ void FaaNmsClient::testConnection()
     QUrl url = baseUrl();
     url.setPath(QStringLiteral("/v1/auth/token"));
     QNetworkRequest request(url);
+    request.setTransferTimeout(15000);
     request.setHeader(QNetworkRequest::ContentTypeHeader,
                       QStringLiteral("application/x-www-form-urlencoded"));
     QByteArray basic = clientId.toUtf8() + ':' + clientSecret.toUtf8();
@@ -130,6 +131,7 @@ void FaaNmsClient::requestPing(const QString &accessToken)
     QUrl url = baseUrl();
     url.setPath(QStringLiteral("/nmsapi/v1/ping"));
     QNetworkRequest request(url);
+    request.setTransferTimeout(15000);
     request.setRawHeader("Authorization", "Bearer " + accessToken.toUtf8());
     QNetworkReply *reply = m_network->get(request);
 
