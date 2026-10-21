@@ -34,6 +34,8 @@ qt_add_executable(appBlueSkyPRO
     src/TileCacheManager.h
     src/CredentialVault.cpp
     src/CredentialVault.h
+    src/FaaNmsClient.cpp
+    src/FaaNmsClient.h
 )
 
 qt_add_qml_module(appBlueSkyPRO
