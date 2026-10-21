@@ -36,3 +36,7 @@ This component selects a planning candidate only. It does not authorize, mark RE
 Canonical pipeline:
 
 `ROUTE CANDIDATES → UAV ASSIGNMENT → WIND/PERFORMANCE → 4D TRAJECTORIES → MULTI-UAV CONFLICT → SEQUENCING → CANDIDATE COMPARISON/OPTIMIZATION → SELECTED ROUTE SET`
+
+## Mandatory prohibited-zone avoidance
+
+The optimizer may compare only candidates that have passed the current versioned restriction checks. Candidate generation may explore both lateral detours and vertical bypasses above a restriction's known upper boundary, subject to a compatible altitude datum, aircraft limits, terrain/obstacle constraints, and required safety margin. The complete vertical envelope of each segment matters: a climb or descent through the restricted band inside the horizontal footprint is not a valid bypass. No objective improvement (distance, time, or energy) may override a prohibited-zone constraint. If all candidates intersect a prohibited zone or the restriction cannot be evaluated reliably, selection must fail closed with a reason; it must not return an intersecting candidate as feasible.
