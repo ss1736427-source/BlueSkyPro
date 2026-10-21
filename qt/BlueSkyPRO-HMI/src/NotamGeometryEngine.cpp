@@ -48,7 +48,7 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     auto gd=QJsonDocument::fromJson(raw.toUtf8());if(gd.isObject())g=gd.object();
     if(g.value("type").toString()!="Polygon"&&g.value("type").toString()!="MultiPolygon"){
         static const QRegularExpression area(QStringLiteral("(?:AIRSPACE\\s+CLSD\\s+WI\\s+AREA|AREA|DEFINED\\s+BY)\\s*:?([\\s\\S]*?)(?=\\bF\\)|\\bG\\)|$)"),QRegularExpression::CaseInsensitiveOption);
-        auto am=area.match(text);QString candidate=am.hasMatch()?am.captured(1):text;
+        auto am=area.match(text);QString candidate=am.hasMatch()?am.captured(1):QString();
         static const QRegularExpression cr(QStringLiteral("\\d{4,6}[NS]\\s*\\d{5,7}[EW]"),QRegularExpression::CaseInsensitiveOption);
         QJsonArray ring;auto it=cr.globalMatch(candidate);
         while(it.hasNext()){auto c=coord(it.next().captured());if(c.ok)ring.append(QJsonArray{c.lon,c.lat});}
