@@ -77,7 +77,7 @@ Item {
             "else{",
             "",
             "const map=new maplibregl.Map({container:'map',style:'https://api.maptiler.com/maps/hybrid-v4/style.json?key='+encodeURIComponent(apiKey),center:[31.95990,49.85842],zoom:6.7,attributionControl:true,fadeDuration:0,refreshExpiredTiles:false,cancelPendingTileRequestsWhileZooming:true,crossSourceCollisions:false,maxPitch:60,maxTileCacheZoomLevels:6,canvasContextAttributes:{antialias:false,preserveDrawingBuffer:false}});",
-            "window.blueskyGetNotamView=function(){const c=map.getCenter();return JSON.stringify({latitude:c.lat,longitude:c.lng,zoom:map.getZoom(),loaded:map.loaded()});};",
+            "window.blueskyGetNotamView=function(){const c=map.getCenter();return JSON.stringify({latitude:c.lat,longitude:c.lng,zoom:map.getZoom(),radiusNm:Number(document.getElementById('notam-radius').value)||20,loaded:map.loaded()});};window.blueskySetNotamStatus=function(s){const el=document.getElementById('notam-auto-status');if(el)el.textContent=String(s||'');};",
             "document.getElementById('notam-radius').addEventListener('change',()=>{const el=document.getElementById('notam-auto-status');if(el)el.textContent='Радиус изменён · запрос обновится автоматически';});",
             "function refreshGeometryLayer(){if(!map.isStyleLoaded())return;const features=[];objects.forEach(o=>{const coords=o.coordinates.map(p=>[Number(p[0]),Number(p[1])]);if(['POLYGON_AOI','SEARCH_AREA'].includes(o.geometryType)&&coords.length>=3){const ring=coords.slice();if(ring[0][0]!==ring[ring.length-1][0]||ring[0][1]!==ring[ring.length-1][1])ring.push(ring[0]);features.push({type:'Feature',properties:{kind:'area'},geometry:{type:'Polygon',coordinates:[ring]}});}else if(['CORRIDOR','DELIVERY_ROUTE'].includes(o.geometryType)&&coords.length>=2){features.push({type:'Feature',properties:{kind:'line'},geometry:{type:'LineString',coordinates:coords}});}coords.forEach(p=>features.push({type:'Feature',properties:{kind:'point'},geometry:{type:'Point',coordinates:p}}));});draft.forEach(p=>features.push({type:'Feature',properties:{kind:'draft'},geometry:{type:'Point',coordinates:[p[0],p[1]]}}));if(origin)features.push({type:'Feature',properties:{kind:'origin'},geometry:{type:'Point',coordinates:[origin.longitudeDeg,origin.latitudeDeg]}});const data={type:'FeatureCollection',features};if(!map.getSource('bluesky-manual-geometry'))map.addSource('bluesky-manual-geometry',{type:'geojson',data});else map.getSource('bluesky-manual-geometry').setData(data);if(!map.getLayer('bluesky-manual-area'))map.addLayer({id:'bluesky-manual-area',type:'fill',source:'bluesky-manual-geometry',filter:['==',['get','kind'],'area'],paint:{'fill-color':'#32ffff','fill-opacity':0.16}});if(!map.getLayer('bluesky-manual-line'))map.addLayer({id:'bluesky-manual-line',type:'line',source:'bluesky-manual-geometry',filter:['==',['get','kind'],'line'],paint:{'line-color':'#64ff00','line-width':3}});if(!map.getLayer('bluesky-manual-points'))map.addLayer({id:'bluesky-manual-points',type:'circle',source:'bluesky-manual-geometry',filter:['in',['get','kind'],['literal',['point','draft','origin']]],paint:{'circle-radius':['match',['get','kind'],'origin',9,5],'circle-color':['match',['get','kind'],'origin','#64ff00','#32ffff'],'circle-stroke-color':'#ffffff','circle-stroke-width':1.5}});}",
             "window.blueskySetManualTemplates=function(ids){const next=Array.isArray(ids)?ids.filter(id=>geometryTypes[id]):[];if(JSON.stringify(next)!==JSON.stringify(selectedTemplates)){capturing=false;draft=[];}selectedTemplates=next;objects=objects.filter(o=>o.templateIds.every(id=>selectedTemplates.includes(id)));syncGeometryTemplates(selectedTemplates);refreshGeometryLayer();};",
@@ -172,6 +172,9 @@ Item {
         try { view = JSON.parse(viewJson || "{}") } catch (error) { return }
         if (!view || view.loaded !== true || !isFinite(Number(view.latitude)) || !isFinite(Number(view.longitude)) || !isFinite(Number(view.zoom))) return
         var lat = Number(view.latitude), lon = Number(view.longitude), zoom = Number(view.zoom)
+        var radius = Number(view.radiusNm)
+        if ([10, 20, 50, 100].indexOf(radius) < 0) radius = 20
+        root.notamSearchRadiusNm = radius
         var dLatNm = isFinite(root.lastNotamQueryLatitude) ? Math.abs(lat - root.lastNotamQueryLatitude) * 60 : Infinity
         var dLonNm = isFinite(root.lastNotamQueryLongitude) ? Math.abs(lon - root.lastNotamQueryLongitude) * 60 * Math.max(0.1, Math.cos(lat * Math.PI / 180)) : Infinity
         var movedNm = Math.sqrt(dLatNm*dLatNm + dLonNm*dLonNm)
@@ -180,6 +183,7 @@ Item {
         root.lastNotamQueryLatitude = lat; root.lastNotamQueryLongitude = lon; root.lastNotamQueryZoom = zoom; root.lastNotamQueryRadiusNm = root.notamSearchRadiusNm
         root.notamQueryInProgress = true
         root.notamAutoStatus = "Загрузка NOTAM · " + lat.toFixed(3) + ", " + lon.toFixed(3) + " · радиус " + root.notamSearchRadiusNm + " NM"
+        webMap.runJavaScript("if(window.blueskySetNotamStatus)window.blueskySetNotamStatus(" + JSON.stringify(root.notamAutoStatus) + ");")
         if (typeof faaNmsClient.queryNotams === "function") faaNmsClient.queryNotams(lat, lon, root.notamSearchRadiusNm)
         else { root.notamQueryInProgress = false; root.notamAutoStatus = "Клиент FAA NMS недоступен" }
     }
@@ -278,6 +282,7 @@ Item {
         function onNotamQueryFinished(success, message) {
             root.notamQueryInProgress = false
             root.notamAutoStatus = success ? message : "Ошибка загрузки NOTAM: " + message
+            webMap.runJavaScript("if(window.blueskySetNotamStatus)window.blueskySetNotamStatus(" + JSON.stringify(root.notamAutoStatus) + ");")
         }
         function onLeftPanelWidthChanged() { root.syncPanelBounds() }
         function onRightPanelWidthChanged() { root.syncPanelBounds() }
