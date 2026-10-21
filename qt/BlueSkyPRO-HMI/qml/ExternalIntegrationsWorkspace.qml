@@ -103,22 +103,32 @@ Item {
             x: 30; y: 26
             width: Math.max(320, parent.width - 60)
             spacing: 18
-            Row {
+            Item {
                 width: parent.width
-                spacing: 16
+                height: Math.max(44, heading.implicitHeight)
                 Text {
-                    width: parent.width - (root.selectedKind === "" ? 174 : 0)
-                    text: root.selectedKind === "notam" ? "Подключение NOTAM / AIP" : "Внешние интеграции"
-                    color: root.fg; font.pixelSize: 26; font.bold: true
+                    id: heading
+                    anchors.left: parent.left
+                    anchors.right: addSourceButton.visible ? addSourceButton.left : parent.right
+                    anchors.rightMargin: addSourceButton.visible ? 18 : 0
                     anchors.verticalCenter: parent.verticalCenter
+                    text: root.selectedKind === "notam" ? "Подключение NOTAM / AIP" : "Внешние интеграции"
+                    color: root.fg
+                    font.pixelSize: 28
+                    font.bold: true
                     wrapMode: Text.Wrap
                 }
                 Rectangle {
+                    id: addSourceButton
                     visible: root.selectedKind === ""
-                    width: 158; height: 38; radius: 5
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 174
+                    height: 42
+                    radius: 6
                     color: root.cyan
-                    Text { anchors.centerIn: parent; text: "+  Добавить источник"; color: "#07111B"; font.pixelSize: 11; font.bold: true }
-                    MouseArea { anchors.fill: parent; onClicked: root.chooseSource("notam") }
+                    Text { anchors.centerIn: parent; text: "+  Добавить источник"; color: "#07111B"; font.pixelSize: 12; font.bold: true }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.chooseSource("notam") }
                 }
             }
             Text {
@@ -205,8 +215,11 @@ Item {
             }
 
             Grid {
+                id: integrationsGrid
                 visible: root.selectedKind === ""
-                width: parent.width; columns: width < 700 ? 1 : width < 1120 ? 2 : 3; spacing: 12
+                width: parent.width
+                columns: width < 700 ? 1 : width < 1120 ? 2 : 3
+                spacing: 14
                 Repeater {
                     model: [
                         {title:"NOTAM / AIP",desc:"Аэронавигационные данные и ограничения.",status:"Требуется настройка источника",kind:"notam",state:2},
@@ -220,8 +233,11 @@ Item {
                     ]
                     delegate: Rectangle {
                         required property var modelData
-                        width: (page.width - (page.width < 700 ? 0 : page.width < 1120 ? 12 : 24)) / (page.width < 700 ? 1 : page.width < 1120 ? 2 : 3)
-                        height: 148; radius: 8; color: root.card; border.color: root.line
+                        width: (integrationsGrid.width - integrationsGrid.spacing * (integrationsGrid.columns - 1)) / integrationsGrid.columns
+                        height: 158
+                        radius: 9
+                        color: root.card
+                        border.color: root.line
                         Row {
                             anchors.fill: parent
                             anchors.margins: 14
@@ -244,23 +260,25 @@ Item {
                                 }
                             }
                             Column {
-                                width: parent.width - 78
+                                width: Math.max(0, parent.width - 82)
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 7
-                                Row {
+                                spacing: 8
+                                Text {
+                                    text: modelData.title
+                                    color: root.fg
+                                    font.pixelSize: 15
+                                    font.bold: true
                                     width: parent.width
-                                    spacing: 6
-                                    Text { text: modelData.title; color: root.fg; font.pixelSize: 14; font.bold: true; width: parent.width - 18; wrapMode: Text.Wrap }
-                                    Text { text: "›"; color: root.muted; font.pixelSize: 22; anchors.verticalCenter: parent.verticalCenter }
+                                    wrapMode: Text.Wrap
                                 }
-                                Text { text: modelData.desc; color: root.muted; font.pixelSize: 11; wrapMode: Text.Wrap; width: parent.width; maximumLineCount: 2 }
+                                Text { text: modelData.desc; color: root.muted; font.pixelSize: 12; wrapMode: Text.Wrap; width: parent.width; maximumLineCount: 2 }
                                 Row {
                                     spacing: 6
                                     Rectangle {
                                         width: 9; height: 9; radius: 5; anchors.verticalCenter: parent.verticalCenter
                                         color: modelData.state === 0 ? "#AFC4D9" : root.amber
                                     }
-                                    Text { text: modelData.status; color: modelData.state === 0 ? root.muted : root.amber; font.pixelSize: 10; wrapMode: Text.Wrap; width: parent.width - 16 }
+                                    Text { text: modelData.status; color: modelData.state === 0 ? root.muted : root.amber; font.pixelSize: 11; wrapMode: Text.Wrap; width: Math.max(0, parent.width - 16) }
                                 }
                             }
                         }
