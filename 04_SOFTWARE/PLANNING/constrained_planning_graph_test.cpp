@@ -44,6 +44,48 @@ int main()
     assert(missingGoal.graph.goal_node.empty());
     assert(missingGoal.dependency_identity.empty());
 
+    // The constrained graph must retain a lateral detour while excluding
+    // a direct edge through a prohibited footprint. Search solvers can then
+    // find the detour without weakening the restriction.
+    ConstrainedEnvironmentSnapshot detourEnvironment;
+    detourEnvironment.snapshot_id = "ENV-DETOUR";
+    detourEnvironment.snapshot_version = "v-detour";
+    detourEnvironment.calculation_input_version = "INPUT-DETOUR";
+    SpatialRestriction detourZone;
+    detourZone.restriction_id = "NOTAM-DETOUR";
+    detourZone.source_id = "TEST";
+    detourZone.snapshot_version = "NOTAM-v1";
+    detourZone.geometry_type = RestrictionGeometryType::Circle;
+    detourZone.center = {59.0, 30.0};
+    detourZone.radius_m = 250.0;
+    detourZone.minimum_altitude_m = 0.0;
+    detourZone.maximum_altitude_m = 200.0;
+    detourZone.active = true;
+    detourZone.altitude_reference = AltitudeReference::AGL;
+    detourEnvironment.restrictions.push_back(detourZone);
+
+    PlanningGraph detourGraph;
+    detourGraph.nodes = {
+        {"S", 0, 0, {59.0, 29.995}, 100.0, AltitudeReference::AGL},
+        {"G", 1, 0, {59.0, 30.005}, 100.0, AltitudeReference::AGL},
+        {"D1", 0.5, 1, {59.004, 30.0}, 100.0, AltitudeReference::AGL},
+        {"D2", 0.5, 2, {59.004, 30.004}, 100.0, AltitudeReference::AGL}
+    };
+    detourGraph.start_node = "S";
+    detourGraph.goal_node = "G";
+    detourGraph.edges = {
+        {"S", "G", 1.0}, {"S", "D1", 1.0}, {"D1", "D2", 1.0},
+        {"D2", "G", 1.0}
+    };
+    const auto detourResult =
+        ConstrainedPlanningGraphBuilder::build(detourGraph, detourEnvironment);
+    assert(detourResult.rejected_edges == 1);
+    assert(detourResult.graph.edges.size() == 3);
+    bool directEdgeRetained = false;
+    for (const auto& edge : detourResult.graph.edges)
+        if (edge.from == "S" && edge.to == "G") directEdgeRetained = true;
+    assert(!directEdgeRetained);
+
     // Graph edges must carry an explicit, compatible altitude datum before
     // numerical comparison with restriction altitude limits is permitted.
     graph.nodes.push_back({"N2", 100.0, 100.0, {59.02, 30.02}, 100.0});
