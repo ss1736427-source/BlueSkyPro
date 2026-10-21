@@ -278,6 +278,13 @@ Item {
         }
 
         Connections {
+            target: rightPanel
+            function onNotamSelectionRequested(notamId) {
+                flightChart.centerOnNotam(notamId)
+            }
+        }
+
+        Connections {
             target: manualGeometryBridge
             function onCompositionCompleteChanged() {
                 root.manualCompositionComplete = manualGeometryBridge.compositionComplete
