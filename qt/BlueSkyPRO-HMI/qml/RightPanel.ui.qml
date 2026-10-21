@@ -514,7 +514,7 @@ Item {
         x: 16
         y: root.selectedOperationalTool === "CHECKLIST" ? 0 : (root.draggingPanel === "Checklist" ? root.dragVisualY : root.panelPositionY("Checklist"))
         width: parent.width - 32
-        height: root.selectedOperationalTool === "CHECKLIST" ? Math.max(80, atcWorkArea.y - 8) : Math.min(42 + root.visibleChecklistItems().length * 18, Math.max(90, parent.height * 0.34))
+        height: root.selectedOperationalTool === "CHECKLIST" ? Math.max(34, atcWorkArea.y - 8) : Math.min(42 + root.visibleChecklistItems().length * 18, Math.max(90, parent.height * 0.34))
         clip: root.selectedOperationalTool !== ""
         radius: 8
         color: "transparent"
@@ -568,6 +568,13 @@ Item {
                 root.dropPanelAtPosition("Checklist", mapToItem(root, mouse.x, mouse.y).y)
             }
             onCanceled: root.cancelPanelDrag("Checklist")
+            onClicked: {
+                if (root.selectedOperationalTool === "CHECKLIST") {
+                    root.selectedOperationalTool = ""
+                } else {
+                    root.selectedOperationalTool = "CHECKLIST"
+                }
+            }
         }
 
         Row {
@@ -647,7 +654,7 @@ Item {
         x: 16
         y: root.selectedOperationalTool !== "" ? 0 : (root.draggingPanel === "Flight Conditions" ? root.dragVisualY : root.panelPositionY("Flight Conditions"))
         width: parent.width - 32
-        height: root.selectedOperationalTool !== "" ? Math.max(110, root.height - operationalCard.y - root.bottomInset - 8) : 94
+        height: root.selectedOperationalTool !== "" ? Math.max(34, atcWorkArea.y - 8) : 94
         radius: 8
         color: root.selectedOperationalTool !== "" ? root.bg : "transparent"
         border.color: "#236078"
@@ -679,6 +686,10 @@ Item {
                 root.dropPanelAtPosition("Flight Conditions", mapToItem(root, mouse.x, mouse.y).y)
             }
             onCanceled: root.cancelPanelDrag("Flight Conditions")
+            onClicked: {
+                if (root.selectedOperationalTool === "WEATHER" || root.selectedOperationalTool === "NOTAM")
+                    root.selectedOperationalTool = ""
+            }
         }
         }
 
@@ -943,6 +954,15 @@ Item {
                 root.dropPanelAtPosition("Alerting", mapToItem(root, mouse.x, mouse.y).y)
             }
             onCanceled: root.cancelPanelDrag("Alerting")
+            onClicked: {
+                if (root.selectedOperationalTool === "ALERTING") {
+                    root.selectedOperationalTool = ""
+                } else {
+                    root.selectedInformationMessage = null
+                    root.interventionMode = false
+                    root.selectedOperationalTool = "ALERTING"
+                }
+            }
         }
     }
 
@@ -1040,6 +1060,24 @@ Item {
             id: informationDetailsColumn
             width: informationDetails.width
             spacing: 5
+
+        Text {
+            width: parent.width
+            visible: root.selectedOperationalTool === "ALERTING"
+            text: "‹ НАЗАД К СООБЩЕНИЯМ"
+            color: root.cyan
+            font.family: "B612"
+            font.pixelSize: 11
+            MouseArea {
+                anchors.fill: parent
+                anchors.margins: -4
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    root.selectedInformationMessage = null
+                    root.interventionMode = false
+                }
+            }
+        }
 
         Text {
             width: parent.width
@@ -1215,7 +1253,7 @@ Item {
     }
 
     Rectangle {
-        visible: root.atcValidationVisible && root.selectedOperationalTool === ""
+        visible: root.atcValidationVisible
         x: 26
         y: root.atcValidationY
         width: parent.width - 52
@@ -1243,7 +1281,7 @@ Item {
     }
 
     MouseArea {
-        visible: root.selectedOperationalTool === "" && root.manualCreationMode && !root.manualValidationStarted && !root.manualValidationSucceeded
+        visible: root.manualCreationMode && !root.manualValidationStarted && !root.manualValidationSucceeded
                  && panelSettingsPopup.enabledTools.indexOf("Validation") >= 0
         x: 26
         y: root.atcValidationY
@@ -1255,7 +1293,7 @@ Item {
     }
 
     Text {
-        visible: root.manualModelStatusVisible && root.selectedOperationalTool === ""
+        visible: root.manualModelStatusVisible
         x: 26
         y: root.atcValidationY + root.atcButtonHeight + 5
         width: parent.width - 52
@@ -1278,7 +1316,7 @@ Item {
     }
 
     Rectangle {
-        visible: root.atcSendVisible && root.selectedOperationalTool === ""
+        visible: root.atcSendVisible
         x: 26
         y: root.atcSendY
         width: parent.width - 52
@@ -1303,7 +1341,7 @@ Item {
     }
 
     Rectangle {
-        visible: root.atcStartVisible && root.selectedOperationalTool === ""
+        visible: root.atcStartVisible
         x: 26
         y: root.atcStartY
         width: parent.width - 52
