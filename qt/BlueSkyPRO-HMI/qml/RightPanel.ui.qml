@@ -634,12 +634,13 @@ Item {
         x: 16
         y: root.draggingPanel === "Flight Conditions" ? root.dragVisualY : root.panelPositionY("Flight Conditions")
         width: parent.width - 32
-        height: root.selectedOperationalTool !== "" ? Math.max(110, parent.height - operationalCard.y - root.bottomInset - 8) : 94
+        height: root.selectedOperationalTool !== "" ? Math.max(110, root.height - operationalCard.y - root.bottomInset - 8) : 94
         radius: 8
-        color: "transparent"
+        color: root.selectedOperationalTool !== "" ? root.bg : "transparent"
         border.color: "#236078"
         border.width: 1
         antialiasing: true
+        clip: root.selectedOperationalTool !== ""
         z: root.draggingPanel === "Flight Conditions" ? 200 : (root.selectedOperationalTool !== "" ? 300 : 1)
         onHeightChanged: Qt.callLater(root.reflowPanelPositions)
 
