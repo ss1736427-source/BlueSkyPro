@@ -10,7 +10,7 @@
 CredentialVault::CredentialVault(QString targetPrefix, QObject *parent)
     : QObject(parent), m_targetPrefix(std::move(targetPrefix)) {}
 bool CredentialVault::providerAllowed(const QString &provider) const {
-    static const QStringList allowed = {QStringLiteral("notam"), QStringLiteral("icao"), QStringLiteral("maptiler"), QStringLiteral("weather")};
+    static const QStringList allowed = {QStringLiteral("notam"), QStringLiteral("faa_nms"), QStringLiteral("icao"), QStringLiteral("maptiler"), QStringLiteral("weather")};
     return allowed.contains(provider);
 }
 QString CredentialVault::targetName(const QString &provider) const { return m_targetPrefix + QLatin1Char('/') + provider.toUpper(); }
