@@ -310,12 +310,16 @@ Item {
     }
 
     function panelVisible(key) {
-        // Detail mode is exclusive: hide the other operational sections while
-        // Flight Conditions is expanded. Stored positions are left untouched;
-        // reflowPanelPositions already skips detail mode, so Back restores layout.
-        if (root.selectedOperationalTool !== ""
-                && key !== "Flight Conditions" && key !== "Information")
+        // Exclusive reading mode: show only the selected panel plus the fixed ATC area.
+        // Stored panel positions are never modified; leaving detail mode restores them.
+        if (root.selectedOperationalTool !== "") {
+            if (key === "ATC") return root.atcHeaderVisible || root.atcVisibleButtonCount > 0
+            if (root.selectedOperationalTool === "CHECKLIST") return key === "Checklist"
+            if (root.selectedOperationalTool === "ALERTING") return key === "Alerting"
+            if (root.selectedOperationalTool === "WEATHER" || root.selectedOperationalTool === "NOTAM")
+                return key === "Flight Conditions"
             return false
+        }
         if (key === "Information")
             return true
         if (key === "Checklist")
@@ -508,16 +512,16 @@ Item {
         id: checklistCard
         visible: root.panelVisible("Checklist")
         x: 16
-        y: root.draggingPanel === "Checklist" ? root.dragVisualY : root.panelPositionY("Checklist")
+        y: root.selectedOperationalTool === "CHECKLIST" ? 0 : (root.draggingPanel === "Checklist" ? root.dragVisualY : root.panelPositionY("Checklist"))
         width: parent.width - 32
-        height: root.selectedOperationalTool !== "" ? 34 : Math.min(42 + root.visibleChecklistItems().length * 18, Math.max(90, parent.height * 0.34))
+        height: root.selectedOperationalTool === "CHECKLIST" ? Math.max(80, atcWorkArea.y - 8) : Math.min(42 + root.visibleChecklistItems().length * 18, Math.max(90, parent.height * 0.34))
         clip: root.selectedOperationalTool !== ""
         radius: 8
         color: "transparent"
         border.color: "#236078"
         border.width: 1
         antialiasing: true
-        z: root.draggingPanel === "Checklist" ? 200 : (root.selectedOperationalTool !== "" ? 2 : 1)
+        z: root.draggingPanel === "Checklist" ? 200 : (root.selectedOperationalTool === "CHECKLIST" ? 300 : 1)
         onHeightChanged: Qt.callLater(root.reflowPanelPositions)
     }
 
@@ -608,7 +612,7 @@ Item {
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
-        visible: checklistCard.visible && root.selectedOperationalTool === ""
+        visible: checklistCard.visible && (root.selectedOperationalTool === "" || root.selectedOperationalTool === "CHECKLIST")
 
         Column {
             id: checklistList
@@ -680,7 +684,7 @@ Item {
 
         Column {
             x: 8; y: 38; width: parent.width - 16; spacing: 3
-            visible: root.selectedOperationalTool === ""
+            visible: root.selectedOperationalTool === "" || root.selectedOperationalTool === "CHECKLIST"
 
             Row {
                 visible: panelSettingsPopup.enabledTools.indexOf("Weather") >= 0
@@ -883,16 +887,16 @@ Item {
         id: informationCard
         visible: root.panelVisible("Alerting")
         x: 16
-        y: root.draggingPanel === "Alerting" ? root.dragVisualY : root.panelPositionY("Alerting")
+        y: root.selectedOperationalTool === "ALERTING" ? 0 : (root.draggingPanel === "Alerting" ? root.dragVisualY : root.panelPositionY("Alerting"))
         width: parent.width - 32
-        height: root.selectedOperationalTool !== "" ? 34 : Math.max(72, Math.min(root.informationAvailableHeight, (root.selectedInformationMessage ? informationDetailsColumn.implicitHeight : informationList.implicitHeight) + 48))
+        height: root.selectedOperationalTool === "ALERTING" ? Math.max(80, atcWorkArea.y - 8) : Math.max(72, Math.min(root.informationAvailableHeight, (root.selectedInformationMessage ? informationDetailsColumn.implicitHeight : informationList.implicitHeight) + 48))
         clip: root.selectedOperationalTool !== ""
         radius: 8
         color: "transparent"
         border.color: "#236078"
         border.width: 1
         antialiasing: true
-        z: root.draggingPanel === "Alerting" ? 200 : (root.selectedOperationalTool !== "" ? 2 : 1)
+        z: root.draggingPanel === "Alerting" ? 200 : (root.selectedOperationalTool === "ALERTING" ? 300 : 1)
         onHeightChanged: Qt.callLater(root.reflowPanelPositions)
     }
 
@@ -1152,14 +1156,14 @@ Item {
         x: 16
         y: root.draggingPanel === "ATC" ? root.dragVisualY : root.panelPositionY("ATC")
         width: parent.width - 32
-        height: root.selectedOperationalTool !== "" ? 34 : root.atcWorkAreaHeight
-        clip: root.selectedOperationalTool !== ""
+        height: root.atcWorkAreaHeight
+        clip: false
         radius: 8
         color: "transparent"
         border.color: "#236078"
         border.width: 1
         antialiasing: true
-        z: root.draggingPanel === "ATC" ? 200 : (root.selectedOperationalTool !== "" ? 2 : 1)
+        z: root.draggingPanel === "ATC" ? 200 : 1
         onHeightChanged: Qt.callLater(root.reflowPanelPositions)
     }
 
