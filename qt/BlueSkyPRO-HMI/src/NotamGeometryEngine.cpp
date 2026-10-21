@@ -28,8 +28,8 @@ bool alt(QString s,double &m,QString &datum) {
     datum=x.captured(3)=="MSL"?"AMSL":x.captured(3);return true;
 }
 QJsonArray circle(double lat,double lon,double km) {
-    QJsonArray ring;const double rad=qDegreesToRadians(lat);
-    for(int i=0;i<72;++i){double a=2*M_PI*i/72;ring.append(QJsonArray{lon+km*qCos(a)/(111.32*qMax(0.01,qCos(rad))),lat+km*qSin(a)/110.574});}
+    QJsonArray ring;const double rad=qDegreesToRadians(lat);constexpr double pi=3.14159265358979323846;
+    for(int i=0;i<72;++i){double a=2*pi*i/72;ring.append(QJsonArray{lon+km*qCos(a)/(111.32*qMax(0.01,qCos(rad))),lat+km*qSin(a)/110.574});}
     ring.append(ring.first());return ring;
 }
 }
