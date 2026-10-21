@@ -275,11 +275,7 @@ Item {
     }
 
     Connections {
-        target: root
-        function onRouteCoordinatesChanged() { root.syncRouteCoordinates() }
-        function onManualTemplateIdsChanged() { root.syncManualTemplates() }
-        function onNotamRecordsChanged() { root.syncNotamRecords() }
-        function onNotamSnapshotIdChanged() { root.syncNotamRecords() }
+        target: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient : null
         function onNotamQueryFinished(success, message) {
             root.notamQueryInProgress = false
             if (success) {
@@ -296,6 +292,14 @@ Item {
             }
             webMap.runJavaScript("if(window.blueskySetNotamStatus)window.blueskySetNotamStatus(" + JSON.stringify(root.notamAutoStatus) + ");")
         }
+    }
+
+    Connections {
+        target: root
+        function onRouteCoordinatesChanged() { root.syncRouteCoordinates() }
+        function onManualTemplateIdsChanged() { root.syncManualTemplates() }
+        function onNotamRecordsChanged() { root.syncNotamRecords() }
+        function onNotamSnapshotIdChanged() { root.syncNotamRecords() }
         function onLeftPanelWidthChanged() { root.syncPanelBounds() }
         function onRightPanelWidthChanged() { root.syncPanelBounds() }
     }
