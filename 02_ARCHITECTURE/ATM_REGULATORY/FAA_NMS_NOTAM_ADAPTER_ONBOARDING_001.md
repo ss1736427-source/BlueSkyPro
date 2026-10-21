@@ -113,13 +113,13 @@ Do not use FAA staging records as authoritative Russian restrictions or as the s
 - [ ] Virtual Flight fixtures remain isolated from provider results.
 - [ ] Russian jurisdiction source and coverage are separately established.
 
-**Current blocker:** the onboarding bundle defines the protocol, but this review did not verify that valid staging credentials are available. The credential spreadsheet was unreadable in the review environment. No live connection is claimed. The vault currently has separate identifiers for `faa_nms_client_id` and `faa_nms_client_secret`; this does not mean credentials have been entered or validated.
+**Current blocker:** the onboarding bundle defines the protocol, but this review did not verify that valid staging credentials are available. The credential spreadsheet was unreadable in the review environment. No live connection is claimed. The vault has separate identifiers for `faa_nms_client_id` and `faa_nms_client_secret`, and the ADMIN console now has controls to save/delete them and initiate token-plus-ping testing. These changes do not mean credentials have been entered or validated; CI is still pending.
 
 ## 9. Next implementation sequence
 
-1. Store FAA OAuth credentials as two independent Windows Credential Manager entries: `faa_nms_client_id` and `faa_nms_client_secret`. Keep both separate from `faa_nms` and the existing `notam`/NOTAC secret. The allowlist and process-level vault test now cover these identifiers; the Windows CI result must still be checked.
-2. Implement a native FAA NMS client for token exchange, token renewal and `ping`.
-3. Add fixture-backed tests for auth/error handling before making live requests.
+1. Store FAA OAuth credentials as two independent Windows Credential Manager entries: `faa_nms_client_id` and `faa_nms_client_secret`. Keep both separate from `faa_nms` and the existing `notam`/NOTAC secret.
+2. Add the native client for token exchange and `ping`; expose status and a credential/test control in the ADMIN integration console. This is a connectivity smoke test only, not NOTAM ingestion.
+3. Confirm the HMI build and add deterministic fixture-backed tests for auth/error handling before live requests.
 4. Add the bounded NOTAM query, response validation and canonical normalization.
-5. Connect the result to the ADMIN integration console with source, status, last successful retrieval and freshness.
+5. Connect validated provider records to the ADMIN console with source, status, last successful retrieval and freshness.
 6. Keep Virtual Flight as the operationally isolated test path until the complete verification checklist is met.
