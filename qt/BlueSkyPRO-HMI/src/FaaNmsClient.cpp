@@ -411,9 +411,15 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
         m_notamSnapshotId = QStringLiteral("FAA-NMS-%1-%2")
             .arg(m_environment, QUuid::createUuid().toString(QUuid::WithoutBraces));
         emit notamRecordsChanged();
-        emit notamQueryFinished(true,
-            QStringLiteral("FAA NMS query succeeded: %1 GeoJSON records normalized; %2 include geometry. Snapshot %3. Raw altitude limits are preserved with UNKNOWN datum; this snapshot is not yet connected to route validation.")
-                .arg(normalizedRecords.size()).arg(featuresWithGeometry).arg(m_notamSnapshotId));
+        if (normalizedRecords.isEmpty()) {
+            emit notamQueryFinished(true,
+                QStringLiteral("FAA NMS query completed with zero matching records for this radius. This US test source does not establish that the queried airspace is unrestricted. Snapshot %1.")
+                    .arg(m_notamSnapshotId));
+        } else {
+            emit notamQueryFinished(true,
+                QStringLiteral("FAA NMS query succeeded: %1 GeoJSON records normalized; %2 include geometry. Snapshot %3. Raw altitude limits are preserved with UNKNOWN datum; this snapshot is not yet connected to route validation.")
+                    .arg(normalizedRecords.size()).arg(featuresWithGeometry).arg(m_notamSnapshotId));
+        }
     });
 }
 
