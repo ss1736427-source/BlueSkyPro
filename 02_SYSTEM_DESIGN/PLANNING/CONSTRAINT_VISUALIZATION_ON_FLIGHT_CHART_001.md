@@ -79,3 +79,24 @@ The visualization layer:
 - does not create a second restriction calculation.
 
 Its purpose is immediate spatial awareness and traceable operator interaction with the current planning environment.
+
+
+## 9. NOTAM Time Filtering and Operator Inspection — Baseline Extension
+
+### 9.1 Before route calculation
+
+Before a route has been calculated, the Flight Chart shall display the geometric zones of NOTAMs whose validity intervals overlap the current local calendar day. The UI must identify the time zone used for the calendar-day boundary and must not silently treat missing validity times as confirmed inactive.
+
+### 9.2 After route calculation
+
+After route calculation, the operational NOTAM overlay shall show only NOTAMs whose validity interval overlaps the mission execution interval. This is a presentation filter only: hiding a zone from the overlay must not remove its source record or geometry from the authoritative environment snapshot used by planning and validation. Where timing is available per route segment, applicability should be evaluated against the estimated time of passage through the affected geometry.
+
+### 9.3 Zone labels and inspection
+
+By default, each displayed NOTAM zone shall show its lower and upper applicable altitude limits directly on or adjacent to the geometry. Each limit must retain its vertical reference (AGL, AMSL, Flight Level, or another explicitly supported datum). A missing or unsupported limit must be shown as unknown/not specified, never replaced with an assumed value.
+
+Hovering a NOTAM zone shall show a concise summary. Selecting/clicking the zone shall open the original NOTAM text for operator reading together with its identifier, source, validity interval, altitude limits, and the applicable environment snapshot/version. The display must not replace the source text with a generated summary.
+
+### 9.4 Consistency and safety
+
+Map and flight-profile views shall consume the same versioned normalized environment snapshot and the same NOTAM identities. UI filtering and rendering do not authorize a route and must not override validation. Missing, stale, unsupported, or incomplete data must remain visibly uncertain and must not be presented as a verified clear area.
