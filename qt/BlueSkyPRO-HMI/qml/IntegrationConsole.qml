@@ -28,6 +28,9 @@ Item {
     property bool wxSecretSaved: false
     property string credentialStoreStatus: "CHECKING"
     property string credentialStoreMessage: ""
+    property string faaClientIdInput: ""
+    property string faaClientSecretInput: ""
+    property string faaNmsMessage: "Credentials not configured; no live FAA connection has been verified."
     property var wxResult: null
     property var demResult: null
     property string wxError: ""
@@ -81,6 +84,28 @@ Item {
         if (!credentialVault.deleteSecret(provider)) { credentialStoreMessage = "DELETE FAILED: " + credentialVault.lastError; return }
         credentialStoreMessage = provider.toUpperCase() + " saved key deleted."
         refreshCredentialStates()
+    }
+
+    function saveFaaNmsCredentials() {
+        if (!credentialVaultAvailable()) { faaNmsMessage = "Native credential vault unavailable; credentials were not saved."; return }
+        var clientId = String(faaClientIdInput || "").trim()
+        var clientSecret = String(faaClientSecretInput || "")
+        if (clientId.length === 0 || clientSecret.length === 0) { faaNmsMessage = "Enter both Client ID and Client Secret."; return }
+        if (!credentialVault.saveSecret("faa_nms_client_id", clientId)) { faaNmsMessage = "Client ID save failed: " + credentialVault.lastError; return }
+        if (!credentialVault.saveSecret("faa_nms_client_secret", clientSecret)) { faaNmsMessage = "Client Secret save failed: " + credentialVault.lastError; return }
+        faaClientIdInput = ""; faaClientSecretInput = ""
+        faaNmsMessage = "FAA NMS OAuth credentials saved separately in Windows Credential Manager."
+    }
+    function deleteFaaNmsCredentials() {
+        if (!credentialVaultAvailable()) { faaNmsMessage = "Native credential vault unavailable."; return }
+        var idDeleted = credentialVault.deleteSecret("faa_nms_client_id")
+        var secretDeleted = credentialVault.deleteSecret("faa_nms_client_secret")
+        faaNmsMessage = idDeleted && secretDeleted ? "FAA NMS OAuth credentials deleted." : "Credential deletion failed: " + credentialVault.lastError
+    }
+
+    Connections {
+        target: typeof faaNmsClient !== "undefined" ? faaNmsClient : null
+        function onConnectionTestFinished(success, message) { root.faaNmsMessage = message }
     }
 
     function coordinatesValid() {
@@ -482,6 +507,45 @@ Item {
 
                     Rectangle {
                         width: parent.width
+                    Rectangle {
+                        width: parent.width
+                        height: faaNmsNode.implicitHeight + 24
+                        color: "#101F2D"; border.color: root.line; radius: 4
+                        Column {
+                            id: faaNmsNode
+                            x: 12; y: 12; width: parent.width - 24; spacing: 7
+                            Text { text: "FAA NMS / US TEST SOURCE"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 11; font.bold: true }
+                            Text { text: "Environment: " + (typeof faaNmsClient !== "undefined" ? faaNmsClient.environment : "CLIENT UNAVAILABLE") + " · Status: " + (typeof faaNmsClient !== "undefined" ? faaNmsClient.status : "UNAVAILABLE"); color: root.muted; font.family: "B612 Mono"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                            Text { text: "Enter the FAA-provisioned staging credentials. They are saved as separate Windows Credential Manager entries; never paste credentials into source code or chat."; width: parent.width; color: root.amber; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.Wrap }
+                            TextField {
+                                width: parent.width; height: 32; text: root.faaClientIdInput
+                                onTextChanged: root.faaClientIdInput = text
+                                placeholderText: "FAA NMS Client ID"; color: root.text
+                                background: Rectangle { color: "#07111B"; border.color: root.line; radius: 3 }
+                            }
+                            TextField {
+                                width: parent.width; height: 32; text: root.faaClientSecretInput
+                                onTextChanged: root.faaClientSecretInput = text
+                                echoMode: TextInput.Password; passwordCharacter: "•"
+                                placeholderText: "FAA NMS Client Secret"; color: root.text
+                                background: Rectangle { color: "#07111B"; border.color: root.line; radius: 3 }
+                            }
+                            Row { width: parent.width; spacing: 8
+                                Rectangle { width: (parent.width - 16) / 3; height: 32; radius: 3; color: "#10283A"; border.color: root.cyan
+                                    Text { anchors.centerIn: parent; text: "SAVE"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                                    MouseArea { anchors.fill: parent; onClicked: root.saveFaaNmsCredentials() } }
+                                Rectangle { width: (parent.width - 16) / 3; height: 32; radius: 3; color: "#10283A"; border.color: root.cyan
+                                    Text { anchors.centerIn: parent; text: "TEST CONNECTION"; color: root.cyan; font.family: "B612 Mono"; font.pixelSize: 8; font.bold: true }
+                                    MouseArea { anchors.fill: parent; onClicked: if (typeof faaNmsClient !== "undefined") faaNmsClient.testConnection() } }
+                                Rectangle { width: (parent.width - 16) / 3; height: 32; radius: 3; color: "#241D20"; border.color: root.red
+                                    Text { anchors.centerIn: parent; text: "DELETE"; color: root.red; font.family: "B612 Mono"; font.pixelSize: 9; font.bold: true }
+                                    MouseArea { anchors.fill: parent; onClicked: root.deleteFaaNmsCredentials() } }
+                            }
+                            Text { text: root.faaNmsMessage; width: parent.width; color: root.muted; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                            Text { text: "Test scope: OAuth token + /nmsapi/v1/ping only. This does not fetch NOTAM records or feed the flight-safety validator. FAA NMS is a US test source, not an authoritative Russian NOTAM feed."; width: parent.width; color: root.muted; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.Wrap }
+                        }
+                    }
+
                         height: notacNode.implicitHeight + 24
                         color: "#101F2D"; border.color: root.line; radius: 4
                         Column {
