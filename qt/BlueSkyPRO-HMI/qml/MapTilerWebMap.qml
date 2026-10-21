@@ -66,6 +66,8 @@ Item {
             "</div>",
             "<div class='diag-panel' id='diag-panel'><div style='display:flex;gap:6px;align-items:center;color:#d5e7f7;font:12px monospace'><span>PERFORMANCE SNAPSHOT · API KEY REDACTED</span><button id='diag-refresh' type='button'>REFRESH</button><button id='diag-select' type='button'>SELECT ALL</button><button id='diag-close' type='button'>CLOSE</button></div><textarea id='diag-output' readonly spellcheck='false' aria-label='Performance diagnostics JSON'></textarea></div>",
             "<script src='qrc:///qtwebchannel/qwebchannel.js'></script>",
+            // Classic-script watchdog runs even when the ES module import itself fails.
+            "<script>(function(){var el=document.getElementById('map-status');window.addEventListener('error',function(e){if(el){var target=e&&e.target;var resource=target&&(target.src||target.href);el.textContent=resource?'MAP RESOURCE ERROR · '+String(resource).split('?')[0].slice(-90):'MAP SCRIPT ERROR · '+String(e&&e.message||'unknown').slice(0,100);}} ,true);window.addEventListener('unhandledrejection',function(e){if(el)el.textContent='MAP MODULE ERROR · '+String(e&&e.reason&&e.reason.message||e&&e.reason||'unknown').slice(0,100);});})();</script>",
             "<script type='module'>",
             "import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs';",
             "const apiKey=" + keyLiteral + ";",
