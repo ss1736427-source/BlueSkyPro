@@ -36,6 +36,8 @@ qt_add_executable(appBlueSkyPRO
     src/CredentialVault.h
     src/FaaNmsClient.cpp
     src/FaaNmsClient.h
+    src/NotamGeometryEngine.cpp
+    src/NotamGeometryEngine.h
 )
 
 qt_add_qml_module(appBlueSkyPRO
@@ -99,6 +101,14 @@ add_executable(route_controller_test
 target_include_directories(route_controller_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 target_link_libraries(route_controller_test PRIVATE Qt6::Core)
 add_test(NAME route_controller_fail_closed_contract COMMAND route_controller_test)
+
+add_executable(notam_geometry_engine_test
+    tests/NotamGeometryEngineTest.cpp
+    src/NotamGeometryEngine.cpp
+    src/NotamGeometryEngine.h
+)
+target_link_libraries(notam_geometry_engine_test PRIVATE Qt6::Core)
+add_test(NAME notam_geometry_engine_contract COMMAND notam_geometry_engine_test)
 
 add_executable(manual_mission_model_adapter_test
     tests/ManualMissionModelAdapterTest.cpp
