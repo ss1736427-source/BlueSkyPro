@@ -127,8 +127,22 @@ void FaaNmsClient::testConnection()
         const int expiresIn = object.value(QStringLiteral("expires_in")).toInt();
         if (parseError.error != QJsonParseError::NoError || !document.isObject()
             || accessToken.isEmpty() || expiresIn <= 0) {
-            finishFailure(QStringLiteral("INVALID_RESPONSE"),
-                          QStringLiteral("FAA NMS token response is malformed or missing required fields."));
+            QString providerError = object.value(QStringLiteral("error_description")).toString();
+            if (providerError.isEmpty())
+                providerError = object.value(QStringLiteral("error")).toString();
+            if (providerError.isEmpty())
+                providerError = object.value(QStringLiteral("message")).toString();
+            providerError = providerError.left(180).replace('\n', ' ').replace('\r', ' ');
+            const QString contentType = reply->header(QNetworkRequest::ContentTypeHeader).toString();
+            QString detail = QStringLiteral("FAA NMS token response is invalid (HTTP %1; content-type: %2; JSON parse: %3).")
+                                 .arg(httpStatus)
+                                 .arg(contentType.isEmpty() ? QStringLiteral("missing") : contentType)
+                                 .arg(parseError.error == QJsonParseError::NoError
+                                          ? QStringLiteral("valid JSON but required fields are missing")
+                                          : parseError.errorString());
+            if (!providerError.isEmpty())
+                detail += QStringLiteral(" Provider message: ") + providerError;
+            finishFailure(QStringLiteral("INVALID_RESPONSE"), detail);
             return;
         }
         requestPing(accessToken);
