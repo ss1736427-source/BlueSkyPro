@@ -309,11 +309,11 @@ Item {
         if (key === "Information")
             return informationTitleCard.height
         if (key === "Checklist")
-            return checklistCard.height
+            return root.selectedOperationalTool === "NOTAM" ? 34 : checklistCard.height
         if (key === "Flight Conditions")
             return operationalCard.height
         if (key === "Alerting")
-            return informationCard.height
+            return root.selectedOperationalTool === "NOTAM" ? 34 : informationCard.height
         if (key === "ATC")
             return atcWorkArea.height
         return 0
@@ -334,6 +334,7 @@ Item {
 
     // Preview state only. Live weather/NOTAM providers must supply authoritative data.
     property string selectedOperationalTool: ""
+    property string selectedNotamId: ""
     property var notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
     property string notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
     // Set only by the authoritative route-planning/revalidation result.
@@ -479,7 +480,7 @@ Item {
         x: 16
         y: root.draggingPanel === "Checklist" ? root.dragVisualY : root.panelPositionY("Checklist")
         width: parent.width - 32
-        height: Math.min(42 + root.visibleChecklistItems().length * 18, Math.max(90, parent.height * 0.34))
+        height: root.selectedOperationalTool === "NOTAM" ? 34 : Math.min(42 + root.visibleChecklistItems().length * 18, Math.max(90, parent.height * 0.34))
         radius: 8
         color: "transparent"
         border.color: "#236078"
@@ -576,7 +577,7 @@ Item {
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
-        visible: checklistCard.visible
+        visible: checklistCard.visible && root.selectedOperationalTool !== "NOTAM"
 
         Column {
             id: checklistList
@@ -611,7 +612,7 @@ Item {
         x: 16
         y: root.draggingPanel === "Flight Conditions" ? root.dragVisualY : root.panelPositionY("Flight Conditions")
         width: parent.width - 32
-        height: root.selectedOperationalTool === "" ? 94 : Math.min(parent.height * 0.42, Math.max(110, operationalDetailColumn.implicitHeight + 50))
+        height: root.selectedOperationalTool === "NOTAM" ? Math.max(170, parent.height - operationalCard.y - root.bottomInset - 12) : (root.selectedOperationalTool === "" ? 94 : Math.min(parent.height * 0.42, Math.max(110, operationalDetailColumn.implicitHeight + 50)))
         radius: 8
         color: "transparent"
         border.color: "#236078"
@@ -701,7 +702,15 @@ Item {
                         required property var modelData
                         width: operationalDetailColumn.width
                         height: recordColumn.implicitHeight + 12
-                        color: "#071321"; border.color: "#31465B"; radius: 3
+                        color: String(modelData.id || "UNKNOWN") === root.selectedNotamId ? "#18354A" : "#071321"
+                        border.color: String(modelData.id || "UNKNOWN") === root.selectedNotamId ? root.cyan : "#31465B"
+                        border.width: String(modelData.id || "UNKNOWN") === root.selectedNotamId ? 2 : 1
+                        radius: 3
+                        MouseArea {
+                            anchors.fill: parent
+                            z: -1
+                            onClicked: root.selectedNotamId = String(modelData.id || "UNKNOWN")
+                        }
                         Column {
                             id: recordColumn
                             x: 6; y: 6; width: parent.width - 12; spacing: 3
@@ -774,7 +783,7 @@ Item {
         x: 16
         y: root.draggingPanel === "Alerting" ? root.dragVisualY : root.panelPositionY("Alerting")
         width: parent.width - 32
-        height: Math.max(72, Math.min(root.informationAvailableHeight, (root.selectedInformationMessage ? informationDetailsColumn.implicitHeight : informationList.implicitHeight) + 48))
+        height: root.selectedOperationalTool === "NOTAM" ? 34 : Math.max(72, Math.min(root.informationAvailableHeight, (root.selectedInformationMessage ? informationDetailsColumn.implicitHeight : informationList.implicitHeight) + 48))
         radius: 8
         color: "transparent"
         border.color: "#236078"
