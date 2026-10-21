@@ -488,6 +488,7 @@ Item {
     // INFORMATION is the fixed right-panel title, not a reorderable card.
     Rectangle {
         id: informationTitleCard
+        visible: root.selectedOperationalTool === ""
         x: 16
         y: 8
         width: parent.width - 32
@@ -900,7 +901,7 @@ Item {
         x: 16
         y: root.selectedOperationalTool === "ALERTING" ? 0 : (root.draggingPanel === "Alerting" ? root.dragVisualY : root.panelPositionY("Alerting"))
         width: parent.width - 32
-        height: root.selectedOperationalTool === "ALERTING" ? Math.max(80, atcWorkArea.y - 8) : Math.max(72, Math.min(root.informationAvailableHeight, (root.selectedInformationMessage ? informationDetailsColumn.implicitHeight : informationList.implicitHeight) + 48))
+        height: root.selectedOperationalTool === "ALERTING" ? Math.max(34, atcWorkArea.y - 8) : Math.max(72, Math.min(root.informationAvailableHeight, (root.selectedInformationMessage ? informationDetailsColumn.implicitHeight : informationList.implicitHeight) + 48))
         clip: root.selectedOperationalTool !== ""
         radius: 8
         color: "transparent"
