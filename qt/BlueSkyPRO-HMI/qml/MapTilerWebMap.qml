@@ -16,6 +16,14 @@ Item {
     // Normalized source records are display-only; unknown altitude datum is never inferred.
     property var notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
     property string notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
+    property int notamSearchRadiusNm: 20
+    property bool notamAutoLoadEnabled: true
+    property real lastNotamQueryLatitude: NaN
+    property real lastNotamQueryLongitude: NaN
+    property real lastNotamQueryZoom: NaN
+    property real lastNotamQueryRadiusNm: NaN
+    property bool notamQueryInProgress: false
+    property string notamAutoStatus: "Автозагрузка NOTAM: ожидание карты"
     signal useLegacyMapRequested()
     // Use the module CDN as the document origin so MapLibre v6 can create its CDN-derived worker from the same origin in Qt WebEngine.
     // Style switching uses a full style replacement to avoid diff-update incompatibilities between MapTiler styles.
@@ -40,10 +48,12 @@ Item {
             ".status{position:absolute;z-index:5;left:10px;top:10px;color:#d5e7f7;background:rgba(5,10,18,.8);padding:6px 8px;font:11px monospace;border-radius:3px}",
             ".notam-boundaries{display:none;position:absolute;z-index:7;left:10px;top:48px;width:min(330px,calc(100% - 20px));max-height:42%;overflow:auto;box-sizing:border-box;background:rgba(5,10,18,.94);border:1px solid #8c6a2a;border-radius:4px;padding:8px;color:#eaf4ff;font:11px Arial,sans-serif}",
             ".notam-boundaries.open{display:block}.notam-boundaries h3{margin:0 0 6px;font-size:12px;color:#ffc45c}.notam-boundary{padding:6px 0;border-top:1px solid #354457;white-space:normal;overflow-wrap:anywhere}.notam-boundary b{color:#ffc45c}.notam-boundary .datum{color:#a9c3d9}",
+            ".notam-auto{position:absolute;z-index:6;left:10px;top:48px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-width:calc(100% - 20px);background:rgba(5,10,18,.92);border:1px solid #36516b;border-radius:4px;padding:6px;color:#eaf4ff;font:11px Arial,sans-serif}.notam-auto select{background:#142638;color:#eaf4ff;border:1px solid #36516b;padding:5px}",
             "</style></head><body>",
             "<div id='map'></div>",
             "<div id='geometry-controls' style='position:absolute;z-index:8;left:10px;right:10px;bottom:10px;display:none;gap:6px;align-items:center;flex-wrap:wrap;background:rgba(5,10,18,.94);padding:8px;border:1px solid #36516b;color:#eaf4ff;font:11px monospace'><button id='geometry-origin' type='button'>SET TAKEOFF ORIGIN</button><select id='geometry-template'></select><label for='geometry-agl'>TARGET AGL m</label><input id='geometry-agl' type='number' min='20' max='80' step='1' value='40' style='width:66px;background:#142638;color:#eaf4ff;border:1px solid #36516b;padding:7px 5px;font:12px monospace'><button id='geometry-start' type='button'>START OBJECT</button><button id='geometry-finish' type='button'>FINISH OBJECT</button><button id='geometry-clear' type='button'>CLEAR</button><span id='geometry-status'>SELECT TEMPLATE</span></div>",
             "<div class='status' id='map-status'>MAPTILER HYBRID V4 · INITIALIZING</div>",
+            "<div class='notam-auto'><label for='notam-radius'>NOTAM радиус</label><select id='notam-radius'><option value='10'>10 NM</option><option value='20' selected>20 NM</option><option value='50'>50 NM</option><option value='100'>100 NM</option></select><span id='notam-auto-status'>Автозагрузка: ожидание карты</span></div>",
             "<section class='notam-boundaries' id='notam-boundaries' aria-label='NOTAM vertical boundaries'><h3>NOTAM · ВЕРТИКАЛЬНЫЕ ГРАНИЦЫ</h3><div id='notam-boundary-list'></div></section>",
             "<div class='controls'>",
             "<select id='style' aria-label='Map style'><option value='hybrid-v4' selected>HYBRID</option><option value='satellite-v4'>SATELLITE</option><option value='streets-v4'>STREETS</option></select>",
@@ -67,6 +77,8 @@ Item {
             "else{",
             "",
             "const map=new maplibregl.Map({container:'map',style:'https://api.maptiler.com/maps/hybrid-v4/style.json?key='+encodeURIComponent(apiKey),center:[31.95990,49.85842],zoom:6.7,attributionControl:true,fadeDuration:0,refreshExpiredTiles:false,cancelPendingTileRequestsWhileZooming:true,crossSourceCollisions:false,maxPitch:60,maxTileCacheZoomLevels:6,canvasContextAttributes:{antialias:false,preserveDrawingBuffer:false}});",
+            "window.blueskyGetNotamView=function(){const c=map.getCenter();return JSON.stringify({latitude:c.lat,longitude:c.lng,zoom:map.getZoom(),loaded:map.loaded()});};",
+            "document.getElementById('notam-radius').addEventListener('change',()=>{const el=document.getElementById('notam-auto-status');if(el)el.textContent='Радиус изменён · запрос обновится автоматически';});",
             "function refreshGeometryLayer(){if(!map.isStyleLoaded())return;const features=[];objects.forEach(o=>{const coords=o.coordinates.map(p=>[Number(p[0]),Number(p[1])]);if(['POLYGON_AOI','SEARCH_AREA'].includes(o.geometryType)&&coords.length>=3){const ring=coords.slice();if(ring[0][0]!==ring[ring.length-1][0]||ring[0][1]!==ring[ring.length-1][1])ring.push(ring[0]);features.push({type:'Feature',properties:{kind:'area'},geometry:{type:'Polygon',coordinates:[ring]}});}else if(['CORRIDOR','DELIVERY_ROUTE'].includes(o.geometryType)&&coords.length>=2){features.push({type:'Feature',properties:{kind:'line'},geometry:{type:'LineString',coordinates:coords}});}coords.forEach(p=>features.push({type:'Feature',properties:{kind:'point'},geometry:{type:'Point',coordinates:p}}));});draft.forEach(p=>features.push({type:'Feature',properties:{kind:'draft'},geometry:{type:'Point',coordinates:[p[0],p[1]]}}));if(origin)features.push({type:'Feature',properties:{kind:'origin'},geometry:{type:'Point',coordinates:[origin.longitudeDeg,origin.latitudeDeg]}});const data={type:'FeatureCollection',features};if(!map.getSource('bluesky-manual-geometry'))map.addSource('bluesky-manual-geometry',{type:'geojson',data});else map.getSource('bluesky-manual-geometry').setData(data);if(!map.getLayer('bluesky-manual-area'))map.addLayer({id:'bluesky-manual-area',type:'fill',source:'bluesky-manual-geometry',filter:['==',['get','kind'],'area'],paint:{'fill-color':'#32ffff','fill-opacity':0.16}});if(!map.getLayer('bluesky-manual-line'))map.addLayer({id:'bluesky-manual-line',type:'line',source:'bluesky-manual-geometry',filter:['==',['get','kind'],'line'],paint:{'line-color':'#64ff00','line-width':3}});if(!map.getLayer('bluesky-manual-points'))map.addLayer({id:'bluesky-manual-points',type:'circle',source:'bluesky-manual-geometry',filter:['in',['get','kind'],['literal',['point','draft','origin']]],paint:{'circle-radius':['match',['get','kind'],'origin',9,5],'circle-color':['match',['get','kind'],'origin','#64ff00','#32ffff'],'circle-stroke-color':'#ffffff','circle-stroke-width':1.5}});}",
             "window.blueskySetManualTemplates=function(ids){const next=Array.isArray(ids)?ids.filter(id=>geometryTypes[id]):[];if(JSON.stringify(next)!==JSON.stringify(selectedTemplates)){capturing=false;draft=[];}selectedTemplates=next;objects=objects.filter(o=>o.templateIds.every(id=>selectedTemplates.includes(id)));syncGeometryTemplates(selectedTemplates);refreshGeometryLayer();};",
             "const sidePanelBounds={left:" + JSON.stringify(root.leftPanelWidth) + ",right:" + JSON.stringify(root.rightPanelWidth) + "};",
@@ -154,6 +166,24 @@ Item {
         }
     }
 
+    function queryNotamsForView(viewJson) {
+        if (!root.notamAutoLoadEnabled || root.notamQueryInProgress || typeof faaNmsClient === "undefined" || faaNmsClient === null) return
+        var view
+        try { view = JSON.parse(viewJson || "{}") } catch (error) { return }
+        if (!view || view.loaded !== true || !isFinite(Number(view.latitude)) || !isFinite(Number(view.longitude)) || !isFinite(Number(view.zoom))) return
+        var lat = Number(view.latitude), lon = Number(view.longitude), zoom = Number(view.zoom)
+        var dLatNm = isFinite(root.lastNotamQueryLatitude) ? Math.abs(lat - root.lastNotamQueryLatitude) * 60 : Infinity
+        var dLonNm = isFinite(root.lastNotamQueryLongitude) ? Math.abs(lon - root.lastNotamQueryLongitude) * 60 * Math.max(0.1, Math.cos(lat * Math.PI / 180)) : Infinity
+        var movedNm = Math.sqrt(dLatNm*dLatNm + dLonNm*dLonNm)
+        var zoomChanged = !isFinite(root.lastNotamQueryZoom) || Math.abs(zoom - root.lastNotamQueryZoom) >= 0.75
+        if (movedNm < 2 && !zoomChanged && root.lastNotamQueryRadiusNm === root.notamSearchRadiusNm) return
+        root.lastNotamQueryLatitude = lat; root.lastNotamQueryLongitude = lon; root.lastNotamQueryZoom = zoom; root.lastNotamQueryRadiusNm = root.notamSearchRadiusNm
+        root.notamQueryInProgress = true
+        root.notamAutoStatus = "Загрузка NOTAM · " + lat.toFixed(3) + ", " + lon.toFixed(3) + " · радиус " + root.notamSearchRadiusNm + " NM"
+        if (typeof faaNmsClient.queryNotams === "function") faaNmsClient.queryNotams(lat, lon, root.notamSearchRadiusNm)
+        else { root.notamQueryInProgress = false; root.notamAutoStatus = "Клиент FAA NMS недоступен" }
+    }
+
     function syncNotamRecords() {
         if (htmlLoaded && !webMap.loading) {
             var payload = JSON.stringify(root.notamRecords || [])
@@ -173,6 +203,17 @@ Item {
     // any QObject. This separates transport hookup from registered-object lookup.
     WebChannel {
         id: mapWebChannel
+    }
+
+    Timer {
+        id: notamViewportPoll
+        interval: 1200
+        repeat: true
+        running: root.apiKey.length > 0 && root.htmlLoaded && root.notamAutoLoadEnabled
+        onTriggered: {
+            if (root.notamQueryInProgress) return
+            webMap.runJavaScript("window.blueskyGetNotamView ? window.blueskyGetNotamView() : ''", function(result) { root.queryNotamsForView(result) })
+        }
     }
 
     WebEngineView {
@@ -234,6 +275,10 @@ Item {
         function onManualTemplateIdsChanged() { root.syncManualTemplates() }
         function onNotamRecordsChanged() { root.syncNotamRecords() }
         function onNotamSnapshotIdChanged() { root.syncNotamRecords() }
+        function onNotamQueryFinished(success, message) {
+            root.notamQueryInProgress = false
+            root.notamAutoStatus = success ? message : "Ошибка загрузки NOTAM: " + message
+        }
         function onLeftPanelWidthChanged() { root.syncPanelBounds() }
         function onRightPanelWidthChanged() { root.syncPanelBounds() }
     }
