@@ -112,8 +112,14 @@ Item {
         target: typeof faaNmsClient !== "undefined" ? faaNmsClient : null
         function onConnectionTestFinished(success, message) { root.faaNmsMessage = message }
         function onNotamQueryFinished(success, message) {
-            root.faaNotamQueryMessage = message
-            if (!success) { root.faaNotamRecordCount = -1; root.faaNotamGeometryCount = -1; root.faaNotamSnapshot = "" }
+            // Failed refreshes do not replace the last accepted immutable snapshot.
+            // Keep its count and ID visible so the UI cannot imply that prior data vanished.
+            root.faaNotamQueryMessage = success
+                    ? message
+                    : (message + (root.faaNotamRecordCount >= 0 && root.faaNotamSnapshot.length > 0
+                                  ? " Previous accepted snapshot remains displayed: "
+                                    + root.faaNotamSnapshot + " (" + root.faaNotamRecordCount + " records)."
+                                  : " No accepted snapshot is available."));
         }
         function onNotamRecordsChanged() {
             if (typeof faaNmsClient === "undefined") return
