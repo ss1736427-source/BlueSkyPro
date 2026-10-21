@@ -234,6 +234,7 @@ Item {
                 ? routeController.waypoints.map(function(p) { return [Number(p.longitudeDeg), Number(p.latitudeDeg)] })
                 : []
             manualTemplateIds: root.manualSelectedTemplateIds
+            selectedNotamId: rightPanel.selectedNotamId
             // ADMIN is a dedicated workspace. Keep map state in memory but suspend map rendering.
             visible: root.activeTool !== "ADMIN"
             onMapViewChangeRequested: function(panX, panY, zoom) {
@@ -419,6 +420,7 @@ Item {
             missionReady: root.missionReady
             notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
             notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
+            onNotamSelectionRequested: function(notamId) { flightChart.selectedNotamId = notamId }
             warningActive: root.warningActive
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
