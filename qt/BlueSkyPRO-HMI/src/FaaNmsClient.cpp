@@ -330,7 +330,13 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
             records = payloadValue.toArray();
         }
 
-        const bool recognizedGeoJson = geojsonValue.isArray()
+        // The FAA staging endpoint may return {status:"Success", data:{}}
+        // when the requested radius has no matching records. Treat this as a
+        // successful empty result, not as a schema failure. This does NOT mean
+        // that the airspace is unrestricted; FAA NMS is a US test source.
+        const bool recognizedEmptyResult = payloadValue.isObject() && dataObject.isEmpty();
+        const bool recognizedGeoJson = recognizedEmptyResult
+            || geojsonValue.isArray()
             || (geojsonValue.isObject()
                 && (geojsonValue.toObject().value(QStringLiteral("type")).toString() == QStringLiteral("FeatureCollection")
                     || geojsonValue.toObject().value(QStringLiteral("type")).toString() == QStringLiteral("Feature")))
