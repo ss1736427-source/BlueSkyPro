@@ -5,7 +5,10 @@ Item {
     id: root
     property string selectedKind: ""
     property int wizardStep: 0
-    property string endpointText: "https://notac.aero/api/v1"
+    property string endpointText: "https://api-staging.cgifederal-aim.com/nmsapi/v1"
+    property string faaClientIdText: ""
+    property string faaClientSecretText: ""
+    property bool faaNmsMode: false
     property string keyText: ""
     property string endpointCheck: ""
     property string wizardMessage: ""
@@ -27,6 +30,9 @@ Item {
         wizardMessage = ""
         wizardState = "idle"
         if (kind !== "notam") showTechnicalConsole = true
+        faaNmsMode = false
+        faaClientIdText = ""
+        faaClientSecretText = ""
     }
     function validateEndpoint() {
         var value = endpointText.trim()
@@ -42,12 +48,53 @@ Item {
         }
         endpointText = value.replace(/\/+$/, "")
         endpointCheck = endpointText
+        faaNmsMode = endpointText.indexOf("cgifederal-aim.com") >= 0
+                || endpointText.indexOf("api-nms.aim.faa.gov") >= 0
         wizardState = "accepted"
         wizardMessage = "Формат адреса принят. Это ещё не подтверждает доступность источника."
         wizardStep = 1
     }
     function runNotamTest() {
         if (!legacyConsole) return
+        wizardStep = 2
+        wizardState = "testing"
+        wizardMessage = ""
+        if (faaNmsMode) {
+            if (endpointText.indexOf("api-staging.cgifederal-aim.com") >= 0) {
+                faaNmsClient.environment = "STAGING"
+            } else if (endpointText.indexOf("api-fit.cgifederal-aim.com") >= 0) {
+                faaNmsClient.environment = "FIT"
+            } else {
+                wizardState = "error"
+                wizardMessage = "Этот адрес FAA NMS не включён в тестовый клиент. Используйте выданный FAA адрес STAGING или FIT; Production не проверяется этим мастером."
+                wizardStep = 1
+                return
+            }
+            if (faaClientIdText.trim().length > 0 || faaClientSecretText.length > 0) {
+                legacyConsole.faaClientIdInput = faaClientIdText
+                legacyConsole.faaClientSecretInput = faaClientSecretText
+                legacyConsole.saveFaaNmsCredentials()
+                faaClientIdText = ""
+                faaClientSecretText = ""
+                if (legacyConsole.faaNmsMessage.indexOf("saved separately") < 0) {
+                    wizardState = "error"
+                    wizardMessage = legacyConsole.faaNmsMessage
+                    wizardStep = 1
+                    return
+                }
+            } else if (!legacyConsole.credentialVaultAvailable()
+                       || !credentialVault.hasSecret("faa_nms_client_id")
+                       || !credentialVault.hasSecret("faa_nms_client_secret")) {
+                wizardState = "error"
+                wizardMessage = "Введите Client ID и Client Secret. Оба значения обязательны."
+                wizardStep = 1
+                return
+            }
+            wizardMessage = "Выполняется OAuth-аутентификация FAA NMS и проверка ping…"
+            faaNmsClient.testConnection()
+            wizardState = "result"
+            return
+        }
         legacyConsole.notamBaseUrl = endpointText
         if (keyText.trim().length > 0) {
             legacyConsole.notamApiKey = keyText
@@ -56,19 +103,15 @@ Item {
         } else if (!legacyConsole.credentialVaultAvailable()
                    || !credentialVault.hasSecret("notam")) {
             wizardState = "error"
-            wizardMessage = "Для проверки этого источника нужен токен. Введите ключ или сначала сохраните его в системном хранилище."
+            wizardMessage = "Для проверки NOTAC нужен токен. Введите ключ или сначала сохраните его в системном хранилище."
+            wizardStep = 1
             return
         } else {
             legacyConsole.notamApiKey = ""
         }
-        wizardStep = 2
-        wizardState = "testing"
         wizardMessage = "Проверяем авторизацию и ответ NOTAC API…"
         legacyConsole.requestNotamApiTest()
-        // The request completes asynchronously; the result Text binds directly
-        // to the live IntegrationConsole properties instead of snapshotting CONNECTING.
         wizardState = "result"
-        wizardMessage = ""
     }
 
     Rectangle { anchors.fill: parent; color: root.bg }
@@ -155,7 +198,7 @@ Item {
                     Text { text: root.wizardStep === 0 ? "Шаг 1. Укажите адрес источника" : root.wizardStep === 1 ? "Шаг 2. Ключ доступа" : "Шаг 3. Проверка источника"; color: root.fg; font.pixelSize: 18; font.bold: true }
                     Text {
                         width: parent.width; wrapMode: Text.Wrap; color: root.muted; font.pixelSize: 12
-                        text: root.wizardStep === 0 ? "Введите базовый URL API, предоставленный оператором источника. Мы проверим формат адреса перед переходом дальше." : root.wizardStep === 1 ? "Если источник требует токен, введите его сейчас. Ключ сохраняется в системном защищённом хранилище; поле останется пустым после сохранения." : "Тест проверяет ответ NOTAC REST API по ожидаемой JSON-схеме. Он использует тестовый запрос активных NOTAM для США и не подтверждает покрытие воздушного пространства РФ."
+                        text: root.wizardStep === 0 ? "Укажите базовый URL выбранного источника. Для FAA NMS используйте выданный адрес STAGING или FIT." : root.wizardStep === 1 ? (root.faaNmsMode ? "FAA NMS использует OAuth: укажите Client ID и Client Secret. Они сохраняются отдельно в защищённом хранилище Windows." : "Для NOTAC введите API-ключ/токен. Он сохраняется в системном защищённом хранилище.") : (root.faaNmsMode ? "Проверяется OAuth-аутентификация FAA NMS и доступность ping. Успешный ping ещё не означает, что NOTAM загружены." : "Тест проверяет ответ NOTAC REST API по ожидаемой JSON-схеме; он не подтверждает покрытие воздушного пространства РФ.")
                     }
                     TextField {
                         visible: root.wizardStep === 0
@@ -167,7 +210,26 @@ Item {
                         background: Rectangle { color: "#0B1724"; border.color: root.line; radius: 5 }
                     }
                     TextField {
-                        visible: root.wizardStep === 1
+                        visible: root.wizardStep === 1 && root.faaNmsMode
+                        width: parent.width
+                        text: root.faaClientIdText
+                        onTextChanged: root.faaClientIdText = text
+                        placeholderText: "FAA NMS Client ID"
+                        color: root.fg; placeholderTextColor: root.muted
+                        background: Rectangle { color: "#0B1724"; border.color: root.line; radius: 5 }
+                    }
+                    TextField {
+                        visible: root.wizardStep === 1 && root.faaNmsMode
+                        width: parent.width
+                        text: root.faaClientSecretText
+                        onTextChanged: root.faaClientSecretText = text
+                        placeholderText: "FAA NMS Client Secret"
+                        echoMode: TextInput.Password
+                        color: root.fg; placeholderTextColor: root.muted
+                        background: Rectangle { color: "#0B1724"; border.color: root.line; radius: 5 }
+                    }
+                    TextField {
+                        visible: root.wizardStep === 1 && !root.faaNmsMode
                         width: parent.width
                         text: root.keyText
                         onTextChanged: root.keyText = text
@@ -179,13 +241,16 @@ Item {
                     Text {
                         visible: root.wizardStep === 2 || root.wizardMessage.length > 0
                         width: parent.width; wrapMode: Text.Wrap
-                        text: root.wizardStep === 2 && root.selectedKind === "notam"
-                            ? "Результат теста: " + legacyConsole.notamApiStatus
-                                + (legacyConsole.notamApiError.length ? "\n" + legacyConsole.notamApiError : "")
-                                + (legacyConsole.notamApiSample.length ? "\nПример данных: " + legacyConsole.notamApiSample : "")
-                            : root.wizardMessage
+                        text: root.wizardStep === 2 && root.faaNmsMode
+                            ? "Результат теста FAA NMS: " + legacyConsole.faaNmsMessage
+                            : root.wizardStep === 2 && root.selectedKind === "notam"
+                                ? "Результат теста NOTAC: " + legacyConsole.notamApiStatus
+                                    + (legacyConsole.notamApiError.length ? "\n" + legacyConsole.notamApiError : "")
+                                    + (legacyConsole.notamApiSample.length ? "\nПример данных: " + legacyConsole.notamApiSample : "")
+                                : root.wizardMessage
                         color: root.wizardState === "error" ? root.red
                             : root.wizardStep === 2 && legacyConsole.notamApiStatus === "CONNECTED / JSON VALID" ? root.green
+                             : root.wizardStep === 2 && root.faaNmsMode && legacyConsole.faaNmsMessage.indexOf("succeeded") >= 0 ? root.green
                             : root.wizardStep === 2 ? root.amber : root.cyan
                         font.pixelSize: 11
                     }
