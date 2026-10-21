@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtCore
 
 Item {
     id: root
@@ -14,13 +15,59 @@ Item {
         { role: "TECHNICIAN", title: "ТЕХНИК", icon: "🔧", description: ["Выполнение работ", "Чек-листы", "Отчёты", "Статус оборудования"] },
         { role: "ENGINEER", title: "ИНЖЕНЕР", icon: "⚙", description: ["Парк БПЛА", "Оборудование", "Техническое состояние", "Документация"] }
     ]
-    function moveRoleCard(from, to) {
-        if (from < 0 || to < 0 || from >= roleCardsModel.length || to >= roleCardsModel.length || from === to) return
+    // Persist role-card ordering so a completed drag survives screen recreation and restart.
+    Settings {
+        id: roleSelectionSettings
+        category: "BlueSkyPRO/RoleSelection"
+        property string roleOrder: "ADMIN,PILOT,TECHNICIAN,ENGINEER"
+    }
+
+    function applySavedRoleOrder() {
+        var savedRoles = roleSelectionSettings.roleOrder.split(",")
+        var ordered = []
+        for (var i = 0; i < savedRoles.length; ++i) {
+            for (var j = 0; j < roleCardsModel.length; ++j) {
+                if (roleCardsModel[j].role === savedRoles[i]) {
+                    ordered.push(roleCardsModel[j])
+                    break
+                }
+            }
+        }
+        // Retain any roles added in a future version.
+        for (var k = 0; k < roleCardsModel.length; ++k) {
+            var found = false
+            for (var n = 0; n < ordered.length; ++n) {
+                if (ordered[n].role === roleCardsModel[k].role) {
+                    found = true
+                    break
+                }
+            }
+            if (!found)
+                ordered.push(roleCardsModel[k])
+        }
+        if (ordered.length === roleCardsModel.length)
+            roleCardsModel = ordered
+    }
+
+    function moveRoleCardByRole(fromRole, toRole) {
+        if (!fromRole || !toRole || fromRole === toRole)
+            return
+        var from = -1
+        var to = -1
+        for (var i = 0; i < roleCardsModel.length; ++i) {
+            if (roleCardsModel[i].role === fromRole) from = i
+            if (roleCardsModel[i].role === toRole) to = i
+        }
+        if (from < 0 || to < 0 || from === to)
+            return
         var next = roleCardsModel.slice(0)
         var item = next.splice(from, 1)[0]
         next.splice(to, 0, item)
         roleCardsModel = next
+        roleSelectionSettings.roleOrder = next.map(function(card) { return card.role }).join(",")
     }
+
+    Component.onCompleted: applySavedRoleOrder()
     property string displayDate: "14 Oct 2024"
     property string displayTime: "12:45 (UTC+3)"
     property string languageCode: "RU"
@@ -205,16 +252,11 @@ Item {
 
                 DropArea {
                     anchors.fill: parent
-                    onEntered: function(drag) {
-                        if (drag.source && drag.source.roleName !== undefined) {
-                            var fromIndex = -1
-                            for (var i = 0; i < root.roleCardsModel.length; ++i) {
-                                if (root.roleCardsModel[i].role === drag.source.roleName) {
-                                    fromIndex = i
-                                    break
-                                }
-                            }
-                            root.moveRoleCard(fromIndex, roleCard.index)
+                    keys: ["bluesky-role-card"]
+                    onDropped: function(drop) {
+                        if (drop.source && drop.source.roleName !== undefined) {
+                            root.moveRoleCardByRole(drop.source.roleName, roleCard.roleName)
+                            drop.acceptProposedAction()
                         }
                     }
                 }
@@ -225,7 +267,6 @@ Item {
                     onActiveChanged: {
                         if (active) {
                             roleCard.Drag.active = true
-                            root.draggedRoleName = roleCard.modelData.role
                         } else {
                             roleCard.Drag.active = false
                             roleCard.dragX = 0
@@ -242,6 +283,7 @@ Item {
 
                 Drag.active: dragHandler.active
                 Drag.source: roleCard
+                Drag.keys: ["bluesky-role-card"]
                 Drag.hotSpot.x: roleCard.width / 2
                 Drag.hotSpot.y: roleCard.height / 2
 
