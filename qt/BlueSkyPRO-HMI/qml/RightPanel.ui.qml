@@ -496,13 +496,14 @@ Item {
         x: 16
         y: root.draggingPanel === "Checklist" ? root.dragVisualY : root.panelPositionY("Checklist")
         width: parent.width - 32
-        height: Math.min(42 + root.visibleChecklistItems().length * 18, Math.max(90, parent.height * 0.34))
+        height: root.selectedOperationalTool !== "" ? 34 : Math.min(42 + root.visibleChecklistItems().length * 18, Math.max(90, parent.height * 0.34))
+        clip: root.selectedOperationalTool !== ""
         radius: 8
         color: "transparent"
         border.color: "#236078"
         border.width: 1
         antialiasing: true
-        z: root.draggingPanel === "Checklist" ? 200 : 1
+        z: root.draggingPanel === "Checklist" ? 200 : (root.selectedOperationalTool !== "" ? 2 : 1)
         onHeightChanged: Qt.callLater(root.reflowPanelPositions)
     }
 
@@ -628,13 +629,13 @@ Item {
         x: 16
         y: root.draggingPanel === "Flight Conditions" ? root.dragVisualY : root.panelPositionY("Flight Conditions")
         width: parent.width - 32
-        height: root.selectedOperationalTool === "NOTAM" ? 180 : (root.selectedOperationalTool === "" ? 94 : Math.min(parent.height * 0.42, Math.max(110, operationalDetailColumn.implicitHeight + 50)))
+        height: root.selectedOperationalTool !== "" ? Math.max(110, parent.height - operationalCard.y - root.bottomInset - 8) : 94
         radius: 8
         color: "transparent"
         border.color: "#236078"
         border.width: 1
         antialiasing: true
-        z: root.draggingPanel === "Flight Conditions" ? 200 : 1
+        z: root.draggingPanel === "Flight Conditions" ? 200 : (root.selectedOperationalTool !== "" ? 300 : 1)
         onHeightChanged: Qt.callLater(root.reflowPanelPositions)
 
         Rectangle {
@@ -799,13 +800,14 @@ Item {
         x: 16
         y: root.draggingPanel === "Alerting" ? root.dragVisualY : root.panelPositionY("Alerting")
         width: parent.width - 32
-        height: root.selectedOperationalTool === "NOTAM" ? 34 : Math.max(72, Math.min(root.informationAvailableHeight, (root.selectedInformationMessage ? informationDetailsColumn.implicitHeight : informationList.implicitHeight) + 48))
+        height: root.selectedOperationalTool !== "" ? 34 : Math.max(72, Math.min(root.informationAvailableHeight, (root.selectedInformationMessage ? informationDetailsColumn.implicitHeight : informationList.implicitHeight) + 48))
+        clip: root.selectedOperationalTool !== ""
         radius: 8
         color: "transparent"
         border.color: "#236078"
         border.width: 1
         antialiasing: true
-        z: root.draggingPanel === "Alerting" ? 200 : 1
+        z: root.draggingPanel === "Alerting" ? 200 : (root.selectedOperationalTool !== "" ? 2 : 1)
         onHeightChanged: Qt.callLater(root.reflowPanelPositions)
     }
 
@@ -1065,13 +1067,14 @@ Item {
         x: 16
         y: root.draggingPanel === "ATC" ? root.dragVisualY : root.panelPositionY("ATC")
         width: parent.width - 32
-        height: root.atcWorkAreaHeight
+        height: root.selectedOperationalTool !== "" ? 34 : root.atcWorkAreaHeight
+        clip: root.selectedOperationalTool !== ""
         radius: 8
         color: "transparent"
         border.color: "#236078"
         border.width: 1
         antialiasing: true
-        z: root.draggingPanel === "ATC" ? 200 : 1
+        z: root.draggingPanel === "ATC" ? 200 : (root.selectedOperationalTool !== "" ? 2 : 1)
         onHeightChanged: Qt.callLater(root.reflowPanelPositions)
     }
 
