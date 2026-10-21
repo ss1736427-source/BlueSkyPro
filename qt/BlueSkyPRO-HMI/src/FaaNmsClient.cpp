@@ -8,7 +8,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QUrlQuery>
-#include <QDateTime>
+#include <QTimer>
 
 FaaNmsClient::FaaNmsClient(CredentialVault *vault, QObject *parent)
     : QObject(parent), m_vault(vault), m_network(new QNetworkAccessManager(this))
@@ -83,7 +83,6 @@ void FaaNmsClient::testConnection()
     QUrl url = baseUrl();
     url.setPath(QStringLiteral("/v1/auth/token"));
     QNetworkRequest request(url);
-    request.setTransferTimeout(15000);
     request.setHeader(QNetworkRequest::ContentTypeHeader,
                       QStringLiteral("application/x-www-form-urlencoded"));
     QByteArray basic = clientId.toUtf8() + ':' + clientSecret.toUtf8();
@@ -93,19 +92,29 @@ void FaaNmsClient::testConnection()
     QUrlQuery form;
     form.addQueryItem(QStringLiteral("grant_type"), QStringLiteral("client_credentials"));
     QNetworkReply *reply = m_network->post(request, form.toString(QUrl::FullyEncoded).toUtf8());
+    QTimer *timeout = new QTimer(reply);
+    timeout->setSingleShot(true);
+    connect(timeout, &QTimer::timeout, reply, [reply]() {
+        reply->setProperty("blueskyTimedOut", true);
+        reply->abort();
+    });
+    timeout->start(15000);
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, timeout]() {
+        timeout->stop();
         const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QNetworkReply::NetworkError networkError = reply->error();
         const QByteArray body = reply->readAll();
         reply->deleteLater();
 
         if (networkError != QNetworkReply::NoError || httpStatus < 200 || httpStatus >= 300) {
-            const QString state = (httpStatus == 401 || httpStatus == 403)
+            const bool timedOut = reply->property("blueskyTimedOut").toBool();
+            const QString state = timedOut ? QStringLiteral("TIMEOUT")
+                : ((httpStatus == 401 || httpStatus == 403)
                 ? QStringLiteral("AUTH_FAILED")
                 : (httpStatus == 429 ? QStringLiteral("RATE_LIMITED")
                                      : (networkError == QNetworkReply::TimeoutError
-                                            ? QStringLiteral("TIMEOUT") : QStringLiteral("ERROR")));
+                                            ? QStringLiteral("TIMEOUT") : QStringLiteral("ERROR"))));
             finishFailure(state, QStringLiteral("FAA NMS token request failed (HTTP %1, network error %2).")
                                      .arg(httpStatus).arg(static_cast<int>(networkError)));
             return;
@@ -131,11 +140,18 @@ void FaaNmsClient::requestPing(const QString &accessToken)
     QUrl url = baseUrl();
     url.setPath(QStringLiteral("/nmsapi/v1/ping"));
     QNetworkRequest request(url);
-    request.setTransferTimeout(15000);
     request.setRawHeader("Authorization", "Bearer " + accessToken.toUtf8());
     QNetworkReply *reply = m_network->get(request);
+    QTimer *timeout = new QTimer(reply);
+    timeout->setSingleShot(true);
+    connect(timeout, &QTimer::timeout, reply, [reply]() {
+        reply->setProperty("blueskyTimedOut", true);
+        reply->abort();
+    });
+    timeout->start(15000);
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, timeout]() {
+        timeout->stop();
         const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QNetworkReply::NetworkError networkError = reply->error();
         reply->readAll();
@@ -143,11 +159,13 @@ void FaaNmsClient::requestPing(const QString &accessToken)
 
         m_requestInProgress = false;
         if (networkError != QNetworkReply::NoError || httpStatus < 200 || httpStatus >= 300) {
-            const QString state = (httpStatus == 401 || httpStatus == 403)
+            const bool timedOut = reply->property("blueskyTimedOut").toBool();
+            const QString state = timedOut ? QStringLiteral("TIMEOUT")
+                : ((httpStatus == 401 || httpStatus == 403)
                 ? QStringLiteral("AUTH_FAILED")
                 : (httpStatus == 429 ? QStringLiteral("RATE_LIMITED")
                                      : (networkError == QNetworkReply::TimeoutError
-                                            ? QStringLiteral("TIMEOUT") : QStringLiteral("ERROR")));
+                                            ? QStringLiteral("TIMEOUT") : QStringLiteral("ERROR"))));
             const QString message = QStringLiteral("FAA NMS ping failed (HTTP %1, network error %2).")
                                         .arg(httpStatus).arg(static_cast<int>(networkError));
             setStatus(state);
