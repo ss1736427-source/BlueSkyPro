@@ -89,8 +89,10 @@ int main()
     detourGraph.nodes = {
         {"S", 0, 0, {59.0, 29.995}, 100.0, AltitudeReference::AGL},
         {"G", 1, 0, {59.0, 30.005}, 100.0, AltitudeReference::AGL},
-        {"D1", 0.5, 1, {59.004, 30.0}, 100.0, AltitudeReference::AGL},
-        {"D2", 0.5, 2, {59.004, 30.004}, 100.0, AltitudeReference::AGL}
+        // Keep the detour corridor comfortably outside the 250 m circle;
+        // the previous 59.004 latitude caused the S-D1 edge to clip the zone.
+        {"D1", 0.5, 1, {59.008, 30.0}, 100.0, AltitudeReference::AGL},
+        {"D2", 0.5, 2, {59.008, 30.004}, 100.0, AltitudeReference::AGL}
     };
     detourGraph.start_node = "S";
     detourGraph.goal_node = "G";
