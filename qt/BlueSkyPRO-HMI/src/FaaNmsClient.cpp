@@ -9,6 +9,8 @@
 #include <QNetworkRequest>
 #include <QUrlQuery>
 #include <QTimer>
+#include <QJsonArray>
+#include <cmath>
 
 FaaNmsClient::FaaNmsClient(CredentialVault *vault, QObject *parent)
     : QObject(parent), m_vault(vault), m_network(new QNetworkAccessManager(this))
@@ -154,6 +156,156 @@ void FaaNmsClient::testConnection()
             return;
         }
         requestPing(accessToken);
+    });
+}
+
+void FaaNmsClient::queryNotams(double latitude, double longitude, double radiusNm)
+{
+    if (m_queryInProgress || m_requestInProgress) return;
+    if (!std::isfinite(latitude) || latitude < -90.0 || latitude > 90.0
+        || !std::isfinite(longitude) || longitude < -180.0 || longitude > 180.0
+        || !std::isfinite(radiusNm) || radiusNm <= 0.0 || radiusNm > 100.0) {
+        emit notamQueryFinished(false, QStringLiteral("Invalid query: latitude/longitude out of range or radius must be >0 and <=100 NM."));
+        return;
+    }
+    if (!m_vault) {
+        emit notamQueryFinished(false, QStringLiteral("Credential vault is unavailable."));
+        return;
+    }
+    const QString clientId = m_vault->readSecret(QStringLiteral("faa_nms_client_id"));
+    const QString clientSecret = m_vault->readSecret(QStringLiteral("faa_nms_client_secret"));
+    if (clientId.isEmpty() || clientSecret.isEmpty()) {
+        emit notamQueryFinished(false, QStringLiteral("FAA NMS credentials are not configured."));
+        return;
+    }
+
+    m_queryInProgress = true;
+    QUrl tokenUrl = baseUrl();
+    tokenUrl.setPath(QStringLiteral("/v1/auth/token"));
+    QNetworkRequest tokenRequest(tokenUrl);
+    tokenRequest.setHeader(QNetworkRequest::ContentTypeHeader,
+                           QStringLiteral("application/x-www-form-urlencoded"));
+    QByteArray basic = clientId.toUtf8() + ':' + clientSecret.toUtf8();
+    tokenRequest.setRawHeader("Authorization", "Basic " + basic.toBase64());
+    basic.fill('\0');
+    QUrlQuery form;
+    form.addQueryItem(QStringLiteral("grant_type"), QStringLiteral("client_credentials"));
+    QNetworkReply *tokenReply = m_network->post(tokenRequest, form.toString(QUrl::FullyEncoded).toUtf8());
+    QTimer *tokenTimeout = new QTimer(tokenReply);
+    tokenTimeout->setSingleShot(true);
+    connect(tokenTimeout, &QTimer::timeout, tokenReply, [tokenReply]() {
+        tokenReply->setProperty("blueskyTimedOut", true);
+        tokenReply->abort();
+    });
+    tokenTimeout->start(15000);
+    connect(tokenReply, &QNetworkReply::finished, this,
+            [this, tokenReply, tokenTimeout, latitude, longitude, radiusNm]() {
+        tokenTimeout->stop();
+        const int http = tokenReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const auto networkError = tokenReply->error();
+        const QByteArray body = tokenReply->readAll();
+        const bool timedOut = tokenReply->property("blueskyTimedOut").toBool();
+        tokenReply->deleteLater();
+        if (networkError != QNetworkReply::NoError || http < 200 || http >= 300) {
+            m_queryInProgress = false;
+            emit notamQueryFinished(false, QStringLiteral("FAA NMS OAuth failed (HTTP %1, network error %2%3).")
+                .arg(http).arg(static_cast<int>(networkError))
+                .arg(timedOut ? QStringLiteral(", timeout") : QString()));
+            return;
+        }
+        QJsonParseError parseError {};
+        const QJsonDocument doc = QJsonDocument::fromJson(body, &parseError);
+        const QJsonObject obj = doc.object();
+        const QString token = obj.value(QStringLiteral("access_token")).toString();
+        const QJsonValue expiry = obj.value(QStringLiteral("expires_in"));
+        bool expiryOk = false;
+        const int expirySeconds = expiry.isString() ? expiry.toString().toInt(&expiryOk)
+            : (expiry.isDouble() ? (expiryOk = true, expiry.toInt()) : 0);
+        if (parseError.error != QJsonParseError::NoError || !doc.isObject()
+            || token.isEmpty() || !expiryOk || expirySeconds <= 0) {
+            m_queryInProgress = false;
+            emit notamQueryFinished(false, QStringLiteral("FAA NMS OAuth response did not match documented token schema."));
+            return;
+        }
+        requestNotams(token, latitude, longitude, radiusNm);
+    });
+}
+
+void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
+                                 double longitude, double radiusNm)
+{
+    QUrl url = baseUrl();
+    url.setPath(QStringLiteral("/nmsapi/v1/notams"));
+    QUrlQuery query;
+    query.addQueryItem(QStringLiteral("latitude"), QString::number(latitude, 'f', 6));
+    query.addQueryItem(QStringLiteral("longitude"), QString::number(longitude, 'f', 6));
+    query.addQueryItem(QStringLiteral("radius"), QString::number(radiusNm, 'f', 2));
+    url.setQuery(query);
+    QNetworkRequest request(url);
+    request.setRawHeader("Authorization", "Bearer " + accessToken.toUtf8());
+    request.setRawHeader("nmsResponseFormat", "GEOJSON");
+    QNetworkReply *reply = m_network->get(request);
+    QTimer *timeout = new QTimer(reply);
+    timeout->setSingleShot(true);
+    connect(timeout, &QTimer::timeout, reply, [reply]() {
+        reply->setProperty("blueskyTimedOut", true);
+        reply->abort();
+    });
+    timeout->start(15000);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, timeout]() {
+        timeout->stop();
+        const int http = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const auto networkError = reply->error();
+        const QByteArray body = reply->readAll();
+        const bool timedOut = reply->property("blueskyTimedOut").toBool();
+        const QString requestId = reply->rawHeader("x-request-id").left(100);
+        reply->deleteLater();
+        m_queryInProgress = false;
+        if (networkError != QNetworkReply::NoError || http < 200 || http >= 300) {
+            emit notamQueryFinished(false, QStringLiteral("FAA NMS NOTAM query failed (HTTP %1, network error %2%3%4).")
+                .arg(http).arg(static_cast<int>(networkError))
+                .arg(timedOut ? QStringLiteral(", timeout") : QString())
+                .arg(requestId.isEmpty() ? QString() : QStringLiteral(", request-id: ") + QString::fromLatin1(requestId)));
+            return;
+        }
+        QJsonParseError parseError {};
+        const QJsonDocument doc = QJsonDocument::fromJson(body, &parseError);
+        if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+            emit notamQueryFinished(false, QStringLiteral("FAA NMS NOTAM response is not a valid JSON object."));
+            return;
+        }
+        const QJsonObject root = doc.object();
+        const QJsonObject data = root.value(QStringLiteral("data")).toObject();
+        const QJsonValue geojsonValue = data.value(QStringLiteral("geojson"));
+        if (!root.contains(QStringLiteral("status")) || !root.value(QStringLiteral("data")).isObject()
+            || !geojsonValue.isArray()) {
+            QStringList keys = root.keys();
+            keys.sort();
+            emit notamQueryFinished(false, QStringLiteral("FAA NMS response schema mismatch; top-level keys: %1. No data accepted.")
+                .arg(keys.join(QStringLiteral(", ")).left(180)));
+            return;
+        }
+        const QJsonArray records = geojsonValue.toArray();
+        int validFeatures = 0;
+        int featuresWithGeometry = 0;
+        for (const QJsonValue &value : records) {
+            if (!value.isObject()) continue;
+            const QJsonObject feature = value.toObject();
+            const QJsonObject properties = feature.value(QStringLiteral("properties")).toObject();
+            const QJsonObject core = properties.value(QStringLiteral("coreNOTAMData")).toObject();
+            const QJsonObject notam = core.value(QStringLiteral("notam")).toObject();
+            const QString id = notam.value(QStringLiteral("id")).toString();
+            if (feature.value(QStringLiteral("type")).toString() == QStringLiteral("Feature")
+                && !id.isEmpty()) {
+                ++validFeatures;
+                if (feature.value(QStringLiteral("geometry")).isObject())
+                    ++featuresWithGeometry;
+            }
+        }
+        emit notamQueryFinished(true,
+            QStringLiteral("FAA NMS query succeeded: %1 GeoJSON records; %2 have NOTAM IDs; %3 have geometry. Request ID: %4. Data is diagnostic only and is not yet connected to route validation.")
+                .arg(records.size()).arg(validFeatures).arg(featuresWithGeometry)
+                .arg(requestId.isEmpty() ? QStringLiteral("not provided") : QString::fromLatin1(requestId)));
     });
 }
 
