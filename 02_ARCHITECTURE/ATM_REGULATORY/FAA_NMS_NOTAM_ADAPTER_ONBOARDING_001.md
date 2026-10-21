@@ -1,96 +1,125 @@
 # FAA NMS NOTAM Adapter — Onboarding and Implementation Gate
 
-**Status:** BLOCKED ON OFFICIAL API ACCESS / CONTRACT  
+**Status:** SPECIFICATION RECEIVED; IMPLEMENTATION READY FOR STAGING, CREDENTIALS REQUIRED  
 **Scope:** Experimental US NOTAM source for integration testing only  
-**Repository rule:** This record is maintained on the canonical `main` branch.
+**Canonical branch:** `main`
 
-## 1. Purpose
+## 1. Purpose and boundary
 
-Evaluate the FAA source shown in the BlueSky PRO integration setup and define the evidence required before implementing a dedicated FAA NMS adapter. This record does not claim a live FAA API connection or operational readiness.
+This document records the supplied FAA NMS-API onboarding bundle and the implementation boundary for BlueSky PRO. It does not claim that BlueSky PRO has authenticated to FAA, received live data, or is operationally ready.
 
-## 2. Official sources
+FAA NMS is a US source. The supplied bundle does not establish coverage of Russian airspace or suitability for operational decisions under Russian jurisdiction. The adapter must be labelled **FAA NMS — US TEST SOURCE** and remain separate from the Russian NOTAM source decision.
 
-- Public legacy FNS NOTAM Search UI: https://notams.aim.faa.gov/notamSearch/nsapp.html
-- FAA NOTAM Management Service portal: https://nms.aim.faa.gov/
-- FAA NMS overview and API access entry point: https://www.faa.gov/about/initiatives/notam
-- FAA NMS FAQs: https://www.faa.gov/about/initiatives/notam/faqs
+## 2. Supplied onboarding package
 
-The FAA NMS portal describes a modernized NOTAM service. The FAA FAQ says external users should contact `7-AWA-NAIMES@faa.gov` to request access to the NMS-API distribution interface. The portal's public pages do not provide sufficient unauthenticated API endpoint and response-schema detail to implement and verify a production client.
+The reviewed bundle contains an OpenAPI specification (`nms-api.yaml`), curl examples, a pre-production SoapUI project, FAQ PDF, initial-load examples in JSON/XML, and a checklist example. The spreadsheet was not parsed successfully in the review environment; therefore no credential values were read or verified.
 
-## 2.1 Publicly confirmed API capabilities
+The bundle documents these environments:
 
-The FAA's public NOTAM modernization material describes the NMS-API as available for onboarding and identifies these capabilities:
+| Environment | Base URL |
+|---|---|
+| FIT | `https://api-fit.cgifederal-aim.com/` |
+| Staging / Pre-Production | `https://api-staging.cgifederal-aim.com/` |
+| Production | `https://api-nms.aim.faa.gov/` |
 
-- query/filter by time and location, including radius-based geospatial queries;
-- retrieve recently created or cancelled NOTAMs;
-- response formats including AIXM 5.1 and GeoJSON;
-- delta queries for incremental updates;
-- support for real-time and batch processing.
+Do not use the production host for initial integration tests. Start with the authorized staging environment.
 
-These are capability-level statements, not a complete endpoint contract. The precise URL paths, authentication exchange, request parameters, pagination, response envelopes, and schema constraints must come from the official onboarding package. Do not implement guessed URLs or assume OAuth details from third-party code.
+## 3. Authentication contract from the supplied FAQ/examples
 
-## 2.2 Access request checklist
+The documented token request is a client-credentials exchange. The token endpoint is outside the `/nmsapi` path:
 
-Send an access request to `7-AWA-NAIMES@faa.gov` or use the API access path linked from the official NMS portal. Ask for:
-- developer/onboarding instructions and the current NMS-API specification;
-- access to an approved test/sandbox environment, if available;
-- authentication and credential provisioning instructions;
-- approved usage terms for an external flight-planning application;
-- clarification of whether API access can be granted to an organization based outside the United States.
+```http
+POST https://api-staging.cgifederal-aim.com/v1/auth/token
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic <base64(client_id:client_secret)>
 
-Suggested request text is maintained below for convenience.
+grant_type=client_credentials
+```
 
-**Subject:** Request for FAA NMS-API access and technical documentation — BlueSky PRO integration
+The documented curl equivalent is:
 
-> Hello FAA NOTAM Service Center,
->
-> We are evaluating an integration between the FAA NOTAM Management Service API and BlueSky PRO, a UAV flight-planning application. Our initial scope is limited to software integration testing using U.S. NOTAM data; it is not intended to replace official FAA services or represent coverage of non-U.S. airspace.
->
-> Please advise how to request NMS-API access and provide the current technical documentation, including supported environments, authentication, endpoint/query specifications, response schemas, update/delta behavior, rate limits, and applicable terms of use. If a sandbox or non-operational test environment is available, please provide its onboarding procedure.
->
-> Please also confirm any eligibility requirements for an applicant organization based outside the United States.
->
-> Regards,  
-> BlueSky PRO Integration Team
+```sh
+curl -X POST --location \
+  "https://api-staging.cgifederal-aim.com/v1/auth/token" \
+  -d grant_type=client_credentials \
+  -u "$FAA_NMS_CLIENT_ID:$FAA_NMS_CLIENT_SECRET"
+```
 
-## 3. Current BlueSky PRO state
+The response supplies an `access_token` and `expires_in`; the FAQ's typical example is about 1,799 seconds. The client must renew tokens before expiry and handle `401` by refreshing once before returning an authentication error. An `invalid_client` response points to client credential/configuration failure, not an expired bearer token.
 
-The current HMI NOTAM test uses the third-party NOTAC REST API, with a default base URL of `https://notac.aero/api/v1`. It sends a bearer token and requests active US notices using the NOTAC-specific route and response envelope. This is **not** a direct FAA NMS adapter.
+**Security:** never commit, log, or email the client secret or bearer token. Use the native credential vault for the client ID/secret; keep the short-lived access token in memory only. Do not disable TLS certificate validation in production.
 
-The public FAA search page is a human-facing web application. Its presence does not establish that its internal web requests are a supported public API. Do not bind BlueSky Core to undocumented page internals or scrape the UI as a substitute for an authorized interface.
+## 4. Endpoints documented in the package
 
-## 4. Required onboarding evidence
+All data endpoints below use the environment host plus `/nmsapi` and require `Authorization: Bearer <access_token>`.
 
-Before implementing the FAA adapter, obtain and archive the official onboarding response and technical specification supplied by FAA. Confirm:
+| Purpose | Endpoint | Notes |
+|---|---|---|
+| Connectivity probe | `GET /nmsapi/v1/ping` | First staging smoke test |
+| NOTAM query | `GET /nmsapi/v1/notams` | Filterable by location, time, classification, identifiers and other documented fields |
+| Checklist | `GET /nmsapi/v1/notams/checklist` | Summary/checklist records |
+| Full initial load | `GET /nmsapi/v1/notams/il` | Bulk load; do not poll as a delta feed |
+| Initial load by classification | `GET /nmsapi/v1/notams/il/{classification}` | Classification-specific bulk load |
+| Initial-load content | `GET /nmsapi/v1/content/{token}` | Fetch content using the token/reference returned by initial-load flow |
+| Location series | `GET /nmsapi/v1/locationseries` | Optional location-series data |
 
-1. API base URL(s) and environment(s) for test and production.
-2. Authentication method, token lifecycle, and required headers.
-3. Supported query filters (including geography, time validity, status and pagination).
-4. Response format(s), schema version(s), and geometry representation.
-5. Rate limits, update/delta semantics, freshness expectations, and service error behavior.
-6. Terms of use and whether the requested access permits the intended integration and data retention.
+For `/v1/notams`, the package specifies the required `nmsResponseFormat` header with `AIXM` or `GEOJSON`. Geographic filters use decimal-degree latitude/longitude and radius in nautical miles. The adapter must follow the OpenAPI schema shipped in the onboarding package rather than infer a response from the sample fixtures.
 
-Do not store credentials in source control. Use the existing native credential vault mechanism once the authentication contract is confirmed.
+The signed URL in the sample initial-load JSON is dated sample data and must not be reused as a live endpoint.
 
-## 5. Adapter implementation contract
+## 5. Rate limits and polling policy
 
-When the official specification is available, implement a dedicated FAA NMS adapter behind the common NOTAM source boundary. Keep the existing NOTAC adapter available for independent testing; do not silently repurpose its endpoint, token handling, route, or parser.
+The supplied FAQ states:
 
-The FAA adapter must:
+- Pre-Production: 1 request/second, with content calls allowed at approximately 2 requests/second.
+- Production: one data pull every 3 minutes for activity from the preceding 3-minute interval.
+- Initial-load bulk pull: at most once per 24 hours unless FAA explicitly approves a different rate.
+- More frequent polling may require FAA approval and can trigger rate-limit errors.
 
-- validate HTTP status, content type, schema/version and required fields;
-- normalize source records into the BlueSky NOTAM model without discarding source identifiers, validity intervals, cancellation/replacement state, geometry, retrieval time or provenance;
-- reject malformed or incomplete safety-relevant records rather than treating them as an empty result;
-- expose explicit states for authorization failure, timeout, rate limit, invalid response and successful retrieval;
-- include deterministic fixture tests for normal, empty, malformed, expired/cancelled, paginated and error responses;
-- mark FAA data as a US test source and never imply Russian airspace coverage.
+Implement a single scheduled poller with a minimum 3-minute production interval, a 3-minute incremental lookback, backoff for `429`/transient failures, and explicit last-success/freshness metadata. Do not run a bulk initial load as a recurring delta query. Respect any stricter rate limits in the issued account agreement.
 
-## 6. Verification gate
+## 6. BlueSky PRO integration boundary
 
-The adapter is not considered connected merely because the portal opens or an HTTP request returns 2xx. Acceptance requires an authorized API call against the documented endpoint, a schema-validated response, normalization tests, and evidence of data provenance and validity handling.
+The current HMI NOTAM test uses the third-party NOTAC REST API and expects a NOTAC-specific JSON envelope. It is not an FAA NMS adapter. Keep the existing NOTAC route/parser separate; do not repurpose it to call FAA.
 
-Until then, Virtual Flight should continue to use labelled fixtures/synthetic data. FAA test data must not be used as authoritative Russian operational restrictions or as the sole basis for releasing a real mission.
+The FAA client should be implemented in the native C++ layer using Qt Network (or an equivalent existing native service), not by exposing the FAA client secret to QML/JavaScript. The native adapter should:
 
-## 7. Next action
+1. read client credentials through the existing credential-vault bridge;
+2. obtain/refresh the bearer token;
+3. call staging `ping` and then a bounded NOTAM query;
+4. validate HTTP status, content type, required fields and response format;
+5. normalize records into the canonical BlueSky NOTAM model while retaining provider ID, classification, issue/update/effective times, cancellation/replacement state, geometry, altitude reference/limits, retrieval time and source provenance;
+6. publish explicit states: `NOT_CONFIGURED`, `CONNECTING`, `CONNECTED`, `AUTH_FAILED`, `RATE_LIMITED`, `TIMEOUT`, `INVALID_RESPONSE`, `STALE`, `ERROR`;
+7. never treat a failed, stale, partial or malformed response as an empty/clear airspace result.
 
-Request NMS-API access and the current technical specification through the official FAA NMS portal/contact. Once the specification is available, implement and test the dedicated adapter on `main`, without creating a branch or PR unless a real technical constraint requires one.
+Prefer GeoJSON only after validating that the returned schema contains adequate geometry and temporal/vertical attributes for the planning core. If AIXM is required for relevant records, implement a versioned parser and test it against the supplied sample before enabling normalization.
+
+## 7. Virtual Flight and safety gate
+
+Virtual Flight remains the default test path until authenticated staging data has been validated. Use deterministic fixture files for successful query, empty result, malformed response, expired/cancelled NOTAM, unsupported geometry/altitude reference, timeout, `401`, `invalid_client`, `429`, and stale/partial data. Label provider records as US test data and keep them separate from synthetic fixtures.
+
+Do not use FAA staging records as authoritative Russian restrictions or as the sole basis for real-mission release. The existing route validator's explicit altitude-reference rules remain in force; records with unsupported or unknown vertical references must not silently pass.
+
+## 8. Verification checklist
+
+- [ ] Staging credentials provisioned and stored in the native credential vault.
+- [ ] Token exchange succeeds without logging secrets.
+- [ ] Token expiry and one-time refresh after `401` are tested.
+- [ ] `/nmsapi/v1/ping` succeeds against staging.
+- [ ] A bounded `/nmsapi/v1/notams` query returns a schema-valid response.
+- [ ] GeoJSON/AIXM parsing and normalization have deterministic tests.
+- [ ] Rate limits, retry/backoff, freshness and source provenance are verified.
+- [ ] Admin UI distinguishes transport success from valid NOTAM data.
+- [ ] Virtual Flight fixtures remain isolated from provider results.
+- [ ] Russian jurisdiction source and coverage are separately established.
+
+**Current blocker:** the onboarding bundle defines the protocol, but this review did not verify that valid staging credentials are available. The credential spreadsheet was unreadable in the review environment. No live connection is claimed.
+
+## 9. Next implementation sequence
+
+1. Verify the credential-vault bridge's read/write behavior and add a dedicated `faa_nms` credential namespace without altering the existing `notam`/NOTAC secret.
+2. Implement a native FAA NMS client for token exchange, token renewal and `ping`.
+3. Add fixture-backed tests for auth/error handling before making live requests.
+4. Add the bounded NOTAM query, response validation and canonical normalization.
+5. Connect the result to the ADMIN integration console with source, status, last successful retrieval and freshness.
+6. Keep Virtual Flight as the operationally isolated test path until the complete verification checklist is met.
