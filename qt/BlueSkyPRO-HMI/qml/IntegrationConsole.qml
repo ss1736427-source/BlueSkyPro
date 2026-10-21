@@ -507,8 +507,6 @@ Item {
 
                     Rectangle {
                         width: parent.width
-                    Rectangle {
-                        width: parent.width
                         height: faaNmsNode.implicitHeight + 24
                         color: "#101F2D"; border.color: root.line; radius: 4
                         Column {
@@ -546,6 +544,8 @@ Item {
                         }
                     }
 
+                    Rectangle {
+                        width: parent.width
                         height: notacNode.implicitHeight + 24
                         color: "#101F2D"; border.color: root.line; radius: 4
                         Column {
