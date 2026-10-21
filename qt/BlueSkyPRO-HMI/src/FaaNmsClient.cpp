@@ -124,9 +124,17 @@ void FaaNmsClient::testConnection()
         const QJsonDocument document = QJsonDocument::fromJson(body, &parseError);
         const QJsonObject object = document.object();
         const QString accessToken = object.value(QStringLiteral("access_token")).toString();
-        const int expiresIn = object.value(QStringLiteral("expires_in")).toInt();
+        const QJsonValue expiresValue = object.value(QStringLiteral("expires_in"));
+        // FAA NMS examples encode expires_in as a JSON string ("1799"),
+        // although some OAuth providers return a JSON number. Accept both.
+        bool expiresOk = false;
+        const int expiresIn = expiresValue.isString()
+            ? expiresValue.toString().toInt(&expiresOk)
+            : (expiresValue.isDouble()
+                   ? (expiresOk = true, expiresValue.toInt())
+                   : 0);
         if (parseError.error != QJsonParseError::NoError || !document.isObject()
-            || accessToken.isEmpty() || expiresIn <= 0) {
+            || accessToken.isEmpty() || !expiresOk || expiresIn <= 0) {
             QString providerError = object.value(QStringLiteral("error_description")).toString();
             if (providerError.isEmpty())
                 providerError = object.value(QStringLiteral("error")).toString();
