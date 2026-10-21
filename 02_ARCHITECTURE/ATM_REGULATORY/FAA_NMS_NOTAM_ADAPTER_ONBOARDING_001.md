@@ -123,3 +123,24 @@ Do not use FAA staging records as authoritative Russian restrictions or as the s
 4. Add the bounded NOTAM query, response validation and canonical normalization.
 5. Connect validated provider records to the ADMIN console with source, status, last successful retrieval and freshness.
 6. Keep Virtual Flight as the operationally isolated test path until the complete verification checklist is met.
+
+
+## 10. Implementation status — 2026-10-21
+
+The current code now includes a native `FaaNmsClient` and a bounded `queryNotams(latitude, longitude, radiusNm)` request, plus an HMI viewport trigger in `qt/BlueSkyPRO-HMI/qml/MapTilerWebMap.qml`. This is an implementation update to the older sequencing notes above; it does not waive the verification checklist.
+
+### Viewport-triggered test query
+
+- The map overlay offers radii of 10, 20, 50 and 100 NM; the default is 20 NM.
+- A request is triggered after the map center moves approximately 2 NM, the zoom changes by at least 0.75, or the selected radius changes.
+- The query is a circle around the map center, not an exact query for the visible map bounds.
+- A failed request clears the remembered query key and allows a retry after a 15-second backoff. If prior records remain displayed, the status text identifies them as a previous snapshot.
+- The status handler is connected to the `faaNmsClient.notamQueryFinished` signal, not to the map component itself.
+- The displayed provider is FAA NMS staging, a US test source only. This does not establish Russian airspace coverage or authorize a mission.
+
+### Verification evidence and remaining limits
+
+- GitHub Actions at commit `d2168809b005997a16e4ec4e21329e6dfb274a83` completed successfully for HMI Qt Build, Windows Map Build and Multi-UAV Validator.
+- These CI results confirm the relevant build/validation workflows, not live staging authentication, actual NOTAM ingestion, or interactive map behavior.
+- Still required: run the app with authorized staging credentials and verify pan, zoom, radius change, success, empty result, timeout/auth failure, stale-snapshot messaging and retry behavior. Record the returned snapshot ID and result count. Do not mark the live-query checklist complete based on OAuth/ping alone.
+- This viewport query is currently a test-stage mechanism. Confirm provider rate limits and account terms before any sustained use; do not use rapid map gestures as a production polling strategy without request coalescing/debouncing and rate-limit handling.
