@@ -117,6 +117,24 @@ int main() {
         environment, {{58.995, 29.995}, {59.005, 30.005}, 150, 80, 160, AltitudeReference::AGL});
     assert(!envelope.allowed);
 
+    // A route may bypass a restricted footprint laterally at the restricted altitude.
+    const auto lateral_bypass = ConstrainedOpenSpace::evaluateSegment(
+        environment, {{58.99, 29.99}, {58.99, 30.02}, 100,
+                      std::numeric_limits<double>::quiet_NaN(),
+                      std::numeric_limits<double>::quiet_NaN(), AltitudeReference::AGL});
+    assert(lateral_bypass.allowed);
+
+    // A horizontal leg above the restriction's known upper limit is permitted.
+    // A climb/descent whose altitude envelope intersects the restriction remains blocked.
+    const auto above_bypass = ConstrainedOpenSpace::evaluateSegment(
+        environment, {{58.995, 29.995}, {59.005, 30.005}, 150, 130, 160,
+                      AltitudeReference::AGL});
+    assert(above_bypass.allowed);
+    const auto climbing_through_zone = ConstrainedOpenSpace::evaluateSegment(
+        environment, {{58.995, 29.995}, {59.005, 30.005}, 100, 80, 150,
+                      AltitudeReference::AGL});
+    assert(!climbing_through_zone.allowed);
+
     environment.complete = false;
     const auto incomplete = ConstrainedOpenSpace::evaluateSegment(environment, crossing);
     assert(!incomplete.allowed &&
