@@ -52,7 +52,8 @@ ConstrainedEnvironmentSnapshot environmentFixture()
     return environment;
 }
 
-bool hasError(const ManualRouteCandidateAssessment& result, const std::string& error)
+template <typename Assessment>
+bool hasError(const Assessment& result, const std::string& error)
 {
     for (const auto& value : result.errors)
         if (value == error) return true;
