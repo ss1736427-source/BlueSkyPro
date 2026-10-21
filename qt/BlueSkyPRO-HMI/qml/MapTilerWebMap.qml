@@ -16,6 +16,7 @@ Item {
     // Normalized source records are display-only; unknown altitude datum is never inferred.
     property var notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
     property string notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
+    property string selectedNotamId: ""
     property int notamSearchRadiusNm: 20
     property bool notamAutoLoadEnabled: true
     property real lastNotamQueryLatitude: NaN
@@ -86,14 +87,14 @@ Item {
             "window.blueskySetPanelBounds=b=>{sidePanelBounds.left=Math.max(0,Number(b.left)||0);sidePanelBounds.right=Math.max(0,Number(b.right)||0);};",
             "let notamSnapshotId='';let notamData={type:'FeatureCollection',features:[]};let notamPopup=null;let notamHoverPopup=null;",
             "function safeText(v){return String(v===undefined||v===null||v===''?'UNKNOWN':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}",
-            "function applyNotams(){if(!map.isStyleLoaded())return;const sourceId='bluesky-notam-data';if(!map.getSource(sourceId))map.addSource(sourceId,{type:'geojson',data:notamData});else map.getSource(sourceId).setData(notamData);const layers=[{id:'bluesky-notam-fill',type:'fill',source:sourceId,filter:['in',['geometry-type'],['literal',['Polygon','MultiPolygon']]],paint:{'fill-color':'#FFB020','fill-opacity':0.24,'fill-outline-color':'#FFD06A'}},{id:'bluesky-notam-line',type:'line',source:sourceId,filter:['in',['geometry-type'],['literal',['LineString','MultiLineString']]],paint:{'line-color':'#FFB020','line-width':3,'line-opacity':0.98}},{id:'bluesky-notam-point',type:'circle',source:sourceId,filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':7,'circle-color':'#FFB020','circle-opacity':0.95,'circle-stroke-color':'#FFFFFF','circle-stroke-width':2}}];layers.forEach(l=>{if(!map.getLayer(l.id))map.addLayer(l);});}",
-            "function appendNotamGeometry(g,p,out){if(!g||typeof g!=='object')return;if(g.type==='GeometryCollection'&&Array.isArray(g.geometries)){g.geometries.forEach(child=>appendNotamGeometry(child,p,out));return;}if(['Polygon','MultiPolygon','LineString','MultiLineString'].includes(g.type))out.push({type:'Feature',geometry:g,properties:p});}",
-            "function setNotams(records,snapshotId){notamSnapshotId=String(snapshotId||'');const features=[];const all=Array.isArray(records)?records:[];all.forEach(r=>{if(!r||!r.geometryJson)return;let g;try{g=JSON.parse(r.geometryJson);}catch(e){return;}if(!g||!g.type)return;const p={id:String(r.id||'UNKNOWN'),number:String(r.number||''),source:String(r.source||'UNKNOWN'),validFrom:String(r.effectiveStart||'UNKNOWN'),validTo:String(r.effectiveEnd||'UNKNOWN'),lower:String(r.lowerLimitRaw||'UNKNOWN'),upper:String(r.upperLimitRaw||'UNKNOWN'),datum:String(r.altitudeReference||'UNKNOWN'),text:String(r.originalText||r.text||'Full source text unavailable'),snapshot:notamSnapshotId};appendNotamGeometry(g,p,features);});notamData={type:'FeatureCollection',features:features};if(map.isStyleLoaded())applyNotams();}",
+            "function applyNotams(){if(!map.isStyleLoaded())return;const sourceId='bluesky-notam-data';if(!map.getSource(sourceId))map.addSource(sourceId,{type:'geojson',data:notamData});else map.getSource(sourceId).setData(notamData);const layers=[{id:'bluesky-notam-fill',type:'fill',source:sourceId,filter:['in',['geometry-type'],['literal',['Polygon','MultiPolygon']]],paint:{'fill-color':['case',['boolean',['get','selected'],false],'#32FFFF','#FFB020'],'fill-opacity':['case',['boolean',['get','selected'],false],0.36,0.24],'fill-outline-color':['case',['boolean',['get','selected'],false],'#FFFFFF','#FFD06A']}},{id:'bluesky-notam-line',type:'line',source:sourceId,filter:['in',['geometry-type'],['literal',['LineString','MultiLineString']]],paint:{'line-color':['case',['boolean',['get','selected'],false],'#32FFFF','#FFB020'],'line-width':['case',['boolean',['get','selected'],false],5,3],'line-opacity':0.98}},{id:'bluesky-notam-point',type:'circle',source:sourceId,filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':['case',['boolean',['get','selected'],false],10,7],'circle-color':['case',['boolean',['get','selected'],false],'#32FFFF','#FFB020'],'circle-opacity':0.95,'circle-stroke-color':'#FFFFFF','circle-stroke-width':2}}];layers.forEach(l=>{if(!map.getLayer(l.id))map.addLayer(l);});}"
+            "function appendNotamGeometry(g,p,out){if(!g||typeof g!=='object')return;if(g.type==='FeatureCollection'&&Array.isArray(g.features)){g.features.forEach(child=>appendNotamGeometry(child,p,out));return;}if(g.type==='Feature'){appendNotamGeometry(g.geometry,p,out);return;}if(g.type==='GeometryCollection'&&Array.isArray(g.geometries)){g.geometries.forEach(child=>appendNotamGeometry(child,p,out));return;}if(['Polygon','MultiPolygon','LineString','MultiLineString','Point','MultiPoint'].includes(g.type))out.push({type:'Feature',geometry:g,properties:Object.assign({},p,{selected:String(p.id||'UNKNOWN')===selectedNotamId})});}"
+            "function setNotams(records,snapshotId){notamSnapshotId=String(snapshotId||'');const features=[];const all=Array.isArray(records)?records:[];all.forEach(r=>{if(!r||!r.geometryJson)return;let g;try{g=JSON.parse(r.geometryJson);}catch(e){return;}if(!g||!g.type)return;const p={id:String(r.id||'UNKNOWN'),number:String(r.number||''),source:String(r.source||'UNKNOWN'),validFrom:String(r.effectiveStart||'UNKNOWN'),validTo:String(r.effectiveEnd||'UNKNOWN'),lower:String(r.lowerLimitRaw||'UNKNOWN'),upper:String(r.upperLimitRaw||'UNKNOWN'),datum:String(r.altitudeReference||'UNKNOWN'),text:String(r.originalText||r.text||'Full source text unavailable'),snapshot:notamSnapshotId};appendNotamGeometry(g,p,features);});notamData={type:'FeatureCollection',features:features};if(map.isStyleLoaded())applyNotams();}"
             "function notamPopupHtml(p){return '<div style=\"max-width:340px;color:#102030;font:12px Arial,sans-serif\"><b>NOTAM '+safeText(p.id)+'</b><br>Источник: '+safeText(p.source)+'<br>Срок: '+safeText(p.validFrom)+' — '+safeText(p.validTo)+'<br>Нижняя граница: '+safeText(p.lower)+'<br>Верхняя граница: '+safeText(p.upper)+'<br>Вертикальная система: '+safeText(p.datum)+'<br>Снимок: '+safeText(p.snapshot)+'<hr><div style=\"white-space:pre-wrap;max-height:220px;overflow:auto\">'+safeText(p.text)+'</div></div>';}",
             "function notamHoverHtml(p){return '<div style=\"max-width:260px;color:#102030;font:12px Arial,sans-serif\"><b>NOTAM '+safeText(p.id)+'</b><br>'+safeText(p.lower)+' — '+safeText(p.upper)+' ('+safeText(p.datum)+')<br>Срок: '+safeText(p.validFrom)+' — '+safeText(p.validTo)+'<br><span style=\"color:#42566a\">Нажмите для полного текста</span></div>';}",
             "map.on('click',['bluesky-notam-fill','bluesky-notam-line','bluesky-notam-point'],e=>{if(!e.features||!e.features.length)return;const p=e.features[0].properties||{};if(notamPopup)notamPopup.remove();notamPopup=new maplibregl.Popup({maxWidth:'360px'}).setLngLat(e.lngLat).setHTML(notamPopupHtml(p)).addTo(map);});",
             "['bluesky-notam-fill','bluesky-notam-line','bluesky-notam-point'].forEach(id=>{map.on('mouseenter',id,e=>{map.getCanvas().style.cursor='pointer';if(notamHoverPopup)notamHoverPopup.remove();const p=e.features&&e.features.length?e.features[0].properties||{}:{};notamHoverPopup=new maplibregl.Popup({closeButton:false,closeOnClick:false,maxWidth:'280px',offset:8}).setLngLat(e.lngLat).setHTML(notamHoverHtml(p)).addTo(map);});map.on('mousemove',id,e=>{if(notamHoverPopup&&e.lngLat)notamHoverPopup.setLngLat(e.lngLat);});map.on('mouseleave',id,()=>{map.getCanvas().style.cursor='';if(notamHoverPopup){notamHoverPopup.remove();notamHoverPopup=null;}});});",
-            "window.blueskySetNotams=setNotams;",
+            "function selectNotam(id){selectedNotamId=String(id||'');notamData.features.forEach(f=>{f.properties=f.properties||{};f.properties.selected=String(f.properties.id||'UNKNOWN')===selectedNotamId;});if(map.isStyleLoaded())applyNotams();const matches=notamData.features.filter(f=>String((f.properties||{}).id||'UNKNOWN')===selectedNotamId);if(!matches.length)return;const coords=[];function collect(c){if(!Array.isArray(c))return;if(c.length>=2&&typeof c[0]==='number'&&typeof c[1]==='number'){if(Number.isFinite(c[0])&&Number.isFinite(c[1]))coords.push([c[0],c[1]]);return;}c.forEach(collect);}matches.forEach(f=>collect(f.geometry&&f.geometry.coordinates));if(!coords.length)return;let west=coords[0][0],east=west,south=coords[0][1],north=south;coords.forEach(p=>{west=Math.min(west,p[0]);east=Math.max(east,p[0]);south=Math.min(south,p[1]);north=Math.max(north,p[1]);});if(coords.length===1||((east-west)<0.0005&&(north-south)<0.0005)){const center=coords[0];map.easeTo({center:center,zoom:Math.max(map.getZoom(),10),duration:650});if(notamPopup)notamPopup.remove();notamPopup=new maplibregl.Popup({maxWidth:'360px'}).setLngLat(center).setHTML(notamPopupHtml(matches[0].properties||{})).addTo(map);}else{map.fitBounds([[west,south],[east,north]],{padding:{top:70,bottom:70,left:80,right:80},maxZoom:12,duration:650});const center=[(west+east)/2,(south+north)/2];if(notamPopup)notamPopup.remove();notamPopup=new maplibregl.Popup({maxWidth:'360px'}).setLngLat(center).setHTML(notamPopupHtml(matches[0].properties||{})).addTo(map);}}window.blueskySetNotams=setNotams;window.blueskySelectNotam=selectNotam;",
             "let routeData={type:'FeatureCollection',features:[]};",
             "let routeInputSignature=null;",
             "let labelsVisible=true;",
@@ -147,6 +148,7 @@ Item {
             "document.getElementById('labels').addEventListener('click',()=>{labelsVisible=!labelsVisible;applyLabels(false);document.getElementById('labels').textContent='LABELS: '+(labelsVisible?'ON':'OFF');document.getElementById('labels').classList.toggle('active',labelsVisible);});",
             "window.blueskySetRoute(" + JSON.stringify(root.routeCoordinates || []) + ");",
             "window.blueskySetNotams(" + JSON.stringify(root.notamRecords || []) + "," + JSON.stringify(root.notamSnapshotId || "") + ");",
+            "window.blueskySelectNotam(" + JSON.stringify(root.selectedNotamId || "") + ");",
             "window.blueskySetManualTemplates(" + JSON.stringify(root.manualTemplateIds || []) + ");",
             "}",
             "</script></body></html>"
@@ -197,8 +199,13 @@ Item {
         if (htmlLoaded && !webMap.loading) {
             var payload = JSON.stringify(root.notamRecords || [])
             var snapshot = JSON.stringify(root.notamSnapshotId || "")
-            webMap.runJavaScript("if(window.blueskySetNotams)window.blueskySetNotams(" + payload + "," + snapshot + ");")
+            webMap.runJavaScript("if(window.blueskySetNotams)window.blueskySetNotams(" + payload + "," + snapshot + ");if(window.blueskySelectNotam)window.blueskySelectNotam(" + JSON.stringify(root.selectedNotamId || "") + ");")
         }
+    }
+
+    function syncSelectedNotam() {
+        if (htmlLoaded && !webMap.loading)
+            webMap.runJavaScript("if(window.blueskySelectNotam)window.blueskySelectNotam(" + JSON.stringify(root.selectedNotamId || "") + ");")
     }
 
     function syncPanelBounds() {
@@ -243,6 +250,7 @@ Item {
                 root.syncRouteCoordinates()
                 root.syncManualTemplates()
                 root.syncNotamRecords()
+                root.syncSelectedNotam()
                 root.syncPanelBounds()
             } else if (request.status === WebEngineView.LoadFailedStatus) {
                 console.warn("MapTiler SDK load failed:", request.errorString)
@@ -304,6 +312,7 @@ Item {
         function onManualTemplateIdsChanged() { root.syncManualTemplates() }
         function onNotamRecordsChanged() { root.syncNotamRecords() }
         function onNotamSnapshotIdChanged() { root.syncNotamRecords() }
+        function onSelectedNotamIdChanged() { root.syncSelectedNotam() }
         function onLeftPanelWidthChanged() { root.syncPanelBounds() }
         function onRightPanelWidthChanged() { root.syncPanelBounds() }
     }
