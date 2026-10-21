@@ -280,22 +280,57 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
             return;
         }
         const QJsonObject root = doc.object();
-        const QJsonObject data = root.value(QStringLiteral("data")).toObject();
-        const QJsonValue geojsonValue = data.value(QStringLiteral("geojson"));
-        if (!root.contains(QStringLiteral("status")) || !root.value(QStringLiteral("data")).isObject()
-            || !geojsonValue.isArray()) {
-            QStringList keys = root.keys();
-            keys.sort();
-            emit notamQueryFinished(false, QStringLiteral("FAA NMS response schema mismatch; top-level keys: %1. No data accepted.")
-                .arg(keys.join(QStringLiteral(", ")).left(180)));
-            return;
-        }
-        if (root.value(QStringLiteral("status")).toString().compare(QStringLiteral("Success"), Qt::CaseInsensitive) != 0) {
-            emit notamQueryFinished(false, QStringLiteral("FAA NMS reported a non-success response status. No records accepted."));
+        const QJsonValue statusValue = root.value(QStringLiteral("status"));
+        const QJsonValue dataValue = root.value(QStringLiteral("data"));
+        if (!root.contains(QStringLiteral("status")) || statusValue.toString().compare(QStringLiteral("Success"), Qt::CaseInsensitive) != 0) {
+            QString statusText = statusValue.isString() ? statusValue.toString() : QStringLiteral("missing/unsupported");
+            emit notamQueryFinished(false, QStringLiteral("FAA NMS reported a missing or non-success response status (%1). No records accepted.")
+                .arg(statusText.left(80)));
             return;
         }
 
-        const QJsonArray records = geojsonValue.toArray();
+        // The staging API has returned the documented {status, data} envelope
+        // with GeoJSON represented as a FeatureCollection object, not an array.
+        // Accept only recognized GeoJSON containers; never treat an unknown
+        // payload as an empty airspace result.
+        const QJsonObject dataObject = dataValue.toObject();
+        QJsonValue geojsonValue = dataObject.value(QStringLiteral("geojson"));
+        if (geojsonValue.isUndefined())
+            geojsonValue = dataObject.value(QStringLiteral("features"));
+
+        QJsonArray records;
+        if (geojsonValue.isArray()) {
+            records = geojsonValue.toArray();
+        } else if (geojsonValue.isObject()) {
+            const QJsonObject geojsonObject = geojsonValue.toObject();
+            if (geojsonObject.value(QStringLiteral("type")).toString() == QStringLiteral("FeatureCollection")
+                && geojsonObject.value(QStringLiteral("features")).isArray()) {
+                records = geojsonObject.value(QStringLiteral("features")).toArray();
+            } else if (geojsonObject.value(QStringLiteral("type")).toString() == QStringLiteral("Feature")) {
+                records.append(geojsonObject);
+            }
+        } else if (dataObject.value(QStringLiteral("type")).toString() == QStringLiteral("FeatureCollection")
+                   && dataObject.value(QStringLiteral("features")).isArray()) {
+            records = dataObject.value(QStringLiteral("features")).toArray();
+        } else if (dataValue.isArray()) {
+            records = dataValue.toArray();
+        }
+
+        const bool recognizedGeoJson = geojsonValue.isArray()
+            || (geojsonValue.isObject()
+                && (geojsonValue.toObject().value(QStringLiteral("type")).toString() == QStringLiteral("FeatureCollection")
+                    || geojsonValue.toObject().value(QStringLiteral("type")).toString() == QStringLiteral("Feature")))
+            || (dataObject.value(QStringLiteral("type")).toString() == QStringLiteral("FeatureCollection")
+                && dataObject.value(QStringLiteral("features")).isArray())
+            || dataValue.isArray();
+        if (!recognizedGeoJson) {
+            QStringList keys = root.keys();
+            keys.sort();
+            const QString dataKeys = dataObject.keys().join(QStringLiteral(", ")).left(160);
+            emit notamQueryFinished(false, QStringLiteral("FAA NMS response schema mismatch; top-level keys: %1; data keys: %2. No data accepted.")
+                .arg(keys.join(QStringLiteral(", ")).left(120), dataKeys.isEmpty() ? QStringLiteral("none") : dataKeys));
+            return;
+        }
         QVariantList normalizedRecords;
         int featuresWithGeometry = 0;
         for (const QJsonValue &value : records) {
