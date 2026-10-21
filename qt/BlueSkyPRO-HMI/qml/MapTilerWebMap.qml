@@ -24,6 +24,8 @@ Item {
     property real lastNotamQueryRadiusNm: NaN
     property bool notamQueryInProgress: false
     property double notamRetryAfterMs: 0
+    // FAA NMS staging documents a 1 request/second limit; leave a safety margin.
+    property double lastNotamRequestAtMs: 0
     property string notamAutoStatus: "Автозагрузка NOTAM: ожидание карты"
     signal useLegacyMapRequested()
     // Use the module CDN as the document origin so MapLibre v6 can create its CDN-derived worker from the same origin in Qt WebEngine.
@@ -168,7 +170,10 @@ Item {
     }
 
     function queryNotamsForView(viewJson) {
-        if (!root.notamAutoLoadEnabled || root.notamQueryInProgress || Date.now() < root.notamRetryAfterMs || typeof faaNmsClient === "undefined" || faaNmsClient === null) return
+        var nowMs = Date.now()
+        if (!root.notamAutoLoadEnabled || root.notamQueryInProgress || nowMs < root.notamRetryAfterMs
+                || nowMs - root.lastNotamRequestAtMs < 1250
+                || typeof faaNmsClient === "undefined" || faaNmsClient === null) return
         var view
         try { view = JSON.parse(viewJson || "{}") } catch (error) { return }
         if (!view || view.loaded !== true || !isFinite(Number(view.latitude)) || !isFinite(Number(view.longitude)) || !isFinite(Number(view.zoom))) return
@@ -183,6 +188,7 @@ Item {
         if (movedNm < 2 && !zoomChanged && root.lastNotamQueryRadiusNm === root.notamSearchRadiusNm) return
         root.lastNotamQueryLatitude = lat; root.lastNotamQueryLongitude = lon; root.lastNotamQueryZoom = zoom; root.lastNotamQueryRadiusNm = root.notamSearchRadiusNm
         root.notamQueryInProgress = true
+        root.lastNotamRequestAtMs = nowMs
         root.notamAutoStatus = "Загрузка NOTAM · " + lat.toFixed(3) + ", " + lon.toFixed(3) + " · радиус " + root.notamSearchRadiusNm + " NM"
         webMap.runJavaScript("if(window.blueskySetNotamStatus)window.blueskySetNotamStatus(" + JSON.stringify(root.notamAutoStatus) + ");")
         if (typeof faaNmsClient.queryNotams === "function") faaNmsClient.queryNotams(lat, lon, root.notamSearchRadiusNm)
