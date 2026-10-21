@@ -13,6 +13,9 @@ Item {
     // Planning Core is the sole authority for route geometry. Empty means no route overlay.
     property var routeCoordinates: []
     property var manualTemplateIds: []
+    // Normalized source records are display-only; unknown altitude datum is never inferred.
+    property var notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
+    property string notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
     signal useLegacyMapRequested()
     // Use the module CDN as the document origin so MapLibre v6 can create its CDN-derived worker from the same origin in Qt WebEngine.
     // Style switching uses a full style replacement to avoid diff-update incompatibilities between MapTiler styles.
@@ -66,7 +69,15 @@ Item {
             "const sidePanelBounds={left:" + JSON.stringify(root.leftPanelWidth) + ",right:" + JSON.stringify(root.rightPanelWidth) + "};",
             "document.addEventListener('wheel',e=>{const rect=document.getElementById('map').getBoundingClientRect();const x=e.clientX-rect.left;if(x<sidePanelBounds.left||x>=rect.width-sidePanelBounds.right){e.preventDefault();e.stopImmediatePropagation();}}, {capture:true,passive:false});",
             "window.blueskySetPanelBounds=b=>{sidePanelBounds.left=Math.max(0,Number(b.left)||0);sidePanelBounds.right=Math.max(0,Number(b.right)||0);};",
-            "let routeData={type:'FeatureCollection',features:[]};",
+            "let notamSnapshotId='';let notamData={type:'FeatureCollection',features:[]};let notamPopup=null;",
+            "function safeText(v){return String(v===undefined||v===null||v===''?'UNKNOWN':v).replace(/[&<>\\\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\\\"':'&quot;',\"'\":'&#39;'}[c]));}",
+            "function setNotams(records,snapshotId){notamSnapshotId=String(snapshotId||'');const features=[];(Array.isArray(records)?records:[]).forEach(r=>{if(!r||!r.geometryJson)return;let g;try{g=JSON.parse(r.geometryJson);}catch(e){return;}if(!g||!g.type)return;const p={id:String(r.id||'UNKNOWN'),number:String(r.number||''),source:String(r.source||'UNKNOWN'),validFrom:String(r.effectiveStart||'UNKNOWN'),validTo:String(r.effectiveEnd||'UNKNOWN'),lower:String(r.lowerLimitRaw||'UNKNOWN'),upper:String(r.upperLimitRaw||'UNKNOWN'),datum:String(r.altitudeReference||'UNKNOWN'),text:String(r.originalText||r.text||'Full source text unavailable'),snapshot:notamSnapshotId};features.push({type:'Feature',geometry:g,properties:p});});notamData={type:'FeatureCollection',features:features};if(map.isStyleLoaded())applyNotams();}",
+            "function applyNotams(){if(!map.isStyleLoaded())return;if(!map.getSource('bluesky-notam-snapshot'))map.addSource('bluesky-notam-snapshot',{type:'geojson',data:notamData});else map.getSource('bluesky-notam-snapshot').setData(notamData);const layers=[{id:'bluesky-notam-fill',type:'fill',filter:['in',['geometry-type'],['literal',['Polygon','MultiPolygon']]],paint:{'fill-color':'#FFB020','fill-opacity':0.16}},{id:'bluesky-notam-line',type:'line',paint:{'line-color':'#FFB020','line-width':2.2,'line-opacity':0.95}},{id:'bluesky-notam-point',type:'circle',filter:['in',['geometry-type'],['literal',['Point','MultiPoint']]],paint:{'circle-radius':6,'circle-color':'#FFB020','circle-stroke-color':'#FFFFFF','circle-stroke-width':1.5}}];layers.forEach(l=>{if(!map.getLayer(l.id)){const layer={id:l.id,type:l.type,source:'bluesky-notam-snapshot',paint:l.paint};if(l.filter)layer.filter=l.filter;map.addLayer(layer);}});}",
+            "function notamPopupHtml(p){return '<div style=\"max-width:340px;color:#102030;font:12px Arial,sans-serif\"><b>NOTAM '+safeText(p.id)+'</b><br>Источник: '+safeText(p.source)+'<br>Срок: '+safeText(p.validFrom)+' — '+safeText(p.validTo)+'<br>Нижняя граница: '+safeText(p.lower)+'<br>Верхняя граница: '+safeText(p.upper)+'<br>Вертикальная система: '+safeText(p.datum)+'<br>Снимок: '+safeText(p.snapshot)+'<hr><div style=\"white-space:pre-wrap;max-height:220px;overflow:auto\">'+safeText(p.text)+'</div></div>';}",
+            "map.on('click',['bluesky-notam-fill','bluesky-notam-line','bluesky-notam-point'],e=>{if(!e.features||!e.features.length)return;const p=e.features[0].properties||{};if(notamPopup)notamPopup.remove();notamPopup=new maplibregl.Popup({maxWidth:'360px'}).setLngLat(e.lngLat).setHTML(notamPopupHtml(p)).addTo(map);});",
+            "['bluesky-notam-fill','bluesky-notam-line','bluesky-notam-point'].forEach(id=>{map.on('mouseenter',id,()=>{map.getCanvas().style.cursor='pointer';});map.on('mouseleave',id,()=>{map.getCanvas().style.cursor='';});});",
+            "window.blueskySetNotams=setNotams;",
+            "let routeData={type:'FeatureCollection',features:[]};"
             "let routeInputSignature=null;",
             "let labelsVisible=true;",
             "let terrainOn=false;",
@@ -113,11 +124,12 @@ Item {
             "map.on('load',()=>{statusEl.textContent='MAPTILER HYBRID V4 · READY';});",
             "map.on('style.load',()=>{const selectedStyle=document.getElementById('style').value;statusEl.textContent='MAPTILER '+selectedStyle.toUpperCase()+' · READY';});",
             "map.on('error',e=>{perfDiag.errors++;const err=e&&e.error?e.error:null;const item={atMs:Math.round(performance.now()),type:e&&e.type?String(e.type):'unknown',message:err&&err.message?String(err.message):'Map error without error.message',stack:err&&err.stack?String(err.stack).slice(0,4000):null,sourceId:e&&e.sourceId?String(e.sourceId):null,sourceType:e&&e.sourceType?String(e.sourceType):null,tileId:e&&e.tile&&e.tile.uid!==undefined?String(e.tile.uid):null};perfDiag.recentErrors.push(item);if(perfDiag.recentErrors.length>30)perfDiag.recentErrors.shift();console.warn('MapTiler map error:',item.message);});",
-            "function enableTerrain(){if(!map.getSource('bluesky-terrain-dem'))map.addSource('bluesky-terrain-dem',{type:'raster-dem',url:'https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key='+encodeURIComponent(apiKey),tileSize:256});map.setTerrain({source:'bluesky-terrain-dem',exaggeration:1.0});}map.on('style.load',()=>{applyRoute();applyLabels(true);refreshGeometryLayer();if(terrainOn){try{enableTerrain();}catch(e){console.warn('Terrain unavailable:',e.message);}}});",
+            "function enableTerrain(){if(!map.getSource('bluesky-terrain-dem'))map.addSource('bluesky-terrain-dem',{type:'raster-dem',url:'https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key='+encodeURIComponent(apiKey),tileSize:256});map.setTerrain({source:'bluesky-terrain-dem',exaggeration:1.0});}map.on('style.load',()=>{applyRoute();applyNotams();applyLabels(true);refreshGeometryLayer();if(terrainOn){try{enableTerrain();}catch(e){console.warn('Terrain unavailable:',e.message);}}});",
             "document.getElementById('style').addEventListener('change',e=>{const id=e.target.value;perfDiag.styleChanges++;perfDiag.lastStyleStart=performance.now();performance.mark('bluesky-map-style-change');statusEl.textContent='MAPTILER '+id.toUpperCase()+' · LOADING';map.setStyle('https://api.maptiler.com/maps/'+id+'/style.json?key='+encodeURIComponent(apiKey),{diff:false});});",
             "document.getElementById('terrain').addEventListener('click',()=>{terrainOn=!terrainOn;try{if(terrainOn){if(map.isStyleLoaded())enableTerrain();map.easeTo({pitch:55,duration:250});}else{map.setTerrain(null);map.easeTo({pitch:0,duration:350});}document.getElementById('terrain').textContent='3D TERRAIN: '+(terrainOn?'ON':'OFF');document.getElementById('terrain').classList.toggle('active',terrainOn);}catch(e){terrainOn=false;statusEl.textContent='3D TERRAIN UNAVAILABLE';console.warn('Terrain toggle failed:',e.message);}});",
             "document.getElementById('labels').addEventListener('click',()=>{labelsVisible=!labelsVisible;applyLabels(false);document.getElementById('labels').textContent='LABELS: '+(labelsVisible?'ON':'OFF');document.getElementById('labels').classList.toggle('active',labelsVisible);});",
             "window.blueskySetRoute(" + JSON.stringify(root.routeCoordinates || []) + ");",
+            "window.blueskySetNotams(" + JSON.stringify(root.notamRecords || []) + "," + JSON.stringify(root.notamSnapshotId || "") + ");"
             "window.blueskySetManualTemplates(" + JSON.stringify(root.manualTemplateIds || []) + ");",
             "}",
             "</script></body></html>"
@@ -135,6 +147,14 @@ Item {
         if (htmlLoaded && !webMap.loading) {
             var payload = JSON.stringify(root.manualTemplateIds || [])
             webMap.runJavaScript("if(window.blueskySetManualTemplates)window.blueskySetManualTemplates(" + payload + ");")
+        }
+    }
+
+    function syncNotamRecords() {
+        if (htmlLoaded && !webMap.loading) {
+            var payload = JSON.stringify(root.notamRecords || [])
+            var snapshot = JSON.stringify(root.notamSnapshotId || "")
+            webMap.runJavaScript("if(window.blueskySetNotams)window.blueskySetNotams(" + payload + "," + snapshot + ");")
         }
     }
 
@@ -168,6 +188,7 @@ Item {
                 root.htmlLoaded = true
                 root.syncRouteCoordinates()
                 root.syncManualTemplates()
+                root.syncNotamRecords()
                 root.syncPanelBounds()
             } else if (request.status === WebEngineView.LoadFailedStatus) {
                 console.warn("MapTiler SDK load failed:", request.errorString)
@@ -207,6 +228,8 @@ Item {
         target: root
         function onRouteCoordinatesChanged() { root.syncRouteCoordinates() }
         function onManualTemplateIdsChanged() { root.syncManualTemplates() }
+        function onNotamRecordsChanged() { root.syncNotamRecords() }
+        function onNotamSnapshotIdChanged() { root.syncNotamRecords() }
         function onLeftPanelWidthChanged() { root.syncPanelBounds() }
         function onRightPanelWidthChanged() { root.syncPanelBounds() }
     }
