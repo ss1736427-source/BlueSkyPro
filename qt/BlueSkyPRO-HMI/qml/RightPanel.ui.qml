@@ -160,12 +160,28 @@ Item {
                 items.push({ key: key, y: panelPositionY(key), h: panelHeight(key) })
         }
 
-        // FIXED mode anchors ATC at the bottom of the available workspace.
+        // FIXED means saved panel positions are operator-controlled and must
+        // not be rewritten merely because a tool opens or its content changes.
+        // Keep ATC at the workspace bottom and clamp for a resized window, but
+        // do not sort/repack cards in this mode. Detailed content is scrollable.
         if (root.fixedSections) {
+            var fixedPositions = {}
+            var fixedKeys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
+            for (var f = 0; f < fixedKeys.length; ++f)
+                fixedPositions[fixedKeys[f]] = panelPositions[fixedKeys[f]]
             for (var a = 0; a < items.length; ++a) {
-                if (items[a].key === "ATC")
-                    items[a].y = bottomLimit - items[a].h
+                var fixedItem = items[a]
+                if (fixedItem.key === "ATC")
+                    fixedItem.y = bottomLimit - fixedItem.h
+                else if (fixedItem.key !== "Checklist" && fixedItem.key !== "Flight Conditions" && fixedItem.key !== "Alerting")
+                    continue
+                else
+                    fixedItem.y = Math.max(top, Math.min(bottomLimit - fixedItem.h, fixedItem.y))
+                fixedPositions[fixedItem.key] = Math.round(fixedItem.y)
             }
+            panelPositions = fixedPositions
+            savePanelPositions()
+            return
         }
 
         // Clamp saved positions first.
@@ -309,11 +325,11 @@ Item {
         if (key === "Information")
             return informationTitleCard.height
         if (key === "Checklist")
-            return root.selectedOperationalTool === "NOTAM" ? 34 : checklistCard.height
+            return checklistCard.height
         if (key === "Flight Conditions")
             return operationalCard.height
         if (key === "Alerting")
-            return root.selectedOperationalTool === "NOTAM" ? 34 : informationCard.height
+            return informationCard.height
         if (key === "ATC")
             return atcWorkArea.height
         return 0
@@ -480,7 +496,7 @@ Item {
         x: 16
         y: root.draggingPanel === "Checklist" ? root.dragVisualY : root.panelPositionY("Checklist")
         width: parent.width - 32
-        height: root.selectedOperationalTool === "NOTAM" ? 34 : Math.min(42 + root.visibleChecklistItems().length * 18, Math.max(90, parent.height * 0.34))
+        height: Math.min(42 + root.visibleChecklistItems().length * 18, Math.max(90, parent.height * 0.34))
         radius: 8
         color: "transparent"
         border.color: "#236078"
@@ -612,7 +628,7 @@ Item {
         x: 16
         y: root.draggingPanel === "Flight Conditions" ? root.dragVisualY : root.panelPositionY("Flight Conditions")
         width: parent.width - 32
-        height: root.selectedOperationalTool === "NOTAM" ? Math.max(170, parent.height - operationalCard.y - root.bottomInset - 12) : (root.selectedOperationalTool === "" ? 94 : Math.min(parent.height * 0.42, Math.max(110, operationalDetailColumn.implicitHeight + 50)))
+        height: root.selectedOperationalTool === "NOTAM" ? 180 : (root.selectedOperationalTool === "" ? 94 : Math.min(parent.height * 0.42, Math.max(110, operationalDetailColumn.implicitHeight + 50)))
         radius: 8
         color: "transparent"
         border.color: "#236078"
