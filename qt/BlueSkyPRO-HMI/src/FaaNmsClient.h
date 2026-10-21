@@ -23,6 +23,7 @@ public:
     void setEnvironment(const QString &environment);
 
     Q_INVOKABLE void testConnection();
+    Q_INVOKABLE void queryNotams(double latitude, double longitude, double radiusNm);
 
 signals:
     void statusChanged();
@@ -34,6 +35,7 @@ private:
     void setStatus(const QString &status);
     void setLastError(const QString &error);
     void requestPing(const QString &accessToken);
+    void requestNotams(const QString &accessToken, double latitude, double longitude, double radiusNm);
     void finishFailure(const QString &status, const QString &message);
     QUrl baseUrl() const;
 
@@ -43,4 +45,5 @@ private:
     QString m_lastError;
     QString m_environment = QStringLiteral("STAGING");
     bool m_requestInProgress = false;
+    bool m_queryInProgress = false;
 };
