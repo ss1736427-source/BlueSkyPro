@@ -177,7 +177,6 @@ Item {
         var lat = Number(view.latitude), lon = Number(view.longitude), zoom = Number(view.zoom)
         var radius = Number(view.radiusNm)
         if ([10, 20, 50, 100].indexOf(radius) < 0) radius = 20
-        root.notamSearchRadiusNm = radius
         var dLatNm = isFinite(root.lastNotamQueryLatitude) ? Math.abs(lat - root.lastNotamQueryLatitude) * 60 : Infinity
         var dLonNm = isFinite(root.lastNotamQueryLongitude) ? Math.abs(lon - root.lastNotamQueryLongitude) * 60 * Math.max(0.1, Math.cos(lat * Math.PI / 180)) : Infinity
         var movedNm = Math.sqrt(dLatNm*dLatNm + dLonNm*dLonNm)
@@ -187,9 +186,13 @@ Item {
         root.notamQueryInProgress = true
         root.lastNotamRequestAtMs = nowMs
         root.notamAutoStatus = "Загрузка NOTAM · " + lat.toFixed(3) + ", " + lon.toFixed(3) + " · радиус " + root.notamSearchRadiusNm + " NM"
-        webMap.runJavaScript("if(window.blueskySetNotamStatus)window.blueskySetNotamStatus(" + JSON.stringify(root.notamAutoStatus) + ");")
         if (typeof faaNmsClient.queryNotams === "function") faaNmsClient.queryNotams(lat, lon, root.notamSearchRadiusNm)
         else { root.notamQueryInProgress = false; root.lastNotamQueryLatitude = NaN; root.lastNotamQueryLongitude = NaN; root.lastNotamQueryZoom = NaN; root.lastNotamQueryRadiusNm = NaN; root.notamRetryAfterMs = Date.now() + 15000; root.notamAutoStatus = "Клиент FAA NMS недоступен · повтор через 15 с" }
+    }
+
+    function syncNotamRadius() {
+        if (htmlLoaded && !webMap.loading)
+            webMap.runJavaScript("if(window.blueskySetNotamRadius)window.blueskySetNotamRadius(" + Number(root.notamSearchRadiusNm) + ");")
     }
 
     function syncNotamRecords() {
@@ -248,6 +251,7 @@ Item {
                 root.syncManualTemplates()
                 root.syncNotamRecords()
                 root.syncSelectedNotam()
+                root.syncNotamRadius()
                 root.syncPanelBounds()
             } else if (request.status === WebEngineView.LoadFailedStatus) {
                 console.warn("MapTiler SDK load failed:", request.errorString)
@@ -299,7 +303,6 @@ Item {
                 var staleSuffix = (root.notamRecords && root.notamRecords.length > 0) ? " · на карте остаётся предыдущий снимок" : ""
                 root.notamAutoStatus = "Ошибка загрузки NOTAM: " + message + staleSuffix + " · повтор через 15 с"
             }
-            webMap.runJavaScript("if(window.blueskySetNotamStatus)window.blueskySetNotamStatus(" + JSON.stringify(root.notamAutoStatus) + ");")
         }
     }
 
@@ -310,6 +313,10 @@ Item {
         function onNotamRecordsChanged() { root.syncNotamRecords() }
         function onNotamSnapshotIdChanged() { root.syncNotamRecords() }
         function onSelectedNotamIdChanged() { root.syncSelectedNotam() }
+        function onNotamSearchRadiusNmChanged() {
+            root.lastNotamQueryRadiusNm = NaN
+            root.syncNotamRadius()
+        }
         function onLeftPanelWidthChanged() { root.syncPanelBounds() }
         function onRightPanelWidthChanged() { root.syncPanelBounds() }
     }
