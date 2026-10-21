@@ -9,6 +9,7 @@ Item {
     property string faaClientIdText: ""
     property string faaClientSecretText: ""
     property bool faaNmsMode: false
+    property bool faaCredentialsSaved: false
     property string keyText: ""
     property string endpointCheck: ""
     property string wizardMessage: ""
@@ -26,6 +27,12 @@ Item {
     readonly property color green: "#36D6A0"
     readonly property color red: "#F28B82"
 
+    function refreshFaaCredentialsSaved() {
+        faaCredentialsSaved = legacyConsole && legacyConsole.credentialVaultAvailable()
+                && credentialVault.hasSecret("faa_nms_client_id")
+                && credentialVault.hasSecret("faa_nms_client_secret")
+    }
+
     function chooseSource(kind) {
         selectedKind = kind
         wizardStep = 0
@@ -35,6 +42,7 @@ Item {
         faaNmsMode = false
         faaClientIdText = ""
         faaClientSecretText = ""
+        refreshFaaCredentialsSaved()
     }
     function validateEndpoint() {
         var value = endpointText.trim()
@@ -52,6 +60,7 @@ Item {
         endpointCheck = endpointText
         faaNmsMode = endpointText.indexOf("cgifederal-aim.com") >= 0
                 || endpointText.indexOf("api-nms.aim.faa.gov") >= 0
+        refreshFaaCredentialsSaved()
         wizardState = "accepted"
         wizardMessage = "Формат адреса принят. Это ещё не подтверждает доступность источника."
         wizardStep = 1
@@ -78,19 +87,21 @@ Item {
                 legacyConsole.saveFaaNmsCredentials()
                 faaClientIdText = ""
                 faaClientSecretText = ""
-                if (legacyConsole.faaNmsMessage.indexOf("saved separately") < 0) {
+                refreshFaaCredentialsSaved()
+                if (!faaCredentialsSaved || legacyConsole.faaNmsMessage.indexOf("saved separately") < 0) {
                     wizardState = "error"
                     wizardMessage = legacyConsole.faaNmsMessage
                     wizardStep = 1
                     return
                 }
-            } else if (!legacyConsole.credentialVaultAvailable()
-                       || !credentialVault.hasSecret("faa_nms_client_id")
-                       || !credentialVault.hasSecret("faa_nms_client_secret")) {
+            } else {
+                refreshFaaCredentialsSaved()
+                if (!faaCredentialsSaved) {
                 wizardState = "error"
                 wizardMessage = "Введите Client ID и Client Secret. Оба значения обязательны."
                 wizardStep = 1
                 return
+                }
             }
             wizardMessage = "Выполняется OAuth-аутентификация FAA NMS и проверка ping…"
             faaNmsClient.testConnection()
@@ -213,7 +224,7 @@ Item {
                     Text { text: root.wizardStep === 0 ? "Шаг 1. Укажите адрес источника" : root.wizardStep === 1 ? "Шаг 2. Ключ доступа" : "Шаг 3. Проверка источника"; color: root.fg; font.pixelSize: 18; font.bold: true }
                     Text {
                         width: parent.width; wrapMode: Text.Wrap; color: root.muted; font.pixelSize: 12
-                        text: root.wizardStep === 0 ? "Укажите базовый URL выбранного источника. Для FAA NMS используйте выданный адрес STAGING или FIT." : root.wizardStep === 1 ? (root.faaNmsMode ? "FAA NMS использует OAuth: укажите Client ID и Client Secret. Они сохраняются отдельно в защищённом хранилище Windows." : "Для NOTAC введите API-ключ/токен. Он сохраняется в системном защищённом хранилище.") : (root.faaNmsMode ? "Проверяется OAuth-аутентификация FAA NMS и доступность ping. Успешный ping ещё не означает, что NOTAM загружены." : "Тест проверяет ответ NOTAC REST API по ожидаемой JSON-схеме; он не подтверждает покрытие воздушного пространства РФ.")
+                        text: root.wizardStep === 0 ? "Укажите базовый URL выбранного источника. Для FAA NMS используйте выданный адрес STAGING или FIT." : root.wizardStep === 1 ? (root.faaNmsMode ? (root.faaCredentialsSaved ? "Client ID и Client Secret уже сохранены в Windows Credential Manager. Оставьте оба поля пустыми, чтобы использовать сохранённые данные; введите оба значения только для замены." : "FAA NMS использует OAuth: введите Client ID и Client Secret. После сохранения они останутся в защищённом хранилище Windows и не потребуют повторного ввода.") : "Для NOTAC введите API-ключ/токен. Он сохраняется в системном защищённом хранилище.") : (root.faaNmsMode ? "Проверяется OAuth-аутентификация FAA NMS и доступность ping. Успешный ping ещё не означает, что NOTAM загружены." : "Тест проверяет ответ NOTAC REST API по ожидаемой JSON-схеме; он не подтверждает покрытие воздушного пространства РФ.")
                     }
                     TextField {
                         visible: root.wizardStep === 0
@@ -223,6 +234,12 @@ Item {
                         placeholderText: "https://provider.example/api"
                         color: root.fg; placeholderTextColor: root.muted
                         background: Rectangle { color: "#0B1724"; border.color: root.line; radius: 5 }
+                    }
+                    Text {
+                        visible: root.wizardStep === 1 && root.faaNmsMode && root.faaCredentialsSaved
+                        width: parent.width; wrapMode: Text.Wrap
+                        text: "Сохранённые учётные данные найдены. Повторно вводить их не нужно."
+                        color: root.green; font.pixelSize: 11
                     }
                     TextField {
                         visible: root.wizardStep === 1 && root.faaNmsMode
