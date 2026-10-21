@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QUrl>
 #include <QString>
+#include <QVariantList>
 
 class CredentialVault;
 class QNetworkAccessManager;
@@ -14,12 +15,16 @@ class FaaNmsClient final : public QObject
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
     Q_PROPERTY(QString environment READ environment WRITE setEnvironment NOTIFY environmentChanged)
+    Q_PROPERTY(QVariantList notamRecords READ notamRecords NOTIFY notamRecordsChanged)
+    Q_PROPERTY(QString notamSnapshotId READ notamSnapshotId NOTIFY notamRecordsChanged)
 
 public:
     explicit FaaNmsClient(CredentialVault *vault, QObject *parent = nullptr);
     QString status() const;
     QString lastError() const;
     QString environment() const;
+    QVariantList notamRecords() const;
+    QString notamSnapshotId() const;
     void setEnvironment(const QString &environment);
 
     Q_INVOKABLE void testConnection();
@@ -29,6 +34,7 @@ signals:
     void statusChanged();
     void lastErrorChanged();
     void environmentChanged();
+    void notamRecordsChanged();
     void connectionTestFinished(bool success, const QString &message);
     void notamQueryFinished(bool success, const QString &message);
 
@@ -47,4 +53,6 @@ private:
     QString m_environment = QStringLiteral("STAGING");
     bool m_requestInProgress = false;
     bool m_queryInProgress = false;
+    QVariantList m_notamRecords;
+    QString m_notamSnapshotId;
 };
