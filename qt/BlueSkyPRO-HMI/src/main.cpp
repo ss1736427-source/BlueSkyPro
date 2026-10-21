@@ -14,6 +14,7 @@
 #include "RouteController.h"
 #include "TileCacheManager.h"
 #include "CredentialVault.h"
+#include "FaaNmsClient.h"
 #include <QQmlApplicationEngine>
 #include <QUrl>
 #include <QString>
@@ -89,6 +90,10 @@ int main(int argc, char *argv[])
     CredentialVault credentialVault;
     writeStartupLog(QStringLiteral("CHECKPOINT: after CredentialVault constructor"));
 
+    writeStartupLog(QStringLiteral("CHECKPOINT: before FaaNmsClient constructor"));
+    FaaNmsClient faaNmsClient(&credentialVault);
+    writeStartupLog(QStringLiteral("CHECKPOINT: after FaaNmsClient constructor"));
+
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("virtualFlightAssessmentBridge"), &virtualFlightAssessmentBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("manualGeometryBridge"), &manualGeometryBridge);
@@ -98,6 +103,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("canonicalRouteController"), &routeController);
     engine.rootContext()->setContextProperty(QStringLiteral("tileCacheManager"), &tileCacheManager);
     engine.rootContext()->setContextProperty(QStringLiteral("credentialVault"), &credentialVault);
+    engine.rootContext()->setContextProperty(QStringLiteral("faaNmsClient"), &faaNmsClient);
     writeStartupLog(QStringLiteral("CHECKPOINT: C++ context properties configured"));
 
     const QString yandexMapsApiKey = qEnvironmentVariable("BLUESKY_YANDEX_MAPS_API_KEY");
