@@ -30,6 +30,7 @@ signals:
     void lastErrorChanged();
     void environmentChanged();
     void connectionTestFinished(bool success, const QString &message);
+    void notamQueryFinished(bool success, const QString &message);
 
 private:
     void setStatus(const QString &status);
