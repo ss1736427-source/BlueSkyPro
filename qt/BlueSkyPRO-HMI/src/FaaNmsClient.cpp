@@ -10,6 +10,9 @@
 #include <QUrlQuery>
 #include <QTimer>
 #include <QJsonArray>
+#include <QDateTime>
+#include <QUuid>
+#include <QVariantMap>
 #include <cmath>
 
 FaaNmsClient::FaaNmsClient(CredentialVault *vault, QObject *parent)
@@ -20,6 +23,8 @@ FaaNmsClient::FaaNmsClient(CredentialVault *vault, QObject *parent)
 QString FaaNmsClient::status() const { return m_status; }
 QString FaaNmsClient::lastError() const { return m_lastError; }
 QString FaaNmsClient::environment() const { return m_environment; }
+QVariantList FaaNmsClient::notamRecords() const { return m_notamRecords; }
+QString FaaNmsClient::notamSnapshotId() const { return m_notamSnapshotId; }
 
 void FaaNmsClient::setEnvironment(const QString &environment)
 {
@@ -285,27 +290,70 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
                 .arg(keys.join(QStringLiteral(", ")).left(180)));
             return;
         }
+        if (root.value(QStringLiteral("status")).toString().compare(QStringLiteral("Success"), Qt::CaseInsensitive) != 0) {
+            emit notamQueryFinished(false, QStringLiteral("FAA NMS reported a non-success response status. No records accepted."));
+            return;
+        }
+
         const QJsonArray records = geojsonValue.toArray();
-        int validFeatures = 0;
+        QVariantList normalizedRecords;
         int featuresWithGeometry = 0;
         for (const QJsonValue &value : records) {
             if (!value.isObject()) continue;
             const QJsonObject feature = value.toObject();
+            if (feature.value(QStringLiteral("type")).toString() != QStringLiteral("Feature")) continue;
             const QJsonObject properties = feature.value(QStringLiteral("properties")).toObject();
             const QJsonObject core = properties.value(QStringLiteral("coreNOTAMData")).toObject();
             const QJsonObject notam = core.value(QStringLiteral("notam")).toObject();
             const QString id = notam.value(QStringLiteral("id")).toString();
-            if (feature.value(QStringLiteral("type")).toString() == QStringLiteral("Feature")
-                && !id.isEmpty()) {
-                ++validFeatures;
-                if (feature.value(QStringLiteral("geometry")).isObject())
-                    ++featuresWithGeometry;
+            if (id.isEmpty()) continue;
+
+            QVariantMap record;
+            record.insert(QStringLiteral("id"), id);
+            record.insert(QStringLiteral("number"), notam.value(QStringLiteral("number")).toString());
+            record.insert(QStringLiteral("location"), notam.value(QStringLiteral("location")).toString());
+            record.insert(QStringLiteral("source"), QStringLiteral("FAA NMS — US TEST SOURCE"));
+            record.insert(QStringLiteral("environment"), m_environment);
+            record.insert(QStringLiteral("effectiveStart"), notam.value(QStringLiteral("effectiveStart")).toString());
+            record.insert(QStringLiteral("effectiveEnd"), notam.value(QStringLiteral("effectiveEnd")).toString());
+            record.insert(QStringLiteral("lowerLimitRaw"), notam.value(QStringLiteral("lowerLimit")).toString());
+            record.insert(QStringLiteral("upperLimitRaw"), notam.value(QStringLiteral("upperLimit")).toString());
+            // FAA limits such as SFC, 280M, and FL values require explicit conversion rules.
+            // Preserve raw limits; do not silently assign AGL/AMSL or numeric zero.
+            record.insert(QStringLiteral("altitudeReference"), QStringLiteral("UNKNOWN"));
+            record.insert(QStringLiteral("text"), notam.value(QStringLiteral("text")).toString());
+            QJsonArray translations = core.value(QStringLiteral("notamTranslation")).toArray();
+            QStringList originalTexts;
+            for (const QJsonValue &translationValue : translations) {
+                const QJsonObject translation = translationValue.toObject();
+                const QString formatted = translation.value(QStringLiteral("formattedText")).toString();
+                const QString simple = translation.value(QStringLiteral("simpleText")).toString();
+                if (!formatted.isEmpty()) originalTexts.append(formatted);
+                else if (!simple.isEmpty()) originalTexts.append(simple);
             }
+            record.insert(QStringLiteral("originalText"), originalTexts.join(QStringLiteral("\\n\\n")));
+            const QJsonValue geometry = feature.value(QStringLiteral("geometry"));
+            record.insert(QStringLiteral("geometryJson"),
+                          geometry.isObject()
+                              ? QString::fromUtf8(QJsonDocument(geometry.toObject()).toJson(QJsonDocument::Compact))
+                              : QString());
+            record.insert(QStringLiteral("geometryType"), geometry.isObject()
+                              ? geometry.toObject().value(QStringLiteral("type")).toString()
+                              : QString());
+            record.insert(QStringLiteral("geometryAvailable"), geometry.isObject()
+                              && !geometry.toObject().isEmpty());
+            if (record.value(QStringLiteral("geometryAvailable")).toBool()) ++featuresWithGeometry;
+            normalizedRecords.append(record);
         }
+
+        // Publish a new immutable-by-convention result set only after schema/status checks.
+        m_notamRecords = normalizedRecords;
+        m_notamSnapshotId = QStringLiteral("FAA-NMS-%1-%2")
+            .arg(m_environment, QUuid::createUuid().toString(QUuid::WithoutBraces));
+        emit notamRecordsChanged();
         emit notamQueryFinished(true,
-            QStringLiteral("FAA NMS query succeeded: %1 GeoJSON records; %2 have NOTAM IDs; %3 have geometry. Request ID: %4. Data is diagnostic only and is not yet connected to route validation.")
-                .arg(records.size()).arg(validFeatures).arg(featuresWithGeometry)
-                .arg(requestId.isEmpty() ? QStringLiteral("not provided") : QString::fromLatin1(requestId)));
+            QStringLiteral("FAA NMS query succeeded: %1 GeoJSON records normalized; %2 include geometry. Snapshot %3. Raw altitude limits are preserved with UNKNOWN datum; this snapshot is not yet connected to route validation.")
+                .arg(normalizedRecords.size()).arg(featuresWithGeometry).arg(m_notamSnapshotId));
     });
 }
 
