@@ -113,11 +113,11 @@ Do not use FAA staging records as authoritative Russian restrictions or as the s
 - [ ] Virtual Flight fixtures remain isolated from provider results.
 - [ ] Russian jurisdiction source and coverage are separately established.
 
-**Current blocker:** the onboarding bundle defines the protocol, but this review did not verify that valid staging credentials are available. The credential spreadsheet was unreadable in the review environment. No live connection is claimed.
+**Current blocker:** the onboarding bundle defines the protocol, but this review did not verify that valid staging credentials are available. The credential spreadsheet was unreadable in the review environment. No live connection is claimed. The vault currently has separate identifiers for `faa_nms_client_id` and `faa_nms_client_secret`; this does not mean credentials have been entered or validated.
 
 ## 9. Next implementation sequence
 
-1. Verify the credential-vault bridge's read/write behavior and add a dedicated `faa_nms` credential namespace without altering the existing `notam`/NOTAC secret.
+1. Store FAA OAuth credentials as two independent Windows Credential Manager entries: `faa_nms_client_id` and `faa_nms_client_secret`. Keep both separate from `faa_nms` and the existing `notam`/NOTAC secret. The allowlist and process-level vault test now cover these identifiers; the Windows CI result must still be checked.
 2. Implement a native FAA NMS client for token exchange, token renewal and `ping`.
 3. Add fixture-backed tests for auth/error handling before making live requests.
 4. Add the bounded NOTAM query, response validation and canonical normalization.
