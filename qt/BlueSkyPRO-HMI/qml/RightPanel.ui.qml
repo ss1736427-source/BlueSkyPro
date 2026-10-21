@@ -599,7 +599,7 @@ Item {
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
-        visible: checklistCard.visible && root.selectedOperationalTool !== "NOTAM"
+        visible: checklistCard.visible && root.selectedOperationalTool === ""
 
         Column {
             id: checklistList
@@ -1131,7 +1131,7 @@ Item {
     }
 
     Rectangle {
-        visible: root.atcValidationVisible
+        visible: root.atcValidationVisible && root.selectedOperationalTool === ""
         x: 26
         y: root.atcValidationY
         width: parent.width - 52
@@ -1159,7 +1159,7 @@ Item {
     }
 
     MouseArea {
-        visible: root.manualCreationMode && !root.manualValidationStarted && !root.manualValidationSucceeded
+        visible: root.selectedOperationalTool === "" && root.manualCreationMode && !root.manualValidationStarted && !root.manualValidationSucceeded
                  && panelSettingsPopup.enabledTools.indexOf("Validation") >= 0
         x: 26
         y: root.atcValidationY
@@ -1171,7 +1171,7 @@ Item {
     }
 
     Text {
-        visible: root.manualModelStatusVisible
+        visible: root.manualModelStatusVisible && root.selectedOperationalTool === ""
         x: 26
         y: root.atcValidationY + root.atcButtonHeight + 5
         width: parent.width - 52
@@ -1194,7 +1194,7 @@ Item {
     }
 
     Rectangle {
-        visible: root.atcSendVisible
+        visible: root.atcSendVisible && root.selectedOperationalTool === ""
         x: 26
         y: root.atcSendY
         width: parent.width - 52
@@ -1219,7 +1219,7 @@ Item {
     }
 
     Rectangle {
-        visible: root.atcStartVisible
+        visible: root.atcStartVisible && root.selectedOperationalTool === ""
         x: 26
         y: root.atcStartY
         width: parent.width - 52
