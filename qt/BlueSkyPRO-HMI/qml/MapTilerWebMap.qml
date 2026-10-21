@@ -23,6 +23,7 @@ Item {
     property real lastNotamQueryZoom: NaN
     property real lastNotamQueryRadiusNm: NaN
     property bool notamQueryInProgress: false
+    property double notamRetryAfterMs: 0
     property string notamAutoStatus: "Автозагрузка NOTAM: ожидание карты"
     signal useLegacyMapRequested()
     // Use the module CDN as the document origin so MapLibre v6 can create its CDN-derived worker from the same origin in Qt WebEngine.
@@ -167,7 +168,7 @@ Item {
     }
 
     function queryNotamsForView(viewJson) {
-        if (!root.notamAutoLoadEnabled || root.notamQueryInProgress || typeof faaNmsClient === "undefined" || faaNmsClient === null) return
+        if (!root.notamAutoLoadEnabled || root.notamQueryInProgress || Date.now() < root.notamRetryAfterMs || typeof faaNmsClient === "undefined" || faaNmsClient === null) return
         var view
         try { view = JSON.parse(viewJson || "{}") } catch (error) { return }
         if (!view || view.loaded !== true || !isFinite(Number(view.latitude)) || !isFinite(Number(view.longitude)) || !isFinite(Number(view.zoom))) return
@@ -185,7 +186,7 @@ Item {
         root.notamAutoStatus = "Загрузка NOTAM · " + lat.toFixed(3) + ", " + lon.toFixed(3) + " · радиус " + root.notamSearchRadiusNm + " NM"
         webMap.runJavaScript("if(window.blueskySetNotamStatus)window.blueskySetNotamStatus(" + JSON.stringify(root.notamAutoStatus) + ");")
         if (typeof faaNmsClient.queryNotams === "function") faaNmsClient.queryNotams(lat, lon, root.notamSearchRadiusNm)
-        else { root.notamQueryInProgress = false; root.notamAutoStatus = "Клиент FAA NMS недоступен" }
+        else { root.notamQueryInProgress = false; root.lastNotamQueryLatitude = NaN; root.lastNotamQueryLongitude = NaN; root.lastNotamQueryZoom = NaN; root.lastNotamQueryRadiusNm = NaN; root.notamRetryAfterMs = Date.now() + 15000; root.notamAutoStatus = "Клиент FAA NMS недоступен · повтор через 15 с" }
     }
 
     function syncNotamRecords() {
@@ -281,7 +282,18 @@ Item {
         function onNotamSnapshotIdChanged() { root.syncNotamRecords() }
         function onNotamQueryFinished(success, message) {
             root.notamQueryInProgress = false
-            root.notamAutoStatus = success ? message : "Ошибка загрузки NOTAM: " + message
+            if (success) {
+                root.notamRetryAfterMs = 0
+                root.notamAutoStatus = message
+            } else {
+                root.lastNotamQueryLatitude = NaN
+                root.lastNotamQueryLongitude = NaN
+                root.lastNotamQueryZoom = NaN
+                root.lastNotamQueryRadiusNm = NaN
+                root.notamRetryAfterMs = Date.now() + 15000
+                var staleSuffix = (root.notamRecords && root.notamRecords.length > 0) ? " · на карте остаётся предыдущий снимок" : ""
+                root.notamAutoStatus = "Ошибка загрузки NOTAM: " + message + staleSuffix + " · повтор через 15 с"
+            }
             webMap.runJavaScript("if(window.blueskySetNotamStatus)window.blueskySetNotamStatus(" + JSON.stringify(root.notamAutoStatus) + ");")
         }
         function onLeftPanelWidthChanged() { root.syncPanelBounds() }
