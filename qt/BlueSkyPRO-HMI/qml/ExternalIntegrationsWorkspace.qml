@@ -85,8 +85,6 @@ Item {
                 legacyConsole.faaClientIdInput = faaClientIdText
                 legacyConsole.faaClientSecretInput = faaClientSecretText
                 legacyConsole.saveFaaNmsCredentials()
-                faaClientIdText = ""
-                faaClientSecretText = ""
                 refreshFaaCredentialsSaved()
                 if (!faaCredentialsSaved || legacyConsole.faaNmsMessage.indexOf("saved separately") < 0) {
                     wizardState = "error"
@@ -94,6 +92,8 @@ Item {
                     wizardStep = 1
                     return
                 }
+                faaClientIdText = ""
+                faaClientSecretText = ""
             } else {
                 refreshFaaCredentialsSaved()
                 if (!faaCredentialsSaved) {
