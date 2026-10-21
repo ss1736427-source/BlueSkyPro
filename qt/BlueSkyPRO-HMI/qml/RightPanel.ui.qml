@@ -362,6 +362,7 @@ Item {
     // Preview state only. Live weather/NOTAM providers must supply authoritative data.
     property string selectedOperationalTool: ""
     property string selectedNotamId: ""
+    signal notamSelectionRequested(string notamId)
     property var notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
     property string notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
     // Set only by the authoritative route-planning/revalidation result.
@@ -638,7 +639,7 @@ Item {
         id: operationalCard
         visible: root.panelVisible("Flight Conditions")
         x: 16
-        y: root.draggingPanel === "Flight Conditions" ? root.dragVisualY : root.panelPositionY("Flight Conditions")
+        y: root.selectedOperationalTool !== "" ? 0 : (root.draggingPanel === "Flight Conditions" ? root.dragVisualY : root.panelPositionY("Flight Conditions"))
         width: parent.width - 32
         height: root.selectedOperationalTool !== "" ? Math.max(110, root.height - operationalCard.y - root.bottomInset - 8) : 94
         radius: 8
@@ -695,7 +696,13 @@ Item {
                 spacing: 8
                 Text { id: notamStatusLabel; width: parent.width * 0.42; text: "NOTAM"; color: root.text; font.family: "B612"; font.pixelSize: 11; verticalAlignment: Text.AlignVCenter }
                 Text { width: parent.width - notamStatusLabel.width - parent.spacing; text: root.notamRecords.length > 0 ? (root.notamRecords.length + " RECORDS") : "NOT CHECKED"; color: root.notamRecords.length > 0 ? root.cyan : root.amber; font.family: "B612"; font.pixelSize: 10; font.bold: true; horizontalAlignment: Text.AlignRight; verticalAlignment: Text.AlignVCenter }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { root.selectedOperationalTool = "NOTAM"; if (root.notamRecords.length > 0) root.selectedNotamId = String(root.notamRecords[0].id || "UNKNOWN") } }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: {
+                    root.selectedOperationalTool = "NOTAM"
+                    if (root.notamRecords.length > 0) {
+                        root.selectedNotamId = String(root.notamRecords[0].id || "UNKNOWN")
+                        root.notamSelectionRequested(root.selectedNotamId)
+                    }
+                } }
             }
         }
 
@@ -737,8 +744,12 @@ Item {
                         radius: 3
                         MouseArea {
                             anchors.fill: parent
-                            z: -1
-                            onClicked: root.selectedNotamId = String(modelData.id || "UNKNOWN")
+                            z: 1
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                root.selectedNotamId = String(modelData.id || "UNKNOWN")
+                                root.notamSelectionRequested(root.selectedNotamId)
+                            }
                         }
                         Column {
                             id: recordColumn
