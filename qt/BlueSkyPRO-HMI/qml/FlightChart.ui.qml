@@ -30,6 +30,10 @@ Item {
     property real mapZoom: 1.0
     signal mapViewChangeRequested(real panX, real panY, real zoom)
 
+    function centerOnNotam(notamId) {
+        mapTilerWebMap.centerOnNotam(notamId)
+    }
+
     function setMapView(panX, panY, zoom) {
         if (useExternalMapState) {
             mapViewChangeRequested(panX, panY, zoom)
