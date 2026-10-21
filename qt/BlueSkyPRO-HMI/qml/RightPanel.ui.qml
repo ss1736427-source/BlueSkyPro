@@ -807,7 +807,7 @@ Item {
                 Text {
                     width: parent.width
                     visible: root.selectedOperationalTool === "NOTAM"
-                    text: root.notamRecords.length > 0 ? "NOTAM · " + root.notamRecords.length + " записей · снимок " + root.notamSnapshotId + ". Маршрут ещё не проверен." : "NOTAM / AIRSPACE · Нет загруженных записей. Это не подтверждает отсутствие ограничений."
+                    text: root.notamRecords.length > 0 ? "Ограничений загружено: " + root.notamRecords.length + ". Маршрут ещё не проверен." : "Ограничения не загружены. Это не подтверждает отсутствие запретов."
                     color: root.text; font.family: "B612"; font.pixelSize: 11; wrapMode: Text.WordWrap
                 }
                 Repeater {
@@ -832,12 +832,10 @@ Item {
                         Column {
                             id: recordColumn
                             x: 6; y: 6; width: parent.width - 12; spacing: 3
-                            Text { width: parent.width; text: String(modelData.id || "UNKNOWN"); color: root.amber; font.family: "B612"; font.pixelSize: 10; font.bold: true; wrapMode: Text.WrapAnywhere }
-                            Text { width: parent.width; text: "Нижняя: " + String(modelData.lowerLimitRaw || "UNKNOWN") + " · Верхняя: " + String(modelData.upperLimitRaw || "UNKNOWN"); color: root.text; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.WordWrap }
-                            Text { width: parent.width; text: "Датум: " + String(modelData.altitudeReference || "UNKNOWN") + " · " + String(modelData.source || "UNKNOWN"); color: root.secondary; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.WordWrap }
-                            Text { width: parent.width; text: "Срок: " + String(modelData.effectiveStart || "UNKNOWN") + " — " + String(modelData.effectiveEnd || "UNKNOWN"); color: root.secondary; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.WordWrap }
-                            Text { width: parent.width; text: modelData.geometryAvailable ? ("Геометрия: " + String(modelData.geometryType || "UNKNOWN")) : "Геометрия зоны недоступна"; color: modelData.geometryAvailable ? root.cyan : root.amber; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.WordWrap }
-                            Text { width: parent.width; text: String(modelData.originalText || modelData.text || "Исходный текст недоступен"); color: root.text; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.WordWrap; maximumLineCount: 8; elide: Text.ElideRight }
+                            Text { width: parent.width; text: String(modelData.number || modelData.id || "NOTAM"); color: root.amber; font.family: "B612"; font.pixelSize: 10; font.bold: true; wrapMode: Text.WrapAnywhere }
+                            Text { width: parent.width; text: "Высота: " + String(modelData.lowerLimitRaw || "не указана") + " — " + String(modelData.upperLimitRaw || "не указана"); color: root.text; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.WordWrap }
+                            Text { width: parent.width; text: "Действует: " + String(modelData.effectiveStart || "время не указано") + " — " + String(modelData.effectiveEnd || "время не указано"); color: root.secondary; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.WordWrap }
+                            Text { width: parent.width; text: String(modelData.originalText || modelData.text || "Текст NOTAM недоступен"); color: root.text; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.WordWrap; maximumLineCount: 6; elide: Text.ElideRight }
                         }
                     }
                 }
