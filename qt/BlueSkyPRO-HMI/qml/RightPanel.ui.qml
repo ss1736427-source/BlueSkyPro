@@ -150,10 +150,9 @@ Item {
         if (draggingPanel !== "")
             return
 
-        // Detail mode temporarily changes card heights only. Keep the exact
-        // saved positions untouched so Back restores the operator's layout.
-        if (root.selectedOperationalTool !== "")
-            return
+        // Keep positions untouched while detail mode is open. A deferred reflow
+        // runs after Back restores the full-size panels.
+        if (root.selectedOperationalTool !== "") return
 
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
         var top = 54
@@ -175,16 +174,26 @@ Item {
             var fixedKeys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
             for (var f = 0; f < fixedKeys.length; ++f)
                 fixedPositions[fixedKeys[f]] = panelPositions[fixedKeys[f]]
-            for (var a = 0; a < items.length; ++a) {
-                var fixedItem = items[a]
-                if (fixedItem.key === "ATC")
-                    fixedItem.y = bottomLimit - fixedItem.h
-                else if (fixedItem.key !== "Checklist" && fixedItem.key !== "Flight Conditions" && fixedItem.key !== "Alerting")
-                    continue
-                else
-                    fixedItem.y = Math.max(top, Math.min(bottomLimit - fixedItem.h, fixedItem.y))
-                fixedPositions[fixedItem.key] = Math.round(fixedItem.y)
+            // Detail mode temporarily changes card heights. On return, restore
+            // the saved layout but resolve collisions introduced by full-size cards.
+            for (var a = 0; a < items.length; ++a)
+                items[a].y = Math.max(top, Math.min(bottomLimit - items[a].h, items[a].y))
+            items.sort(function(a, b) { return a.y - b.y })
+            var fixedGap = 10
+            for (var b = 1; b < items.length; ++b) {
+                var minimumY = items[b - 1].y + items[b - 1].h + fixedGap
+                if (items[b].y < minimumY) items[b].y = minimumY
             }
+            for (var d = items.length - 1; d >= 0; --d) {
+                var current = items[d]
+                if (current.key === "ATC") current.y = bottomLimit - current.h
+                if (d < items.length - 1) {
+                    var maxCurrentY = items[d + 1].y - fixedGap - current.h
+                    if (current.y > maxCurrentY) current.y = Math.max(top, maxCurrentY)
+                }
+            }
+            for (var e = 0; e < items.length; ++e)
+                fixedPositions[items[e].key] = Math.round(items[e].y)
             panelPositions = fixedPositions
             savePanelPositions()
             return
