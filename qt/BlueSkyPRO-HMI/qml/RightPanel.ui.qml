@@ -334,6 +334,8 @@ Item {
 
     // Preview state only. Live weather/NOTAM providers must supply authoritative data.
     property string selectedOperationalTool: ""
+    property var notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
+    property string notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
     // Set only by the authoritative route-planning/revalidation result.
     // HMI must not infer pilot attention from weather/NOTAM presence alone.
     property bool weatherPilotAttentionRequired: false
@@ -609,7 +611,7 @@ Item {
         x: 16
         y: root.draggingPanel === "Flight Conditions" ? root.dragVisualY : root.panelPositionY("Flight Conditions")
         width: parent.width - 32
-        height: root.selectedOperationalTool === "" ? 94 : Math.min(parent.height * 0.25, Math.max(94, operationalDetailColumn.implicitHeight + 50))
+        height: root.selectedOperationalTool === "" ? 94 : Math.min(parent.height * 0.42, Math.max(110, operationalDetailColumn.implicitHeight + 50))
         radius: 8
         color: "transparent"
         border.color: "#236078"
@@ -662,7 +664,7 @@ Item {
                 width: parent.width; height: 23
                 spacing: 8
                 Text { id: notamStatusLabel; width: parent.width * 0.42; text: "NOTAM"; color: root.text; font.family: "B612"; font.pixelSize: 11; verticalAlignment: Text.AlignVCenter }
-                Text { width: parent.width - notamStatusLabel.width - parent.spacing; text: "NOT CHECKED"; color: root.amber; font.family: "B612"; font.pixelSize: 10; font.bold: true; horizontalAlignment: Text.AlignRight; verticalAlignment: Text.AlignVCenter }
+                Text { width: parent.width - notamStatusLabel.width - parent.spacing; text: root.notamRecords.length > 0 ? (root.notamRecords.length + " RECORDS") : "NOT CHECKED"; color: root.notamRecords.length > 0 ? root.cyan : root.amber; font.family: "B612"; font.pixelSize: 10; font.bold: true; horizontalAlignment: Text.AlignRight; verticalAlignment: Text.AlignVCenter }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.selectedOperationalTool = "NOTAM" }
             }
         }
@@ -683,10 +685,34 @@ Item {
                 spacing: 4
                 Text {
                     width: parent.width
-                    text: root.selectedOperationalTool === "WEATHER"
-                          ? "WEATHER · Данные источника не подключены. Проверка условий не выполнена."
-                          : "NOTAM / AIRSPACE · Источник ограничений не подключён. Маршрут не проверен."
+                    visible: root.selectedOperationalTool === "WEATHER"
+                    text: "WEATHER · Данные источника не подключены. Проверка условий не выполнена."
                     color: root.text; font.family: "B612"; font.pixelSize: 11; wrapMode: Text.WordWrap
+                }
+                Text {
+                    width: parent.width
+                    visible: root.selectedOperationalTool === "NOTAM"
+                    text: root.notamRecords.length > 0 ? "NOTAM · " + root.notamRecords.length + " записей · снимок " + root.notamSnapshotId + ". Маршрут ещё не проверен." : "NOTAM / AIRSPACE · Нет загруженных записей. Это не подтверждает отсутствие ограничений."
+                    color: root.text; font.family: "B612"; font.pixelSize: 11; wrapMode: Text.WordWrap
+                }
+                Repeater {
+                    model: root.selectedOperationalTool === "NOTAM" ? root.notamRecords : []
+                    delegate: Rectangle {
+                        required property var modelData
+                        width: operationalDetailColumn.width
+                        height: recordColumn.implicitHeight + 12
+                        color: "#071321"; border.color: "#31465B"; radius: 3
+                        Column {
+                            id: recordColumn
+                            x: 6; y: 6; width: parent.width - 12; spacing: 3
+                            Text { width: parent.width; text: String(modelData.id || "UNKNOWN"); color: root.amber; font.family: "B612"; font.pixelSize: 10; font.bold: true; wrapMode: Text.WrapAnywhere }
+                            Text { width: parent.width; text: "Нижняя: " + String(modelData.lowerLimitRaw || "UNKNOWN") + " · Верхняя: " + String(modelData.upperLimitRaw || "UNKNOWN"); color: root.text; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.WordWrap }
+                            Text { width: parent.width; text: "Датум: " + String(modelData.altitudeReference || "UNKNOWN") + " · " + String(modelData.source || "UNKNOWN"); color: root.secondary; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.WordWrap }
+                            Text { width: parent.width; text: "Срок: " + String(modelData.effectiveStart || "UNKNOWN") + " — " + String(modelData.effectiveEnd || "UNKNOWN"); color: root.secondary; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.WordWrap }
+                            Text { width: parent.width; text: modelData.geometryAvailable ? ("Геометрия: " + String(modelData.geometryType || "UNKNOWN")) : "Геометрия зоны недоступна"; color: modelData.geometryAvailable ? root.cyan : root.amber; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.WordWrap }
+                            Text { width: parent.width; text: String(modelData.originalText || modelData.text || "Исходный текст недоступен"); color: root.text; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.WordWrap; maximumLineCount: 8; elide: Text.ElideRight }
+                        }
+                    }
                 }
                 Text {
                     text: "‹ НАЗАД"
