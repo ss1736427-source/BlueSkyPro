@@ -1,8 +1,29 @@
 #include "constrained_planning_graph.hpp"
+#include "solvers/astar_solver.hpp"
+#include "solver_contract/solver_contract.hpp"
 
 #include <cassert>
+#include <utility>
+#include <vector>
 
 using namespace bluesky::planning;
+
+namespace {
+class TestContext final : public SolverContext {
+public:
+    TestContext(MissionProblem problem, ComputeBudget budget)
+        : problem_(std::move(problem)), budget_(budget) {}
+    const MissionProblem& problem() const override { return problem_; }
+    const ComputeBudget& budget() const override { return budget_; }
+    bool cancelled() const override { return false; }
+    void publish(CandidateSolution candidate) override { candidates_.push_back(std::move(candidate)); }
+    const std::vector<CandidateSolution>& candidates() const override { return candidates_; }
+private:
+    MissionProblem problem_;
+    ComputeBudget budget_;
+    std::vector<CandidateSolution> candidates_;
+};
+}
 
 int main()
 {
@@ -85,6 +106,21 @@ int main()
     for (const auto& edge : detourResult.graph.edges)
         if (edge.from == "S" && edge.to == "G") directEdgeRetained = true;
     assert(!directEdgeRetained);
+
+    // Verify the actual A* solver chooses the retained safe detour rather than
+    // merely checking that the graph contains alternative edges.
+    MissionProblem detourProblem{
+        "NOTAM-LATERAL-DETOUR", "1", "constrained_graph_route", {"UAV-TEST"},
+        {"NOTAM avoidance"}, {"route_efficiency"}, "ENV-DETOUR",
+        &detourResult.graph
+    };
+    TestContext detourContext(detourProblem, ComputeBudget{1000, 64, 1});
+    AStarSolver detourAStar([](const PlanningNode&, const PlanningNode&) { return 0.0; });
+    const auto detourState = detourAStar.run(detourContext);
+    assert(detourState == RunState::Completed);
+    assert(detourContext.candidates().size() == 1);
+    const auto& detourRoute = detourContext.candidates().front().route_elements;
+    assert((detourRoute == std::vector<std::string>{"S", "D1", "D2", "G"}));
 
     // Graph edges must carry an explicit, compatible altitude datum before
     // numerical comparison with restriction altitude limits is permitted.
