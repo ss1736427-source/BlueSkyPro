@@ -420,7 +420,6 @@ Item {
             missionReady: root.missionReady
             notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
             notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
-            onNotamSelectionRequested: function(notamId) { flightChart.selectedNotamId = notamId }
             warningActive: root.warningActive
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
