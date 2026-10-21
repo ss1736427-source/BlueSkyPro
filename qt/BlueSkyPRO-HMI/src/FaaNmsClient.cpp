@@ -270,7 +270,7 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
             emit notamQueryFinished(false, QStringLiteral("FAA NMS NOTAM query failed (HTTP %1, network error %2%3%4).")
                 .arg(http).arg(static_cast<int>(networkError))
                 .arg(timedOut ? QStringLiteral(", timeout") : QString())
-                .arg(requestId.isEmpty() ? QString() : QStringLiteral(", request-id: ") + QString::fromLatin1(requestId)));
+                .arg(requestId.isEmpty() ? QString() : QStringLiteral(", request-id: ") + requestId));
             return;
         }
         QJsonParseError parseError {};
