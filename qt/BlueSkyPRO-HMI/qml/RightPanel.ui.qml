@@ -309,6 +309,12 @@ Item {
     }
 
     function panelVisible(key) {
+        // Detail mode is exclusive: hide the other operational sections while
+        // Flight Conditions is expanded. Stored positions are left untouched;
+        // reflowPanelPositions already skips detail mode, so Back restores layout.
+        if (root.selectedOperationalTool !== ""
+                && key !== "Flight Conditions" && key !== "Information")
+            return false
         if (key === "Information")
             return true
         if (key === "Checklist")
