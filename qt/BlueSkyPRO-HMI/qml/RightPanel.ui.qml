@@ -149,6 +149,11 @@ Item {
         if (draggingPanel !== "")
             return
 
+        // Detail mode temporarily changes card heights only. Keep the exact
+        // saved positions untouched so Back restores the operator's layout.
+        if (root.selectedOperationalTool !== "")
+            return
+
         var keys = ["Checklist", "Flight Conditions", "Alerting", "ATC"]
         var top = 54
         var bottomLimit = Math.max(top, root.height - bottomInset - 8)
