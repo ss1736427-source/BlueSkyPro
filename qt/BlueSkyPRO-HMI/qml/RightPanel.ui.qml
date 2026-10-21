@@ -666,7 +666,7 @@ Item {
                 spacing: 8
                 Text { id: notamStatusLabel; width: parent.width * 0.42; text: "NOTAM"; color: root.text; font.family: "B612"; font.pixelSize: 11; verticalAlignment: Text.AlignVCenter }
                 Text { width: parent.width - notamStatusLabel.width - parent.spacing; text: root.notamRecords.length > 0 ? (root.notamRecords.length + " RECORDS") : "NOT CHECKED"; color: root.notamRecords.length > 0 ? root.cyan : root.amber; font.family: "B612"; font.pixelSize: 10; font.bold: true; horizontalAlignment: Text.AlignRight; verticalAlignment: Text.AlignVCenter }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.selectedOperationalTool = "NOTAM" }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { root.selectedOperationalTool = "NOTAM"; if (root.notamRecords.length > 0) root.selectedNotamId = String(root.notamRecords[0].id || "UNKNOWN") } }
             }
         }
 
