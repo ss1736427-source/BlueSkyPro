@@ -293,10 +293,24 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
         // with GeoJSON represented as a FeatureCollection object, not an array.
         // Accept only recognized GeoJSON containers; never treat an unknown
         // payload as an empty airspace result.
-        const QJsonObject dataObject = dataValue.toObject();
+        QJsonValue payloadValue = dataValue;
+        // Some staging deployments serialize the "data" payload as a JSON
+        // string inside the outer JSON envelope. Decode it before inspecting
+        // GeoJSON structure; keep rejecting unrecognized payloads.
+        if (payloadValue.isString()) {
+            QJsonParseError nestedError {};
+            const QByteArray nestedBytes = payloadValue.toString().toUtf8();
+            const QJsonDocument nestedDoc = QJsonDocument::fromJson(nestedBytes, &nestedError);
+            if (nestedError.error == QJsonParseError::NoError && !nestedDoc.isNull()) {
+                if (nestedDoc.isObject()) payloadValue = nestedDoc.object();
+                else if (nestedDoc.isArray()) payloadValue = nestedDoc.array();
+            }
+        }
+
+        const QJsonObject dataObject = payloadValue.toObject();
         QJsonValue geojsonValue = dataObject.value(QStringLiteral("geojson"));
-        if (geojsonValue.isUndefined())
-            geojsonValue = dataObject.value(QStringLiteral("features"));
+        if (geojsonValue.isUndefined()) geojsonValue = dataObject.value(QStringLiteral("geoJson"));
+        if (geojsonValue.isUndefined()) geojsonValue = dataObject.value(QStringLiteral("features"));
 
         QJsonArray records;
         if (geojsonValue.isArray()) {
@@ -312,8 +326,8 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
         } else if (dataObject.value(QStringLiteral("type")).toString() == QStringLiteral("FeatureCollection")
                    && dataObject.value(QStringLiteral("features")).isArray()) {
             records = dataObject.value(QStringLiteral("features")).toArray();
-        } else if (dataValue.isArray()) {
-            records = dataValue.toArray();
+        } else if (payloadValue.isArray()) {
+            records = payloadValue.toArray();
         }
 
         const bool recognizedGeoJson = geojsonValue.isArray()
@@ -322,13 +336,18 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
                     || geojsonValue.toObject().value(QStringLiteral("type")).toString() == QStringLiteral("Feature")))
             || (dataObject.value(QStringLiteral("type")).toString() == QStringLiteral("FeatureCollection")
                 && dataObject.value(QStringLiteral("features")).isArray())
-            || dataValue.isArray();
+            || payloadValue.isArray();
         if (!recognizedGeoJson) {
             QStringList keys = root.keys();
             keys.sort();
             const QString dataKeys = dataObject.keys().join(QStringLiteral(", ")).left(160);
-            emit notamQueryFinished(false, QStringLiteral("FAA NMS response schema mismatch; top-level keys: %1; data keys: %2. No data accepted.")
-                .arg(keys.join(QStringLiteral(", ")).left(120), dataKeys.isEmpty() ? QStringLiteral("none") : dataKeys));
+            const QString payloadType = dataValue.isString() ? QStringLiteral("string")
+                : dataValue.isObject() ? QStringLiteral("object")
+                : dataValue.isArray() ? QStringLiteral("array")
+                : dataValue.isNull() ? QStringLiteral("null") : QStringLiteral("other");
+            emit notamQueryFinished(false, QStringLiteral("FAA NMS response schema mismatch; top-level keys: %1; data type: %2; data keys: %3. No data accepted.")
+                .arg(keys.join(QStringLiteral(", ")).left(100), payloadType,
+                     dataKeys.isEmpty() ? QStringLiteral("none") : dataKeys));
             return;
         }
         QVariantList normalizedRecords;
