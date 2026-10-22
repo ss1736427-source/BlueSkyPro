@@ -10,6 +10,15 @@ int main(int argc,char**argv){
  auto a=NotamGeometryEngine::normalize(p);assert(a["geometryValidated"].toBool());auto g=QJsonDocument::fromJson(a["geometryJson"].toString().toUtf8()).object();assert(g["type"].toString()=="Polygon");assert(g["coordinates"].toArray().first().toArray().size()==6);
  QVariantMap c{{"originalText","E)RESTRICTED AREA RADIUS 2NM CENTRE 433650N0393600E\nF)GND\nG)3000FT AGL"},{"lowerLimitRaw","GND"},{"upperLimitRaw","3000FT AGL"}};
  auto b=NotamGeometryEngine::normalize(c);assert(b["geometryValidated"].toBool());assert(QJsonDocument::fromJson(b["geometryJson"].toString().toUtf8()).object()["coordinates"].toArray().first().toArray().size()==73);
+ auto plane=NotamGeometryEngine::conservativeUpperPlane(300.0,2400.0,2200.0,100.0);
+ assert(plane["valid"].toBool());
+ assert(qAbs(plane["upperPlaneMeters"].toDouble()-2500.0)<0.001);
+ auto insufficient=NotamGeometryEngine::conservativeUpperPlane(300.0,2400.0,2100.0,100.0);
+ assert(!insufficient["valid"].toBool());
+ assert(insufficient["status"].toString()=="INSUFFICIENT_RESTRICTION_HEIGHT");
+ assert(!insufficient.contains("upperPlaneMeters"));
+ auto invalidTerrain=NotamGeometryEngine::conservativeUpperPlane(2500.0,2400.0,3000.0,100.0);
+ assert(!invalidTerrain["valid"].toBool());
  QVariantMap bad{{"text","Informational NOTAM only"}};auto d=NotamGeometryEngine::normalize(bad);assert(!d["geometryValidated"].toBool());
  QVariantMap qline{{"originalText","Q)URRV/QRTCA/IV/BO/W/000/999/4334N03938E004\\nF)GND\\nG)6000M AGL"}};auto q=NotamGeometryEngine::normalize(qline);assert(q["geometryJson"].toString().isEmpty());assert(!q["geometryValidated"].toBool());return 0;
 }
