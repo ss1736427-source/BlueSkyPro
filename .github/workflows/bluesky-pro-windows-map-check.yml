@@ -45,7 +45,17 @@ jobs:
             if ($insideBuildHtml -and $line -match '\]\s*\.join\("\\n"\)') { break }
           }
           if (-not $insideBuildHtml) { throw "Could not locate MapTilerWebMap.qml buildHtml() source" }
-          Write-Host "Map HTML string escaping check passed."
+          $source = Get-Content $path -Raw
+          if ($source -match "'fill-extrusion-opacity'\s*:\s*\[") {
+            throw "fill-extrusion-opacity must be a constant; MapLibre rejects data expressions for this property."
+          }
+          if ($source -notmatch "let terrainOn=false;") {
+            throw "3D terrain must default to OFF to match the UI control."
+          }
+          if ($source -notmatch "if\(!terrainOn&&map\.getTerrain\(\)\)map\.setTerrain\(null\)") {
+            throw "Terrain must be disabled after NOTAM terrain sampling when the UI toggle is OFF."
+          }
+          Write-Host "Map NOTAM layer and terrain-state regression checks passed."
           
       - name: Install Ninja
         run: choco install ninja --yes --no-progress
