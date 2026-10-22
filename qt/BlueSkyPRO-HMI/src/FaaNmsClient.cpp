@@ -359,6 +359,9 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
         }
         QVariantList normalizedRecords;
         int featuresWithGeometry = 0;
+        int areaRestrictions = 0;
+        int displayOnlyGeometry = 0;
+        int recordsWithoutGeometry = 0;
         for (const QJsonValue &value : records) {
             if (!value.isObject()) continue;
             const QJsonObject feature = value.toObject();
@@ -403,8 +406,13 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
                               : QString());
             record.insert(QStringLiteral("geometryAvailable"), geometry.isObject()
                               && !geometry.toObject().isEmpty());
-            if (record.value(QStringLiteral("geometryAvailable")).toBool()) ++featuresWithGeometry;
             record = NotamGeometryEngine::normalize(record);
+            const QString normalizedGeometry = record.value(QStringLiteral("geometryJson")).toString();
+            const QString geometryStatus = record.value(QStringLiteral("restrictionGeometryStatus")).toString();
+            if (!normalizedGeometry.isEmpty()) ++featuresWithGeometry;
+            else ++recordsWithoutGeometry;
+            if (geometryStatus == QStringLiteral("VALIDATED")) ++areaRestrictions;
+            else if (geometryStatus == QStringLiteral("DISPLAY_ONLY_NON_AREA_GEOMETRY")) ++displayOnlyGeometry;
             normalizedRecords.append(record);
         }
 
@@ -419,8 +427,9 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
                     .arg(m_notamSnapshotId));
         } else {
             emit notamQueryFinished(true,
-                QStringLiteral("FAA NMS query succeeded: %1 GeoJSON records normalized; %2 include geometry. Snapshot %3. Raw altitude limits are preserved with UNKNOWN datum; this snapshot is not yet connected to route validation.")
-                    .arg(normalizedRecords.size()).arg(featuresWithGeometry).arg(m_notamSnapshotId));
+                QStringLiteral("FAA NMS query succeeded: %1 records; %2 have displayable geometry (%3 area restrictions, %4 point/line only); %5 have no displayable geometry. Snapshot %6. Raw altitude limits are preserved; this test-source snapshot is not connected to route validation.")
+                    .arg(normalizedRecords.size()).arg(featuresWithGeometry).arg(areaRestrictions)
+                    .arg(displayOnlyGeometry).arg(recordsWithoutGeometry).arg(m_notamSnapshotId));
         }
     });
 }
