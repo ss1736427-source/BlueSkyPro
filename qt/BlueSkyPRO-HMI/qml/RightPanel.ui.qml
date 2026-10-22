@@ -376,6 +376,41 @@ Item {
     // Preview state only. Live weather/NOTAM providers must supply authoritative data.
     property string selectedOperationalTool: ""
     property string selectedNotamId: ""
+    // Preserve the selected card viewport position while new NOTAM records arrive.
+    property real selectedNotamViewportY: -1
+
+    function selectedNotamDelegateIndex() {
+        for (var i = 0; i < notamRecords.length; ++i) {
+            if (String(notamRecords[i].id || "UNKNOWN") === selectedNotamId)
+                return i
+        }
+        return -1
+    }
+
+    function rememberSelectedNotamViewportY() {
+        var index = selectedNotamDelegateIndex()
+        var card = index >= 0 ? notamRepeater.itemAt(index) : null
+        if (card && operationalDetails.visible)
+            selectedNotamViewportY = card.y - operationalDetails.contentY
+    }
+
+    function preserveSelectedNotamViewportY() {
+        var index = selectedNotamDelegateIndex()
+        var card = index >= 0 ? notamRepeater.itemAt(index) : null
+        if (!card || !operationalDetails.visible)
+            return
+        if (selectedNotamViewportY < 0) {
+            selectedNotamViewportY = card.y - operationalDetails.contentY
+            return
+        }
+        var targetY = card.y - selectedNotamViewportY
+        var maxY = Math.max(0, operationalDetails.contentHeight - operationalDetails.height)
+        operationalDetails.contentY = Math.max(0, Math.min(targetY, maxY))
+        Qt.callLater(root.rememberSelectedNotamViewportY)
+    }
+
+    onNotamRecordsChanged: Qt.callLater(root.preserveSelectedNotamViewportY)
+    onSelectedNotamIdChanged: Qt.callLater(root.rememberSelectedNotamViewportY)
     property int notamSearchRadiusNm: 20
     signal notamSelectionRequested(string notamId)
     property var notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
@@ -820,6 +855,7 @@ Item {
                     color: root.text; font.family: "B612"; font.pixelSize: 11; wrapMode: Text.WordWrap
                 }
                 Repeater {
+                    id: notamRepeater
                     model: root.selectedOperationalTool === "NOTAM" ? root.notamRecords : []
                     delegate: Rectangle {
                         required property var modelData
@@ -835,6 +871,7 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 root.selectedNotamId = String(modelData.id || "UNKNOWN")
+                                root.selectedNotamViewportY = y - operationalDetails.contentY
                                 root.notamSelectionRequested(root.selectedNotamId)
                             }
                         }
