@@ -376,41 +376,28 @@ Item {
     // Preview state only. Live weather/NOTAM providers must supply authoritative data.
     property string selectedOperationalTool: ""
     property string selectedNotamId: ""
-    // Preserve the selected card viewport position while new NOTAM records arrive.
-    property real selectedNotamViewportY: -1
-
-    function selectedNotamDelegateIndex() {
-        for (var i = 0; i < notamRecords.length; ++i) {
-            if (String(notamRecords[i].id || "UNKNOWN") === selectedNotamId)
-                return i
+    // Put the selected NOTAM first so it stays fully visible above the remaining records.
+    function displayedNotamRecords() {
+        var records = (root.notamRecords || []).slice()
+        var selectedIndex = -1
+        for (var i = 0; i < records.length; ++i) {
+            if (String(records[i].id || "UNKNOWN") === root.selectedNotamId) {
+                selectedIndex = i
+                break
+            }
         }
-        return -1
+        if (selectedIndex > 0)
+            records.unshift(records.splice(selectedIndex, 1)[0])
+        return records
     }
 
-    function rememberSelectedNotamViewportY() {
-        var index = selectedNotamDelegateIndex()
-        var card = index >= 0 ? notamRepeater.itemAt(index) : null
-        if (card && operationalDetails.visible)
-            selectedNotamViewportY = card.y - operationalDetails.contentY
+    function focusSelectedNotamAtTop() {
+        if (root.selectedOperationalTool === "NOTAM" && operationalDetails.visible)
+            operationalDetails.contentY = 0
     }
 
-    function preserveSelectedNotamViewportY() {
-        var index = selectedNotamDelegateIndex()
-        var card = index >= 0 ? notamRepeater.itemAt(index) : null
-        if (!card || !operationalDetails.visible)
-            return
-        if (selectedNotamViewportY < 0) {
-            selectedNotamViewportY = card.y - operationalDetails.contentY
-            return
-        }
-        var targetY = card.y - selectedNotamViewportY
-        var maxY = Math.max(0, operationalDetails.contentHeight - operationalDetails.height)
-        operationalDetails.contentY = Math.max(0, Math.min(targetY, maxY))
-        Qt.callLater(root.rememberSelectedNotamViewportY)
-    }
-
-    onNotamRecordsChanged: Qt.callLater(root.preserveSelectedNotamViewportY)
-    onSelectedNotamIdChanged: Qt.callLater(root.rememberSelectedNotamViewportY)
+    onNotamRecordsChanged: Qt.callLater(root.focusSelectedNotamAtTop)
+    onSelectedNotamIdChanged: Qt.callLater(root.focusSelectedNotamAtTop)
     property int notamSearchRadiusNm: 20
     signal notamSelectionRequested(string notamId)
     property var notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
@@ -856,7 +843,7 @@ Item {
                 }
                 Repeater {
                     id: notamRepeater
-                    model: root.selectedOperationalTool === "NOTAM" ? root.notamRecords : []
+                    model: root.selectedOperationalTool === "NOTAM" ? root.displayedNotamRecords() : []
                     delegate: Rectangle {
                         required property var modelData
                         width: operationalDetailColumn.width
@@ -871,7 +858,6 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 root.selectedNotamId = String(modelData.id || "UNKNOWN")
-                                root.selectedNotamViewportY = y - operationalDetails.contentY
                                 root.notamSelectionRequested(root.selectedNotamId)
                             }
                         }
