@@ -18,6 +18,8 @@ qt_add_executable(appBlueSkyPRO
     src/main.cpp
     src/PlanningBridge.cpp
     src/PlanningBridge.h
+    src/MissionTemplateResolver.cpp
+    src/MissionTemplateResolver.h
     src/VirtualFlightAssessmentBridge.cpp
     src/VirtualFlightAssessmentBridge.h
     ../../04_SOFTWARE/PLANNING/manual_route_candidate_builder.cpp
@@ -122,6 +124,14 @@ target_compile_options(manual_mission_model_adapter_test PRIVATE
     "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
 )
 add_test(NAME manual_mission_model_adapter_contract COMMAND manual_mission_model_adapter_test)
+
+add_executable(mission_template_resolver_test
+    tests/MissionTemplateResolverTest.cpp
+    src/MissionTemplateResolver.cpp
+    src/MissionTemplateResolver.h
+)
+target_link_libraries(mission_template_resolver_test PRIVATE Qt6::Core)
+add_test(NAME mission_template_resolver_contract COMMAND mission_template_resolver_test)
 
 add_executable(virtual_flight_assessment_bridge_test
     tests/VirtualFlightAssessmentBridgeTest.cpp
