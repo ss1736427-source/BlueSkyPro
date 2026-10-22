@@ -33,6 +33,36 @@ QJsonArray circle(double lat,double lon,double km) {
     ring.append(ring.first());return ring;
 }
 }
+QVariantMap NotamGeometryEngine::conservativeUpperPlane(double minTerrainMeters,
+                                                                      double maxTerrainMeters,
+                                                                      double totalRestrictionHeightMeters,
+                                                                      double clearanceMeters) {
+    QVariantMap out;
+    out["status"] = "INVALID_TERRAIN_OR_HEIGHT";
+    out["valid"] = false;
+    if (!qIsFinite(minTerrainMeters) || !qIsFinite(maxTerrainMeters) ||
+        !qIsFinite(totalRestrictionHeightMeters) || !qIsFinite(clearanceMeters) ||
+        maxTerrainMeters < minTerrainMeters || totalRestrictionHeightMeters < 0.0 ||
+        clearanceMeters < 0.0) {
+        return out;
+    }
+
+    const double requiredTop = maxTerrainMeters + clearanceMeters;
+    const double availableTop = minTerrainMeters + totalRestrictionHeightMeters;
+    out["minimumTerrainMeters"] = minTerrainMeters;
+    out["maximumTerrainMeters"] = maxTerrainMeters;
+    out["clearanceMeters"] = clearanceMeters;
+    out["requiredUpperPlaneMeters"] = requiredTop;
+    out["availableRestrictionTopMeters"] = availableTop;
+    out["valid"] = availableTop >= requiredTop;
+    out["status"] = availableTop >= requiredTop ? "VALID" : "INSUFFICIENT_RESTRICTION_HEIGHT";
+    // The top is always a flat plane at the terrain peak plus clearance.
+    // Never raise it automatically when the source restriction is too low.
+    if (availableTop >= requiredTop)
+        out["upperPlaneMeters"] = requiredTop;
+    return out;
+}
+
 QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     QVariantMap out=source;
     const QString text=source.value("originalText").toString()+"\n"+source.value("text").toString();
