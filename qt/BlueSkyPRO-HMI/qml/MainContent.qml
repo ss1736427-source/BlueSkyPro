@@ -88,10 +88,10 @@ Item {
                 routeController.clear()
         }
     }
-    readonly property bool is3DMappingProfile: root.missionTemplateIds.indexOf("3D_MAPPING") >= 0
+    readonly property bool is3DMappingProfile: root.missionTemplateIds.indexOf("MT-02") >= 0
     // Example current automatic mission composition; supplied by mission/task aggregation in production.
     property var missionTemplateIndices: [0, 1, 7]
-    property var missionTemplateIds: ["MAPPING", "3D_MAPPING", "ENVIRONMENTAL_MONITORING"]
+    property var missionTemplateIds: ["MT-01", "MT-02", "MT-08"]
     property string journalStatus: "READY"
     property string activeTool: bottomToolbar.activeTool
     // Entry flow: role authorization -> pilot task setup -> brief transition -> workspace.
