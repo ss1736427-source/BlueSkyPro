@@ -159,6 +159,7 @@ Item {
 
             Text {
                 anchors.fill: parent
+                anchors.leftMargin: 12
                 visible: taskInput.text.length === 0
                 text: "Опишите задачу… например: обследовать территорию площадью 5 км²"
                 color: root.muted
