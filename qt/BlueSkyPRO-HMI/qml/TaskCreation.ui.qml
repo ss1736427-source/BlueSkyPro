@@ -45,7 +45,10 @@ Item {
                 : "Рекомендации по описанию задачи — проверьте их и выберите шаблоны вручную."
     }
 
-    Component.onCompleted: refreshRecommendations()
+    Component.onCompleted: {
+        refreshRecommendations()
+        taskInput.forceActiveFocus()
+    }
 
     function toggleTemplate(index) {
         var next = selectedTemplateIndices.slice()
@@ -119,15 +122,6 @@ Item {
             font.letterSpacing: 1
         }
 
-        Text {
-            anchors.right: parent.right
-            anchors.rightMargin: parent.width * 0.045
-            anchors.verticalCenter: parent.verticalCenter
-            text: "PILOT  /  13 ШАБЛОНОВ"
-            color: root.cyan
-            font.family: "B612"
-            font.pixelSize: Math.max(12, Math.min(18, parent.height * 0.22))
-        }
     }
 
     // Task prompt field grows with entered text, while remaining inside the upper workspace.
@@ -201,27 +195,13 @@ Item {
         }
     }
 
-    Text {
-        id: templateCaption
-        anchors.left: parent.left
-        anchors.leftMargin: parent.width * 0.045
-        anchors.top: promptFrame.bottom
-        anchors.topMargin: 12
-        text: "ВЫБЕРИТЕ ШАБЛОНЫ МИССИЙ"
-        color: root.muted
-        font.family: "B612"
-        font.pixelSize: Math.max(11, Math.min(15, root.width * 0.008))
-        font.bold: true
-        font.letterSpacing: 1
-    }
-
     Rectangle {
         id: recommendationPanel
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.leftMargin: parent.width * 0.045
         anchors.rightMargin: parent.width * 0.045
-        anchors.top: templateCaption.bottom
+        anchors.top: promptFrame.bottom
         anchors.topMargin: 6
         height: Math.max(28, Math.min(52, root.height * 0.045))
         radius: 6
@@ -323,18 +303,6 @@ Item {
                     text: "АВТО"
                     color: root.cyan
                     font.pixelSize: 9
-                    font.bold: true
-                }
-
-                Text {
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.rightMargin: 7
-                    anchors.topMargin: 4
-                    visible: root.selectedTemplateIndices.indexOf(index) >= 0
-                    text: "✓"
-                    color: root.green
-                    font.pixelSize: 14
                     font.bold: true
                 }
 
