@@ -182,7 +182,7 @@ Item {
 
     function queryNotamsForView(viewJson) {
         var nowMs = Date.now()
-        if (!root.notamAutoLoadEnabled || String(root.selectedNotamId || "").trim() !== "" || root.notamQueryInProgress || nowMs < root.notamRetryAfterMs
+        if (!root.notamAutoLoadEnabled || root.notamQueryInProgress || nowMs < root.notamRetryAfterMs
                 || nowMs - root.lastNotamRequestAtMs < 1250
                 || typeof faaNmsClient === "undefined" || faaNmsClient === null) return
         var view
