@@ -7,6 +7,10 @@ Item {
 
     property string taskText: ""
     property var selectedTemplateIndices: []
+    property var recommendedTemplateIds: []
+    property var recommendationDetails: []
+    property bool recommendationNeedsClarification: true
+    property string recommendationPrompt: "Опишите задачу, чтобы получить рекомендации."
     property string keyboardLanguage: "RU"
     property bool keyboardVisible: true
 
@@ -20,6 +24,28 @@ Item {
     readonly property color textColor: "#E5F0FA"
     readonly property color muted: "#9FB4C9"
     readonly property color line: "#214A68"
+
+    function refreshRecommendations() {
+        if (typeof missionTemplateResolver === "undefined" || !missionTemplateResolver) {
+            recommendedTemplateIds = []
+            recommendationDetails = []
+            recommendationNeedsClarification = true
+            recommendationPrompt = "Автоматические рекомендации недоступны; выберите шаблон вручную."
+            return
+        }
+        var result = missionTemplateResolver.resolve(taskText)
+        recommendationDetails = result.recommendations || []
+        var ids = []
+        for (var i = 0; i < recommendationDetails.length; ++i)
+            ids.push(recommendationDetails[i].templateId)
+        recommendedTemplateIds = ids
+        recommendationNeedsClarification = result.needsClarification === true
+        recommendationPrompt = recommendationNeedsClarification
+                ? (result.clarificationPrompt || "Уточните цель миссии.")
+                : "Рекомендации по описанию задачи — проверьте их и выберите шаблоны вручную."
+    }
+
+    Component.onCompleted: refreshRecommendations()
 
     function toggleTemplate(index) {
         var next = selectedTemplateIndices.slice()
@@ -132,7 +158,10 @@ Item {
             wrapMode: TextEdit.Wrap
             selectByMouse: true
             activeFocusOnPress: true
-            onTextChanged: root.taskText = text
+            onTextChanged: {
+                root.taskText = text
+                root.refreshRecommendations()
+            }
 
             Text {
                 anchors.fill: parent
@@ -186,6 +215,34 @@ Item {
         font.letterSpacing: 1
     }
 
+    Rectangle {
+        id: recommendationPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: parent.width * 0.045
+        anchors.rightMargin: parent.width * 0.045
+        anchors.top: templateCaption.bottom
+        anchors.topMargin: 6
+        height: Math.max(28, Math.min(52, root.height * 0.045))
+        radius: 6
+        color: "#10263A"
+        border.color: root.recommendationNeedsClarification ? root.line : root.cyan
+        border.width: 1
+
+        Text {
+            anchors.fill: parent
+            anchors.leftMargin: 10
+            anchors.rightMargin: 10
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+            wrapMode: Text.NoWrap
+            color: root.recommendationNeedsClarification ? root.muted : root.cyan
+            font.family: "Noto Sans"
+            font.pixelSize: Math.max(11, Math.min(15, root.width * 0.008))
+            text: root.recommendationPrompt
+        }
+    }
+
     // All 13 mission templates are shown at entry; multiple templates may be selected.
     Grid {
         id: templates
@@ -193,8 +250,8 @@ Item {
         anchors.right: parent.right
         anchors.leftMargin: parent.width * 0.045
         anchors.rightMargin: parent.width * 0.045
-        anchors.top: templateCaption.bottom
-        anchors.topMargin: 10
+        anchors.top: recommendationPanel.bottom
+        anchors.topMargin: 8
         property int columnCount: root.width >= 1500 ? 7 : root.width >= 1000 ? 5 : 3
         columns: columnCount
         spacing: 12
@@ -225,8 +282,8 @@ Item {
                 height: templates.tileHeight
                 radius: 8
                 color: root.selectedTemplateIndices.indexOf(index) >= 0 ? "#103A35" : root.card
-                border.color: root.selectedTemplateIndices.indexOf(index) >= 0 ? root.green : root.line
-                border.width: root.selectedTemplateIndices.indexOf(index) >= 0 ? 2 : 1
+                border.color: root.selectedTemplateIndices.indexOf(index) >= 0 ? root.green : (root.recommendedTemplateIds.indexOf(root.templateId(index)) >= 0 ? root.cyan : root.line)
+                border.width: root.selectedTemplateIndices.indexOf(index) >= 0 ? 2 : (root.recommendedTemplateIds.indexOf(root.templateId(index)) >= 0 ? 2 : 1)
 
                 Column {
                     anchors.centerIn: parent
@@ -254,6 +311,19 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         elide: Text.ElideRight
                     }
+                }
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.leftMargin: 6
+                    anchors.topMargin: 4
+                    visible: root.recommendedTemplateIds.indexOf(root.templateId(index)) >= 0
+                             && root.selectedTemplateIndices.indexOf(index) < 0
+                    text: "АВТО"
+                    color: root.cyan
+                    font.pixelSize: 9
+                    font.bold: true
                 }
 
                 Text {
