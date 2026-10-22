@@ -52,10 +52,22 @@ jobs:
           if ($source -notmatch "let terrainOn=false;") {
             throw "3D terrain must default to OFF to match the UI control."
           }
+          if ($source -notmatch "if\(!terrainOn\)\{notamData=\{type:'FeatureCollection',features:features\};updateNotamLegend") {
+            throw "NOTAM horizontal geometry must remain visible in 2D when terrain is OFF."
+          }
+          if ($source -notmatch "'fill-extrusion-height':\['get','upperMeters'\],'fill-extrusion-opacity':0\.28") {
+            throw "Expected compatible constant-opacity NOTAM extrusion layer."
+          }
+          if ($source -notmatch "'boolean',\['get','terrainPlaneFlat'\],false") {
+            throw "AGL NOTAM extrusion must be gated on a validated terrain plane."
+          }
+          if ($source -notmatch "if\(terrainOn\)\{if\(map\.isStyleLoaded\(\)\)\{enableTerrain\(\);applyTerrainPlanes\(notamData\.features\|\|\[\]\);") {
+            throw "Enabling terrain must initiate AGL terrain-plane validation."
+          }
           if ($source -notmatch "if\(!terrainOn&&map\.getTerrain\(\)\)map\.setTerrain\(null\)") {
             throw "Terrain must be disabled after NOTAM terrain sampling when the UI toggle is OFF."
           }
-          Write-Host "Map NOTAM layer and terrain-state regression checks passed."
+          Write-Host "Map NOTAM geometry visibility and terrain-state regression checks passed."
           
       - name: Install Ninja
         run: choco install ninja --yes --no-progress
