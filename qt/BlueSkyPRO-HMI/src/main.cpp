@@ -8,6 +8,7 @@
 #include <QQmlError>
 
 #include "PlanningBridge.h"
+#include "MissionTemplateResolver.h"
 #include "VirtualFlightAssessmentBridge.h"
 #include "ManualGeometryBridge.h"
 #include "ManualMissionModelAdapter.h"
@@ -64,6 +65,7 @@ int main(int argc, char *argv[])
 
     writeStartupLog(QStringLiteral("CHECKPOINT: before PlanningBridge constructor"));
     PlanningBridge planningBridge;
+    MissionTemplateResolver missionTemplateResolver;
     writeStartupLog(QStringLiteral("CHECKPOINT: after PlanningBridge constructor"));
 
     writeStartupLog(QStringLiteral("CHECKPOINT: before VirtualFlightAssessmentBridge constructor"));
@@ -95,6 +97,7 @@ int main(int argc, char *argv[])
     writeStartupLog(QStringLiteral("CHECKPOINT: after FaaNmsClient constructor"));
 
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
+    engine.rootContext()->setContextProperty(QStringLiteral("missionTemplateResolver"), &missionTemplateResolver);
     engine.rootContext()->setContextProperty(QStringLiteral("virtualFlightAssessmentBridge"), &virtualFlightAssessmentBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("manualGeometryBridge"), &manualGeometryBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("manualMissionModelAdapter"), &manualMissionModelAdapter);
