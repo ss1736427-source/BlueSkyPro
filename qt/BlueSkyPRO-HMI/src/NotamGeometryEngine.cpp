@@ -35,31 +35,27 @@ QJsonArray circle(double lat,double lon,double km) {
 }
 QVariantMap NotamGeometryEngine::conservativeUpperPlane(double minTerrainMeters,
                                                                       double maxTerrainMeters,
-                                                                      double totalRestrictionHeightMeters,
-                                                                      double clearanceMeters) {
+                                                                      double totalRestrictionHeightMeters) {
     QVariantMap out;
     out["status"] = "INVALID_TERRAIN_OR_HEIGHT";
     out["valid"] = false;
     if (!qIsFinite(minTerrainMeters) || !qIsFinite(maxTerrainMeters) ||
-        !qIsFinite(totalRestrictionHeightMeters) || !qIsFinite(clearanceMeters) ||
-        maxTerrainMeters < minTerrainMeters || totalRestrictionHeightMeters < 0.0 ||
-        clearanceMeters < 0.0) {
+        !qIsFinite(totalRestrictionHeightMeters) ||
+        maxTerrainMeters < minTerrainMeters || totalRestrictionHeightMeters < 0.0) {
         return out;
     }
 
-    const double requiredTop = maxTerrainMeters + clearanceMeters;
-    const double availableTop = minTerrainMeters + totalRestrictionHeightMeters;
+    const double sourceUpperPlane = minTerrainMeters + totalRestrictionHeightMeters;
+    const double upperPlane = qMax(sourceUpperPlane, maxTerrainMeters);
     out["minimumTerrainMeters"] = minTerrainMeters;
     out["maximumTerrainMeters"] = maxTerrainMeters;
-    out["clearanceMeters"] = clearanceMeters;
-    out["requiredUpperPlaneMeters"] = requiredTop;
-    out["availableRestrictionTopMeters"] = availableTop;
-    out["valid"] = availableTop >= requiredTop;
-    out["status"] = availableTop >= requiredTop ? "VALID" : "INSUFFICIENT_RESTRICTION_HEIGHT";
-    // The top is always a flat plane at the terrain peak plus clearance.
-    // Never raise it automatically when the source restriction is too low.
-    if (availableTop >= requiredTop)
-        out["upperPlaneMeters"] = requiredTop;
+    out["sourceUpperPlaneMeters"] = sourceUpperPlane;
+    out["upperPlaneMeters"] = upperPlane;
+    out["adjustedToTerrainPeak"] = sourceUpperPlane < maxTerrainMeters;
+    out["valid"] = true;
+    out["status"] = sourceUpperPlane < maxTerrainMeters
+                        ? "RAISED_TO_HIGHEST_TERRAIN"
+                        : "VALID";
     return out;
 }
 
