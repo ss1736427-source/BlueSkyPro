@@ -23,5 +23,19 @@ int main(int argc,char**argv){
  auto invalidTerrain=NotamGeometryEngine::conservativeUpperPlane(2500.0,2400.0,3000.0);
  assert(!invalidTerrain["valid"].toBool());
  QVariantMap bad{{"text","Informational NOTAM only"}};auto d=NotamGeometryEngine::normalize(bad);assert(!d["geometryValidated"].toBool());
+ // Non-area GeoJSON must remain available to the map's point/line layers, but
+ // must never be reported as a validated airspace polygon.
+ QVariantMap point{{"geometryJson",QStringLiteral(R"({"type":"Point","coordinates":[39.6,43.6]})")}};
+ auto pointResult=NotamGeometryEngine::normalize(point);
+ assert(pointResult["geometryType"].toString()=="Point");
+ assert(!pointResult["geometryJson"].toString().isEmpty());
+ assert(!pointResult["geometryValidated"].toBool());
+ assert(pointResult["restrictionGeometryStatus"].toString()=="DISPLAY_ONLY_NON_AREA_GEOMETRY");
+ QVariantMap line{{"geometryJson",QStringLiteral(R"({"type":"LineString","coordinates":[[39.6,43.6],[39.7,43.7]]})")}};
+ auto lineResult=NotamGeometryEngine::normalize(line);
+ assert(lineResult["geometryType"].toString()=="LineString");
+ assert(!lineResult["geometryJson"].toString().isEmpty());
+ assert(!lineResult["geometryValidated"].toBool());
+ assert(lineResult["restrictionGeometryStatus"].toString()=="DISPLAY_ONLY_NON_AREA_GEOMETRY");
  QVariantMap qline{{"originalText","Q)URRV/QRTCA/IV/BO/W/000/999/4334N03938E004\\nF)GND\\nG)6000M AGL"}};auto q=NotamGeometryEngine::normalize(qline);assert(q["geometryJson"].toString().isEmpty());assert(!q["geometryValidated"].toBool());return 0;
 }
