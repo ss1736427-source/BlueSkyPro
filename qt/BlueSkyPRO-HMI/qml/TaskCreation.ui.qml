@@ -31,12 +31,12 @@ Item {
         selectedTemplateIndices = next
     }
 
+    // Emit canonical catalog IDs (MT-01..MT-13), not presentation-only aliases.
+    // This keeps task creation aligned with the Common Mission Model validator.
     function templateId(index) {
         return [
-            "MAPPING", "3D_MAPPING", "INSPECTION", "CONSTRUCTION_MONITORING",
-            "PERIMETER_MONITORING", "SEARCH_AND_RESCUE", "FIRE_EMERGENCY",
-            "ENVIRONMENTAL_MONITORING", "AGRICULTURE", "DELIVERY",
-            "COMMUNICATION_RELAY", "AERIAL_MEDIA", "C_UAS"
+            "MT-01", "MT-02", "MT-03", "MT-04", "MT-05", "MT-06", "MT-07",
+            "MT-08", "MT-09", "MT-10", "MT-11", "MT-12", "MT-13"
         ][index] || ""
     }
 
