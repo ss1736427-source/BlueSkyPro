@@ -392,7 +392,7 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
                 if (!formatted.isEmpty()) originalTexts.append(formatted);
                 else if (!simple.isEmpty()) originalTexts.append(simple);
             }
-            record.insert(QStringLiteral("originalText"), originalTexts.join(QStringLiteral("\\n\\n")));
+            record.insert(QStringLiteral("originalText"), originalTexts.join(QStringLiteral("\n\n")));
             const QJsonValue geometry = feature.value(QStringLiteral("geometry"));
             record.insert(QStringLiteral("geometryJson"),
                           geometry.isObject()
