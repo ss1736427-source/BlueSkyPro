@@ -89,11 +89,17 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
             }
         }
     }
-    QString type=g.value("type").toString();bool hok=type=="Polygon"||type=="MultiPolygon";
-    out["geometryJson"]=hok?QString::fromUtf8(QJsonDocument(g).toJson(QJsonDocument::Compact)):QString();
-    out["geometryType"]=hok?type:QString();
-    out["geometryValidated"]=hok&&vok;
-    out["restrictionGeometryStatus"]=!hok?"MISSING_HORIZONTAL_BOUNDS":!vok?"MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS":"VALIDATED";
+    QString type=g.value("type").toString();
+    const bool areaGeometry=type=="Polygon"||type=="MultiPolygon";
+    // Keep valid non-area GeoJSON for map display. Point/line geometry is useful
+    // for situational awareness, but must never be reported as a validated area restriction.
+    const bool displayGeometry=areaGeometry||type=="Point"||type=="MultiPoint"
+        ||type=="LineString"||type=="MultiLineString";
+    out["geometryJson"]=displayGeometry?QString::fromUtf8(QJsonDocument(g).toJson(QJsonDocument::Compact)):QString();
+    out["geometryType"]=displayGeometry?type:QString();
+    out["geometryValidated"]=areaGeometry&&vok;
+    out["restrictionGeometryStatus"]=areaGeometry?(vok?"VALIDATED":"MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS")
+        :(displayGeometry?"DISPLAY_ONLY_NON_AREA_GEOMETRY":"MISSING_HORIZONTAL_BOUNDS");
     out["altitudeReference"]=vok?ld:"UNKNOWN";
     return out;
 }
