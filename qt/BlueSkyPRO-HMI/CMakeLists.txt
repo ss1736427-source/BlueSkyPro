@@ -130,6 +130,7 @@ add_executable(mission_template_resolver_test
     src/MissionTemplateResolver.cpp
     src/MissionTemplateResolver.h
 )
+target_include_directories(mission_template_resolver_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(mission_template_resolver_test PRIVATE Qt6::Core)
 add_test(NAME mission_template_resolver_contract COMMAND mission_template_resolver_test)
 
