@@ -22,6 +22,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Validate generated map JavaScript string escaping
+        shell: pwsh
+        run: |
+          $path = "qt/BlueSkyPRO-HMI/qml/MapTilerWebMap.qml"
+          $lines = Get-Content $path
+          $insideBuildHtml = $false
+          $lineNumber = 0
+          foreach ($line in $lines) {
+            $lineNumber++
+            if ($line -match "function buildHtml\(\)") { $insideBuildHtml = $true }
+            if ($insideBuildHtml) {
+              # A QML string ending in an odd number of backslashes before an escaped quote
+              # can leak a backslash into generated JavaScript and break parsing.
+              $matches = [regex]::Matches($line, '(\\+)",')
+              foreach ($match in $matches) {
+                if (($match.Groups[1].Value.Length % 2) -eq 1) {
+                  throw "Odd trailing backslash before an escaped quote in buildHtml at line $lineNumber"
+                }
+              }
+            }
+            if ($insideBuildHtml -and $line -match '\]\s*\.join\("\\n"\)') { break }
+          }
+          if (-not $insideBuildHtml) { throw "Could not locate MapTilerWebMap.qml buildHtml() source" }
+          Write-Host "Map HTML string escaping check passed."
+          
       - name: Install Ninja
         run: choco install ninja --yes --no-progress
 
