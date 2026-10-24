@@ -96,6 +96,8 @@ Item {
         apiKey: typeof mapTilerApiKey !== "undefined" ? mapTilerApiKey : ""
         routeCoordinates: root.routeCoordinates
         manualTemplateIds: root.manualTemplateIds
+        notamRecords: root.notamRecords
+        notamSnapshotId: root.notamSnapshotId
         selectedNotamId: root.selectedNotamId
         notamSearchRadiusNm: root.notamSearchRadiusNm
         onUseLegacyMapRequested: root.useMapTilerWebGL = false
