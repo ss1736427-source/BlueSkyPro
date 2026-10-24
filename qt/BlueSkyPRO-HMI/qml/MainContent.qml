@@ -222,6 +222,8 @@ Item {
             missionVisible: root.missionVisible
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
+            notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
+            notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
             leftPanelWidth: root.leftPanelOpen ? root.leftWidth : 0
             rightPanelWidth: root.rightPanelOpen ? root.rightWidth : 0
             useExternalMapState: true
