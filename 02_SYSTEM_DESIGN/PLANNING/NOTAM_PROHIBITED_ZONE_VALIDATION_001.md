@@ -31,13 +31,28 @@ The initial normalized geometry supports circles and polygons. Geodesic conversi
 
 Circle segment checks use a local tangent-plane distance approximation; polygon checks use local planar segment-edge intersection. This is appropriate for the current bounded planning test cases but is not a substitute for validation against authoritative geospatial test vectors, especially for long segments, polar routes, or geometry crossing the antimeridian. The validator remains dependent on upstream normalization and does not interpret raw NOTAM text.
 
-## Mission-time applicability — mandatory rule
+## Mission-time applicability, wind-aware timing, and optimizer feedback — mandatory rule
 
-A prohibited NOTAM zone is an active planning constraint only during the validity interval supplied by the normalized NOTAM record. The map's active-restriction presentation and route optimizer/validator must use the same mission-time applicability rule: a zone is shown as a current mission restriction and constrains route evaluation when the mission/flight interval overlaps the NOTAM validity interval; outside that interval it is not shown as an active prohibited zone and must not reject or penalize the route on the basis of that NOTAM. For a point-time evaluation, the evaluation timestamp must be inside the inclusive NOTAM validity interval. A route segment that has an explicit time interval must be checked against NOTAM validity during the segment's occupancy of the zone, not solely against mission start time. Source records must remain available even when inactive overlays are hidden. All timestamps must be normalized to a common UTC epoch before comparison; missing or invalid validity timestamps must not be silently interpreted as active or inactive.
+A prohibited NOTAM zone is a hard planning constraint only when the planned aircraft occupancy of the zone overlaps the NOTAM validity interval. Mission-start time alone is not sufficient to decide whether a route conflicts with a NOTAM.
 
-## Authority
+The optimizer/validator workflow shall execute in this order:
 
-The result is observational/planning validation only. It does not mutate the Route, readiness, safety, authorization or execution state.
+1. Generate a candidate route using the existing optimization objective and constraints.
+2. Apply the selected wind model to that candidate and calculate a time profile for the resulting route, including ground/track speed and estimated passage time at each waypoint and the time interval for every segment. The profile must be derived from the wind-adjusted candidate, not copied from the pre-wind route.
+3. For every prohibited zone, check horizontal geometry, vertical overlap, and temporal overlap together. Check the full interval during which each route segment occupies/intersects the zone, not only waypoint timestamps, the segment endpoints, or mission-start time.
+4. If any waypoint or any portion of a segment occupies the zone during the inclusive NOTAM validity interval, reject that candidate and return a deterministic conflict finding identifying the NOTAM and affected waypoint/segment to the optimizer.
+5. Rebuild the candidate to avoid the conflicting zone, then reapply wind and recalculate the complete time profile. Revalidate the entire changed route against all zones and constraints. Never reuse the previous candidate's timing profile after route geometry changes.
+6. Accept the route only when all required checks pass. Missing, invalid, stale, or unreliable timing/validity inputs must not be silently treated as clear airspace.
+
+All timestamps shall be normalized to a common UTC epoch before comparison. The NOTAM validity endpoints are inclusive. If the NOTAM is inactive throughout the aircraft's occupancy interval, that NOTAM alone must not reject or penalize the route. If the NOTAM becomes active during any part of the occupancy interval, the candidate conflicts.
+
+## Shortest feasible detour — mandatory optimization rule
+
+When a prohibited zone conflicts with the candidate route, the optimizer shall seek the best feasible detour around the zone, rather than inserting an arbitrary or unnecessarily long diversion. “Best” is determined by the optimizer's existing objective function among routes that satisfy all applicable hard constraints. If the objective is route distance, choose the shortest feasible path; if the objective is flight time or another defined mission cost, optimize that objective using the wind-adjusted time/cost model. For equal objective values, prefer the shorter route where this is consistent with the existing optimizer's tie-breaking rules.
+
+A detour must respect the zone's horizontal boundary, applicable altitude limits, NOTAM validity during actual occupancy, aircraft performance limits, and all other route constraints. Where multiple zones conflict, evaluate the candidate against all of them; a detour around one zone must not be accepted if it introduces a conflict with another. After every route change, rerun wind application, time-profile calculation, and full-route validation until a feasible candidate is found or the optimizer reports that no feasible candidate could be established within its defined search limits.
+
+Wind-aware time feasibility and route optimality are coupled: the geometrically shortest path is not necessarily the shortest-time path in wind. The objective function already defined for the optimizer remains authoritative; this requirement does not silently replace it with a different objective.
 
 ## NOTAM boundary visualization — mandatory HMI behavior
 
