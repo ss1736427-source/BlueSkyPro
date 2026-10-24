@@ -67,7 +67,16 @@ jobs:
           if ($source -notmatch "if\(!terrainOn&&map\.getTerrain\(\)\)map\.setTerrain\(null\)") {
             throw "Terrain must be disabled after NOTAM terrain sampling when the UI toggle is OFF."
           }
-          Write-Host "Map NOTAM geometry visibility and terrain-state regression checks passed."
+          if ($source -notmatch "notam-debug-open" -or $source -notmatch "NOTAM RENDER DIAGNOSTICS" -or $source -notmatch "notam-debug-refresh") {
+            throw "Temporary NOTAM diagnostics panel and refresh control must be present."
+          }
+          if ($source -notmatch "window\.blueskyNotamSnapshot=function\(" -or $source -notmatch "qtDiagnostics:qtNotamDiagnostics" -or $source -notmatch "renderedFeatureCounts:renderedFeatureCounts") {
+            throw "NOTAM diagnostics must report QML input, GeoJSON, layers and rendered feature counts."
+          }
+          if ($source -notmatch "mapErrors:perfDiag\.recentErrors") {
+            throw "NOTAM diagnostics must include recent MapLibre rendering errors."
+          }
+          Write-Host "Map NOTAM geometry visibility, terrain-state, and temporary diagnostics regression checks passed."
           
       - name: Install Ninja
         run: choco install ninja --yes --no-progress
