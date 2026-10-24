@@ -28,7 +28,10 @@ Each entry shall contain, at minimum:
 
 ## Register
 
-No change or problem records are entered by this document unless they have been separately identified and controlled.
+| Record ID | Type | Date | Affected artifact | Source / trigger | Impact | Disposition | Approval status | Implementation | Verification | Closure |
+|---|---|---|---|---|---|---|---|---|---|---|
+| CHG-2026-10-24-NOTAM-TIME | CHANGE | 2026-10-24 | `02_SYSTEM_DESIGN/PLANNING/NOTAM_PROHIBITED_ZONE_VALIDATION_001.md`; `04_SOFTWARE/PLANNING/notam_prohibited_zone_validator_test.cpp` | Requirement confirmed that NOTAM restrictions must apply according to the actual mission/flight time, not merely wall-clock time or an assumed mission-start time. | Planning safety, map presentation, route optimization and validation consistency. | Record the temporal-applicability requirement and add validity-interval boundary tests. Full integration of mission-time display and timed route occupancy remains outstanding. | Requirement clarified; implementation/verification incomplete. | [`8f42a16`](https://github.com/ss1736427-source/BlueSkyPro/commit/8f42a1675161bd1218aa3fdf1d3e3c01491b60ff) | Boundary tests added; GitHub workflow checks on implementation commit passed, but this does not verify mission-time map filtering or timed segment occupancy. | OPEN |
+
 
 ## Control rule
 
