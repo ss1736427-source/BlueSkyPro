@@ -46,7 +46,7 @@ Item {
             ".controls{position:absolute;z-index:5;top:10px;right:10px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 20px);background:rgba(5,10,18,.88);padding:8px;border-radius:4px}",
             ".controls button,.controls select{background:#142638;color:#eaf4ff;border:1px solid #36516b;border-radius:3px;padding:7px 9px;font-size:12px}",
             ".controls button.active{border-color:#32ffff;color:#32ffff}",
-            ".diag-panel{display:none;position:absolute;z-index:10;left:10px;right:10px;top:48px;bottom:10px;background:rgba(5,10,18,.96);padding:8px;border:1px solid #36516b;border-radius:4px;box-sizing:border-box}",
+            ".diag-panel{display:none;position:fixed;z-index:30;left:10px;right:10px;top:140px;bottom:60px;min-height:180px;background:rgba(5,10,18,.97);padding:8px;border:1px solid #36516b;border-radius:4px;box-sizing:border-box}",
             ".diag-panel.open{display:flex;flex-direction:column;gap:6px}",
             ".diag-panel textarea{flex:1;min-height:0;width:100%;resize:none;box-sizing:border-box;background:#071321;color:#d5e7f7;border:1px solid #36516b;font:11px monospace;white-space:pre;overflow:auto}",
             ".status{position:absolute;z-index:5;left:10px;top:10px;color:#d5e7f7;background:rgba(5,10,18,.8);padding:6px 8px;font:11px monospace;border-radius:3px}",
