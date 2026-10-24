@@ -17,6 +17,9 @@ Item {
     property bool manualCompositionComplete: false
     // Geographic route geometry must be supplied by the mission/planning layer.
     property var routeCoordinates: []
+    // Pass the normalized source snapshot explicitly through the map composition.
+    property var notamRecords: []
+    property string notamSnapshotId: ""
     property var manualTemplateIds: []
     property string selectedNotamId: ""
     property int notamSearchRadiusNm: 20
