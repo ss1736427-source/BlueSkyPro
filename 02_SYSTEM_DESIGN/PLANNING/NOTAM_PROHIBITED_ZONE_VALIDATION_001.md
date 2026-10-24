@@ -31,6 +31,10 @@ The initial normalized geometry supports circles and polygons. Geodesic conversi
 
 Circle segment checks use a local tangent-plane distance approximation; polygon checks use local planar segment-edge intersection. This is appropriate for the current bounded planning test cases but is not a substitute for validation against authoritative geospatial test vectors, especially for long segments, polar routes, or geometry crossing the antimeridian. The validator remains dependent on upstream normalization and does not interpret raw NOTAM text.
 
+## Mission-time applicability — mandatory rule
+
+A prohibited NOTAM zone is an active planning constraint only during the validity interval supplied by the normalized NOTAM record. The map's active-restriction presentation and route optimizer/validator must use the same mission-time applicability rule: a zone is shown as a current mission restriction and constrains route evaluation when the mission/flight interval overlaps the NOTAM validity interval; outside that interval it is not shown as an active prohibited zone and must not reject or penalize the route on the basis of that NOTAM. For a point-time evaluation, the evaluation timestamp must be inside the inclusive NOTAM validity interval. A route segment that has an explicit time interval must be checked against NOTAM validity during the segment's occupancy of the zone, not solely against mission start time. Source records must remain available even when inactive overlays are hidden. All timestamps must be normalized to a common UTC epoch before comparison; missing or invalid validity timestamps must not be silently interpreted as active or inactive.
+
 ## Authority
 
 The result is observational/planning validation only. It does not mutate the Route, readiness, safety, authorization or execution state.

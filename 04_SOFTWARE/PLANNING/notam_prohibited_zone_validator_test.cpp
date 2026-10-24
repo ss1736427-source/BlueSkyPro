@@ -34,6 +34,21 @@ int main() {
     assert(blocked.findings.front().waypoint_id == "WP-1");
     assert(blocked.findings.front().notam_id == "N-001");
 
+    // NOTAM validity is inclusive at both endpoints; outside its interval the zone is not active.
+    s.evaluation_epoch_s = 899;
+    auto before_validity = NotamProhibitedZoneValidator::validate(r, s);
+    assert(before_validity.status == RouteValidationStatus::Allowed);
+    s.evaluation_epoch_s = 900;
+    auto at_validity_start = NotamProhibitedZoneValidator::validate(r, s);
+    assert(at_validity_start.status == RouteValidationStatus::Rejected);
+    s.evaluation_epoch_s = 1100;
+    auto at_validity_end = NotamProhibitedZoneValidator::validate(r, s);
+    assert(at_validity_end.status == RouteValidationStatus::Rejected);
+    s.evaluation_epoch_s = 1101;
+    auto after_validity = NotamProhibitedZoneValidator::validate(r, s);
+    assert(after_validity.status == RouteValidationStatus::Allowed);
+    s.evaluation_epoch_s = 1000;
+
     // A segment crossing a circle must be rejected even when both endpoints are outside.
     r.waypoints = {{"A", {60.0, 24.98}, 100.0, true, AltitudeReference::AGL},
                    {"B", {60.0, 25.02}, 100.0, false, AltitudeReference::AGL}};
