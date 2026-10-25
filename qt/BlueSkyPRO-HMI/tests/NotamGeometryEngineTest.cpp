@@ -22,6 +22,29 @@ int main(int argc,char**argv){
  assert(qAbs(raised["upperPlaneMeters"].toDouble()-2400.0)<0.001);
  auto invalidTerrain=NotamGeometryEngine::conservativeUpperPlane(2500.0,2400.0,3000.0);
  assert(!invalidTerrain["valid"].toBool());
+ // Compound NOTAM: one closed area plus two explicit circles must remain
+ // three independent polygon components. Mixed vertical datums must fail closed.
+ QVariantMap compound{{"originalText",
+ "E)AIRSPACE CLSD AS FLW:\n"
+ "1. AREA: 444741N0413513E-444145N0420555E-443855N0420723E-\n"
+ "   443406N0422158E-444741N0413513E\n"
+ "   650M AMSL-950M AMSL.\n"
+ "2. WI CIRCLE RADIUS 1KM CENTRE 444310N0414605E\n"
+ "   GND-950M AMSL.\n"
+ "3. WI CIRCLE RADIUS 2KM CENTRE 443233N0422500E\n"
+ "   GND-950M AMSL.\n"
+ "F)GND G)950M AMSL"}};
+ auto compoundResult=NotamGeometryEngine::normalize(compound);
+ auto compoundGeometry=QJsonDocument::fromJson(compoundResult["geometryJson"].toString().toUtf8()).object();
+ assert(compoundGeometry["type"].toString()=="MultiPolygon");
+ auto components=compoundGeometry["coordinates"].toArray();
+ assert(components.size()==3);
+ assert(components.at(0).toArray().first().toArray().size()==5);
+ assert(components.at(1).toArray().first().toArray().size()==73);
+ assert(components.at(2).toArray().first().toArray().size()==73);
+ assert(!compoundResult["geometryValidated"].toBool());
+ assert(compoundResult["restrictionGeometryStatus"].toString()=="MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS");
+
  QVariantMap bad{{"text","Informational NOTAM only"}};auto d=NotamGeometryEngine::normalize(bad);assert(!d["geometryValidated"].toBool());
  // Non-area GeoJSON must remain available to the map's point/line layers, but
  // must never be reported as a validated airspace polygon.
