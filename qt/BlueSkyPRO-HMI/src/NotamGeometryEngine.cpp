@@ -72,7 +72,52 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     out["lowerDatum"]=ld;out["upperDatum"]=hd;
     QJsonObject g;const QString raw=source.value("geometryJson").toString();
     auto gd=QJsonDocument::fromJson(raw.toUtf8());if(gd.isObject())g=gd.object();
+    bool compoundParsed=false;
     if(g.value("type").toString()!="Polygon"&&g.value("type").toString()!="MultiPolygon"){
+        // Parse numbered "AS FLW" components independently, so circle centres
+        // cannot accidentally become vertices of the preceding area boundary.
+        static const QRegularExpression sectionRe(QStringLiteral("AS\\s+FLW\\s*:\\s*([\\s\\S]*?)(?=\\bF\\)|\\bG\\)|$)"),QRegularExpression::CaseInsensitiveOption);
+        const auto sectionMatch=sectionRe.match(text);
+        if(sectionMatch.hasMatch()){
+            const QString section=sectionMatch.captured(1);
+            static const QRegularExpression itemRe(QStringLiteral("(?:^|\\n)\\s*\\d+\\.\\s*([\\s\\S]*?)(?=(?:\\n\\s*\\d+\\.)|$)"));
+            static const QRegularExpression coordinateRe(QStringLiteral("\\d{4,6}[NS]\\s*\\d{5,7}[EW]"),QRegularExpression::CaseInsensitiveOption);
+            static const QRegularExpression circleRe(QStringLiteral("RADIUS\\s*(\\d+(?:[.,]\\d+)?)\\s*(NM|KM|M)\\s+CENT(?:RE|ER)\\s+(\\d{4,6}[NS]\\s*\\d{5,7}[EW])"),QRegularExpression::CaseInsensitiveOption);
+            QJsonArray polygons;
+            auto items=itemRe.globalMatch(section);
+            bool allItemsValid=true;
+            int itemCount=0;
+            while(items.hasNext()){
+                const QString item=items.next().captured(1);
+                QJsonArray ring;
+                const auto circleMatch=circleRe.match(item);
+                if(circleMatch.hasMatch()){
+                    QString radiusText=circleMatch.captured(1);radiusText.replace(',','.');
+                    double radiusKm=radiusText.toDouble();
+                    const QString unit=circleMatch.captured(2).toUpper();
+                    if(unit=="NM")radiusKm*=1.852;else if(unit=="M")radiusKm/=1000.0;
+                    const Coord centre=coord(circleMatch.captured(3));
+                    if(!centre.ok||radiusKm<=0||radiusKm>500){allItemsValid=false;break;}
+                    ring=circle(centre.lat,centre.lon,radiusKm);
+                }else{
+                    auto coordinates=coordinateRe.globalMatch(item);
+                    while(coordinates.hasNext()){
+                        const Coord point=coord(coordinates.next().captured());
+                        if(point.ok)ring.append(QJsonArray{point.lon,point.lat});
+                    }
+                    if(ring.size()<3){allItemsValid=false;break;}
+                    if(ring.first()!=ring.last())ring.append(ring.first());
+                }
+                polygons.append(QJsonArray{ring});
+                ++itemCount;
+            }
+            if(allItemsValid&&itemCount>=2&&polygons.size()==itemCount){
+                g=QJsonObject{{"type","MultiPolygon"},{"coordinates",polygons}};
+                compoundParsed=true;
+            }
+        }
+    }
+    if(!compoundParsed&&g.value("type").toString()!="Polygon"&&g.value("type").toString()!="MultiPolygon"){
         static const QRegularExpression area(QStringLiteral("(?:AIRSPACE\\s+CLSD\\s+WI\\s+AREA|AREA|DEFINED\\s+BY)\\s*:?([\\s\\S]*?)(?=\\bF\\)|\\bG\\)|$)"),QRegularExpression::CaseInsensitiveOption);
         auto am=area.match(text);QString candidate=am.hasMatch()?am.captured(1):QString();
         static const QRegularExpression cr(QStringLiteral("\\d{4,6}[NS]\\s*\\d{5,7}[EW]"),QRegularExpression::CaseInsensitiveOption);
