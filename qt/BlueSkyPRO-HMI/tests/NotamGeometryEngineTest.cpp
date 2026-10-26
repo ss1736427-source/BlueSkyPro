@@ -14,12 +14,12 @@ int main(int argc,char**argv){
  assert(plane["valid"].toBool());
  assert(qAbs(plane["upperPlaneMeters"].toDouble()-2500.0)<0.001);
  assert(!plane["adjustedToTerrainPeak"].toBool());
- auto raised=NotamGeometryEngine::conservativeUpperPlane(300.0,2400.0,2100.0);
- assert(raised["valid"].toBool());
- assert(raised["status"].toString()=="RAISED_TO_HIGHEST_TERRAIN");
- assert(raised["adjustedToTerrainPeak"].toBool());
- assert(qAbs(raised["sourceUpperPlaneMeters"].toDouble()-2400.0)<0.001);
- assert(qAbs(raised["upperPlaneMeters"].toDouble()-2400.0)<0.001);
+ auto flat=NotamGeometryEngine::conservativeUpperPlane(300.0,2800.0,2100.0);
+ assert(flat["valid"].toBool());
+ assert(flat["status"].toString()=="FLAT_SOURCE_HEIGHT_PLANE");
+ assert(!flat["adjustedToTerrainPeak"].toBool());
+ assert(qAbs(flat["sourceUpperPlaneMeters"].toDouble()-2400.0)<0.001);
+ assert(qAbs(flat["upperPlaneMeters"].toDouble()-2400.0)<0.001);
  auto invalidTerrain=NotamGeometryEngine::conservativeUpperPlane(2500.0,2400.0,3000.0);
  assert(!invalidTerrain["valid"].toBool());
  // Compound NOTAM: one closed area plus two explicit circles must remain
