@@ -136,6 +136,14 @@ jobs:
             Get-Content app-smoke.stdout.log -ErrorAction SilentlyContinue
             Write-Host "=== stderr ==="
             Get-Content app-smoke.stderr.log -ErrorAction SilentlyContinue
+            $startupLog = Join-Path $env:TEMP "BlueSkyPRO-startup-diagnostic.log"
+            Write-Host "=== BlueSkyPRO startup diagnostic log ==="
+            if (Test-Path $startupLog) {
+              Get-Content $startupLog
+              Copy-Item $startupLog "app-smoke-startup-diagnostic.log" -Force
+            } else {
+              Write-Host "Startup diagnostic log was not created at $startupLog"
+            }
             throw "appBlueSkyPRO.exe exited during MapTiler-enabled startup smoke test (code $($app.ExitCode))"
           }
           Stop-Process -Id $app.Id -Force
