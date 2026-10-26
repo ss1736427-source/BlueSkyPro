@@ -99,7 +99,6 @@ Item {
         notamRecords: root.notamRecords
         notamSnapshotId: root.notamSnapshotId
         selectedNotamId: root.selectedNotamId
-        notamSearchRadiusNm: root.notamSearchRadiusNm
         onUseLegacyMapRequested: root.useMapTilerWebGL = false
     }
 
