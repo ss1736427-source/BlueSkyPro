@@ -70,8 +70,8 @@ jobs:
           if ($source -match "RAISED_TO_HIGHEST_TERRAIN|adjustedToTerrainPeak=true") {
             throw "NOTAM ceiling must not be raised to terrain peaks."
           }
-          if ($source -notmatch "if\(!terrainOn&&map\.getTerrain\(\)\)map\.setTerrain\(null\)") {
-            throw "Terrain must be disabled after NOTAM terrain sampling when the UI toggle is OFF."
+          if ($source -notmatch "else\{map\.setTerrain\(null\);map\.easeTo\(\{pitch:0,duration:350\}\)") {
+            throw "Turning terrain OFF must remove the terrain surface and restore the flat map view."
           }
           if ($source -notmatch "notam-debug-open" -or $source -notmatch "NOTAM RENDER DIAGNOSTICS" -or $source -notmatch "notam-debug-refresh") {
             throw "Temporary NOTAM diagnostics panel and refresh control must be present."
