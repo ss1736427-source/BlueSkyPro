@@ -45,17 +45,17 @@ QVariantMap NotamGeometryEngine::conservativeUpperPlane(double minTerrainMeters,
         return out;
     }
 
-    const double sourceUpperPlane = minTerrainMeters + totalRestrictionHeightMeters;
-    const double upperPlane = qMax(sourceUpperPlane, maxTerrainMeters);
+    // The restriction top is a constant horizontal plane. Terrain variation
+    // must not raise or tilt the NOTAM ceiling; the caller supplies the source
+    // NOTAM height in metres in a consistent vertical reference.
+    const double upperPlane = minTerrainMeters + totalRestrictionHeightMeters;
     out["minimumTerrainMeters"] = minTerrainMeters;
     out["maximumTerrainMeters"] = maxTerrainMeters;
-    out["sourceUpperPlaneMeters"] = sourceUpperPlane;
+    out["sourceUpperPlaneMeters"] = upperPlane;
     out["upperPlaneMeters"] = upperPlane;
-    out["adjustedToTerrainPeak"] = sourceUpperPlane < maxTerrainMeters;
+    out["adjustedToTerrainPeak"] = false;
     out["valid"] = true;
-    out["status"] = sourceUpperPlane < maxTerrainMeters
-                        ? "RAISED_TO_HIGHEST_TERRAIN"
-                        : "VALID";
+    out["status"] = "FLAT_SOURCE_HEIGHT_PLANE";
     return out;
 }
 
