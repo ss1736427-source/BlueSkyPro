@@ -398,7 +398,6 @@ Item {
 
     onNotamRecordsChanged: Qt.callLater(root.focusSelectedNotamAtTop)
     onSelectedNotamIdChanged: Qt.callLater(root.focusSelectedNotamAtTop)
-    property int notamSearchRadiusNm: 20
     signal notamSelectionRequested(string notamId)
     property var notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
     property string notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
@@ -745,7 +744,7 @@ Item {
                 spacing: 4
                 Item {
                     id: notamTextArea
-                    width: parent.width - notamRadiusControl.width - parent.spacing
+                    width: parent.width
                     height: parent.height
                     Text {
                         id: notamStatusLabel
@@ -783,33 +782,6 @@ Item {
                                 root.notamSelectionRequested(root.selectedNotamId)
                             }
                         }
-                    }
-                }
-                ComboBox {
-                    id: notamRadiusControl
-                    width: 76
-                    height: 22
-                    model: ["10 NM", "20 NM", "50 NM", "100 NM"]
-                    currentIndex: root.notamSearchRadiusNm === 10 ? 0
-                                  : root.notamSearchRadiusNm === 50 ? 2
-                                  : root.notamSearchRadiusNm === 100 ? 3 : 1
-                    font.pixelSize: 10
-                    onActivated: function(index) {
-                        root.notamSearchRadiusNm = [10, 20, 50, 100][index]
-                    }
-                    background: Rectangle {
-                        color: "#142638"
-                        border.color: "#36516B"
-                        radius: 3
-                    }
-                    contentItem: Text {
-                        leftPadding: 5
-                        rightPadding: 15
-                        text: notamRadiusControl.displayText
-                        color: root.text
-                        font: notamRadiusControl.font
-                        verticalAlignment: Text.AlignVCenter
-                        elide: Text.ElideRight
                     }
                 }
             }
