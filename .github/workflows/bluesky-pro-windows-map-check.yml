@@ -141,10 +141,11 @@ jobs:
           Stop-Process -Id $app.Id -Force
           Write-Host "MapTiler-enabled startup smoke test passed: process remained alive for 15 seconds. This checks startup stability, not successful map tile authorization or visual rendering."
 
-      - name: Upload Windows application bundle
+      - name: Upload Windows application bundle for inspection
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: BlueSkyPRO-Windows-Map-Review
           path: qt/BlueSkyPRO-HMI/build/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7
