@@ -128,6 +128,8 @@ jobs:
         run: |
           # A deliberately invalid test key activates the same QML/WebChannel path without exposing a real API key.
           $env:BLUESKY_MAPTILER_API_KEY = "CI_SMOKE_TEST_KEY_NOT_VALID"
+          $startupLog = Join-Path $env:TEMP "BlueSkyPRO-startup-diagnostic.log"
+          Remove-Item $startupLog -Force -ErrorAction SilentlyContinue
           $app = Start-Process -FilePath "appBlueSkyPRO.exe" -PassThru -RedirectStandardOutput app-smoke.stdout.log -RedirectStandardError app-smoke.stderr.log
           Start-Sleep -Seconds 15
           $app.Refresh()
@@ -136,6 +138,12 @@ jobs:
             Get-Content app-smoke.stdout.log -ErrorAction SilentlyContinue
             Write-Host "=== stderr ==="
             Get-Content app-smoke.stderr.log -ErrorAction SilentlyContinue
+            Write-Host "=== BlueSky PRO startup diagnostic ==="
+            if (Test-Path $startupLog) {
+              Get-Content $startupLog
+            } else {
+              Write-Host "Startup diagnostic log was not created; failure may have occurred before main() logging started."
+            }
             throw "appBlueSkyPRO.exe exited during MapTiler-enabled startup smoke test (code $($app.ExitCode))"
           }
           Stop-Process -Id $app.Id -Force
