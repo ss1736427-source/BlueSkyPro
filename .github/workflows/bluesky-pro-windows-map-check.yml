@@ -83,8 +83,8 @@ jobs:
           if ($source -notmatch "mapErrors:perfDiag\.recentErrors") {
             throw "NOTAM diagnostics must include recent MapLibre rendering errors."
           }
-          if ($source -notmatch "TARGETED_SOURCE_REBUILD" -or (($source -notmatch "FULL_STYLE_RELOAD_AFTER_SOURCE_REBUILD_FAILED") -and ($source -notmatch "BASE_STYLE_RELOAD_AFTER_SOURCE_REBUILD_FAILED")) -or $source -notmatch "postRebuildCheck") {
-            throw "NOTAM source-cache recovery must rebuild the source first, verify rendering, and retain a full-style fallback."
+          if ($source -notmatch "BASE_STYLE_RELOAD_TO_RESET_SOURCE_REGISTRY" -or $source -notmatch "verifyNotamAfterStyleReload" -or $source -notmatch "postStyleReloadCheck") {
+            throw "NOTAM source-cache recovery must reset the MapLibre style registry and verify source, cache, and layers after reload."
           }
           if ($source -notmatch "renderTrace:JSON\.parse\(JSON\.stringify\(notamRenderTrace\)\)") {
             throw "NOTAM diagnostics must expose the actual source-cache recovery trace."
