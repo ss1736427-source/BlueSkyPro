@@ -52,14 +52,33 @@ bool samePoint(const GeoPoint &a, const GeoPoint &b) {
 
 QJsonArray closedValidRing(QJsonArray ring) {
     if (ring.size() < 3) return {};
-    GeoPoint first, last;
+    QJsonArray compact;
+    GeoPoint previous;
+    bool hasPrevious = false;
     for (const QJsonValue &value : ring) {
         GeoPoint point;
         if (!toGeoPoint(value, point)) return {};
+        if (hasPrevious && samePoint(previous, point)) continue;
+        compact.append(value);
+        previous = point;
+        hasPrevious = true;
     }
-    if (!toGeoPoint(ring.first(), first) || !toGeoPoint(ring.last(), last)) return {};
-    if (!samePoint(first, last)) ring.append(ring.first());
-    return ring.size() >= 4 ? ring : QJsonArray{};
+    if (compact.size() < 3) return {};
+    GeoPoint first, last;
+    if (!toGeoPoint(compact.first(), first) || !toGeoPoint(compact.last(), last)) return {};
+    if (!samePoint(first, last)) compact.append(compact.first());
+    if (compact.size() < 4) return {};
+
+    // Reject collapsed rings (all-collinear points) before they reach MapLibre
+    // or the SVG fallback, where they can appear as stray spikes/line fragments.
+    double twiceArea = 0.0;
+    for (int i = 0; i + 1 < compact.size(); ++i) {
+        GeoPoint a, b;
+        if (!toGeoPoint(compact.at(i), a) || !toGeoPoint(compact.at(i + 1), b)) return {};
+        twiceArea += a.lon * b.lat - b.lon * a.lat;
+    }
+    if (!qIsFinite(twiceArea) || qAbs(twiceArea) < 1e-12) return {};
+    return compact;
 }
 
 double orientation(const GeoPoint &a, const GeoPoint &b, const GeoPoint &c) {
