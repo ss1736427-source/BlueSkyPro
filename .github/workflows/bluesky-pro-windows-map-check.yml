@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - codex/notam-stable-80-review-build
     paths:
       - 'qt/BlueSkyPRO-HMI/**'
       - '.github/workflows/bluesky-pro-windows-map-check.yml'
