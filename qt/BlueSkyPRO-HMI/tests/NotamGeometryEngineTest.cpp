@@ -20,6 +20,15 @@ int main(int argc,char**argv){
  QVariantMap bowTie{{"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[40.0,44.0],[39.0,44.0],[40.0,43.0],[39.0,43.0]]]})")}};
  auto bowTieResult=NotamGeometryEngine::normalize(bowTie);
  assert(bowTieResult["geometryJson"].toString().isEmpty());
+ // Degenerate rings with repeated vertices or zero area must not reach either renderer.
+ QVariantMap collapsed{{"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[39.1,43.1],[39.2,43.2],[39.0,43.0]]]})")}};
+ auto collapsedResult=NotamGeometryEngine::normalize(collapsed);
+ assert(collapsedResult["geometryJson"].toString().isEmpty());
+ QVariantMap repeatedVertices{{"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[39.0,43.0],[39.2,43.0],[39.2,43.2],[39.0,43.0]]]})")}};
+ auto repeatedResult=NotamGeometryEngine::normalize(repeatedVertices);
+ assert(!repeatedResult["geometryJson"].toString().isEmpty());
+ auto repeatedGeometry=QJsonDocument::fromJson(repeatedResult["geometryJson"].toString().toUtf8()).object();
+ assert(repeatedGeometry["coordinates"].toArray().first().toArray().size()==4);
  auto plane=NotamGeometryEngine::conservativeUpperPlane(300.0,2400.0,2200.0);
  assert(plane["valid"].toBool());
  assert(qAbs(plane["upperPlaneMeters"].toDouble()-2500.0)<0.001);
