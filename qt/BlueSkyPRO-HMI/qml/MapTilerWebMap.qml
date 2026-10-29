@@ -17,6 +17,8 @@ Item {
     property var notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
     property string notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
     property string selectedNotamId: ""
+    // Search radius setting forwarded by FlightChart; keep it declared on this component.
+    property int notamSearchRadiusNm: 20
     property bool notamAutoLoadEnabled: true
     property real lastNotamQueryLatitude: NaN
     property real lastNotamQueryLongitude: NaN
