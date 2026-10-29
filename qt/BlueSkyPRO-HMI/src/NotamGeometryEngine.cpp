@@ -76,20 +76,20 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     bool compoundParsed=false;
     // Prefer explicit compound text over an upstream single-polygon approximation.
     {
-        // Parse numbered "AS FLW" components independently, so circle centres
-        // cannot accidentally become vertices of the preceding area boundary.
+        // Parse every AS FLW section. Some NOTAMs repeat the same numbered
+        // geometry block after F)/G); identical rings are deduplicated below.
         static const QRegularExpression sectionRe(QStringLiteral("AS\\s+FLW\\s*:\\s*([\\s\\S]*?)(?=\\bF\\)|\\bG\\)|$)"),QRegularExpression::CaseInsensitiveOption);
-        const auto sectionMatch=sectionRe.match(text);
-        if(sectionMatch.hasMatch()){
-            const QString section=sectionMatch.captured(1);
-            static const QRegularExpression itemRe(QStringLiteral("(?:^|\\n)\\s*\\d+\\.\\s*([\\s\\S]*?)(?=(?:\\n\\s*\\d+\\.)|$)"));
-            static const QRegularExpression coordinateRe(QStringLiteral("\\d{4,6}[NS]\\s*\\d{5,7}[EW]"),QRegularExpression::CaseInsensitiveOption);
-            static const QRegularExpression circleRe(QStringLiteral("RADIUS\\s*(\\d+(?:[.,]\\d+)?)\\s*(NM|KM|M)\\s+CENT(?:RE|ER)\\s+(\\d{4,6}[NS]\\s*\\d{5,7}[EW])"),QRegularExpression::CaseInsensitiveOption);
-            QJsonArray polygons;
-            QSet<QString> seenRings;
+        static const QRegularExpression itemRe(QStringLiteral("(?:^|\\n)\\s*\\d+\\.\\s*([\\s\\S]*?)(?=(?:\\n\\s*\\d+\\.)|$)"));
+        static const QRegularExpression coordinateRe(QStringLiteral("\\d{4,6}[NS]\\s*\\d{5,7}[EW]"),QRegularExpression::CaseInsensitiveOption);
+        static const QRegularExpression circleRe(QStringLiteral("RADIUS\\s*(\\d+(?:[.,]\\d+)?)\\s*(NM|KM|M)\\s+CENT(?:RE|ER)\\s+(\\d{4,6}[NS]\\s*\\d{5,7}[EW])"),QRegularExpression::CaseInsensitiveOption);
+        QJsonArray polygons;
+        QSet<QString> seenRings;
+        auto sections=sectionRe.globalMatch(text);
+        bool allItemsValid=true;
+        int itemCount=0;
+        while(sections.hasNext()&&allItemsValid){
+            const QString section=sections.next().captured(1);
             auto items=itemRe.globalMatch(section);
-            bool allItemsValid=true;
-            int itemCount=0;
             while(items.hasNext()){
                 const QString item=items.next().captured(1);
                 QJsonArray ring;
@@ -111,18 +111,17 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
                     if(ring.size()<3){allItemsValid=false;break;}
                     if(ring.first()!=ring.last())ring.append(ring.first());
                 }
-                // Some NOTAMs repeat the same numbered geometry block.
-                // Deduplicate identical rings without merging distinct components.
+                // Repeated NOTAM text must not duplicate an area or circle.
                 const QString ringKey=QString::fromUtf8(QJsonDocument(QJsonArray{ring}).toJson(QJsonDocument::Compact));
                 if(seenRings.contains(ringKey)) continue;
                 seenRings.insert(ringKey);
                 polygons.append(QJsonArray{ring});
                 ++itemCount;
             }
-            if(allItemsValid&&itemCount>=2&&polygons.size()==itemCount){
-                g=QJsonObject{{"type","MultiPolygon"},{"coordinates",polygons}};
-                compoundParsed=true;
-            }
+        }
+        if(allItemsValid&&itemCount>=2&&polygons.size()==itemCount){
+            g=QJsonObject{{"type","MultiPolygon"},{"coordinates",polygons}};
+            compoundParsed=true;
         }
     }
     if(!compoundParsed&&g.value("type").toString()!="Polygon"&&g.value("type").toString()!="MultiPolygon"){
