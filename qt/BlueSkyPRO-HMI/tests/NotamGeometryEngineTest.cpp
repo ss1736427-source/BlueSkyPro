@@ -10,6 +10,16 @@ int main(int argc,char**argv){
  auto a=NotamGeometryEngine::normalize(p);assert(a["geometryValidated"].toBool());auto g=QJsonDocument::fromJson(a["geometryJson"].toString().toUtf8()).object();assert(g["type"].toString()=="Polygon");assert(g["coordinates"].toArray().first().toArray().size()==6);
  QVariantMap c{{"originalText","E)RESTRICTED AREA RADIUS 2NM CENTRE 433650N0393600E\nF)GND\nG)3000FT AGL"},{"lowerLimitRaw","GND"},{"upperLimitRaw","3000FT AGL"}};
  auto b=NotamGeometryEngine::normalize(c);assert(b["geometryValidated"].toBool());assert(QJsonDocument::fromJson(b["geometryJson"].toString().toUtf8()).object()["coordinates"].toArray().first().toArray().size()==73);
+ // A raw Polygon with disjoint rings is malformed GeoJSON: the second
+ // ring is not a hole, so preserve it as a separate polygon component.
+ QVariantMap disjointRings{{"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[39.2,43.0],[39.2,43.2],[39.0,43.0]],[[40.0,43.0],[40.2,43.0],[40.2,43.2],[40.0,43.0]]]})")}};
+ auto disjointResult=NotamGeometryEngine::normalize(disjointRings);
+ auto disjointGeometry=QJsonDocument::fromJson(disjointResult["geometryJson"].toString().toUtf8()).object();
+ assert(disjointGeometry["type"].toString()=="MultiPolygon");
+ assert(disjointGeometry["coordinates"].toArray().size()==2);
+ QVariantMap bowTie{{"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[40.0,44.0],[39.0,44.0],[40.0,43.0],[39.0,43.0]]]})")}};
+ auto bowTieResult=NotamGeometryEngine::normalize(bowTie);
+ assert(bowTieResult["geometryJson"].toString().isEmpty());
  auto plane=NotamGeometryEngine::conservativeUpperPlane(300.0,2400.0,2200.0);
  assert(plane["valid"].toBool());
  assert(qAbs(plane["upperPlaneMeters"].toDouble()-2500.0)<0.001);
