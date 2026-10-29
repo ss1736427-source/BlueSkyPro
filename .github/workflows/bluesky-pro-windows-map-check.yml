@@ -83,6 +83,12 @@ jobs:
           if ($source -notmatch "mapErrors:perfDiag\.recentErrors") {
             throw "NOTAM diagnostics must include recent MapLibre rendering errors."
           }
+          if ($source -notmatch "function drawNotamOverlayImpl" -or $source -notmatch "function updateNotamOverlayFallback" -or $source -notmatch "<svg id='notam-overlay'") {
+            throw "NOTAM zones must have a direct SVG fallback when MapLibre returns no rendered features."
+          }
+          if ($source -notmatch "notamOverlayFallback:\{active:notamOverlayActive,featureCount:notamOverlayFeatureCount,drawState:notamOverlayDrawState") {
+            throw "NOTAM diagnostics must report whether the SVG fallback is active and how many features it draws."
+          }
           if ($source -notmatch "BASE_STYLE_RELOAD_TO_RESET_SOURCE_REGISTRY" -or $source -notmatch "verifyNotamAfterStyleReload" -or $source -notmatch "postStyleReloadCheck") {
             throw "NOTAM source-cache recovery must reset the MapLibre style registry and verify source, cache, and layers after reload."
           }
