@@ -82,6 +82,9 @@ jobs:
           if ($source -notmatch "mapErrors:perfDiag\.recentErrors") {
             throw "NOTAM diagnostics must include recent MapLibre rendering errors."
           }
+          if ($source -notmatch "TARGETED_SOURCE_REBUILD" -or $source -notmatch "FULL_STYLE_RELOAD_AFTER_SOURCE_REBUILD_FAILED" -or $source -notmatch "postRebuildCheck") {
+            throw "NOTAM source-cache recovery must rebuild the source first, verify rendering, and retain a full-style fallback."
+          }
           Write-Host "Map NOTAM geometry visibility, terrain-state, and temporary diagnostics regression checks passed."
           
       - name: Install Ninja
