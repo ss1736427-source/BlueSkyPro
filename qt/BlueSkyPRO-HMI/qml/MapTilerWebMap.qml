@@ -42,7 +42,7 @@ Item {
             "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/maplibre-gl@5.12.0/dist/maplibre-gl.css'>",
             "<style>",
             "html,body,#map{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#071321}body{font-family:Arial,sans-serif}",
-            #notam-overlay{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;overflow:hidden}
+            "#notam-overlay{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;overflow:hidden}",
             ".controls{position:absolute;z-index:5;top:10px;right:10px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 20px);background:rgba(5,10,18,.88);padding:8px;border-radius:4px}",
             ".controls button,.controls select{background:#142638;color:#eaf4ff;border:1px solid #36516b;border-radius:3px;padding:7px 9px;font-size:12px}",
             ".controls button.active{border-color:#32ffff;color:#32ffff}",
@@ -57,7 +57,7 @@ Item {
             ".notam-swatch.selected{background:rgba(50,255,255,.36);border:1px solid #32ffff}",
             "</style></head><body>",
             "<div id='map'></div>",
-            <svg id='notam-overlay' aria-hidden='true'></svg>
+            "<svg id='notam-overlay' aria-hidden='true'></svg>",
             "<div id='geometry-controls' style='position:absolute;z-index:8;left:10px;right:10px;bottom:10px;display:none;gap:6px;align-items:center;flex-wrap:wrap;background:rgba(5,10,18,.94);padding:8px;border:1px solid #36516b;color:#eaf4ff;font:11px monospace'><button id='geometry-origin' type='button'>SET TAKEOFF ORIGIN</button><select id='geometry-template'></select><label for='geometry-agl'>TARGET AGL m</label><input id='geometry-agl' type='number' min='20' max='80' step='1' value='40' style='width:66px;background:#142638;color:#eaf4ff;border:1px solid #36516b;padding:7px 5px;font:12px monospace'><button id='geometry-start' type='button'>START OBJECT</button><button id='geometry-finish' type='button'>FINISH OBJECT</button><button id='geometry-clear' type='button'>CLEAR</button><span id='geometry-status'>SELECT TEMPLATE</span></div>",
             "<div class='status' id='map-status'>MAPTILER HYBRID V4 · INITIALIZING</div>",
             "<div class='notam-legend' id='notam-legend' aria-label='NOTAM restrictions legend'><div class='notam-legend-title'>NOTAM RESTRICTIONS</div><div class='notam-legend-row'><span class='notam-swatch'></span><span id='notam-legend-count'>Waiting for NOTAM data…</span></div><div class='notam-legend-row'><span class='notam-swatch selected'></span><span>Selected restriction</span></div></div>",
