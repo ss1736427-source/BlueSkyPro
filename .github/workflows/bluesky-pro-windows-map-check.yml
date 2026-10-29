@@ -49,6 +49,9 @@ jobs:
           if ($source -notmatch 'property\s+int\s+notamSearchRadiusNm\s*:\s*20') {
             throw "MapTilerWebMap must declare the NOTAM search-radius property passed by FlightChart.ui.qml."
           }
+          if ($source -match "updateNotamLegend\(all,features\);if\(map\.isStyleLoaded\(\)\)applyNotams\(\);const has3DVolume=") {
+            throw "Avoid an immediate duplicate NOTAM source update before MapLibre has rendered the newly added source and layers."
+          }
           if ($source -match "'fill-extrusion-opacity'\s*:\s*\[") {
             throw "fill-extrusion-opacity must be a constant; MapLibre rejects data expressions for this property."
           }
