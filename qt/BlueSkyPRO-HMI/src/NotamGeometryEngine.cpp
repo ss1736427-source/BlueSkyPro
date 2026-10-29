@@ -3,6 +3,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
+#include <QSet>
 #include <QtMath>
 
 namespace {
@@ -73,7 +74,8 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     QJsonObject g;const QString raw=source.value("geometryJson").toString();
     auto gd=QJsonDocument::fromJson(raw.toUtf8());if(gd.isObject())g=gd.object();
     bool compoundParsed=false;
-    if(g.value("type").toString()!="Polygon"&&g.value("type").toString()!="MultiPolygon"){
+    // Prefer explicit compound text over an upstream single-polygon approximation.
+    {
         // Parse numbered "AS FLW" components independently, so circle centres
         // cannot accidentally become vertices of the preceding area boundary.
         static const QRegularExpression sectionRe(QStringLiteral("AS\\s+FLW\\s*:\\s*([\\s\\S]*?)(?=\\bF\\)|\\bG\\)|$)"),QRegularExpression::CaseInsensitiveOption);
@@ -84,6 +86,7 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
             static const QRegularExpression coordinateRe(QStringLiteral("\\d{4,6}[NS]\\s*\\d{5,7}[EW]"),QRegularExpression::CaseInsensitiveOption);
             static const QRegularExpression circleRe(QStringLiteral("RADIUS\\s*(\\d+(?:[.,]\\d+)?)\\s*(NM|KM|M)\\s+CENT(?:RE|ER)\\s+(\\d{4,6}[NS]\\s*\\d{5,7}[EW])"),QRegularExpression::CaseInsensitiveOption);
             QJsonArray polygons;
+            QSet<QString> seenRings;
             auto items=itemRe.globalMatch(section);
             bool allItemsValid=true;
             int itemCount=0;
@@ -108,6 +111,11 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
                     if(ring.size()<3){allItemsValid=false;break;}
                     if(ring.first()!=ring.last())ring.append(ring.first());
                 }
+                // Some NOTAMs repeat the same numbered geometry block.
+                // Deduplicate identical rings without merging distinct components.
+                const QString ringKey=QString::fromUtf8(QJsonDocument(QJsonArray{ring}).toJson(QJsonDocument::Compact));
+                if(seenRings.contains(ringKey)) continue;
+                seenRings.insert(ringKey);
                 polygons.append(QJsonArray{ring});
                 ++itemCount;
             }
