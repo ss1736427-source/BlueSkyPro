@@ -785,6 +785,13 @@ Item {
         onRightPanelToggleRequested: root.rightPanelOpen = !root.rightPanelOpen
         onToolActivated: {
             root.contextOverlayOpen = false
+            if (tool === "MAP") {
+                // MAP toggles both side panels as one workspace control:
+                // hide both when either is open; restore both on the next press.
+                var showPanels = !(root.leftPanelOpen || root.rightPanelOpen)
+                root.leftPanelOpen = showPanels
+                root.rightPanelOpen = showPanels
+            }
             if (tool === "ADMIN") {
                 // Hide flight-only overlays but preserve the mission and geometry
                 // so returning to MAP does not discard operator work.
