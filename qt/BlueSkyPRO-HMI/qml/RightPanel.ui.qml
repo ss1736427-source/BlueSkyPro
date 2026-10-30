@@ -691,7 +691,7 @@ Item {
         border.color: "#236078"
         border.width: 1
         antialiasing: true
-        clip: false
+        clip: root.selectedOperationalTool !== ""
         z: root.draggingPanel === "Flight Conditions" ? 200 : (root.selectedOperationalTool !== "" ? 300 : 1)
         onHeightChanged: Qt.callLater(root.reflowPanelPositions)
 
