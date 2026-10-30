@@ -283,7 +283,7 @@ Item {
         }
         Component.onCompleted: {
             if (root.apiKey.length > 0)
-                loadHtml(root.buildHtml(), "https://cdn.jsdelivr.net/")
+                loadHtml(root.buildHtml(), "qrc:///")
         }
     }
 
