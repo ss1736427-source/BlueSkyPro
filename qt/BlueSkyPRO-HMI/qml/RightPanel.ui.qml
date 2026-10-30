@@ -376,9 +376,15 @@ Item {
     // Preview state only. Live weather/NOTAM providers must supply authoritative data.
     property string selectedOperationalTool: ""
     property string selectedNotamId: ""
-    // Put the selected NOTAM first so it stays fully visible above the remaining records.
+    // NOTAMs already reviewed are removed from the active queue. The current
+    // selection is promoted to the first position; remaining records keep source order.
+    property var reviewedNotamIds: []
+
     function displayedNotamRecords() {
-        var records = (root.notamRecords || []).slice()
+        var reviewed = root.reviewedNotamIds || []
+        var records = (root.notamRecords || []).filter(function(record) {
+            return reviewed.indexOf(String(record.id || "UNKNOWN")) < 0
+        })
         var selectedIndex = -1
         for (var i = 0; i < records.length; ++i) {
             if (String(records[i].id || "UNKNOWN") === root.selectedNotamId) {
@@ -389,6 +395,30 @@ Item {
         if (selectedIndex > 0)
             records.unshift(records.splice(selectedIndex, 1)[0])
         return records
+    }
+
+    function beginNotamReview() {
+        root.reviewedNotamIds = []
+        if (root.notamRecords.length > 0) {
+            root.selectedNotamId = String(root.notamRecords[0].id || "UNKNOWN")
+            root.notamSelectionRequested(root.selectedNotamId)
+        }
+        Qt.callLater(root.focusSelectedNotamAtTop)
+    }
+
+    function selectNextNotam(notamId) {
+        var nextId = String(notamId || "UNKNOWN")
+        var previousId = String(root.selectedNotamId || "")
+        if (previousId && previousId !== nextId && (root.reviewedNotamIds || []).indexOf(previousId) < 0)
+            root.reviewedNotamIds = root.reviewedNotamIds.concat([previousId])
+        root.selectedNotamId = nextId
+        root.notamSelectionRequested(nextId)
+        Qt.callLater(root.focusSelectedNotamAtTop)
+    }
+
+    onNotamSnapshotIdChanged: {
+        root.reviewedNotamIds = []
+        root.selectedNotamId = ""
     }
 
     function focusSelectedNotamAtTop() {
@@ -777,10 +807,7 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             root.selectedOperationalTool = "NOTAM"
-                            if (root.notamRecords.length > 0) {
-                                root.selectedNotamId = String(root.notamRecords[0].id || "UNKNOWN")
-                                root.notamSelectionRequested(root.selectedNotamId)
-                            }
+                            root.beginNotamReview()
                         }
                     }
                 }
@@ -828,10 +855,7 @@ Item {
                             anchors.fill: parent
                             z: -1
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                root.selectedNotamId = String(modelData.id || "UNKNOWN")
-                                root.notamSelectionRequested(root.selectedNotamId)
-                            }
+                            onClicked: root.selectNextNotam(modelData.id)
                         }
                         Column {
                             id: recordColumn
