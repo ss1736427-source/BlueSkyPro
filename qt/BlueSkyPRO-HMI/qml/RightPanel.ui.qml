@@ -691,7 +691,7 @@ Item {
         border.color: "#236078"
         border.width: 1
         antialiasing: true
-        clip: root.selectedOperationalTool !== ""
+        clip: false
         z: root.draggingPanel === "Flight Conditions" ? 200 : (root.selectedOperationalTool !== "" ? 300 : 1)
         onHeightChanged: Qt.callLater(root.reflowPanelPositions)
 
@@ -839,7 +839,7 @@ Item {
                             Text { width: parent.width; text: String(modelData.number || modelData.id || "NOTAM"); color: root.amber; font.family: "B612"; font.pixelSize: 10; font.bold: true; wrapMode: Text.WrapAnywhere }
                             Text { width: parent.width; text: "Высота: " + String(modelData.lowerLimitRaw || "не указана") + " — " + String(modelData.upperLimitRaw || "не указана"); color: root.text; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.WordWrap }
                             Text { width: parent.width; text: "Действует: " + String(modelData.effectiveStart || "время не указано") + " — " + String(modelData.effectiveEnd || "время не указано"); color: root.secondary; font.family: "B612"; font.pixelSize: 9; wrapMode: Text.WordWrap }
-                            Text { width: parent.width; text: String(modelData.originalText || modelData.text || "Текст NOTAM недоступен"); color: root.text; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.WordWrap; maximumLineCount: 6; elide: Text.ElideRight }
+                            Text { width: parent.width; text: String(modelData.originalText || modelData.text || "Текст NOTAM недоступен"); color: root.text; font.family: "B612"; font.pixelSize: 10; wrapMode: Text.WordWrap; maximumLineCount: String(modelData.id || "UNKNOWN") === root.selectedNotamId ? 0 : 6; elide: String(modelData.id || "UNKNOWN") === root.selectedNotamId ? Text.ElideNone : Text.ElideRight }
                         }
                     }
                 }
