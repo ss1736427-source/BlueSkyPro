@@ -6,6 +6,31 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Quick Location Positioning Network WebEngineQuick WebChannel)
 
+# Bundle the pinned MapLibre GL JS runtime into the Qt resource system.
+# This removes the application's runtime dependency on a third-party CDN.
+set(MAPLIBRE_VERSION "5.12.0")
+set(MAPLIBRE_ARCHIVE "${CMAKE_CURRENT_BINARY_DIR}/maplibre-gl-${MAPLIBRE_VERSION}.tgz")
+set(MAPLIBRE_EXTRACT_DIR "${CMAKE_CURRENT_BINARY_DIR}/maplibre-npm")
+file(DOWNLOAD
+    "https://registry.npmjs.org/maplibre-gl/-/maplibre-gl-${MAPLIBRE_VERSION}.tgz"
+    "${MAPLIBRE_ARCHIVE}"
+    TLS_VERIFY ON
+    STATUS MAPLIBRE_DOWNLOAD_STATUS
+)
+list(GET MAPLIBRE_DOWNLOAD_STATUS 0 MAPLIBRE_DOWNLOAD_CODE)
+if(NOT MAPLIBRE_DOWNLOAD_CODE EQUAL 0)
+    list(GET MAPLIBRE_DOWNLOAD_STATUS 1 MAPLIBRE_DOWNLOAD_MESSAGE)
+    message(FATAL_ERROR "Failed to download pinned MapLibre GL JS ${MAPLIBRE_VERSION}: ${MAPLIBRE_DOWNLOAD_MESSAGE}")
+endif()
+file(ARCHIVE_EXTRACT INPUT "${MAPLIBRE_ARCHIVE}" DESTINATION "${MAPLIBRE_EXTRACT_DIR}")
+set(MAPLIBRE_JS "${MAPLIBRE_EXTRACT_DIR}/package/dist/maplibre-gl.js")
+set(MAPLIBRE_CSS "${MAPLIBRE_EXTRACT_DIR}/package/dist/maplibre-gl.css")
+if(NOT EXISTS "${MAPLIBRE_JS}" OR NOT EXISTS "${MAPLIBRE_CSS}")
+    message(FATAL_ERROR "Pinned MapLibre GL JS package is missing its dist JavaScript or CSS file")
+endif()
+set_source_files_properties("${MAPLIBRE_JS}" PROPERTIES QT_RESOURCE_ALIAS "maplibre-gl.js")
+set_source_files_properties("${MAPLIBRE_CSS}" PROPERTIES QT_RESOURCE_ALIAS "maplibre-gl.css")
+
 qt_standard_project_setup(REQUIRES 6.5)
 
 qt_policy(SET QTP0004 NEW)
@@ -78,6 +103,13 @@ qt_add_qml_module(appBlueSkyPRO
         qml/assets/uav_fixed_wing.svg
         qml/assets/uav_heavy_multirotor.svg
         qml/assets/uav_vtol.svg
+)
+
+qt_add_resources(appBlueSkyPRO maplibre_vendor
+    PREFIX "/"
+    FILES
+        "${MAPLIBRE_JS}"
+        "${MAPLIBRE_CSS}"
 )
 
 target_compile_features(appBlueSkyPRO PRIVATE cxx_std_20)
