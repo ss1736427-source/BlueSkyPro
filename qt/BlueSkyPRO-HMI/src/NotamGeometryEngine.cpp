@@ -279,8 +279,12 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     bool compoundParsed=false;
     // Prefer explicit compound text over an upstream single-polygon approximation.
     {
-        // Parse every AS FLW section. Some NOTAMs repeat the same numbered
-        // geometry block after F)/G); identical rings are deduplicated below.
+        // Only reconstruct textual compound geometry when the upstream FAA
+        // GeoJSON is absent or is not already an area geometry. A valid source
+        // Polygon/MultiPolygon is authoritative and must not be replaced by a
+        // partial parse of its formatted text translation.
+        const bool hasAuthoritativeArea = g.value("type").toString() == QStringLiteral("Polygon")
+            || g.value("type").toString() == QStringLiteral("MultiPolygon");
         static const QRegularExpression sectionRe(QStringLiteral("AS\\s+FLW\\s*:\\s*([\\s\\S]*?)(?=\\bF\\)|\\bG\\)|$)"),QRegularExpression::CaseInsensitiveOption);
         static const QRegularExpression itemRe(QStringLiteral("(?:^|\\n)\\s*\\d+\\.\\s*([\\s\\S]*?)(?=(?:\\n\\s*\\d+\\.)|$)"));
         static const QRegularExpression coordinateRe(QStringLiteral("\\d{4,6}[NS]\\s*\\d{5,7}[EW]"),QRegularExpression::CaseInsensitiveOption);
@@ -289,6 +293,7 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
         QSet<QString> seenRings;
         auto sections=sectionRe.globalMatch(text);
         bool allItemsValid=true;
+        if (hasAuthoritativeArea) sections = sectionRe.globalMatch(QString());
         int itemCount=0;
         while(sections.hasNext()&&allItemsValid){
             const QString section=sections.next().captured(1);
