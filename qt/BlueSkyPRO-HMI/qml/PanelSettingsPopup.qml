@@ -83,7 +83,7 @@ Item {
 
     readonly property real contentWidth: Math.max(toolLabelMetrics.width + 64, 260)
     readonly property bool directToolsMode: toolGroups.length === 0 && tools.length > 0
-    readonly property real contentHeight: 104 + (directToolsMode ? tools.length * 34 : visibleRowCount() * 34)
+    readonly property real contentHeight: 104 + (directToolsMode ? tools.length * 34 : 34 + visibleRowCount() * 34)
 
     visible: root.open
     clip: true
@@ -119,43 +119,12 @@ Item {
         color: "#202020"
     }
 
-    Rectangle {
-        x: 10
-        y: 46
-        width: parent.width - 20
-        height: 34
-        radius: 4
-        color: root.fixedSections ? "#102337" : "#251D0B"
-        border.color: root.fixedSections ? "#32FFFF" : "#FFD339"
-        border.width: 1
-
-        Text {
-            anchors.fill: parent
-            text: root.fixedSections ? "SECTIONS: FIXED" : "SECTIONS: FREE"
-            color: root.fixedSections ? "#32FFFF" : "#FFD339"
-            font.family: "B612"
-            font.pixelSize: 11
-            font.bold: true
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-                root.fixedSections = !root.fixedSections
-                root.fixedSectionsRequested(root.fixedSections)
-            }
-        }
-    }
-
     Flickable {
         id: settingsScroller
         x: 10
-        y: 86
+        y: 46
         width: parent.width - 20
-        height: Math.max(0, parent.height - 122)
+        height: Math.max(0, parent.height - 82)
         contentWidth: width
         contentHeight: settingsColumn.implicitHeight
         clip: true
@@ -166,6 +135,53 @@ Item {
             id: settingsColumn
             width: settingsScroller.width
             spacing: 4
+
+            // Fixed/free section layout is a regular switch row, matching tool toggles.
+            Item {
+                visible: !root.directToolsMode
+                width: settingsColumn.width
+                height: visible ? root.rowHeight : 0
+
+                Rectangle {
+                    x: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 32
+                    height: 18
+                    radius: 9
+                    color: root.fixedSections ? "#64FF00" : "#263748"
+                    border.color: root.fixedSections ? "#64FF00" : "#536273"
+                    border.width: 1
+                    Rectangle {
+                        width: 12
+                        height: 12
+                        radius: 6
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: root.fixedSections ? parent.width - width - 2 : 2
+                        color: root.fixedSections ? "#08111D" : "#BFBFBF"
+                    }
+                }
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 50
+                    anchors.right: parent.right
+                    anchors.rightMargin: 4
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Sections fixed"
+                    color: "#BFBFBF"
+                    font.family: "B612"
+                    font.pixelSize: 12
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        root.fixedSections = !root.fixedSections
+                        root.fixedSectionsRequested(root.fixedSections)
+                    }
+                }
+            }
 
             // Header Settings uses the direct tool list when no groups are supplied.
             // This preserves the original ETD/TOT/TRIP/ETA/READY/WARNING settings workflow.
