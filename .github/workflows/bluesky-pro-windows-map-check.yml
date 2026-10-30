@@ -48,6 +48,9 @@ jobs:
           }
           if (-not $insideBuildHtml) { throw "Could not locate MapTilerWebMap.qml buildHtml() source" }
           $source = Get-Content $path -Raw
+          if ($source -notmatch "property\s+int\s+notamSearchRadiusNm\s*:\s*20") {
+            throw "MapTilerWebMap must declare the NOTAM search-radius property passed by FlightChart.ui.qml."
+          }
           if ($source -match "'fill-extrusion-opacity'\s*:\s*\[") {
             throw "fill-extrusion-opacity must be a constant; MapLibre rejects data expressions for this property."
           }
