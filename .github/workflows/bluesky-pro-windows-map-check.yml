@@ -81,8 +81,8 @@ jobs:
           if ($source -match "RAISED_TO_HIGHEST_TERRAIN|adjustedToTerrainPeak=true") {
             throw "NOTAM ceiling must not be raised to terrain peaks."
           }
-          if ($source -notmatch "else\{map\.setTerrain\(null\);map\.easeTo\(\{pitch:0,duration:350\}\)") {
-            throw "Turning terrain OFF must remove the terrain surface and restore the flat map view."
+          if ($source -notmatch "else\{map\.setTerrain\(null\);\}" -or $source -match "else\{map\.setTerrain\(null\);map\.easeTo\(\{pitch:0") {
+            throw "Turning terrain OFF must remove the terrain surface while preserving the current camera pitch."
           }
           if ($source -notmatch "notam-debug-open" -or $source -notmatch "NOTAM RENDER DIAGNOSTICS" -or $source -notmatch "notam-debug-refresh") {
             throw "Temporary NOTAM diagnostics panel and refresh control must be present."
