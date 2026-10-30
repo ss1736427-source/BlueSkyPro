@@ -434,6 +434,8 @@ Item {
     // Set only by the authoritative route-planning/revalidation result.
     // HMI must not infer pilot attention from weather/NOTAM presence alone.
     property bool weatherPilotAttentionRequired: false
+    // True only when a live weather stream is connected and supplying data.
+    property bool weatherStreamConnected: false
     property bool notamPilotAttentionRequired: false
     property var checklistItems: [
         { label: "Mission definition", status: "PENDING" },
@@ -763,7 +765,7 @@ Item {
                          || root.weatherPilotAttentionRequired
                 width: parent.width; height: 23
                 spacing: 8
-                Text { id: weatherStatusLabel; width: parent.width * 0.42; text: "WEATHER"; color: root.text; font.family: "B612"; font.pixelSize: 11; verticalAlignment: Text.AlignVCenter }
+                Text { id: weatherStatusLabel; width: parent.width * 0.42; text: "WEATHER"; color: root.weatherStreamConnected ? "#64FF00" : root.amber; font.family: "B612"; font.pixelSize: 11; verticalAlignment: Text.AlignVCenter }
                 Text { width: parent.width - weatherStatusLabel.width - parent.spacing; text: "NO DATA"; color: root.amber; font.family: "B612"; font.pixelSize: 10; font.bold: true; horizontalAlignment: Text.AlignRight; verticalAlignment: Text.AlignVCenter }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.selectedOperationalTool = "WEATHER" }
             }
@@ -782,7 +784,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         width: 48
                         text: "NOTAM"
-                        color: root.text
+                        color: root.notamRecords.length > 0 ? "#64FF00" : root.amber
                         font.family: "B612"
                         font.pixelSize: 11
                         verticalAlignment: Text.AlignVCenter
@@ -792,7 +794,7 @@ Item {
                         anchors.left: notamStatusLabel.right
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: root.notamRecords.length > 0 ? (root.notamRecords.length + " RECORDS") : "NOT CHECKED"
+                        text: root.notamRecords.length > 0 ? String(root.notamRecords.length) : "—"
                         color: root.notamRecords.length > 0 ? root.cyan : root.amber
                         font.family: "B612"
                         font.pixelSize: 9
