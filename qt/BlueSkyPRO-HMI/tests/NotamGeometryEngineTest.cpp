@@ -119,6 +119,18 @@ int main(int argc,char**argv){
  for(int i=1;i<v7687Parts.size();++i)
    assert(v7687Parts.at(i).toArray().first().toArray().size()==73);
 
+ // Valid upstream FAA area geometry is authoritative: a partial formatted-text
+ // interpretation must not replace or shrink the source polygon.
+ QVariantMap authoritative{{"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[41.68,44.00],[41.75,44.00],[41.75,44.05],[41.68,44.00]]]})")},
+                           {"originalText","E)AIRSPACE CLSD AS FLW:\\n1. AREA: 441500N0413000E-441600N0413100E-"},
+                           {"lowerLimitRaw","SFC"},{"upperLimitRaw","2250M AMSL"}};
+ auto authoritativeResult=NotamGeometryEngine::normalize(authoritative);
+ auto authoritativeGeo=QJsonDocument::fromJson(authoritativeResult["geometryJson"].toString().toUtf8()).object();
+ assert(authoritativeGeo["type"].toString()=="Polygon");
+ auto authoritativeRing=authoritativeGeo["coordinates"].toArray().first().toArray();
+ assert(authoritativeRing.size()==4);
+ assert(qAbs(authoritativeRing.at(1).toArray().at(0).toDouble()-41.75)<1e-8);
+
  QVariantMap bad{{"text","Informational NOTAM only"}};auto d=NotamGeometryEngine::normalize(bad);assert(!d["geometryValidated"].toBool());
  // Non-area GeoJSON must remain available to the map's point/line layers, but
  // must never be reported as a validated airspace polygon.
