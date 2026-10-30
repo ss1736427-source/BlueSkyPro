@@ -63,6 +63,12 @@ jobs:
           if ($source -notmatch "'fill-extrusion-height':\['get','upperMeters'\],'fill-extrusion-opacity':0\.28") {
             throw "Expected compatible constant-opacity NOTAM extrusion layer."
           }
+          if ($source -match "\\['==',\\['literal',terrainOn\\],true\\]") {
+            throw "NOTAM vertical volumes must remain visible when 3D terrain is OFF."
+          }
+          if ($source -match "terrainPlaneFlat=false;p\\.terrainPlaneStatus='TERRAIN_OFF'") {
+            throw "Turning terrain OFF must not invalidate source-defined NOTAM altitude planes."
+          }
           if ($source -notmatch "'boolean',\['get','terrainPlaneFlat'\],false") {
             throw "NOTAM extrusion must require a validated flat upper plane."
           }
