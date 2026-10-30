@@ -794,8 +794,9 @@ Item {
                         anchors.left: notamStatusLabel.right
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: root.notamRecords.length > 0 ? String(root.notamRecords.length) : "—"
-                        color: root.notamRecords.length > 0 ? root.cyan : root.amber
+                        visible: root.notamRecords.length > 0
+                        text: String(root.notamRecords.length)
+                        color: root.cyan
                         font.family: "B612"
                         font.pixelSize: 9
                         font.bold: true
