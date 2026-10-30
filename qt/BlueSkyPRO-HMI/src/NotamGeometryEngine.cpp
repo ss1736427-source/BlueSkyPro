@@ -3,6 +3,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
+#include <QSet>
+#include <QStringList>
+#include <QVector>
 #include <QtMath>
 
 namespace {
@@ -32,6 +35,207 @@ QJsonArray circle(double lat,double lon,double km) {
     for(int i=0;i<72;++i){double a=2*pi*i/72;ring.append(QJsonArray{lon+km*qCos(a)/(111.32*qMax(0.01,qCos(rad))),lat+km*qSin(a)/110.574});}
     ring.append(ring.first());return ring;
 }
+struct GeoPoint { double lon=0.0, lat=0.0; };
+
+bool toGeoPoint(const QJsonValue &value, GeoPoint &point) {
+    const QJsonArray coordinate = value.toArray();
+    if (coordinate.size() < 2) return false;
+    point = {coordinate.at(0).toDouble(), coordinate.at(1).toDouble()};
+    return qIsFinite(point.lon) && qIsFinite(point.lat)
+        && point.lon >= -180.0 && point.lon <= 180.0
+        && point.lat >= -90.0 && point.lat <= 90.0;
+}
+
+bool samePoint(const GeoPoint &a, const GeoPoint &b) {
+    return qAbs(a.lon-b.lon) < 1e-9 && qAbs(a.lat-b.lat) < 1e-9;
+}
+
+QJsonArray closedValidRing(QJsonArray ring) {
+    if (ring.size() < 3) return {};
+    QJsonArray compact;
+    GeoPoint previous;
+    bool hasPrevious = false;
+    for (const QJsonValue &value : ring) {
+        GeoPoint point;
+        if (!toGeoPoint(value, point)) return {};
+        if (hasPrevious && samePoint(previous, point)) continue;
+        compact.append(value);
+        previous = point;
+        hasPrevious = true;
+    }
+    if (compact.size() < 3) return {};
+    GeoPoint first, last;
+    if (!toGeoPoint(compact.first(), first) || !toGeoPoint(compact.last(), last)) return {};
+    if (!samePoint(first, last)) compact.append(compact.first());
+    if (compact.size() < 4) return {};
+
+    // Reject collapsed rings (all-collinear points) before they reach MapLibre
+    // or the SVG fallback, where they can appear as stray spikes/line fragments.
+    double twiceArea = 0.0;
+    for (int i = 0; i + 1 < compact.size(); ++i) {
+        GeoPoint a, b;
+        if (!toGeoPoint(compact.at(i), a) || !toGeoPoint(compact.at(i + 1), b)) return {};
+        twiceArea += a.lon * b.lat - b.lon * a.lat;
+    }
+    if (!qIsFinite(twiceArea) || qAbs(twiceArea) < 1e-12) return {};
+    return compact;
+}
+
+double orientation(const GeoPoint &a, const GeoPoint &b, const GeoPoint &c) {
+    return (b.lon-a.lon)*(c.lat-a.lat)-(b.lat-a.lat)*(c.lon-a.lon);
+}
+
+bool onSegment(const GeoPoint &a, const GeoPoint &b, const GeoPoint &p) {
+    return p.lon >= qMin(a.lon,b.lon)-1e-10 && p.lon <= qMax(a.lon,b.lon)+1e-10
+        && p.lat >= qMin(a.lat,b.lat)-1e-10 && p.lat <= qMax(a.lat,b.lat)+1e-10;
+}
+
+bool segmentsIntersect(const GeoPoint &a, const GeoPoint &b, const GeoPoint &c, const GeoPoint &d) {
+    const double abC=orientation(a,b,c), abD=orientation(a,b,d);
+    const double cdA=orientation(c,d,a), cdB=orientation(c,d,b);
+    const auto opposite=[](double left,double right) { return (left>1e-10&&right< -1e-10)||(left< -1e-10&&right>1e-10); };
+    if (opposite(abC,abD) && opposite(cdA,cdB)) return true;
+    if (qAbs(abC)<=1e-10 && onSegment(a,b,c)) return true;
+    if (qAbs(abD)<=1e-10 && onSegment(a,b,d)) return true;
+    if (qAbs(cdA)<=1e-10 && onSegment(c,d,a)) return true;
+    if (qAbs(cdB)<=1e-10 && onSegment(c,d,b)) return true;
+    return false;
+}
+
+bool ringSelfIntersects(const QJsonArray &ring) {
+    if (ring.size() < 4) return true;
+    QVector<GeoPoint> points;
+    points.reserve(ring.size());
+    for (const QJsonValue &value : ring) {
+        GeoPoint point;
+        if (!toGeoPoint(value, point)) return true;
+        points.append(point);
+    }
+    const int segmentCount=points.size()-1;
+    for (int i=0;i<segmentCount;++i) {
+        for (int j=i+1;j<segmentCount;++j) {
+            if (j==i+1 || (i==0 && j==segmentCount-1)) continue;
+            if (segmentsIntersect(points.at(i),points.at(i+1),points.at(j),points.at(j+1))) return true;
+        }
+    }
+    return false;
+}
+
+bool pointInRing(const GeoPoint &point, const QJsonArray &ring) {
+    bool inside=false;
+    if (ring.size() < 4) return false;
+    for (int i=0,j=ring.size()-2;i<ring.size()-1;j=i++) {
+        GeoPoint a,b;
+        if (!toGeoPoint(ring.at(i),a) || !toGeoPoint(ring.at(j),b)) return false;
+        const bool crosses=(a.lat>point.lat)!=(b.lat>point.lat)
+            && point.lon < (b.lon-a.lon)*(point.lat-a.lat)/(b.lat-a.lat+1e-30)+a.lon;
+        if (crosses) inside=!inside;
+    }
+    return inside;
+}
+
+QJsonObject sanitiseRawAreaGeometry(const QJsonObject &geometry) {
+    const QString type=geometry.value("type").toString();
+    if (type != QStringLiteral("Polygon") && type != QStringLiteral("MultiPolygon")) return geometry;
+    const QJsonArray sourcePolygons=type == QStringLiteral("Polygon")
+        ? QJsonArray{geometry.value("coordinates").toArray()}
+        : geometry.value("coordinates").toArray();
+    QJsonArray outputPolygons;
+    for (const QJsonValue &polygonValue : sourcePolygons) {
+        const QJsonArray sourceRings=polygonValue.toArray();
+        if (sourceRings.isEmpty()) return {};
+        QJsonArray rings;
+        for (const QJsonValue &ringValue : sourceRings) {
+            const QJsonArray ring=closedValidRing(ringValue.toArray());
+            if (ring.isEmpty() || ringSelfIntersects(ring)) return {};
+            rings.append(ring);
+        }
+        GeoPoint outerPoint;
+        if (!toGeoPoint(rings.first().toArray().first(), outerPoint)) return {};
+        bool independentRings=false;
+        for (int i=1;i<rings.size();++i) {
+            GeoPoint innerPoint;
+            if (!toGeoPoint(rings.at(i).toArray().first(), innerPoint)) return {};
+            if (!pointInRing(innerPoint, rings.first().toArray())) { independentRings=true; break; }
+        }
+        if (independentRings) {
+            for (const QJsonValue &ringValue : rings) outputPolygons.append(QJsonArray{ringValue});
+        } else {
+            outputPolygons.append(rings);
+        }
+    }
+    if (outputPolygons.isEmpty()) return {};
+    return outputPolygons.size()==1
+        ? QJsonObject{{"type", "Polygon"}, {"coordinates", outputPolygons.first().toArray()}}
+        : QJsonObject{{"type", "MultiPolygon"}, {"coordinates", outputPolygons}};
+}
+
+QString ringSignature(const QJsonArray &ring) {
+    QStringList parts;
+    parts.reserve(ring.size());
+    for (const QJsonValue &value : ring) {
+        const QJsonArray point = value.toArray();
+        if (point.size() < 2) return {};
+        parts.append(QString::number(point.at(0).toDouble(), 'f', 8)
+                     + QLatin1Char(',')
+                     + QString::number(point.at(1).toDouble(), 'f', 8));
+    }
+    return parts.join(QLatin1Char('|'));
+}
+
+void appendUniquePolygon(QJsonArray &polygons, QSet<QString> &seen, QJsonArray ring) {
+    ring=closedValidRing(ring);
+    if (ring.isEmpty() || ringSelfIntersects(ring)) return;
+    const QString signature = ringSignature(ring);
+    if (signature.isEmpty() || seen.contains(signature)) return;
+    seen.insert(signature);
+    polygons.append(QJsonArray{ring});
+}
+
+QJsonArray explicitRestrictionPolygons(const QString &text) {
+    QJsonArray polygons;
+    QSet<QString> seen;
+    static const QRegularExpression coordinate(
+        QStringLiteral("\\d{4,6}[NS]\\s*\\d{5,7}[EW]"),
+        QRegularExpression::CaseInsensitiveOption);
+    // An AREA stops before the next enumerated area/circle, F)/G), or a repeated
+    // AIRSPACE heading. This prevents circle centres from becoming polygon vertices.
+    static const QRegularExpression areaBlock(
+        QStringLiteral("\\bAREA\\s*:\\s*([\\s\\S]*?)(?=(?:\\r?\\n\\s*\\d+\\.\\s*(?:(?:WI\\s+)?CIRCLE|AREA)\\b)|(?:\\r?\\n\\s*[FG]\\))|(?:\\r?\\n\\s*AIRSPACE\\s+CLSD\\b)|$)"),
+        QRegularExpression::CaseInsensitiveOption);
+    auto areas = areaBlock.globalMatch(text);
+    while (areas.hasNext()) {
+        const QString candidate = areas.next().captured(1);
+        QJsonArray ring;
+        auto coordinates = coordinate.globalMatch(candidate);
+        while (coordinates.hasNext()) {
+            const Coord parsed = coord(coordinates.next().captured());
+            if (parsed.ok) ring.append(QJsonArray{parsed.lon, parsed.lat});
+        }
+        appendUniquePolygon(polygons, seen, ring);
+    }
+
+    // A NOTAM may define several circles after an AREA. Every explicit circle is
+    // independently rendered; Q-line radius remains only search metadata.
+    static const QRegularExpression circleBlock(
+        QStringLiteral("(?:\\bWI\\s+)?(?:CIRCLE\\s+)?RADIUS\\s*[-:]?\\s*(\\d+(?:[.,]\\d+)?)\\s*(NM|KM|M)\\s+(?:CENT(?:RE|ER)(?:\\s+OF)?|OF|AROUND)\\s+(\\d{4,6}[NS]\\s*\\d{5,7}[EW])|\\b(?:WI|WITHIN)\\s+(\\d+(?:[.,]\\d+)?)\\s*(NM|KM|M)\\s+(?:OF|FROM|CENT(?:RE|ER)\\s+OF)\\s+(\\d{4,6}[NS]\\s*\\d{5,7}[EW])"),
+        QRegularExpression::CaseInsensitiveOption);
+    auto circles = circleBlock.globalMatch(text);
+    while (circles.hasNext()) {
+        const QRegularExpressionMatch match = circles.next();
+        const bool radiusFirst = !match.captured(1).isEmpty();
+        QString radiusText = radiusFirst ? match.captured(1) : match.captured(4);
+        radiusText.replace(QLatin1Char(','), QLatin1Char('.'));
+        const QString unit = (radiusFirst ? match.captured(2) : match.captured(5)).toUpper();
+        const Coord centre = coord(radiusFirst ? match.captured(3) : match.captured(6));
+        double kilometres = radiusText.toDouble();
+        if (unit == QStringLiteral("NM")) kilometres *= 1.852;
+        else if (unit == QStringLiteral("M")) kilometres /= 1000.0;
+        if (centre.ok && kilometres > 0.0 && kilometres <= 500.0)
+            appendUniquePolygon(polygons, seen, circle(centre.lat, centre.lon, kilometres));
+    }
+    return polygons;
+}
 }
 QVariantMap NotamGeometryEngine::conservativeUpperPlane(double minTerrainMeters,
                                                                       double maxTerrainMeters,
@@ -45,17 +249,17 @@ QVariantMap NotamGeometryEngine::conservativeUpperPlane(double minTerrainMeters,
         return out;
     }
 
-    const double sourceUpperPlane = minTerrainMeters + totalRestrictionHeightMeters;
-    const double upperPlane = qMax(sourceUpperPlane, maxTerrainMeters);
+    // The restriction top is a constant horizontal plane. Terrain variation
+    // must not raise or tilt the NOTAM ceiling; the caller supplies the source
+    // NOTAM height in metres in a consistent vertical reference.
+    const double upperPlane = minTerrainMeters + totalRestrictionHeightMeters;
     out["minimumTerrainMeters"] = minTerrainMeters;
     out["maximumTerrainMeters"] = maxTerrainMeters;
-    out["sourceUpperPlaneMeters"] = sourceUpperPlane;
+    out["sourceUpperPlaneMeters"] = upperPlane;
     out["upperPlaneMeters"] = upperPlane;
-    out["adjustedToTerrainPeak"] = sourceUpperPlane < maxTerrainMeters;
+    out["adjustedToTerrainPeak"] = false;
     out["valid"] = true;
-    out["status"] = sourceUpperPlane < maxTerrainMeters
-                        ? "RAISED_TO_HIGHEST_TERRAIN"
-                        : "VALID";
+    out["status"] = "FLAT_SOURCE_HEIGHT_PLANE";
     return out;
 }
 
@@ -73,20 +277,22 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     QJsonObject g;const QString raw=source.value("geometryJson").toString();
     auto gd=QJsonDocument::fromJson(raw.toUtf8());if(gd.isObject())g=gd.object();
     bool compoundParsed=false;
-    if(g.value("type").toString()!="Polygon"&&g.value("type").toString()!="MultiPolygon"){
-        // Parse numbered "AS FLW" components independently, so circle centres
-        // cannot accidentally become vertices of the preceding area boundary.
+    // Prefer explicit compound text over an upstream single-polygon approximation.
+    {
+        // Parse every AS FLW section. Some NOTAMs repeat the same numbered
+        // geometry block after F)/G); identical rings are deduplicated below.
         static const QRegularExpression sectionRe(QStringLiteral("AS\\s+FLW\\s*:\\s*([\\s\\S]*?)(?=\\bF\\)|\\bG\\)|$)"),QRegularExpression::CaseInsensitiveOption);
-        const auto sectionMatch=sectionRe.match(text);
-        if(sectionMatch.hasMatch()){
-            const QString section=sectionMatch.captured(1);
-            static const QRegularExpression itemRe(QStringLiteral("(?:^|\\n)\\s*\\d+\\.\\s*([\\s\\S]*?)(?=(?:\\n\\s*\\d+\\.)|$)"));
-            static const QRegularExpression coordinateRe(QStringLiteral("\\d{4,6}[NS]\\s*\\d{5,7}[EW]"),QRegularExpression::CaseInsensitiveOption);
-            static const QRegularExpression circleRe(QStringLiteral("RADIUS\\s*(\\d+(?:[.,]\\d+)?)\\s*(NM|KM|M)\\s+CENT(?:RE|ER)\\s+(\\d{4,6}[NS]\\s*\\d{5,7}[EW])"),QRegularExpression::CaseInsensitiveOption);
-            QJsonArray polygons;
+        static const QRegularExpression itemRe(QStringLiteral("(?:^|\\n)\\s*\\d+\\.\\s*([\\s\\S]*?)(?=(?:\\n\\s*\\d+\\.)|$)"));
+        static const QRegularExpression coordinateRe(QStringLiteral("\\d{4,6}[NS]\\s*\\d{5,7}[EW]"),QRegularExpression::CaseInsensitiveOption);
+        static const QRegularExpression circleRe(QStringLiteral("RADIUS\\s*(\\d+(?:[.,]\\d+)?)\\s*(NM|KM|M)\\s+CENT(?:RE|ER)\\s+(\\d{4,6}[NS]\\s*\\d{5,7}[EW])"),QRegularExpression::CaseInsensitiveOption);
+        QJsonArray polygons;
+        QSet<QString> seenRings;
+        auto sections=sectionRe.globalMatch(text);
+        bool allItemsValid=true;
+        int itemCount=0;
+        while(sections.hasNext()&&allItemsValid){
+            const QString section=sections.next().captured(1);
             auto items=itemRe.globalMatch(section);
-            bool allItemsValid=true;
-            int itemCount=0;
             while(items.hasNext()){
                 const QString item=items.next().captured(1);
                 QJsonArray ring;
@@ -108,13 +314,26 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
                     if(ring.size()<3){allItemsValid=false;break;}
                     if(ring.first()!=ring.last())ring.append(ring.first());
                 }
+                // Repeated NOTAM text must not duplicate an area or circle.
+                const QString ringKey=QString::fromUtf8(QJsonDocument(QJsonArray{ring}).toJson(QJsonDocument::Compact));
+                if(seenRings.contains(ringKey)) continue;
+                seenRings.insert(ringKey);
                 polygons.append(QJsonArray{ring});
                 ++itemCount;
             }
-            if(allItemsValid&&itemCount>=2&&polygons.size()==itemCount){
-                g=QJsonObject{{"type","MultiPolygon"},{"coordinates",polygons}};
-                compoundParsed=true;
-            }
+        }
+        if(allItemsValid&&itemCount>=2&&polygons.size()==itemCount){
+            g=QJsonObject{{"type","MultiPolygon"},{"coordinates",polygons}};
+            compoundParsed=true;
+        }
+    }
+    if (!compoundParsed) {
+        const QJsonArray textualPolygons = explicitRestrictionPolygons(text);
+        if (!textualPolygons.isEmpty()) {
+            g = textualPolygons.size() == 1
+                ? QJsonObject{{"type", "Polygon"}, {"coordinates", textualPolygons.first()}}
+                : QJsonObject{{"type", "MultiPolygon"}, {"coordinates", textualPolygons}};
+            compoundParsed = true;
         }
     }
     if(!compoundParsed&&g.value("type").toString()!="Polygon"&&g.value("type").toString()!="MultiPolygon"){
@@ -134,6 +353,7 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
             }
         }
     }
+    g = sanitiseRawAreaGeometry(g);
     QString type=g.value("type").toString();
     const bool areaGeometry=type=="Polygon"||type=="MultiPolygon";
     // Keep valid non-area GeoJSON for map display. Point/line geometry is useful

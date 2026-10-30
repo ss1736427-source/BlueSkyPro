@@ -10,16 +10,35 @@ int main(int argc,char**argv){
  auto a=NotamGeometryEngine::normalize(p);assert(a["geometryValidated"].toBool());auto g=QJsonDocument::fromJson(a["geometryJson"].toString().toUtf8()).object();assert(g["type"].toString()=="Polygon");assert(g["coordinates"].toArray().first().toArray().size()==6);
  QVariantMap c{{"originalText","E)RESTRICTED AREA RADIUS 2NM CENTRE 433650N0393600E\nF)GND\nG)3000FT AGL"},{"lowerLimitRaw","GND"},{"upperLimitRaw","3000FT AGL"}};
  auto b=NotamGeometryEngine::normalize(c);assert(b["geometryValidated"].toBool());assert(QJsonDocument::fromJson(b["geometryJson"].toString().toUtf8()).object()["coordinates"].toArray().first().toArray().size()==73);
+ // A raw Polygon with disjoint rings is malformed GeoJSON: the second
+ // ring is not a hole, so preserve it as a separate polygon component.
+ QVariantMap disjointRings{{"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[39.2,43.0],[39.2,43.2],[39.0,43.0]],[[40.0,43.0],[40.2,43.0],[40.2,43.2],[40.0,43.0]]]})")}};
+ auto disjointResult=NotamGeometryEngine::normalize(disjointRings);
+ auto disjointGeometry=QJsonDocument::fromJson(disjointResult["geometryJson"].toString().toUtf8()).object();
+ assert(disjointGeometry["type"].toString()=="MultiPolygon");
+ assert(disjointGeometry["coordinates"].toArray().size()==2);
+ QVariantMap bowTie{{"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[40.0,44.0],[39.0,44.0],[40.0,43.0],[39.0,43.0]]]})")}};
+ auto bowTieResult=NotamGeometryEngine::normalize(bowTie);
+ assert(bowTieResult["geometryJson"].toString().isEmpty());
+ // Degenerate rings with repeated vertices or zero area must not reach either renderer.
+ QVariantMap collapsed{{"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[39.1,43.1],[39.2,43.2],[39.0,43.0]]]})")}};
+ auto collapsedResult=NotamGeometryEngine::normalize(collapsed);
+ assert(collapsedResult["geometryJson"].toString().isEmpty());
+ QVariantMap repeatedVertices{{"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[39.0,43.0],[39.2,43.0],[39.2,43.2],[39.0,43.0]]]})")}};
+ auto repeatedResult=NotamGeometryEngine::normalize(repeatedVertices);
+ assert(!repeatedResult["geometryJson"].toString().isEmpty());
+ auto repeatedGeometry=QJsonDocument::fromJson(repeatedResult["geometryJson"].toString().toUtf8()).object();
+ assert(repeatedGeometry["coordinates"].toArray().first().toArray().size()==4);
  auto plane=NotamGeometryEngine::conservativeUpperPlane(300.0,2400.0,2200.0);
  assert(plane["valid"].toBool());
  assert(qAbs(plane["upperPlaneMeters"].toDouble()-2500.0)<0.001);
  assert(!plane["adjustedToTerrainPeak"].toBool());
- auto raised=NotamGeometryEngine::conservativeUpperPlane(300.0,2400.0,2100.0);
- assert(raised["valid"].toBool());
- assert(raised["status"].toString()=="RAISED_TO_HIGHEST_TERRAIN");
- assert(raised["adjustedToTerrainPeak"].toBool());
- assert(qAbs(raised["sourceUpperPlaneMeters"].toDouble()-2400.0)<0.001);
- assert(qAbs(raised["upperPlaneMeters"].toDouble()-2400.0)<0.001);
+ auto flat=NotamGeometryEngine::conservativeUpperPlane(300.0,2800.0,2100.0);
+ assert(flat["valid"].toBool());
+ assert(flat["status"].toString()=="FLAT_SOURCE_HEIGHT_PLANE");
+ assert(!flat["adjustedToTerrainPeak"].toBool());
+ assert(qAbs(flat["sourceUpperPlaneMeters"].toDouble()-2400.0)<0.001);
+ assert(qAbs(flat["upperPlaneMeters"].toDouble()-2400.0)<0.001);
  auto invalidTerrain=NotamGeometryEngine::conservativeUpperPlane(2500.0,2400.0,3000.0);
  assert(!invalidTerrain["valid"].toBool());
  // Compound NOTAM: one closed area plus two explicit circles must remain
@@ -44,6 +63,61 @@ int main(int argc,char**argv){
  assert(components.at(2).toArray().first().toArray().size()==73);
  assert(!compoundResult["geometryValidated"].toBool());
  assert(compoundResult["restrictionGeometryStatus"].toString()=="MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS");
+
+
+ // Full V7687/26 pattern: one AREA and five circles are repeated in a second
+ // numbered AS FLW block. Keep six unique components, not twelve, and never
+ // connect circle centres to the AREA boundary.
+ QVariantMap v7687{{"originalText",
+ "E)AIRSPACE CLSD AS FLW:\\n"
+ "1. AREA: 444741N0413513E-444145N0420555E-443855N0420723E-\\n"
+ "   443406N0422158E-443851N0422546E-443810N0422731E-\\n"
+ "   442713N0422933E-443527N0420327E-443123N0415916E-\\n"
+ "   442410N0415905E-442358N0415551E-443053N0415510E-\\n"
+ "   443059N0415118E-443240N0415120E-443301N0415517E-\\n"
+ "   443700N0415906E-443845N0415634E-443853N0415712E-\\n"
+ "   443906N0415734E-443923N0415748E-443944N0415751E-\\n"
+ "   444004N0415743E-444022N0415723E-444032N0415654E-\\n"
+ "   444032N0415623E-444024N0415555E-444010N0415536E-\\n"
+ "   443951N0415524E-443937N0415524E-444107N0415316E-\\n"
+ "   444249N0414250E-443524N0414104E-443505N0413529E-\\n"
+ "   444100N0413043E-444423N0413334E-444741N0413513E\\n"
+ "   650M AMSL-950M AMSL.\\n"
+ "2. WI CIRCLE RADIUS 1KM CENTRE 444310N0414605E\\n"
+ "3. WI CIRCLE RADIUS 1KM CENTRE 443716N0420449E\\n"
+ "4. WI CIRCLE RADIUS 2KM CENTRE 443233N0422500E\\n"
+ "5. WI CIRCLE RADIUS 2KM CENTRE 443632N0420713E\\n"
+ "6. WI CIRCLE RADIUS 2KM CENTRE 443528N0422419E\\n"
+ "  F)GND G)950M AMSL\\n"
+ "E)AIRSPACE CLSD AS FLW:\\n"
+ "7. AREA: 444741N0413513E-444145N0420555E-443855N0420723E-\\n"
+ "   443406N0422158E-443851N0422546E-443810N0422731E-\\n"
+ "   442713N0422933E-443527N0420327E-443123N0415916E-\\n"
+ "   442410N0415905E-442358N0415551E-443053N0415510E-\\n"
+ "   443059N0415118E-443240N0415120E-443301N0415517E-\\n"
+ "   443700N0415906E-443845N0415634E-443853N0415712E-\\n"
+ "   443906N0415734E-443923N0415748E-443944N0415751E-\\n"
+ "   444004N0415743E-444022N0415723E-444032N0415654E-\\n"
+ "   444032N0415623E-444024N0415555E-444010N0415536E-\\n"
+ "   443951N0415524E-443937N0415524E-444107N0415316E-\\n"
+ "   444249N0414250E-443524N0414104E-443505N0413529E-\\n"
+ "   444100N0413043E-444423N0413334E-444741N0413513E\\n"
+ "   650M AMSL-950M AMSL.\\n"
+ "8. WI CIRCLE RADIUS 1KM CENTRE 444310N0414605E\\n"
+ "9. WI CIRCLE RADIUS 1KM CENTRE 443716N0420449E\\n"
+ "10. WI CIRCLE RADIUS 2KM CENTRE 443233N0422500E\\n"
+ "11. WI CIRCLE RADIUS 2KM CENTRE 443632N0420713E\\n"
+ "12. WI CIRCLE RADIUS 2KM CENTRE 443528N0422419E\\n"
+ "  F)GND G)950M AMSL"},
+ {"lowerLimitRaw","GND"},{"upperLimitRaw","950M AMSL"}};
+ auto v7687Result=NotamGeometryEngine::normalize(v7687);
+ auto v7687Geo=QJsonDocument::fromJson(v7687Result["geometryJson"].toString().toUtf8()).object();
+ assert(v7687Geo["type"].toString()=="MultiPolygon");
+ auto v7687Parts=v7687Geo["coordinates"].toArray();
+ assert(v7687Parts.size()==6);
+ assert(v7687Parts.at(0).toArray().first().toArray().size()>30);
+ for(int i=1;i<v7687Parts.size();++i)
+   assert(v7687Parts.at(i).toArray().first().toArray().size()==73);
 
  QVariantMap bad{{"text","Informational NOTAM only"}};auto d=NotamGeometryEngine::normalize(bad);assert(!d["geometryValidated"].toBool());
  // Non-area GeoJSON must remain available to the map's point/line layers, but

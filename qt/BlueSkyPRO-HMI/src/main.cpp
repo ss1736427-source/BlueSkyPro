@@ -1,4 +1,5 @@
 #include <QtWebEngineQuick/QtWebEngineQuick>
+#include <QWebEngineUrlScheme>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
@@ -36,6 +37,17 @@ int main(int argc, char *argv[])
     };
 
     writeStartupLog(QStringLiteral("START: main entered"));
+    // Qt 6 restricts qrc access from WebEngine pages unless the scheme is
+    // explicitly registered with the required local/CORS/fetch permissions.
+    // Register before QtWebEngine initialization and before QGuiApplication.
+    QWebEngineUrlScheme qrcScheme(QByteArrayLiteral("qrc"));
+    qrcScheme.setFlags(QWebEngineUrlScheme::SecureScheme
+                       | QWebEngineUrlScheme::LocalAccessAllowed
+                       | QWebEngineUrlScheme::CorsEnabled
+                       | QWebEngineUrlScheme::ViewSourceAllowed
+                       | QWebEngineUrlScheme::FetchApiAllowed);
+    QWebEngineUrlScheme::registerScheme(qrcScheme);
+    writeStartupLog(QStringLiteral("CHECKPOINT: qrc URL scheme registered"));
     writeStartupLog(QStringLiteral("CHECKPOINT: before QtWebEngineQuick::initialize"));
     QtWebEngineQuick::initialize();
     writeStartupLog(QStringLiteral("CHECKPOINT: after QtWebEngineQuick::initialize"));

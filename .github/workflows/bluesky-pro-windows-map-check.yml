@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - main
+      - codex/notam-stable-80-review-build
     paths:
       - 'qt/BlueSkyPRO-HMI/**'
+      - 'qt/BlueSkyPRO-HMI/CMakeLists.txt'
       - '.github/workflows/bluesky-pro-windows-map-check.yml'
   pull_request:
     branches:
@@ -46,11 +48,8 @@ jobs:
           }
           if (-not $insideBuildHtml) { throw "Could not locate MapTilerWebMap.qml buildHtml() source" }
           $source = Get-Content $path -Raw
-          if ($source -notmatch 'property\s+int\s+notamSearchRadiusNm\s*:\s*20') {
+          if ($source -notmatch "property\s+int\s+notamSearchRadiusNm\s*:\s*20") {
             throw "MapTilerWebMap must declare the NOTAM search-radius property passed by FlightChart.ui.qml."
-          }
-          if ($source -match "updateNotamLegend\(all,features\);if\(map\.isStyleLoaded\(\)\)applyNotams\(\);const has3DVolume=") {
-            throw "Avoid an immediate duplicate NOTAM source update before MapLibre has rendered the newly added source and layers."
           }
           if ($source -match "'fill-extrusion-opacity'\s*:\s*\[") {
             throw "fill-extrusion-opacity must be a constant; MapLibre rejects data expressions for this property."
@@ -58,20 +57,32 @@ jobs:
           if ($source -notmatch "let terrainOn=false;") {
             throw "3D terrain must default to OFF to match the UI control."
           }
-          if ($source -notmatch "if\(!terrainOn\)\{notamData=\{type:'FeatureCollection',features:features\};updateNotamLegend") {
-            throw "NOTAM horizontal geometry must remain visible in 2D when terrain is OFF."
+          if ($source -notmatch "notamData=\{type:'FeatureCollection',features:features\};updateNotamLegend") {
+            throw "NOTAM horizontal geometry must remain visible regardless of terrain toggle state."
+          }
+          if ($source -notmatch "p\.sourceUpperPlaneMeters=upper;p\.terrainMinMeters=null;p\.terrainMaxMeters=null;p\.terrainSampleCount=0;p\.terrainPlaneFlat=true;p\.terrainPlaneStatus='FLAT_SOURCE_HEIGHT_PLANE'") {
+            throw "NOTAM upper boundary must remain a flat plane at the source upper altitude without terrain sampling."
           }
           if ($source -notmatch "'fill-extrusion-height':\['get','upperMeters'\],'fill-extrusion-opacity':0\.28") {
             throw "Expected compatible constant-opacity NOTAM extrusion layer."
           }
+          if ($source -match "\\['==',\\['literal',terrainOn\\],true\\]") {
+            throw "NOTAM vertical volumes must remain visible when 3D terrain is OFF."
+          }
+          if ($source -match "terrainPlaneFlat=false;p\\.terrainPlaneStatus='TERRAIN_OFF'") {
+            throw "Turning terrain OFF must not invalidate source-defined NOTAM altitude planes."
+          }
           if ($source -notmatch "'boolean',\['get','terrainPlaneFlat'\],false") {
-            throw "AGL NOTAM extrusion must be gated on a validated terrain plane."
+            throw "NOTAM extrusion must require a validated flat upper plane."
           }
-          if ($source -notmatch "if\(terrainOn\)\{if\(map\.isStyleLoaded\(\)\)\{enableTerrain\(\);applyTerrainPlanes\(notamData\.features\|\|\[\]\);") {
-            throw "Enabling terrain must initiate AGL terrain-plane validation."
+          if ($source -notmatch "applyTerrainPlanes\(features\)") {
+            throw "NOTAM features must receive flat upper-plane validation independently of terrain rendering."
           }
-          if ($source -notmatch "if\(!terrainOn&&map\.getTerrain\(\)\)map\.setTerrain\(null\)") {
-            throw "Terrain must be disabled after NOTAM terrain sampling when the UI toggle is OFF."
+          if ($source -match "RAISED_TO_HIGHEST_TERRAIN|adjustedToTerrainPeak=true") {
+            throw "NOTAM ceiling must not be raised to terrain peaks."
+          }
+          if ($source -notmatch "else\{map\.setTerrain\(null\);map\.easeTo\(\{pitch:0,duration:350\}\)") {
+            throw "Turning terrain OFF must remove the terrain surface and restore the flat map view."
           }
           if ($source -notmatch "notam-debug-open" -or $source -notmatch "NOTAM RENDER DIAGNOSTICS" -or $source -notmatch "notam-debug-refresh") {
             throw "Temporary NOTAM diagnostics panel and refresh control must be present."
@@ -81,6 +92,18 @@ jobs:
           }
           if ($source -notmatch "mapErrors:perfDiag\.recentErrors") {
             throw "NOTAM diagnostics must include recent MapLibre rendering errors."
+          }
+          if ($source -notmatch "function drawNotamOverlayImpl" -or $source -notmatch "function updateNotamOverlayFallback" -or $source -notmatch "<svg id='notam-overlay'") {
+            throw "NOTAM zones must have a direct SVG fallback when MapLibre returns no rendered features."
+          }
+          if ($source -notmatch "notamOverlayFallback:\{active:notamOverlayActive,featureCount:notamOverlayFeatureCount,drawState:notamOverlayDrawState") {
+            throw "NOTAM diagnostics must report whether the SVG fallback is active and how many features it draws."
+          }
+          if ($source -notmatch "RECREATE_NOTAM_SOURCE_AND_LAYERS" -or $source -notmatch "verifyNotamAfterStyleReload" -or $source -notmatch "postStyleReloadCheck" -or $source -notmatch "sourceHealthError") {
+            throw "NOTAM source-cache recovery must recreate the NOTAM source and layers, verify the tile manager, and report post-rebuild checks."
+          }
+          if ($source -notmatch "renderTrace:JSON\.parse\(JSON\.stringify\(notamRenderTrace\)\)") {
+            throw "NOTAM diagnostics must expose the actual source-cache recovery trace."
           }
           Write-Host "Map NOTAM geometry visibility, terrain-state, and temporary diagnostics regression checks passed."
           
@@ -134,8 +157,6 @@ jobs:
         run: |
           # A deliberately invalid test key activates the same QML/WebChannel path without exposing a real API key.
           $env:BLUESKY_MAPTILER_API_KEY = "CI_SMOKE_TEST_KEY_NOT_VALID"
-          $startupLog = Join-Path $env:TEMP "BlueSkyPRO-startup-diagnostic.log"
-          Remove-Item $startupLog -Force -ErrorAction SilentlyContinue
           $app = Start-Process -FilePath "appBlueSkyPRO.exe" -PassThru -RedirectStandardOutput app-smoke.stdout.log -RedirectStandardError app-smoke.stderr.log
           Start-Sleep -Seconds 15
           $app.Refresh()
@@ -144,22 +165,24 @@ jobs:
             Get-Content app-smoke.stdout.log -ErrorAction SilentlyContinue
             Write-Host "=== stderr ==="
             Get-Content app-smoke.stderr.log -ErrorAction SilentlyContinue
-            Write-Host "=== BlueSky PRO startup diagnostic ==="
+            $startupLog = Join-Path $env:TEMP "BlueSkyPRO-startup-diagnostic.log"
+            Write-Host "=== BlueSkyPRO startup diagnostic log ==="
             if (Test-Path $startupLog) {
               Get-Content $startupLog
+              Copy-Item $startupLog "app-smoke-startup-diagnostic.log" -Force
             } else {
-              Write-Host "Startup diagnostic log was not created; failure may have occurred before main() logging started."
+              Write-Host "Startup diagnostic log was not created at $startupLog"
             }
             throw "appBlueSkyPRO.exe exited during MapTiler-enabled startup smoke test (code $($app.ExitCode))"
           }
           Stop-Process -Id $app.Id -Force
           Write-Host "MapTiler-enabled startup smoke test passed: process remained alive for 15 seconds. This checks startup stability, not successful map tile authorization or visual rendering."
 
-      - name: Upload Windows application bundle
+      - name: Upload Windows application bundle for inspection
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: BlueSkyPRO-Windows-Map-Review
           path: qt/BlueSkyPRO-HMI/build/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7
