@@ -63,7 +63,7 @@ jobs:
           if ($source -notmatch "p\.sourceUpperPlaneMeters=upper;p\.terrainMinMeters=null;p\.terrainMaxMeters=null;p\.terrainSampleCount=0;p\.terrainPlaneFlat=true;p\.terrainPlaneStatus='FLAT_SOURCE_HEIGHT_PLANE'") {
             throw "NOTAM upper boundary must remain a flat plane at the source upper altitude without terrain sampling."
           }
-          if ($source -notmatch "'fill-extrusion-height':\['get','upperMeters'\],'fill-extrusion-opacity':0\.28") {
+          if ($source -notmatch "'fill-extrusion-height':\['get','renderUpperMeters'\],'fill-extrusion-opacity':0\.28") {
             throw "Expected compatible constant-opacity NOTAM extrusion layer."
           }
           if ($source -match "\\['==',\\['literal',terrainOn\\],true\\]") {
