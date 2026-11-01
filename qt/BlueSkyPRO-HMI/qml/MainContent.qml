@@ -162,6 +162,9 @@ Item {
             anchors.bottom: parent.bottom
             // TopHeader owns the shared horizontal separator.
             showTopBorder: false
+            // The workspace edge is not a panel frame; avoid a cyan outline
+            // running alongside the header and making the panel look oversized.
+            showRightBorder: false
             // BottomToolbar owns the shared seam; avoid drawing a second line here.
             showBottomBorder: false
             visible: root.leftPanelOpen && root.activeTool !== "ADMIN"
