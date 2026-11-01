@@ -720,8 +720,10 @@ Item {
         height: root.selectedOperationalTool !== "" ? Math.max(34, atcWorkArea.y - 8) : 94
         radius: 8
         color: root.selectedOperationalTool !== "" ? root.bg : "transparent"
+        // Hide the shared Flight Conditions frame while NOTAM is expanded.
+        // Individual NOTAM cards retain their own borders.
         border.color: "#236078"
-        border.width: 1
+        border.width: root.selectedOperationalTool === "NOTAM" ? 0 : 1
         antialiasing: true
         clip: root.selectedOperationalTool !== ""
         z: root.draggingPanel === "Flight Conditions" ? 200 : (root.selectedOperationalTool !== "" ? 300 : 1)
