@@ -63,14 +63,17 @@ jobs:
           if ($source -notmatch "p\.sourceUpperPlaneMeters=upper;p\.terrainMinMeters=null;p\.terrainMaxMeters=null;p\.terrainSampleCount=0;p\.terrainPlaneFlat=true;p\.terrainPlaneStatus='FLAT_SOURCE_HEIGHT_PLANE'") {
             throw "NOTAM upper boundary must remain a flat plane at the source upper altitude without terrain sampling."
           }
-          if (-not $source.Contains("filter:['==',1,0]")) {
-            throw "NOTAM vertical extrusions must remain disabled until their altitude-to-terrain geometry is correctly implemented."
+          if ($source -notmatch "'fill-extrusion-height':\['get','renderUpperMeters'\],'fill-extrusion-opacity':0\.28") {
+            throw "Expected compatible constant-opacity NOTAM extrusion layer."
           }
-          if (-not $source.Contains("filter:['in',['geometry-type'],['literal',['Polygon','MultiPolygon']]]")) {
-            throw "NOTAM polygon footprints must render as terrain-draped horizontal polygons."
+          if ($source -match "\\['==',\\['literal',terrainOn\\],true\\]") {
+            throw "NOTAM vertical volumes must remain visible when 3D terrain is OFF."
           }
           if ($source -match "terrainPlaneFlat=false;p\\.terrainPlaneStatus='TERRAIN_OFF'") {
             throw "Turning terrain OFF must not invalidate source-defined NOTAM altitude planes."
+          }
+          if ($source -notmatch "'boolean',\['get','terrainPlaneFlat'\],true") {
+            throw "NOTAM extrusion must require a validated flat upper plane."
           }
           if ($source -notmatch "applyTerrainPlanes\(features\)") {
             throw "NOTAM features must receive flat upper-plane validation independently of terrain rendering."
