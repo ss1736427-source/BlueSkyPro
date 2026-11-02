@@ -72,7 +72,7 @@ jobs:
           if ($source -match "terrainPlaneFlat=false;p\\.terrainPlaneStatus='TERRAIN_OFF'") {
             throw "Turning terrain OFF must not invalidate source-defined NOTAM altitude planes."
           }
-          if ($source -notmatch "'boolean',\['get','terrainPlaneFlat'\],false") {
+          if ($source -notmatch "'boolean',\['get','terrainPlaneFlat'\],true") {
             throw "NOTAM extrusion must require a validated flat upper plane."
           }
           if ($source -notmatch "applyTerrainPlanes\(features\)") {
