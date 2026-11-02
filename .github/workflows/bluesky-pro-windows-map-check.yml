@@ -148,7 +148,7 @@ jobs:
         working-directory: qt/BlueSkyPRO-HMI
         shell: pwsh
         run: |
-          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --compiler-runtime --webengine --qmldir qml build\appBlueSkyPRO.exe
+          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --compiler-runtime --qmldir qml build\appBlueSkyPRO.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Windows application startup smoke test with MapTiler path enabled
