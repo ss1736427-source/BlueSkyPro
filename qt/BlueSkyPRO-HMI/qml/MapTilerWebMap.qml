@@ -176,7 +176,7 @@ Item {
             "document.getElementById('perf-monitor-close').addEventListener('click',()=>perfMonitorPanel.classList.remove('open'));",
             "document.getElementById('perf-monitor-start').addEventListener('click',()=>{if(perfRecording)return;perfRecording=true;perfSamples=[];perfDiagnosticCostMs=[];perfRecordingStartedAt=performance.now();perfLastResourceCount=performance.getEntriesByType('resource').length;perfSampleTimer=setInterval(perfMonitorSample,1000);perfMonitorSample();perfMonitorStatus.textContent='RECORDING · reproduce map stutter now';});",
             "document.getElementById('perf-monitor-stop').addEventListener('click',()=>{if(perfSampleTimer)clearInterval(perfSampleTimer);perfSampleTimer=0;perfRecording=false;perfMonitorSample();perfMonitorStatus.textContent='STOPPED · '+perfSamples.length+' samples · export JSON';perfMonitorOutput.value=JSON.stringify(perfMonitorResult(),null,2);});",
-            "document.getElementById('perf-monitor-export').addEventListener('click',()=>{if(perfRecording){perfMonitorStatus.textContent='Stop recording before export';return;}const payload=JSON.stringify(perfMonitorResult(),null,2);perfMonitorOutput.value=payload;const blob=new Blob([payload],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='BlueSkyPRO-performance-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);});",
+            "document.getElementById('perf-monitor-export').addEventListener('click',()=>{if(perfRecording){perfMonitorStatus.textContent='STOP RECORDING BEFORE EXPORT';return;}try{perfMonitorStatus.textContent='PREPARING JSON…';const payload=JSON.stringify(perfMonitorResult(),null,2);if(!payload||payload==='{}')throw new Error('No diagnostic data');perfMonitorOutput.value=payload;const filename='BlueSkyPRO-performance-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';const blob=new Blob([payload],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);perfMonitorStatus.textContent='DOWNLOAD REQUESTED · '+filename+' · CHECK DOWNLOADS';}catch(e){perfMonitorStatus.textContent='EXPORT FAILED · '+String(e&&e.message?e.message:e);console.error('Performance JSON export failed:',e);}});",
             "map.on('click',e=>{if(settingOrigin){origin={longitudeDeg:Number(e.lngLat.lng),latitudeDeg:Number(e.lngLat.lat),coordinateReferenceSystem:'EPSG:4326',originKind:'PLANNED_TAKEOFF'};settingOrigin=false;publishGeometry(false);geometryStatus.textContent='TAKEOFF ORIGIN SET · '+origin.longitudeDeg.toFixed(6)+', '+origin.latitudeDeg.toFixed(6);refreshGeometryLayer();return;}if(!capturing||!activeTemplate)return;const type=geometryTypes[activeTemplate];const altitudeInput=document.getElementById('geometry-agl');const altitude=Number(altitudeInput.value);if(['CORRIDOR','DELIVERY_ROUTE'].includes(type)&&(!Number.isFinite(altitude)||altitude<20||altitude>80)){geometryStatus.textContent='TARGET AGL MUST BE 20–80 m';return;}draft.push(['CORRIDOR','DELIVERY_ROUTE'].includes(type)?[Number(e.lngLat.lng),Number(e.lngLat.lat),altitude,'AGL']:[Number(e.lngLat.lng),Number(e.lngLat.lat)]);geometryStatus.textContent=activeTemplate+' · '+draft.length+' POINT(S)'+(['CORRIDOR','DELIVERY_ROUTE'].includes(type)?' · AGL '+altitude+' m':'');refreshGeometryLayer();});",
             "document.getElementById('geometry-origin').addEventListener('click',()=>{capturing=false;draft=[];settingOrigin=true;geometryStatus.textContent='CLICK MAP TO SET PLANNED TAKEOFF ORIGIN';});geometrySelect.addEventListener('change',e=>{activeTemplate=e.target.value;});",
             "document.getElementById('geometry-start').addEventListener('click',()=>{if(!activeTemplate){geometryStatus.textContent='SELECT TEMPLATE';return;}capturing=true;draft=[];geometryStatus.textContent='CLICK MAP · '+activeTemplate+' · '+geometryTypes[activeTemplate];});",
@@ -283,8 +283,28 @@ Item {
         }
     }
 
+    WebEngineProfile {
+        id: mapWebProfile
+        onDownloadRequested: function(download) {
+            // Qt WebEngine rejects downloads unless the application explicitly accepts them.
+            if (download && download.state === WebEngineDownloadRequest.DownloadRequested) {
+                console.info("Map WebEngine download requested:", download.suggestedFileName)
+                download.accept()
+            }
+        }
+        onDownloadFinished: function(download) {
+            if (!download)
+                return
+            if (download.state === WebEngineDownloadRequest.DownloadCompleted)
+                console.info("Map WebEngine download completed:", download.downloadFileName)
+            else
+                console.warn("Map WebEngine download did not complete:", download.downloadFileName, download.state, download.interruptReasonString)
+        }
+    }
+
     WebEngineView {
         id: webMap
+        profile: mapWebProfile
         webChannel: root.apiKey.length > 0 ? mapWebChannel : null
         anchors.fill: parent
         visible: root.apiKey.length > 0
