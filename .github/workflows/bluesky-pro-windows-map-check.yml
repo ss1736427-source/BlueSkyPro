@@ -148,7 +148,7 @@ jobs:
         working-directory: qt/BlueSkyPRO-HMI
         shell: pwsh
         run: |
-          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --qmldir qml build\appBlueSkyPRO.exe
+          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --compiler-runtime --webengine --qmldir qml build\appBlueSkyPRO.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Windows application startup smoke test with MapTiler path enabled
@@ -178,11 +178,36 @@ jobs:
           Stop-Process -Id $app.Id -Force
           Write-Host "MapTiler-enabled startup smoke test passed: process remained alive for 15 seconds. This checks startup stability, not successful map tile authorization or visual rendering."
 
-      - name: Upload Windows application bundle for inspection
-        if: always()
+      - name: Package Windows application ZIP
+        working-directory: qt/BlueSkyPRO-HMI
+        shell: pwsh
+        run: |
+          $buildDir = Resolve-Path "build"
+          $stageDir = Join-Path $env:RUNNER_TEMP "BlueSkyPRO-Windows-x64"
+          if (Test-Path $stageDir) { Remove-Item $stageDir -Recurse -Force }
+          New-Item -ItemType Directory -Path $stageDir | Out-Null
+          Copy-Item -Path (Join-Path $buildDir "*") -Destination $stageDir -Recurse -Force
+
+          $required = @(
+            (Join-Path $stageDir "appBlueSkyPRO.exe"),
+            (Join-Path $stageDir "QtWebEngineProcess.exe"),
+            (Join-Path $stageDir "platforms\qwindows.dll")
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Required runtime file missing from package: $file" }
+          }
+
+          $zipPath = Join-Path $env:GITHUB_WORKSPACE "BlueSkyPRO-Windows-x64.zip"
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+          Compress-Archive -Path (Join-Path $stageDir "*") -DestinationPath $zipPath -CompressionLevel Optimal
+          $zip = Get-Item $zipPath
+          if ($zip.Length -lt 1MB) { throw "Packaged ZIP is unexpectedly small ($($zip.Length) bytes)" }
+          Write-Host "Created $($zip.FullName) ($($zip.Length) bytes)"
+
+      - name: Upload Windows ZIP artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BlueSkyPRO-Windows-Map-Review
-          path: qt/BlueSkyPRO-HMI/build/
-          if-no-files-found: warn
-          retention-days: 7
+          name: BlueSkyPRO-Windows-x64
+          path: BlueSkyPRO-Windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
