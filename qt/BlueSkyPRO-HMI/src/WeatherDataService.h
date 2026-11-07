@@ -5,6 +5,8 @@
 #include <QNetworkAccessManager>
 #include <QObject>
 #include <QPointer>
+#include <QUrl>
+#include <QVariantMap>
 #include <QStringList>
 
 class QFile;
