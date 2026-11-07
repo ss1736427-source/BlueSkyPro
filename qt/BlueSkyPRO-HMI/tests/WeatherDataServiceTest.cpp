@@ -27,15 +27,16 @@ int main()
     assert(query.queryItemValue(QStringLiteral("dir")) == QStringLiteral("/gfs.20261107/12/atmos"));
 
     error.clear();
-    assert(!WeatherDataService::buildRequestUrl(
+    assert(WeatherDataService::buildRequestUrl(
         QStringLiteral("20261107"), QStringLiteral("12"), 121,
         96.0, 5.0, 100.0, 10.0, {QStringLiteral("50")}, &error).isEmpty());
     assert(!error.isEmpty());
 
     error.clear();
-    assert(!WeatherDataService::buildRequestUrl(
+    assert(WeatherDataService::buildRequestUrl(
         QStringLiteral("20261107"), QStringLiteral("12"), 6,
-        96.0, 5.0, 100.0, 10.0, {QStringLiteral("200")}, &error).isValid());
+        96.0, 5.0, 100.0, 10.0, {QStringLiteral("200")}, &error).isEmpty());
+    assert(!error.isEmpty());
 
     QTemporaryDir temp;
     assert(temp.isValid());
