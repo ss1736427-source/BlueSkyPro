@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -26,7 +27,7 @@ const QStringList kSupportedAglLevels{
     QStringLiteral("100"), QStringLiteral("1000")
 };
 
-void setError(QString *target, const QString &message)
+void assignError(QString *target, const QString &message)
 {
     if (target)
         *target = message;
@@ -59,7 +60,7 @@ QUrl WeatherDataService::buildRequestUrl(const QString &dateUtc,
 {
     const QDate date = QDate::fromString(dateUtc, QStringLiteral("yyyyMMdd"));
     if (!date.isValid() || date.toString(QStringLiteral("yyyyMMdd")) != dateUtc) {
-        setError(error, QStringLiteral("dateUtc must be a valid YYYYMMDD date"));
+        assignError(error, QStringLiteral("dateUtc must be a valid YYYYMMDD date"));
         return {};
     }
     if (cycleUtc != QLatin1String("00") && cycleUtc != QLatin1String("06")
@@ -159,9 +160,7 @@ bool WeatherDataService::requestWindSubset(const QString &dateUtc,
                                            const QStringList &levelsAglM)
 {
     if (m_reply) {
-        setError:
-        setError(&m_lastError, QStringLiteral("another weather download is already active"));
-        emit lastErrorChanged();
+        setError(QStringLiteral("another weather download is already active"));
         return false;
     }
 
