@@ -250,13 +250,17 @@ void WeatherDataService::consumeReplyData()
         return;
     m_receivedBytes += chunk.size();
     if (m_receivedBytes > kMaximumDownloadBytes) {
-        m_reply->abort();
+        QPointer<QNetworkReply> reply = m_reply;
         failDownload(QStringLiteral("weather subset exceeds the 256 MiB download limit"));
+        if (reply)
+            reply->abort();
         return;
     }
     if (m_partialFile->write(chunk) != chunk.size()) {
-        m_reply->abort();
+        QPointer<QNetworkReply> reply = m_reply;
         failDownload(QStringLiteral("failed to write weather cache"));
+        if (reply)
+            reply->abort();
         return;
     }
     m_hash.addData(chunk);
@@ -291,7 +295,7 @@ void WeatherDataService::finishReply()
     m_manifest.insert(QStringLiteral("retrieved_at_utc"),
                       QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
     m_manifest.insert(QStringLiteral("file"), QFileInfo(m_finalPath).fileName());
-    m_manifest.insert(QStringLiteral("bytes"), m_receivedBytes);
+    m_manifest.insert(QStringLiteral("bytes"), static_cast<double>(m_receivedBytes));
     m_manifest.insert(QStringLiteral("sha256"), QString::fromLatin1(m_hash.result().toHex()));
     if (QFileInfo::exists(m_finalPath))
         QFile::remove(m_finalPath);
@@ -353,8 +357,10 @@ void WeatherDataService::cancelPending()
 {
     if (!m_reply)
         return;
-    m_reply->abort();
+    QPointer<QNetworkReply> reply = m_reply;
     failDownload(QStringLiteral("weather download cancelled"));
+    if (reply)
+        reply->abort();
 }
 
 void WeatherDataService::setState(const QString &value)
