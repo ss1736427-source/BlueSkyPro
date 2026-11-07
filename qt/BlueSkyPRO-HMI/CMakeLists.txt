@@ -218,5 +218,6 @@ add_executable(weather_data_service_test
     src/WeatherDataService.cpp
     src/WeatherDataService.h
 )
+target_include_directories(weather_data_service_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(weather_data_service_test PRIVATE Qt6::Core Qt6::Network)
 add_test(NAME weather_data_service_contract COMMAND weather_data_service_test)
