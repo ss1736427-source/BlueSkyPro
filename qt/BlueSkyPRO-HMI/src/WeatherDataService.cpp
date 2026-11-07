@@ -188,6 +188,7 @@ bool WeatherDataService::requestWindSubset(const QString &dateUtc,
             const QJsonObject manifest = QJsonDocument::fromJson(manifestFile.readAll()).object();
             if (manifest.value(QStringLiteral("request_url")).toString() == url.toString()) {
                 m_lastDownloadedFile = m_finalPath;
+                emit lastDownloadedFileChanged();
                 setError(QString());
                 setState(QStringLiteral("CACHE_HIT"));
                 emit forecastReady(m_finalPath, manifest.toVariantMap());
@@ -306,6 +307,7 @@ void WeatherDataService::finishReply()
     }
 
     m_lastDownloadedFile = m_finalPath;
+    emit lastDownloadedFileChanged();
     if (m_partialFile) {
         m_partialFile->deleteLater();
         m_partialFile = nullptr;
