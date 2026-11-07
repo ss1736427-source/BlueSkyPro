@@ -1,93 +1,88 @@
-# NOAA GFS GRIB2 spatial weather prototype
+# BlueSky PRO weather data integration — NOAA GFS
 
-**Status:** offline probe contract CI passed on commit `d00a9508281a1d95380a8d073836eab83891e807`; live download and scientific decode remain **UNVERIFIED**.  
-**Canonical branch:** `main`  
-**Purpose:** verify the first link in the spatial-weather pipeline before integrating a GRIB decoder into the Qt application.
+**Status:** NOAA source selected; asynchronous Qt acquisition service added on branch `feat/weather-data-engine-noaa-gfs-001`. Live download and GRIB scientific decoding are not yet verified in the development runtime. Downloaded files are explicitly marked `LIVE_MODEL_DATA_UNDECODED` and are blocked from optimizer use until decoding and quality control are implemented.
 
-## 1. Selected first source
+## 1. Source decision
 
-NOAA/NCEP NOMADS GFS 0.25-degree GRIB filter:
+Primary source for the first operational integration: **NOAA/NCEP GFS 0.25-degree GRIB2 via NOMADS GRIB Filter**.
 
-- Endpoint: https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl
-- Official variable/level mapping: https://nomads.ncep.noaa.gov/info.php?page=opendap_grib_migration
-- The filter supports selection by GFS initialization date/cycle, forecast hour, variable, above-ground level and geographic bounding box.
-- Requested wind components are `UGRD` and `VGRD`; the default requested heights are 2, 10, 20, 30, 40, 50, 80 and 100 metres above ground (AGL), not barometric altitude. NOMADS lists these height levels in the GFS 0.25-degree filter; each requested variable/level combination must still be confirmed in the downloaded file inventory.
+Reason for selecting NOAA ahead of ECMWF for the initial low-altitude UAV use case:
 
-The exact availability of a requested level/file is determined by the selected product and cycle. An unavailable file or unsupported field must be reported as an error, not replaced silently.
+- The official GFS 0.25-degree filter currently lists direct above-ground wind levels at 10, 20, 30, 40, 50, 80, 100 and 1000 m.
+- This gives direct 50 m and 100 m AGL values, which are useful for the core 50–500 m mission envelope.
+- GFS supports geographic subsetting and selection of U/V wind components.
+- The same NOMADS interface exposes hybrid levels and pressure levels for later vertical-profile work.
 
-## 2. Prototype tool
+Official inventory: https://nomads.ncep.noaa.gov/gribfilter.php?ds=gfs_0p25  
+Official variable/level and forecast-hour mapping: https://nomads.ncep.noaa.gov/info.php?page=opendap_grib_migration  
+GFS product inventory: https://www.nco.ncep.noaa.gov/pmb/products/gfs/nomads/
 
-File: `tools/weather/noaa_gfs_grib_probe.py`
+**Important limitation:** 100–1000 m is a large vertical gap. A 150–500 m value must not be treated as a direct model level. The first implementation only acquires model fields; interpolation quality must be exposed by the decoder/query service. GFS 0.25-degree horizontal grid is tens of kilometres and cannot resolve building wakes, small islands, local coastal jets or terrain-scale flow.
 
-The script uses only the Python standard library. It:
+ECMWF IFS 0.1-degree GRIB2 is retained as the next independent model adapter. Its open-data licence permits commercial use and redistribution with CC-BY-4.0 attribution. The 0.1-degree product is published about two hours after the 0.25-degree product and is split into surface and pressure-level files. Official documentation: https://www.ecmwf.int/en/forecasts/datasets/open-data
 
-1. constructs a bounded HTTPS request for one forecast hour and a selected geographic rectangle;
-2. requests only U/V wind components and selected above-ground levels;
-3. sets a descriptive User-Agent and request timeout;
-4. enforces a configurable maximum download size;
-5. writes to a temporary `.part` file, checks the GRIB2 edition marker and final `7777` marker, then atomically renames the payload;
-6. emits a JSON manifest with cycle, forecast hour, bounding box, requested variables/levels, retrieval time, byte count and SHA-256;
-7. labels the result `LIVE_MODEL_DATA_UNDECODED`, with `decode_status=NOT_PERFORMED` and `flight_use_status=NOT_APPROVED`.
+## 2. Runtime integration added
 
-The probe does **not** decode meteorological values, interpolate a route, validate forecast quality, or authorize a flight.
+Files:
+- `qt/BlueSkyPRO-HMI/src/WeatherDataService.h`
+- `qt/BlueSkyPRO-HMI/src/WeatherDataService.cpp`
+- `qt/BlueSkyPRO-HMI/tests/WeatherDataServiceTest.cpp`
 
-### Offline contract test
+The service is registered in the application QML context as `weatherDataService`.
 
-Run from the repository root:
+Capabilities:
+1. Builds a bounded NOMADS GRIB Filter URL for GFS 0.25.
+2. Requests only UGRD/VGRD and explicitly selected AGL levels.
+3. Uses Qt Network asynchronously; it does not block the UI thread.
+4. Limits a single response to 256 MiB.
+5. Writes to a `.part` file and publishes the completed GRIB2 atomically.
+6. Validates GRIB edition 2 signature and terminal `7777` marker.
+7. Stores a JSON manifest containing model cycle, forecast hour, bounding box, levels, retrieval timestamp, size and SHA-256.
+8. Reuses a previously downloaded matching file from the local cache.
+9. Rejects unsupported heights and invalid forecast-hour steps rather than silently substituting data.
+10. Exposes progress, ready, error and cancellation signals.
+
+Example QML call:
+
+```qml
+weatherDataService.requestWindSubset(
+    "20261107", "12", 6,
+    96.0, 5.0, 100.0, 10.0,
+    ["10", "50", "100"]
+)
+```
+
+The date and cycle above are an example only. Production scheduling must select a currently published model cycle and requested forecast leads dynamically.
+
+## 3. Current data contract and flight-use gate
+
+The service currently performs **acquisition and container validation only**. It does not decode the GRIB fields into meteorological values. Manifest fields:
+- `classification = LIVE_MODEL_DATA_UNDECODED`
+- `decode_status = NOT_PERFORMED`
+- `optimizer_use_status = BLOCKED_UNTIL_DECODED_AND_QC_PASSED`
+
+Therefore, the downloaded file is not yet passed into `WindPerformanceTrajectory`. This is intentional: the existing optimizer consumes per-segment wind samples and must not receive synthetic, stale, missing or undecoded data.
+
+## 4. Next required integration steps
+
+1. Add ecCodes GRIB2 decoding and verify actual `UGRD`/`VGRD` messages, levels, grid coordinates, units and valid times.
+2. Implement spatial and vertical interpolation with explicit quality flags; preserve the model-level identity and vertical datum.
+3. Build a mission query from route bounds, altitude range and estimated segment-time window.
+4. Convert decoded wind fields into per-segment `WindSample` values for `WindPerformanceTrajectory`.
+5. Persist immutable forecast snapshot IDs so mission calculations are reproducible.
+6. Add a background refresh scheduler and a multi-lead request queue. Existing files must be reused; HMI and optimizer must not wait on network I/O.
+7. Add ECMWF IFS as an independent provider using the same normalized data contract.
+
+## 5. Verification
+
+Offline contract test:
 
 ```sh
-python tools/weather/noaa_gfs_grib_probe.py --self-test
+cmake -S qt/BlueSkyPRO-HMI -B build-weather
+cmake --build build-weather --target weather_data_service_test
+ctest --test-dir build-weather -R weather_data_service_contract --output-on-failure
 ```
 
-Expected output:
+The offline test checks URL construction, supported levels, forecast-step validation and GRIB2 container guards. It does not prove live NOAA availability or scientific decoding.
 
-```text
-SELF-TEST PASS: URL construction, selected levels/variables, bbox and GRIB2 guards.
-```
-
-This self-test makes no network request and is not evidence of live NOAA availability. GitHub Actions `probe-contract` passed (compile + offline self-test) for code commit `d00a9508281a1d95380a8d073836eab83891e807`: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/39310532160. Later commits only update the documented level set and operational records; the probe code SHA tested by this run is explicitly recorded here.
-
-### Live acquisition example
-
-Choose a GFS cycle that NOMADS currently lists as available. Example for a small Helsinki-area rectangle:
-
-```sh
-python tools/weather/noaa_gfs_grib_probe.py \
-  --date YYYYMMDD --cycle 12 --forecast-hour 6 \
-  --bbox 23 59 26 61 --levels 10,80,100 \
-  --output artifacts/weather/gfs-helsinki-f006.grib2
-```
-
-Replace `YYYYMMDD` with the date of the selected cycle in UTC. A failed request can mean the cycle is not yet published, the forecast hour is not available, or a selected level is absent. Check the current official NOMADS catalogue before retrying. Narrow the bounding box or request fewer levels if the size limit is reached.
-
-Successful acquisition should produce both:
-
-- `gfs-helsinki-f006.grib2`
-- `gfs-helsinki-f006.grib2.manifest.json`
-
-The manifest's retrieval timestamp is not the model initialization time. Preserve both.
-
-## 3. Required next verification
-
-1. Run the offline self-test with the supported Python version.
-2. Run a live download for a currently available cycle and save the resulting manifest.
-3. Inspect the payload with ECMWF ecCodes (for example, `grib_ls`) and verify that both `UGRD` and `VGRD` are present at each requested height.
-4. Check the decoded grid bounds, grid spacing, units, valid time, missing values and whether each height is truly above ground.
-5. Add deterministic tests using a small, redistributable GRIB2 fixture or a mocked transport; CI must not depend on a live NOAA endpoint.
-6. Only after those checks, design the C++ provider/decoder boundary and route-time-height interpolation contract.
-
-## 4. Safety and scientific limits
-
-- A GRIB2 signature check proves only container plausibility, not meteorological correctness.
-- GFS 0.25-degree grid spacing is on the order of tens of kilometres; it does not resolve building wakes, wires, tree lines, terrain-induced local flow or small-scale gusts.
-- AGL levels in the weather model must not be confused with the BlueSky route's barometric altitude or altitude above a terrain datum without explicit vertical-datum conversion.
-- Missing, stale, incomplete or undecoded data must remain unavailable to operational route/energy calculations.
-- Forecast data and synthetic Virtual Flight fixtures must remain separate and explicitly classified.
-- NOAA's operational availability and the current cycle's exact field inventory must be checked at retrieval time. Do not hard-code a cycle as permanently available.
-
-## 5. References
-
-- NOAA/NCEP GFS 0.25-degree GRIB filter: https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl
-- NOMADS field/level and forecast-hour mapping: https://nomads.ncep.noaa.gov/info.php?page=opendap_grib_migration
-- NOAA GFS documentation/catalogue: https://www.nco.ncep.noaa.gov/pmb/products/gfs/
-- ecCodes: https://confluence.ecmwf.int/display/ECC/
+A live download should be performed from a network-enabled Windows or CI runner using a currently published date/cycle and a small mission-area bounding box. After download, run `grib_ls` or equivalent ecCodes inspection and confirm both U/V fields at each requested AGL level before enabling optimizer consumption.
