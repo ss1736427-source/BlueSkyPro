@@ -18,7 +18,7 @@ class WeatherDataService final : public QObject
     Q_PROPERTY(QString state READ state NOTIFY stateChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
     Q_PROPERTY(QString cacheDirectory READ cacheDirectory CONSTANT)
-    Q_PROPERTY(QString lastDownloadedFile READ lastDownloadedFile NOTIFY forecastReady)
+    Q_PROPERTY(QString lastDownloadedFile READ lastDownloadedFile NOTIFY lastDownloadedFileChanged)
 
 public:
     explicit WeatherDataService(QObject *parent = nullptr);
@@ -56,6 +56,7 @@ public:
 signals:
     void stateChanged();
     void lastErrorChanged();
+    void lastDownloadedFileChanged();
     void progressChanged(qint64 receivedBytes, qint64 maximumBytes);
     void forecastReady(const QString &filePath, const QVariantMap &manifest);
     void downloadFailed(const QString &reason);
