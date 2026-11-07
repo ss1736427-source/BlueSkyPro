@@ -65,39 +65,39 @@ QUrl WeatherDataService::buildRequestUrl(const QString &dateUtc,
     }
     if (cycleUtc != QLatin1String("00") && cycleUtc != QLatin1String("06")
         && cycleUtc != QLatin1String("12") && cycleUtc != QLatin1String("18")) {
-        setError(error, QStringLiteral("cycleUtc must be 00, 06, 12 or 18 UTC"));
+        assignError(error, QStringLiteral("cycleUtc must be 00, 06, 12 or 18 UTC"));
         return {};
     }
     if (forecastHour < 0 || forecastHour > 384
         || (forecastHour > 120 && forecastHour % 3 != 0)) {
-        setError(error, QStringLiteral("forecastHour must be 0..120 hourly or a 3-hour step through 384"));
+        assignError(error, QStringLiteral("forecastHour must be 0..120 hourly or a 3-hour step through 384"));
         return {};
     }
     const double values[] = {west, south, east, north};
     for (double value : values) {
         if (!std::isfinite(value)) {
-            setError(error, QStringLiteral("bounding box values must be finite"));
+            assignError(error, QStringLiteral("bounding box values must be finite"));
             return {};
         }
     }
     if (west < -180.0 || east > 180.0 || west >= east
         || south < -90.0 || north > 90.0 || south >= north) {
-        setError(error, QStringLiteral("invalid WGS84 bounding box; antimeridian-crossing boxes are not supported"));
+        assignError(error, QStringLiteral("invalid WGS84 bounding box; antimeridian-crossing boxes are not supported"));
         return {};
     }
     if (east - west > 30.0 || north - south > 30.0) {
-        setError(error, QStringLiteral("requested region exceeds the 30-degree safety limit"));
+        assignError(error, QStringLiteral("requested region exceeds the 30-degree safety limit"));
         return {};
     }
     if (levelsAglM.isEmpty()) {
-        setError(error, QStringLiteral("at least one AGL level is required"));
+        assignError(error, QStringLiteral("at least one AGL level is required"));
         return {};
     }
 
     QStringList levels;
     for (const QString &level : levelsAglM) {
         if (!kSupportedAglLevels.contains(level) || levels.contains(level)) {
-            setError(error, QStringLiteral("unsupported or duplicate AGL level: %1").arg(level));
+            assignError(error, QStringLiteral("unsupported or duplicate AGL level: %1").arg(level));
             return {};
         }
         levels.append(level);
@@ -130,21 +130,21 @@ bool WeatherDataService::isValidGrib2File(const QString &path, QString *error)
 {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
-        setError(error, QStringLiteral("cannot open downloaded file"));
+        assignError(error, QStringLiteral("cannot open downloaded file"));
         return false;
     }
     if (file.size() < 20) {
-        setError(error, QStringLiteral("GRIB2 payload is too small"));
+        assignError(error, QStringLiteral("GRIB2 payload is too small"));
         return false;
     }
     const QByteArray header = file.read(8);
     if (header.size() != 8 || header.left(4) != QByteArrayLiteral("GRIB")
         || static_cast<unsigned char>(header.at(7)) != 2) {
-        setError(error, QStringLiteral("response is not a GRIB edition 2 payload"));
+        assignError(error, QStringLiteral("response is not a GRIB edition 2 payload"));
         return false;
     }
     if (!file.seek(file.size() - 4) || file.read(4) != QByteArrayLiteral("7777")) {
-        setError(error, QStringLiteral("GRIB2 end marker is missing; payload may be truncated"));
+        assignError(error, QStringLiteral("GRIB2 end marker is missing; payload may be truncated"));
         return false;
     }
     return true;
@@ -318,12 +318,12 @@ bool WeatherDataService::writeManifest(const QJsonObject &manifest, QString *err
 {
     QSaveFile file(m_manifestPath);
     if (!file.open(QIODevice::WriteOnly)) {
-        setError(error, QStringLiteral("cannot create weather manifest"));
+        assignError(error, QStringLiteral("cannot create weather manifest"));
         return false;
     }
     file.write(QJsonDocument(manifest).toJson(QJsonDocument::Indented));
     if (!file.commit()) {
-        setError(error, QStringLiteral("cannot atomically publish weather manifest"));
+        assignError(error, QStringLiteral("cannot atomically publish weather manifest"));
         return false;
     }
     return true;
