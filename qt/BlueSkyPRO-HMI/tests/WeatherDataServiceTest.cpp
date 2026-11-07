@@ -29,7 +29,7 @@ int main()
     error.clear();
     assert(!WeatherDataService::buildRequestUrl(
         QStringLiteral("20261107"), QStringLiteral("12"), 121,
-        96.0, 5.0, 100.0, 10.0, {QStringLiteral("50")}, &error).isValid());
+        96.0, 5.0, 100.0, 10.0, {QStringLiteral("50")}, &error).isEmpty());
     assert(!error.isEmpty());
 
     error.clear();
@@ -42,7 +42,7 @@ int main()
     const QString validPath = temp.filePath(QStringLiteral("valid.grib2"));
     QFile valid(validPath);
     assert(valid.open(QIODevice::WriteOnly));
-    valid.write(QByteArrayLiteral("GRIB") + QByteArray(3, '\\0') + QByteArray(1, '\\2')
+    valid.write(QByteArrayLiteral("GRIB") + QByteArray(3, char(0)) + QByteArray(1, char(2))
                 + QByteArrayLiteral("payload") + QByteArrayLiteral("7777"));
     valid.close();
     assert(WeatherDataService::isValidGrib2File(validPath));
