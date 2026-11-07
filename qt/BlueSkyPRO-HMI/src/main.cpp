@@ -17,6 +17,7 @@
 #include "TileCacheManager.h"
 #include "CredentialVault.h"
 #include "FaaNmsClient.h"
+#include "WeatherDataService.h"
 #include <QQmlApplicationEngine>
 #include <QUrl>
 #include <QString>
@@ -108,6 +109,10 @@ int main(int argc, char *argv[])
     FaaNmsClient faaNmsClient(&credentialVault);
     writeStartupLog(QStringLiteral("CHECKPOINT: after FaaNmsClient constructor"));
 
+    writeStartupLog(QStringLiteral("CHECKPOINT: before WeatherDataService constructor"));
+    WeatherDataService weatherDataService;
+    writeStartupLog(QStringLiteral("CHECKPOINT: after WeatherDataService constructor"));
+
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("missionTemplateResolver"), &missionTemplateResolver);
     engine.rootContext()->setContextProperty(QStringLiteral("virtualFlightAssessmentBridge"), &virtualFlightAssessmentBridge);
@@ -119,6 +124,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("tileCacheManager"), &tileCacheManager);
     engine.rootContext()->setContextProperty(QStringLiteral("credentialVault"), &credentialVault);
     engine.rootContext()->setContextProperty(QStringLiteral("faaNmsClient"), &faaNmsClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("weatherDataService"), &weatherDataService);
     writeStartupLog(QStringLiteral("CHECKPOINT: C++ context properties configured"));
 
     const QString yandexMapsApiKey = qEnvironmentVariable("BLUESKY_YANDEX_MAPS_API_KEY");
