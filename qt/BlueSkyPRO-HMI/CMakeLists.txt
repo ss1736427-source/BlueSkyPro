@@ -63,6 +63,8 @@ qt_add_executable(appBlueSkyPRO
     src/CredentialVault.h
     src/FaaNmsClient.cpp
     src/FaaNmsClient.h
+    src/WeatherDataService.cpp
+    src/WeatherDataService.h
     src/NotamGeometryEngine.cpp
     src/NotamGeometryEngine.h
 )
@@ -210,3 +212,12 @@ if(WIN32)
 else()
     add_test(NAME credential_vault_fail_closed COMMAND credential_vault_test)
 endif()
+
+add_executable(weather_data_service_test
+    tests/WeatherDataServiceTest.cpp
+    src/WeatherDataService.cpp
+    src/WeatherDataService.h
+)
+target_include_directories(weather_data_service_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(weather_data_service_test PRIVATE Qt6::Core Qt6::Network)
+add_test(NAME weather_data_service_contract COMMAND weather_data_service_test)
