@@ -9,7 +9,7 @@
 namespace bluesky::weather {
 
 enum class CoverageComponentKind {
-    AreaOfOperations,
+    MissionGeometry,
     Route,
     PlannedOrigin
 };
