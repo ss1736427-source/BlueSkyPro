@@ -16,10 +16,11 @@ bool writeWindMessage(const char* path, const char* shortName,
     if (!handle) return false;
 
     std::size_t nameLength = std::string(shortName).size();
+    std::size_t levelTypeLength = std::string("heightAboveGround").size();
     const bool metadataOk =
         codes_set_string(handle, "shortName", shortName, &nameLength) == CODES_SUCCESS &&
         codes_set_string(handle, "typeOfLevel", "heightAboveGround",
-                         nullptr) == CODES_SUCCESS &&
+                         &levelTypeLength) == CODES_SUCCESS &&
         codes_set_long(handle, "level", 50) == CODES_SUCCESS &&
         codes_set_long(handle, "dataDate", 20261108) == CODES_SUCCESS &&
         codes_set_long(handle, "dataTime", 600) == CODES_SUCCESS &&
