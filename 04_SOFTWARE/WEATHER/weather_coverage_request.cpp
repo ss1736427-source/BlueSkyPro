@@ -119,10 +119,12 @@ WeatherCoverageRequestBuildResult WeatherCoverageRequestBuilder::build(
 
     double south = 0.0, west = 0.0, north = 0.0, east = 0.0;
     bool hasCoordinate = false;
+    bool hasAreaGeometry = false;
 
     for (const auto& geometry : mission.geometry_objects) {
         if (!isAreaGeometry(geometry.geometry_type))
             continue;
+        hasAreaGeometry = true;
         if (geometry.geometry_id.empty() || geometry.version < 1) {
             errors.emplace_back("AREA_GEOMETRY_ID_OR_VERSION_INVALID");
             continue;
@@ -231,6 +233,9 @@ WeatherCoverageRequestBuildResult WeatherCoverageRequestBuilder::build(
                 errors.emplace_back("BUFFER_EXCEEDS_SUPPORTED_GEOGRAPHIC_BOUNDS");
         }
     }
+
+    if (hasAreaGeometry && options.required_area_altitudes_agl_m.empty())
+        errors.emplace_back("AREA_AGL_ALTITUDE_LEVELS_REQUIRED");
 
     request.required_altitudes_agl_m.assign(altitudeLevels.begin(), altitudeLevels.end());
     if (request.required_altitudes_agl_m.empty())
