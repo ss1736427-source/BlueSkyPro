@@ -1,4 +1,5 @@
 #include "grib2_decoder.hpp"
+#include "grib2_weather_pipeline.hpp"
 
 #include <eccodes.h>
 
@@ -63,6 +64,46 @@ int main()
         assert(std::abs(value - 4.0) < 1e-6);
     for (double value : fields[0].northward_mps)
         assert(std::abs(value - 2.0) < 1e-6);
+
+    {
+        const auto& grid = fields.front();
+        const std::size_t y = grid.rows / 2;
+        const std::size_t x = grid.columns / 2;
+        const double lat0 = grid.latitudes_deg[y];
+        const double lat1 = grid.latitudes_deg[y + 1];
+        const double lon = grid.longitudes_deg[x];
+
+        bluesky::planning::Route route;
+        route.lineage.route_id = "fixture-route";
+        route.lineage.route_version = "1";
+        route.waypoints = {
+            {"A", {lat0, lon}, 50.0, true, bluesky::planning::AltitudeReference::AGL},
+            {"B", {lat1, lon}, 50.0, true, bluesky::planning::AltitudeReference::AGL}
+        };
+        route.segments = {{"SEG-1", "A", "B", 0.0, 0.0}};
+
+        bluesky::planning::TrajectoryPerformanceInput input;
+        input.uav_id = "fixture-uav";
+        input.configuration_version = "cfg-1";
+        input.performance_version = "perf-1";
+        input.cruise_airspeed_mps = 15.0;
+        input.climb_rate_mps = 3.0;
+        input.descent_rate_mps = 3.0;
+        input.wind_tolerance_mps = 30.0;
+        input.energy_per_horizontal_meter_wh = 0.0001;
+        input.energy_per_climb_meter_wh = 0.01;
+        input.energy_per_descent_meter_wh = 0.01;
+        input.usable_energy_wh = 1000.0;
+        input.reserve_requirement_wh = 10.0;
+
+        const auto pipeline = bluesky::weather::Grib2WeatherPipeline::evaluateFile(
+            path, route, "fixture-snapshot", "fixture-v1", input, "fixture-calc-v1");
+        assert(pipeline.decode_succeeded);
+        assert(pipeline.evaluation.weather_ready);
+        assert(pipeline.evaluation.weather_error.empty());
+        assert(pipeline.evaluation.trajectory.status == bluesky::planning::TrajectoryStatus::Feasible);
+        assert(pipeline.evaluation.trajectory.wind_snapshot_id == "fixture-snapshot");
+    }
 
     fields.clear();
     assert(!bluesky::weather::Grib2Decoder::decodeWindFile(
