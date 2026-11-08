@@ -34,6 +34,7 @@ set_source_files_properties("${MAPLIBRE_CSS}" PROPERTIES QT_RESOURCE_ALIAS "mapl
 qt_standard_project_setup(REQUIRES 6.5)
 
 # Use the shared planning library as the single implementation of planning logic.
+set(BLUESKY_BUILD_PLANNING_TESTS OFF CACHE BOOL "" FORCE)
 # EXCLUDE_FROM_ALL keeps standalone planning test executables out of the HMI default build.
 add_subdirectory(
     ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/PLANNING
