@@ -76,12 +76,12 @@ std::size_t nearestAxisIndex(const std::vector<double>& axis, double value)
 
 bool readMessage(codes_handle* h, Message& m, std::string* error)
 {
-    long edition = 0, level = 0, ni = 0, nj = 0;
+    long edition = 0, level = 0, ni = 0, nj = 0, validity_date = 0, validity_time = 0;
     if (!getLong(h, "edition", edition) || edition != 2 ||
         !getLong(h, "level", level) ||
         !getLong(h, "Ni", ni) || !getLong(h, "Nj", nj) ||
-        !getLong(h, "validityDate", reinterpret_cast<long&>(m.date)) ||
-        !getLong(h, "validityTime", reinterpret_cast<long&>(m.time))) {
+        !getLong(h, "validityDate", validity_date) ||
+        !getLong(h, "validityTime", validity_time)) {
         setError(error, "GRIB message is missing required edition, level, grid or valid-time metadata");
         return false;
     }
@@ -106,6 +106,8 @@ bool readMessage(codes_handle* h, Message& m, std::string* error)
         return false;
     }
     m.level = static_cast<int>(level);
+    m.date = static_cast<int>(validity_date);
+    m.time = static_cast<int>(validity_time);
     m.ni = ni;
     m.nj = nj;
 
