@@ -112,7 +112,7 @@ bool readMessage(codes_handle* h, Message& m, std::string* error)
     m.nj = nj;
 
     int iterator_error = CODES_SUCCESS;
-    codes_grib_iterator* iterator = codes_grib_iterator_new(h, 0, &iterator_error);
+    codes_iterator* iterator = codes_grib_iterator_new(h, 0, &iterator_error);
     if (!iterator || iterator_error != CODES_SUCCESS) {
         setError(error, "ecCodes cannot create a regular-grid iterator");
         return false;
@@ -122,8 +122,10 @@ bool readMessage(codes_handle* h, Message& m, std::string* error)
     raw_lat.reserve(static_cast<std::size_t>(ni * nj));
     raw_lon.reserve(static_cast<std::size_t>(ni * nj));
     raw_values.reserve(static_cast<std::size_t>(ni * nj));
-    double lat = 0.0, lon = 0.0, value = 0.0, missing = 9.999e20;
-    codes_get_double(h, "missingValue", &missing);
+    double lat = 0.0, lon = 0.0, value = 0.0, missing = 1.0e36;
+    long bitmap_present = 0;
+    if (getLong(h, "bitmapPresent", bitmap_present) && bitmap_present != 0)
+        codes_set_double(h, "missingValue", missing);
     while (codes_grib_iterator_next(iterator, &lat, &lon, &value)) {
         raw_lat.push_back(lat);
         raw_lon.push_back(normalizeLongitude(lon));
