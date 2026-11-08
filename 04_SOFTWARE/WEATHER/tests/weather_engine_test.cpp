@@ -1,5 +1,6 @@
 #include "weather_field.hpp"
 #include "route_wind_adapter.hpp"
+#include "weather_trajectory_calculator.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -83,6 +84,31 @@ int main()
     assert(std::abs(input.wind_samples[0].north_mps - 3.5) < 1e-9);
     assert(std::abs(input.wind_samples[0].east_mps - 5.5) < 1e-9);
     assert(input.wind_samples[0].up_mps == 0.0);
+
+    const auto evaluated = WeatherTrajectoryCalculator::evaluate(
+        route, {low, mid, high, top}, "snapshot-20261108-06", "gfs-0p25-v1",
+        [] {
+            TrajectoryPerformanceInput p;
+            p.uav_id = "uav-1";
+            p.configuration_version = "cfg-1";
+            p.performance_version = "perf-1";
+            p.cruise_airspeed_mps = 15.0;
+            p.climb_rate_mps = 3.0;
+            p.descent_rate_mps = 3.0;
+            p.wind_tolerance_mps = 30.0;
+            p.energy_per_horizontal_meter_wh = 0.001;
+            p.energy_per_climb_meter_wh = 0.01;
+            p.energy_per_descent_meter_wh = 0.01;
+            p.usable_energy_wh = 100.0;
+            p.reserve_requirement_wh = 10.0;
+            return p;
+        }(),
+        "weather-trajectory-test-v1");
+    assert(evaluated.weather_ready);
+    assert(evaluated.weather_error.empty());
+    assert(evaluated.trajectory.status == TrajectoryStatus::Feasible);
+    assert(evaluated.trajectory.wind_snapshot_id == "snapshot-20261108-06");
+    assert(evaluated.trajectory.wind_snapshot_version == "gfs-0p25-v1");
 
     const auto oldSnapshot = input.wind_snapshot_id;
     route.waypoints[1].altitude_reference = AltitudeReference::Unknown;
