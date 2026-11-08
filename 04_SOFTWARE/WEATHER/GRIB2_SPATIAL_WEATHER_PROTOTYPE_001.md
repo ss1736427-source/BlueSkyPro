@@ -34,6 +34,8 @@ New files:
 - `grib2_decoder.hpp/.cpp`: optional ecCodes C API decoder.
 - `wind_interpolator.cpp`: bilinear horizontal interpolation and bounded vertical interpolation.
 - `route_wind_adapter.hpp/.cpp`: route-to-`WindSample` conversion.
+- `weather_trajectory_calculator.hpp/.cpp`: fail-closed preparation followed by the existing `WindPerformanceTrajectory::calculate`.
+- `grib2_weather_pipeline.hpp/.cpp`: end-to-end GRIB2 file → decoder → interpolation/QC → route samples → trajectory calculation.
 
 Decoder acceptance rules:
 - GRIB edition 2.
@@ -66,7 +68,7 @@ The route adapter:
 - sets `up_mps = 0`, because this product request does not provide vertical wind;
 - sets the wind snapshot ID/version only when every segment sample passes.
 
-This is an adapter API, not yet an active HMI/optimizer runtime connection. Temporal interpolation and per-segment forecast-time sampling are not implemented. The existing `WindPerformanceTrajectory` physics and wind-tolerance logic have not been changed.
+The `Grib2WeatherPipeline` is a callable core API that connects a GRIB2 file to `WindPerformanceTrajectory`. The new sources are linked into the `bluesky_planning` CMake library. The Qt HMI acquisition service still does not automatically invoke this pipeline; application-level orchestration and ecCodes runtime packaging remain follow-up work. Temporal interpolation and per-segment forecast-time sampling are not implemented. The existing `WindPerformanceTrajectory` physics and wind-tolerance logic have not been changed.
 
 ## 5. Build and tests
 
@@ -84,7 +86,7 @@ The new workflow `.github/workflows/weather-grib2-engine.yml` performs this buil
 **Verification still required before operational use:**
 1. Confirm CI build/test result for PR #60.
 2. Decode a real current NOAA GFS GRIB2 download and inspect its complete message inventory with `grib_ls` / `grib_dump`.
-3. Add a redistributable GRIB2 fixture containing real U/V AGL message pairs; test scanning modes, missing bitmap values, date/time and level pairing.
+3. Decode a current NOAA GFS GRIB2 payload and validate U/V AGL message pairs, scanning modes, missing bitmap values, date/time and level pairing against `grib_ls` / `grib_dump`. The CI fixture is generated with ecCodes and is not a substitute for an operational NOAA sample.
 4. Validate decoder output against ecCodes command-line output for selected grid cells.
 5. Add Windows/MSVC ecCodes packaging and runtime DLL deployment; the current weather-engine CI validates Linux only.
 6. Add temporal interpolation, mission-time sampling and snapshot lineage integration.
