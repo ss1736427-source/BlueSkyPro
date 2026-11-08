@@ -97,5 +97,18 @@ int main()
         mission, route, invalidBuffer);
     assert(!bufferFailure.valid);
 
+    auto missingAreaLevels = options;
+    missingAreaLevels.required_area_altitudes_agl_m.clear();
+    const auto areaLevelFailure = WeatherCoverageRequestBuilder::build(
+        mission, route, missingAreaLevels);
+    assert(!areaLevelFailure.valid);
+
+    auto datelineRoute = route;
+    datelineRoute.waypoints.front().position.longitude_deg = 179.9;
+    datelineRoute.waypoints.back().position.longitude_deg = -179.9;
+    const auto datelineFailure = WeatherCoverageRequestBuilder::build(
+        mission, datelineRoute, options);
+    assert(!datelineFailure.valid);
+
     return 0;
 }
