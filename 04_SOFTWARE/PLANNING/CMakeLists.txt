@@ -14,6 +14,7 @@ add_library(bluesky_planning
     parameter_configuration_runtime.cpp
     solvers/astar_solver.cpp
     solvers/dijkstra_solver.cpp
+    coverage_path_planner.cpp
     orchestrator/algorithm_orchestrator.cpp
     benchmarks/solver_benchmark_runner.cpp
     adapter/universal_adapter_registry.cpp
@@ -62,6 +63,9 @@ target_compile_features(bluesky_planning PUBLIC cxx_std_20)
 option(BLUESKY_BUILD_PLANNING_TESTS "Build standalone planning test executables" ON)
 if(BLUESKY_BUILD_PLANNING_TESTS)
     enable_testing()
+
+add_executable(coverage_path_planner_test coverage_path_planner_test.cpp)
+target_link_libraries(coverage_path_planner_test PRIVATE bluesky_planning)
 
 add_executable(astar_dijkstra_benchmark
     tests/astar_dijkstra_benchmark.cpp
@@ -244,6 +248,7 @@ add_executable(capability_execution_integration_test
 )
 target_link_libraries(capability_execution_integration_test PRIVATE bluesky_planning)
 
+    add_test(NAME coverage_path_planner_test COMMAND coverage_path_planner_test)
     add_test(NAME astar_dijkstra_benchmark COMMAND astar_dijkstra_benchmark)
     add_test(NAME orchestrator_integration_test COMMAND orchestrator_integration_test)
     add_test(NAME orchestrator_route_validation_test COMMAND orchestrator_route_validation_test)
