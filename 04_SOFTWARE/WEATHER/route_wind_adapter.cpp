@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <unordered_map>
+#include <utility>
 
 namespace bluesky::weather {
 namespace {
@@ -72,6 +73,10 @@ bool RouteWindAdapter::apply(const bluesky::planning::Route& route,
         }
         const auto& from = *fromIt->second;
         const auto& to = *toIt->second;
+        if (std::abs(to.position.longitude_deg - from.position.longitude_deg) > 180.0) {
+            setError(error, "route segment crosses the antimeridian, which this weather grid does not support");
+            return false;
+        }
         const double latitude = (from.position.latitude_deg + to.position.latitude_deg) * 0.5;
         const double longitude = from.position.longitude_deg +
                                  (to.position.longitude_deg - from.position.longitude_deg) * 0.5;
