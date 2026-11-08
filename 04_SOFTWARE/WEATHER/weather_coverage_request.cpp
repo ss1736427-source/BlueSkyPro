@@ -229,8 +229,12 @@ WeatherCoverageRequestBuildResult WeatherCoverageRequestBuilder::build(
             request.bounds.west_deg = west - longitudeBuffer;
             request.bounds.east_deg = east + longitudeBuffer;
             if (request.bounds.south_deg < -90.0 || request.bounds.north_deg > 90.0
-                || request.bounds.west_deg < -180.0 || request.bounds.east_deg > 180.0)
+                || request.bounds.west_deg < -180.0 || request.bounds.east_deg > 180.0) {
                 errors.emplace_back("BUFFER_EXCEEDS_SUPPORTED_GEOGRAPHIC_BOUNDS");
+            } else if (request.bounds.east_deg - request.bounds.west_deg > 30.0
+                       || request.bounds.north_deg - request.bounds.south_deg > 30.0) {
+                errors.emplace_back("REQUEST_EXCEEDS_NOAA_30_DEGREE_REGION_LIMIT");
+            }
         }
     }
 
