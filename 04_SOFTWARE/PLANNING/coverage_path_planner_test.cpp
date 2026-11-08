@@ -10,7 +10,7 @@ int main(){
  assert(std::abs(r.metrics.forward_trigger_spacing_m-r.metrics.footprint_height_m*0.3)<1e-6);
  assert(std::abs(r.metrics.estimated_coverage_leg_time_s-r.metrics.estimated_coverage_leg_length_m/10)<1e-6);
  auto repeat=CoveragePathPlanner::generate(in);assert(repeat.valid&&repeat.waypoints.size()==r.waypoints.size());
- for(size_t i=0;i<r.waypoints.size();++i){assert(r.waypoints[i].latitude_deg==repeat.waypoints[i].latitude_deg);assert(r.waypoints[i].longitude_deg==repeat.waypoints[i].longitude_deg);}
+ for(std::size_t i=0;i<r.waypoints.size();++i){assert(r.waypoints[i].latitude_deg==repeat.waypoints[i].latitude_deg);assert(r.waypoints[i].longitude_deg==repeat.waypoints[i].longitude_deg);}
  auto bad=in;bad.camera.side_overlap_percent=100;assert(!CoveragePathPlanner::generate(bad).valid);
  auto bow=in;bow.area_of_interest={{0,0},{0.002,0.002},{0,0.002},{0.002,0}};assert(!CoveragePathPlanner::generate(bow).valid);
  auto hole=in;hole.exclusion_areas={{{0.0005,0.0005},{0.0005,0.0015},{0.0015,0.0015},{0.0015,0.0005}}};
