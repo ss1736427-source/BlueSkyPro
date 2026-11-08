@@ -20,7 +20,7 @@ struct CoverageCoordinate {
 };
 
 struct CoverageComponent {
-    CoverageComponentKind kind{CoverageComponentKind::AreaOfOperations};
+    CoverageComponentKind kind{CoverageComponentKind::MissionGeometry};
     std::string source_id;
     std::string source_version;
     std::string geometry_type;
