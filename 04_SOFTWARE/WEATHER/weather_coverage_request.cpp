@@ -38,11 +38,26 @@ bool validCoordinate(double latitude, double longitude)
         && longitude >= -180.0 && longitude <= 180.0;
 }
 
-bool isAreaGeometry(const std::string& type)
+bool isWeatherGeometry(const std::string& type)
 {
     return type == "POLYGON_AOI"
         || type == "COVERAGE_GRID"
-        || type == "SEARCH_AREA";
+        || type == "SEARCH_AREA"
+        || type == "CORRIDOR"
+        || type == "ORBIT"
+        || type == "WAYPOINT_ROUTE"
+        || type == "DELIVERY_ROUTE"
+        || type == "INSPECTION_POINTS"
+        || type == "OBSERVATION_POINTS";
+}
+
+std::size_t minimumWeatherGeometryVertices(const std::string& type)
+{
+    if (type == "INSPECTION_POINTS" || type == "OBSERVATION_POINTS")
+        return 1;
+    if (type == "CORRIDOR" || type == "WAYPOINT_ROUTE" || type == "DELIVERY_ROUTE")
+        return 2;
+    return 3;
 }
 
 void includeCoordinate(double latitude, double longitude,
@@ -119,12 +134,12 @@ WeatherCoverageRequestBuildResult WeatherCoverageRequestBuilder::build(
 
     double south = 0.0, west = 0.0, north = 0.0, east = 0.0;
     bool hasCoordinate = false;
-    bool hasAreaGeometry = false;
+    bool hasMissionGeometry = false;
 
     for (const auto& geometry : mission.geometry_objects) {
-        if (!isAreaGeometry(geometry.geometry_type))
+        if (!isWeatherGeometry(geometry.geometry_type))
             continue;
-        hasAreaGeometry = true;
+        hasMissionGeometry = true;
         if (geometry.geometry_id.empty() || geometry.version < 1) {
             errors.emplace_back("AREA_GEOMETRY_ID_OR_VERSION_INVALID");
             continue;
@@ -133,13 +148,13 @@ WeatherCoverageRequestBuildResult WeatherCoverageRequestBuilder::build(
             errors.emplace_back("AREA_GEOMETRY_CRS_UNSUPPORTED:" + geometry.geometry_id);
             continue;
         }
-        if (geometry.coordinates.size() < 3) {
-            errors.emplace_back("AREA_GEOMETRY_REQUIRES_THREE_VERTICES:" + geometry.geometry_id);
+        if (geometry.coordinates.size() < minimumWeatherGeometryVertices(geometry.geometry_type)) {
+            errors.emplace_back("MISSION_GEOMETRY_HAS_TOO_FEW_VERTICES:" + geometry.geometry_id);
             continue;
         }
 
         CoverageComponent component;
-        component.kind = CoverageComponentKind::AreaOfOperations;
+        component.kind = CoverageComponentKind::MissionGeometry;
         component.source_id = geometry.geometry_id;
         component.source_version = std::to_string(geometry.version);
         component.geometry_type = geometry.geometry_type;
@@ -238,8 +253,8 @@ WeatherCoverageRequestBuildResult WeatherCoverageRequestBuilder::build(
         }
     }
 
-    if (hasAreaGeometry && options.required_area_altitudes_agl_m.empty())
-        errors.emplace_back("AREA_AGL_ALTITUDE_LEVELS_REQUIRED");
+    if (hasMissionGeometry && options.required_area_altitudes_agl_m.empty())
+        errors.emplace_back("MISSION_GEOMETRY_AGL_ALTITUDE_LEVELS_REQUIRED");
 
     request.required_altitudes_agl_m.assign(altitudeLevels.begin(), altitudeLevels.end());
     if (request.required_altitudes_agl_m.empty()) {
