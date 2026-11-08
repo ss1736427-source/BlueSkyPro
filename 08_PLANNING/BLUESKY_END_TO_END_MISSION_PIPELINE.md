@@ -1,0 +1,131 @@
+# BlueSky PRO — End-to-End Mission Planning Pipeline
+
+**Status:** IMPLEMENTATION CONTROL DOCUMENT — P0
+
+## 1. Required behaviour
+
+The operator describes the intended work and supplies or confirms the operating area. BlueSky PRO must interpret the task, recommend templates, request missing information, build a canonical versioned mission, acquire mission-scoped inputs, decompose the work, resolve algorithm capabilities, calculate candidates, independently validate them, rank admissible candidates and present the selected plan with evidence and decision trace.
+
+A recommendation is not a plan. A calculated candidate is not a validated mission. A validated mission is not an authorization to fly.
+
+## 2. End-to-end state machine
+
+```text
+TASK_DRAFT -> INTENT_ANALYSIS -> CLARIFICATION_REQUIRED | INTENT_CONFIRMED
+-> MISSION_MODEL_BUILD -> INPUT_ACQUISITION -> INPUT_VALIDATION
+-> DECOMPOSITION -> CAPABILITY_RESOLUTION -> CANDIDATE_CALCULATION
+-> INDEPENDENT_VALIDATION -> OBJECTIVE_RANKING -> OPERATOR_REVIEW
+-> MISSION_PACKAGE_VALIDATION -> AUTHORIZATION -> READY_FOR_TRANSFER
+
+Missing/invalid mandatory dependency -> NEEDS_INPUT or BLOCKED.
+Changed dependency -> invalidate affected downstream calculations.
+```
+
+## 3. Verified integration baseline
+
+| Stage | Existing component | Actual gap |
+|---|---|---|
+| Task input | qt/BlueSkyPRO-HMI/qml/TaskCreation.ui.qml | Captures free text and template choices; AUTO path does not submit a canonical planning request |
+| Template suggestion | MissionTemplateResolver | Explainable lexical baseline, not semantic intent understanding |
+| Mission model | ManualMissionModelAdapter; 04_SOFTWARE/PLANNING/model/mission_model.hpp | Structural manual-geometry adapter only; reduced JSON representation |
+| Schema | 08_PLANNING/schemas/mission-model.schema.json | Schema and C++ Mission/adapter serialization require reconciliation |
+| Geometry | ManualGeometryBridge | Manual map geometry exists; AUTO task flow is not joined to the same aggregate |
+| Environment | WeatherDataService, FaaNmsClient and planning validators | No proven single immutable mission-scoped DEM/NOTAM/weather/wind snapshot assembled end-to-end |
+| Planning core | 04_SOFTWARE/PLANNING/orchestrator/algorithm_orchestrator.* | Exists in planning library, but HMI CMake does not link the full planning library |
+| Solvers | A*, Dijkstra and other planning components | A*/Dijkstra are graph route solvers, not coverage or 3D viewpoint planners |
+| Assessment | VirtualFlightAssessmentBridge | Current assessment uses synthetic airspace/NOTAM fixtures; not authoritative operational validation |
+| PlanningBridge | PlanningBridge | Process/JSON result bridge, not the planning engine |
+
+MainContent.qml currently records AUTO task text/template IDs and opens the workspace. The manual set handler builds a structurally valid model but explicitly leaves route generation disconnected and blocks completion. These are confirmed breaks in the user-visible chain.
+
+## 4. One canonical mission model
+
+AUTO and MANUAL entry modes must converge on one versioned mission aggregate containing:
+- original task description, normalized intent and intent-confirmation state;
+- mission identity/version, selected template IDs and objective-profile version;
+- typed AOI/route/corridor/inspection/search/delivery geometry with CRS, altitude reference and geometry version;
+- mandatory constraints separately from optimization preferences;
+- mission-scoped environment snapshot IDs/versions for DEM, airspace/NOTAM, weather/wind and obstacles;
+- vehicle and payload assignments with configuration versions;
+- required capabilities, solver versions and compute budgets;
+- candidates, route/trajectory/coverage and task-quality metrics;
+- uncertainty, validation findings, rejected-candidate reasons and provenance;
+- selected solution and rationale; package/authorization/execution references only at their respective later stages.
+
+The original user description is immutable source input. Derived fields must not replace it.
+
+## 5. Intent and clarification
+
+The lexical resolver may recommend templates but must not directly create a flight-ready mission. Intent analysis must preserve detected objectives, evidence, ambiguity, conflicting phrases, extracted entities/quantities/units, required geometry and equipment, missing inputs and operator confirmation.
+
+Compound tasks may create multiple dependent subtasks. For example, bridge inspection requires target extent/faces, observation requirements, sensor quality, stand-off constraints, altitude reference and a compatible aircraft/payload. If these are not known, the system asks for them rather than inventing them.
+
+## 6. Mission-scoped inputs
+
+Environment data must be bound to the AOI/route, expected execution time and selected vehicle. Each source records provider, retrieval time, valid interval, spatial coverage, CRS/vertical datum, units, version, completeness, freshness and quality. Each calculation uses an immutable snapshot identity. Refreshing weather, NOTAM, DEM, geometry, payload or vehicle configuration invalidates dependent results.
+
+Missing mandatory data blocks the affected capability. Missing optional data is disclosed and may lower quality. Unknown uncertainty is never treated as zero uncertainty.
+
+## 7. Decomposition and capability resolution
+
+Objective profiles generate typed subproblems. MT-01: AOI decomposition, sensor footprint/GSD, coverage tracks, constrained transit, sortie sequence. MT-02: surface model, viewpoints, visibility/occlusion, set cover, viewpoint routing. MT-03: asset requirements, viewpoints/evidence, visibility and route. MT-06: search prior, sensor detection model, search pattern and Bayesian update. MT-09: field zoning, operation-specific coverage and headland turns. MT-10: payload/vehicle compatibility, assignment, time windows, route and recovery.
+
+The capability registry selects compatible algorithms. The operator does not choose algorithms.
+
+## 8. Candidate and validation separation
+
+Every candidate must pass independent checks for geometry/altitude references, DEM/obstacles, current airspace/NOTAM, weather/wind, vehicle performance, payload/sensor suitability, energy/reserve/recovery, C2/navigation, timing/fleet separation and mission-specific coverage/evidence.
+
+A solver-reported FEASIBLE value is not independent validation. Hard constraints are gates. Only admissible candidates enter objective ranking. INFEASIBLE, UNCERTAIN, PARTIAL and FEASIBLE remain distinct.
+
+## 9. Operator workflow
+
+1. Describe task and define AOI/target.
+2. Review interpreted objective and recommended templates.
+3. Resolve missing inputs and check source freshness.
+4. Confirm vehicle/equipment compatibility.
+5. Observe calculation stages and blocked reasons.
+6. Compare candidates using mission-relevant metrics.
+7. Review selected route/coverage/3D and decision explanation.
+8. Review independent validation evidence.
+9. Proceed to separate mission-package and authorization gates.
+
+The operator may correct intent, geometry, vehicle assignment and preferences, but cannot waive mandatory safety constraints.
+
+## 10. First operational vertical slice
+
+Implement MT-01 mapping for one UAV, one polygon AOI and one configured camera before attempting all 13 planners.
+
+Controlled inputs: task text, AOI, UAV/payload configuration and versioned DEM/airspace/weather snapshots.
+
+Required output: mapping decomposition, coverage candidate, route/trajectory, GSD/overlap/coverage metrics, energy/time estimates, independent hard-gate report and provenance.
+
+This slice proves the interfaces among HMI, canonical model, environment services, registry, planning core and validation. MT-02 and MT-03 then reuse the same pipeline with domain-specific capabilities.
+
+## 11. Immediate implementation blockers
+
+1. Reconcile JSON Schema, C++ Mission and adapter serialization.
+2. Replace AUTO hand-off that only stores task text/template IDs with canonical task submission.
+3. Join AUTO task and MANUAL geometry into the same mission aggregate.
+4. Add a planning application service consuming a versioned Mission Model and returning structured stage results.
+5. Link the planning library to the application as a stable CMake target; do not duplicate source files across targets.
+6. Keep synthetic assessment as test-only; implement mission-scoped authoritative input adapters.
+7. Implement the capability registry and eligibility explanations.
+8. Implement MT-01 coverage and candidate evidence before claiming automatic mapping support.
+9. Add end-to-end tests for task-to-validated-candidate, missing/stale inputs and dependency changes.
+
+## 12. Acceptance criteria
+
+- One mission ID/version is traceable from task submission to selected candidate.
+- Original task, templates and objective profile are retained.
+- Geometry and environmental sources are scoped and versioned.
+- Capability eligibility is machine-readable and explainable.
+- Candidates are reproducible and independently validated.
+- Hard-gate failures cannot be overridden by soft scoring.
+- Missing inputs yield NEEDS_INPUT or BLOCKED.
+- Changing any dependency invalidates affected calculations.
+- No solver or template recommendation grants flight release.
+
+## 13. Status reporting rule
+
+Do not report the full chain as implemented until an automated end-to-end test demonstrates task description -> canonical model -> scoped inputs -> decomposition -> solver -> independent validation -> selected candidate. Architecture documents and isolated unit tests are not proof of operational planning.
