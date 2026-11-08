@@ -227,3 +227,38 @@ An objective profile implementation is acceptable when:
 7. environmental changes can alter effective priorities;
 8. the selected solution has a concise explainable operational rationale;
 9. the decision is reproducible and traceable.
+
+
+## 9. Mapping the 13 approved templates to objective profiles
+
+The operator-facing template ID remains stable. Objective profiles are reusable evaluation models and may be shared by several templates. The algorithm framework in `BLUESKY_TEMPLATE_ALGORITHM_FRAMEWORK.md` defines the reusable method combinations, inputs and acceptance evidence.
+
+| Template | Primary objective profile | Primary success measure | Main algorithm capabilities |
+|---|---|---|---|
+| MT-01 Mapping | Survey / mapping | AOI coverage, GSD and overlap | Cellular decomposition, coverage path planning, sortie sequencing |
+| MT-02 3D reconstruction | 3D / volumetric reconstruction | Surface coverage, geometric quality and occlusion | Viewpoint sampling, visibility, set-cover/ILP, TSP |
+| MT-03 Inspection | Inspection | Required evidence/viewpoint coverage and quality | Viewpoint coverage, visibility, set-cover, graph/TSP |
+| MT-04 Construction monitoring | Monitoring + survey/3D | Registered change/volume accuracy against versioned baseline | Repeatable coverage, BIM-aware viewpoints, registration, change detection |
+| MT-05 Perimeter monitoring | Persistent monitoring | Maximum revisit interval, dwell and observation continuity | Patrol graph, cyclic routing, orienteering, revisit scheduling |
+| MT-06 Search and rescue | Search / reconnaissance | Probability of detection and residual search uncertainty | Bayesian search, sensor PoD, probability-weighted coverage, information gain |
+| MT-07 Fire / emergency | Search / reconnaissance + monitoring | Priority hazard observation within time/risk limits | Hotspot prioritization, orienteering, thermal detection, short-horizon replanning |
+| MT-08 Environmental monitoring | Monitoring + survey | Representative sampling and repeatable indicator quality | Stratified sampling, coverage, adaptive sampling, time-series/change detection |
+| MT-09 Agriculture | Survey / mapping + operation-specific treatment | Crop information quality or treatment coverage/dose | Coverage planning, field decomposition, headland/turn optimization, prescription zoning |
+| MT-10 Cargo delivery | Delivery | Delivery feasibility/success and safe recovery reserve | Constrained graph routing, VRP/time windows, payload/energy optimization |
+| MT-11 Communications relay | Long-endurance / BVLOS + connectivity service | Required link availability, capacity and network connectivity | A2G link budget, relay placement, graph connectivity, joint trajectory/network optimization |
+| MT-12 Aerial media | Survey/acquisition quality + time-critical shot plan | Required framing/content and feasible smooth trajectory | Shot sequencing, spline/minimum-jerk trajectory, camera/gimbal control |
+| MT-13 C-UAS detection | Search / reconnaissance (sensor detection) | Detection/localization/tracking performance and calibrated confidence | Sensor detection, data association, multi-target tracking, validated sensor fusion |
+
+### 9.1 Profile composition rules
+
+- A template may compose more than one profile when its operational task genuinely has multiple outcomes. MT-04, MT-07, MT-08 and MT-09 are explicit examples.
+- Composition does not permit a secondary objective to compensate for failure of a hard gate or the primary acceptance threshold.
+- MT-13 is a sensor-intelligence task, not a route-coverage task by default. A patrol/coverage route may be added only if sensor deployment geometry requires it.
+- MT-11 connectivity is a service-level objective, not simply a waypoint or line-of-sight objective.
+- MT-09 must distinguish sensing/monitoring from spraying, spreading or seeding because the payload physics and constraints differ.
+- MT-12 framing/smoothness is subordinate to vehicle dynamics, obstacle clearance, airspace and reserve.
+- For every composed profile, the orchestrator records the primary objective, secondary objectives, thresholds, source of each threshold and the reason for composition.
+
+### 9.2 Required evidence
+
+An implementation is not accepted because it emits a route. It must produce template-specific quality metrics, coverage/evidence accounting, uncertainty, hard-gate results, data provenance and a reproducible decision trace. Missing sensor calibration, geometry, baseline or environmental data must produce a clarification or explicitly reduced-scope result.
