@@ -28,7 +28,23 @@ bool validUtcTimestamp(const std::string& value)
         if (value[i] < '0' || value[i] > '9')
             return false;
     }
-    return true;
+
+    const int year = std::stoi(value.substr(0, 4));
+    const int month = std::stoi(value.substr(5, 2));
+    const int day = std::stoi(value.substr(8, 2));
+    const int hour = std::stoi(value.substr(11, 2));
+    const int minute = std::stoi(value.substr(14, 2));
+    const int second = std::stoi(value.substr(17, 2));
+    if (year < 1970 || month < 1 || month > 12
+        || hour > 23 || minute > 59 || second > 59)
+        return false;
+
+    static constexpr int daysPerMonth[] = {
+        31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+    };
+    const bool leapYear = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    const int maximumDay = daysPerMonth[month - 1] + (month == 2 && leapYear ? 1 : 0);
+    return day >= 1 && day <= maximumDay;
 }
 
 bool validCoordinate(double latitude, double longitude)
@@ -141,11 +157,11 @@ WeatherCoverageRequestBuildResult WeatherCoverageRequestBuilder::build(
             continue;
         hasMissionGeometry = true;
         if (geometry.geometry_id.empty() || geometry.version < 1) {
-            errors.emplace_back("AREA_GEOMETRY_ID_OR_VERSION_INVALID");
+            errors.emplace_back("MISSION_GEOMETRY_ID_OR_VERSION_INVALID");
             continue;
         }
         if (geometry.coordinate_reference_system != "EPSG:4326") {
-            errors.emplace_back("AREA_GEOMETRY_CRS_UNSUPPORTED:" + geometry.geometry_id);
+            errors.emplace_back("MISSION_GEOMETRY_CRS_UNSUPPORTED:" + geometry.geometry_id);
             continue;
         }
         if (geometry.coordinates.size() < minimumWeatherGeometryVertices(geometry.geometry_type)) {
@@ -162,7 +178,7 @@ WeatherCoverageRequestBuildResult WeatherCoverageRequestBuilder::build(
         bool componentValid = true;
         for (const auto& vertex : geometry.coordinates) {
             if (!validCoordinate(vertex.latitude_deg, vertex.longitude_deg)) {
-                errors.emplace_back("AREA_GEOMETRY_COORDINATE_INVALID:" + geometry.geometry_id);
+                errors.emplace_back("MISSION_GEOMETRY_COORDINATE_INVALID:" + geometry.geometry_id);
                 componentValid = false;
                 continue;
             }
