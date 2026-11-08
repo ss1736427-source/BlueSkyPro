@@ -45,7 +45,7 @@ jobs:
           -G "Visual Studio 17 2022"
           -A x64
           -DBLUESKY_ENABLE_ECCODES=ON
-          -DCMAKE_PREFIX_PATH="$env:CONDA\envs\bluesky-weather"
+          -DCMAKE_PREFIX_PATH="$env:CONDA\envs\bluesky-weather\Library;$env:CONDA\envs\bluesky-weather"
           -DCMAKE_BUILD_TYPE=Release
 
       - name: Build weather engine and ecCodes decoder
