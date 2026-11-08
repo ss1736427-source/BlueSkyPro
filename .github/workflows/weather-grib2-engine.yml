@@ -1,0 +1,35 @@
+name: BlueSky PRO Weather GRIB2 Engine
+
+on:
+  push:
+    branches:
+      - main
+      - feat/weather-grib2-decoder-route-001
+    paths:
+      - "04_SOFTWARE/WEATHER/**"
+      - ".github/workflows/weather-grib2-engine.yml"
+  pull_request:
+    paths:
+      - "04_SOFTWARE/WEATHER/**"
+      - ".github/workflows/weather-grib2-engine.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  weather-engine-linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install ecCodes
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeccodes-dev
+      - name: Configure
+        run: cmake -S 04_SOFTWARE/WEATHER -B build-weather -DBLUESKY_ENABLE_ECCODES=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build-weather --parallel 2
+      - name: Test
+        run: ctest --test-dir build-weather --output-on-failure
