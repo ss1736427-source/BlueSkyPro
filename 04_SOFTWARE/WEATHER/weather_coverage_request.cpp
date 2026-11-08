@@ -238,8 +238,38 @@ WeatherCoverageRequestBuildResult WeatherCoverageRequestBuilder::build(
         errors.emplace_back("AREA_AGL_ALTITUDE_LEVELS_REQUIRED");
 
     request.required_altitudes_agl_m.assign(altitudeLevels.begin(), altitudeLevels.end());
-    if (request.required_altitudes_agl_m.empty())
+    if (request.required_altitudes_agl_m.empty()) {
         errors.emplace_back("REQUIRED_AGL_ALTITUDE_LEVELS_MISSING");
+    } else {
+        const std::vector<int> supportedProviderLevels{10, 20, 30, 40, 50, 80, 100, 1000};
+        std::set<int> providerLevels;
+        for (double sampleAltitude : request.required_altitudes_agl_m) {
+            const auto upper = std::lower_bound(
+                supportedProviderLevels.begin(), supportedProviderLevels.end(), sampleAltitude,
+                [](int level, double altitude) { return static_cast<double>(level) < altitude; });
+            if (upper != supportedProviderLevels.end()
+                && std::abs(static_cast<double>(*upper) - sampleAltitude) < 1e-6) {
+                providerLevels.insert(*upper);
+                continue;
+            }
+            if (upper == supportedProviderLevels.begin()
+                || upper == supportedProviderLevels.end()) {
+                errors.emplace_back("NOAA_PROVIDER_LEVELS_DO_NOT_BRACKET_AGL:"
+                                    + std::to_string(sampleAltitude));
+                continue;
+            }
+            const int lowerLevel = *(upper - 1);
+            const int upperLevel = *upper;
+            if (upperLevel - lowerLevel > 100) {
+                errors.emplace_back("NOAA_PROVIDER_VERTICAL_GAP_EXCEEDS_100M:"
+                                    + std::to_string(sampleAltitude));
+                continue;
+            }
+            providerLevels.insert(lowerLevel);
+            providerLevels.insert(upperLevel);
+        }
+        request.provider_levels_agl_m.assign(providerLevels.begin(), providerLevels.end());
+    }
 
     if (errors.empty()) {
         result.request = std::move(request);
