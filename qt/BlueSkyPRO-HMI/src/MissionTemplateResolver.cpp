@@ -65,7 +65,7 @@ QVariantMap MissionTemplateResolver::resolve(const QString &taskText) const
     if (!normalized.isEmpty()) {
         for (const Rule &rule : rules) {
             const QRegularExpression expression(
-                QString::fromLatin1(rule.patterns),
+                QString::fromUtf8(rule.patterns),
                 QRegularExpression::CaseInsensitiveOption);
             if (!hasPositiveMatch(normalized, expression))
                 continue;
