@@ -21,6 +21,10 @@ Mission fixtureMission()
          {37.61,55.71,std::nullopt,std::nullopt},
          {37.60,55.71,std::nullopt,std::nullopt}},
         {"TEMPLATE-SURVEY"}, 2});
+    mission.geometry_objects.push_back({
+        "TASK-OBS-01", "INSPECTION_POINTS", "EPSG:4326",
+        {{37.605,55.705,std::nullopt,std::nullopt}},
+        {"TEMPLATE-SURVEY"}, 1});
     return mission;
 }
 
@@ -62,7 +66,7 @@ int main()
     assert(result.request.mission_version == "3");
     assert(result.request.route_id == "ROUTE-01");
     assert(result.request.route_version == "4");
-    assert(result.request.components.size() == 3); // AOI + route + planned origin
+    assert(result.request.components.size() == 4); // AOI + task points + route + planned origin
     assert(result.request.bounds.south_deg < 55.70);
     assert(result.request.bounds.north_deg > 55.72);
     assert(result.request.bounds.west_deg < 37.60);
