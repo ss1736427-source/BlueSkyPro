@@ -1,7 +1,7 @@
 #pragma once
 
 #include "weather_field.hpp"
-#include "../../PLANNING/wind_performance_trajectory.hpp"
+#include "../PLANNING/wind_performance_trajectory.hpp"
 
 #include <string>
 #include <vector>
