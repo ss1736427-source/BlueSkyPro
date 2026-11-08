@@ -93,6 +93,12 @@ int main()
         mission, route, invalidTime);
     assert(!timeFailure.valid);
 
+    auto impossibleDate = options;
+    impossibleDate.time_window.valid_from_utc = "2026-02-30T06:00:00Z";
+    const auto dateFailure = WeatherCoverageRequestBuilder::build(
+        mission, route, impossibleDate);
+    assert(!dateFailure.valid);
+
     auto invalidAltitudeRoute = route;
     invalidAltitudeRoute.waypoints.front().altitude_reference = AltitudeReference::AMSL;
     const auto altitudeFailure = WeatherCoverageRequestBuilder::build(
