@@ -1,0 +1,44 @@
+name: BlueSky PRO Weather GRIB2 Engine
+
+on:
+  push:
+    branches:
+      - main
+      - feat/weather-grib2-decoder-route-001
+    paths:
+      - "04_SOFTWARE/WEATHER/**"
+      - ".github/workflows/weather-grib2-engine.yml"
+  pull_request:
+    paths:
+      - "04_SOFTWARE/WEATHER/**"
+      - ".github/workflows/weather-grib2-engine.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  weather-engine-linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install ecCodes
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeccodes-dev
+      - name: Configure
+        run: cmake -S 04_SOFTWARE/WEATHER -B build-weather -DBLUESKY_ENABLE_ECCODES=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build-weather --parallel 2
+      - name: Test standalone weather engine
+        run: ctest --test-dir build-weather --output-on-failure
+
+      - name: Configure integrated planning library
+        run: cmake -S 04_SOFTWARE/PLANNING -B build-planning-weather -DBLUESKY_ENABLE_ECCODES=ON -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build integrated planning weather targets
+        run: cmake --build build-planning-weather --parallel 2 --target weather_engine_test grib2_decoder_contract_test
+
+      - name: Test integrated planning weather targets
+        run: ctest --test-dir build-planning-weather -R "(weather_engine_contract_test|grib2_decoder_contract_test)" --output-on-failure

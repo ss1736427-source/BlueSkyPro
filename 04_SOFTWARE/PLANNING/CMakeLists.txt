@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(BLUESKY_ENABLE_ECCODES "Build the ecCodes GRIB2 decoder into planning" OFF)
+
 add_library(bluesky_planning
     command_lifecycle_runtime.cpp
     mission_transfer_runtime.cpp
@@ -33,11 +35,27 @@ add_library(bluesky_planning
     final_planning_integrity.cpp
     multi_uav_zonal_planning.cpp
     zonal_route_graph.cpp
+    ../WEATHER/wind_interpolator.cpp
+    ../WEATHER/route_wind_adapter.cpp
+    ../WEATHER/weather_trajectory_calculator.cpp
 )
 
 target_include_directories(bluesky_planning PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../WEATHER
 )
+
+if(BLUESKY_ENABLE_ECCODES)
+    find_path(ECCODES_INCLUDE_DIR eccodes.h REQUIRED)
+    find_library(ECCODES_LIBRARY NAMES eccodes REQUIRED)
+    target_sources(bluesky_planning PRIVATE
+        ../WEATHER/grib2_decoder.cpp
+        ../WEATHER/grib2_weather_pipeline.cpp
+    )
+    target_include_directories(bluesky_planning PRIVATE ${ECCODES_INCLUDE_DIR})
+    target_link_libraries(bluesky_planning PUBLIC ${ECCODES_LIBRARY})
+    target_compile_definitions(bluesky_planning PUBLIC BLUESKY_HAVE_ECCODES=1)
+endif()
 
 target_compile_features(bluesky_planning PUBLIC cxx_std_20)
 
@@ -261,6 +279,28 @@ add_test(NAME mission_compiler_multi_test COMMAND mission_compiler_multi_test)
 add_test(NAME mission_transfer_runtime_test COMMAND mission_transfer_runtime_test)
 add_test(NAME parameter_configuration_runtime_test COMMAND parameter_configuration_runtime_test)
 add_test(NAME capability_execution_integration_test COMMAND capability_execution_integration_test)
+
+add_executable(weather_engine_test
+    ../WEATHER/tests/weather_engine_test.cpp
+)
+target_link_libraries(weather_engine_test PRIVATE bluesky_planning)
+target_compile_options(weather_engine_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME weather_engine_contract_test COMMAND weather_engine_test)
+
+if(BLUESKY_ENABLE_ECCODES)
+    add_executable(grib2_decoder_contract_test
+        ../WEATHER/tests/grib2_decoder_contract_test.cpp
+    )
+    target_link_libraries(grib2_decoder_contract_test PRIVATE bluesky_planning)
+    target_compile_options(grib2_decoder_contract_test PRIVATE
+        "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+        "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+    )
+    add_test(NAME grib2_decoder_contract_test COMMAND grib2_decoder_contract_test)
+endif()
 
 # JournalService validation test
 add_executable(journal_service_test

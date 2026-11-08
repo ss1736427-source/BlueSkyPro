@@ -1,88 +1,95 @@
-# BlueSky PRO weather data integration — NOAA GFS
+# BlueSky PRO — spatial weather and GRIB2 wind engine
 
-**Status:** NOAA source selected; asynchronous Qt acquisition service added on branch `feat/weather-data-engine-noaa-gfs-001`. Live download and GRIB scientific decoding are not yet verified in the development runtime. Downloaded files are explicitly marked `LIVE_MODEL_DATA_UNDECODED` and are blocked from optimizer use until decoding and quality control are implemented.
+**Current implementation status:** NOAA GFS GRIB2 acquisition is merged into `main` (PR #59). A separate weather-engine implementation is under review in PR #60. The decoder and route adapter are not yet approved for operational flight use.
 
-## 1. Source decision
+## 1. Data source
 
-Primary source for the first operational integration: **NOAA/NCEP GFS 0.25-degree GRIB2 via NOMADS GRIB Filter**.
+Primary acquisition source: NOAA/NCEP GFS 0.25-degree GRIB2 through the NOMADS GRIB Filter.
 
-Reason for selecting NOAA ahead of ECMWF for the initial low-altitude UAV use case:
+- Official product inventory: https://nomads.ncep.noaa.gov/gribfilter.php?ds=gfs_0p25
+- Official variable/level mapping: https://nomads.ncep.noaa.gov/info.php?page=opendap_grib_migration
+- GFS product inventory: https://www.nco.ncep.noaa.gov/pmb/products/gfs/nomads/
 
-- The official GFS 0.25-degree filter currently lists direct above-ground wind levels at 10, 20, 30, 40, 50, 80, 100 and 1000 m.
-- This gives direct 50 m and 100 m AGL values, which are useful for the core 50–500 m mission envelope.
-- GFS supports geographic subsetting and selection of U/V wind components.
-- The same NOMADS interface exposes hybrid levels and pressure levels for later vertical-profile work.
+The selected direct AGL wind levels are 10, 20, 30, 40, 50, 80, 100 and 1000 m. The 100–1000 m gap is not suitable for ordinary linear interpolation. The weather engine therefore rejects vertical interpolation across gaps greater than 100 m by default. It does not silently create 150–500 m observations.
 
-Official inventory: https://nomads.ncep.noaa.gov/gribfilter.php?ds=gfs_0p25  
-Official variable/level and forecast-hour mapping: https://nomads.ncep.noaa.gov/info.php?page=opendap_grib_migration  
-GFS product inventory: https://www.nco.ncep.noaa.gov/pmb/products/gfs/nomads/
+GFS 0.25-degree horizontal resolution is on the order of tens of kilometres. It does not resolve building wakes, small islands, local coastal jets, wires or terrain-scale flow. It is a regional forecast input, not a local obstacle/wind sensor.
 
-**Important limitation:** 100–1000 m is a large vertical gap. A 150–500 m value must not be treated as a direct model level. The first implementation only acquires model fields; interpolation quality must be exposed by the decoder/query service. GFS 0.25-degree horizontal grid is tens of kilometres and cannot resolve building wakes, small islands, local coastal jets or terrain-scale flow.
+ECMWF IFS 0.1-degree Open Data remains the planned independent second provider: https://www.ecmwf.int/en/forecasts/datasets/open-data
 
-ECMWF IFS 0.1-degree GRIB2 is retained as the next independent model adapter. Its open-data licence permits commercial use and redistribution with CC-BY-4.0 attribution. The 0.1-degree product is published about two hours after the 0.25-degree product and is split into surface and pressure-level files. Official documentation: https://www.ecmwf.int/en/forecasts/datasets/open-data
-
-## 2. Runtime integration added
+## 2. Acquisition layer — merged to main
 
 Files:
 - `qt/BlueSkyPRO-HMI/src/WeatherDataService.h`
 - `qt/BlueSkyPRO-HMI/src/WeatherDataService.cpp`
 - `qt/BlueSkyPRO-HMI/tests/WeatherDataServiceTest.cpp`
 
-The service is registered in the application QML context as `weatherDataService`.
+The Qt service requests UGRD/VGRD asynchronously, enforces a bounded request and 256 MiB download limit, writes a temporary file, checks GRIB2 edition/container markers, publishes a cache file and SHA-256 manifest, supports cache reuse and cancellation, and exposes progress/ready/error signals.
 
-Capabilities:
-1. Builds a bounded NOMADS GRIB Filter URL for GFS 0.25.
-2. Requests only UGRD/VGRD and explicitly selected AGL levels.
-3. Uses Qt Network asynchronously; it does not block the UI thread.
-4. Limits a single response to 256 MiB.
-5. Writes to a `.part` file and publishes the completed GRIB2 atomically.
-6. Validates GRIB edition 2 signature and terminal `7777` marker.
-7. Stores a JSON manifest containing model cycle, forecast hour, bounding box, levels, retrieval timestamp, size and SHA-256.
-8. Reuses a previously downloaded matching file from the local cache.
-9. Rejects unsupported heights and invalid forecast-hour steps rather than silently substituting data.
-10. Exposes progress, ready, error and cancellation signals.
+This is acquisition and container validation. The GRIB marker check does not prove that the file contains valid meteorological fields.
 
-Example QML call:
+## 3. Decoder and normalized wind field — PR #60
 
-```qml
-weatherDataService.requestWindSubset(
-    "20261107", "12", 6,
-    96.0, 5.0, 100.0, 10.0,
-    ["10", "50", "100"]
-)
+New files:
+- `weather_field.hpp`: normalized regular latitude/longitude grid and QC result contract.
+- `grib2_decoder.hpp/.cpp`: optional ecCodes C API decoder.
+- `wind_interpolator.cpp`: bilinear horizontal interpolation and bounded vertical interpolation.
+- `route_wind_adapter.hpp/.cpp`: route-to-`WindSample` conversion.
+- `weather_trajectory_calculator.hpp/.cpp`: fail-closed preparation followed by the existing `WindPerformanceTrajectory::calculate`.
+- `grib2_weather_pipeline.hpp/.cpp`: end-to-end GRIB2 file → decoder → interpolation/QC → route samples → trajectory calculation.
+
+Decoder acceptance rules:
+- GRIB edition 2.
+- `shortName=u` and `shortName=v`, units in m/s.
+- `typeOfLevel=heightAboveGround`, positive AGL level.
+- regular latitude/longitude grid with complete Ni × Nj coordinate coverage.
+- U and V must have identical AGL level, valid date/time and grid coordinates.
+- unsupported grids, incomplete pairs, duplicate fields and malformed grids are rejected.
+- missing values are preserved as NaN and cause an interpolation query to fail if they affect its bilinear cell.
+
+The decoder currently handles one regular_ll grid geometry. Reduced Gaussian, projected and rotated grids are deliberately unsupported rather than silently reinterpreted.
+
+## 4. Interpolation and route adapter
+
+Horizontal interpolation is bilinear and does not extrapolate outside the decoded grid. It does not substitute nearest-neighbour values for missing cells.
+
+Vertical interpolation:
+- exact model level is used directly;
+- interpolation is allowed only between bracketing AGL levels;
+- maximum allowed vertical gap defaults to 100 m;
+- extrapolation is disabled;
+- mixed forecast valid times are rejected.
+
+The route adapter:
+- requires explicit AGL altitude references for all route waypoints;
+- samples each segment at its geographic and altitude midpoint (first implementation approximation);
+- requires one common forecast valid time across the field set;
+- builds all samples before modifying the trajectory input;
+- writes `WindSample.north_mps = VGRD`, `east_mps = UGRD`;
+- sets `up_mps = 0`, because this product request does not provide vertical wind;
+- sets the wind snapshot ID/version only when every segment sample passes.
+
+The `Grib2WeatherPipeline` is a callable core API that connects a GRIB2 file to `WindPerformanceTrajectory`. The new sources are linked into the `bluesky_planning` CMake library. The Qt HMI acquisition service still does not automatically invoke this pipeline; application-level orchestration and ecCodes runtime packaging remain follow-up work. Temporal interpolation and per-segment forecast-time sampling are not implemented. The existing `WindPerformanceTrajectory` physics and wind-tolerance logic have not been changed.
+
+## 5. Build and tests
+
+Standalone Linux build with ecCodes:
+
+```bash
+sudo apt-get install -y libeccodes-dev
+cmake -S 04_SOFTWARE/WEATHER -B build-weather -DBLUESKY_ENABLE_ECCODES=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build-weather --parallel 2
+ctest --test-dir build-weather --output-on-failure
 ```
 
-The date and cycle above are an example only. Production scheduling must select a currently published model cycle and requested forecast leads dynamically.
+The new workflow `.github/workflows/weather-grib2-engine.yml` performs this build on Ubuntu and runs deterministic synthetic-grid and fail-closed contract tests.
 
-## 3. Current data contract and flight-use gate
+**Verification still required before operational use:**
+1. Confirm CI build/test result for PR #60.
+2. Decode a real current NOAA GFS GRIB2 download and inspect its complete message inventory with `grib_ls` / `grib_dump`.
+3. Decode a current NOAA GFS GRIB2 payload and validate U/V AGL message pairs, scanning modes, missing bitmap values, date/time and level pairing against `grib_ls` / `grib_dump`. The CI fixture is generated with ecCodes and is not a substitute for an operational NOAA sample.
+4. Validate decoder output against ecCodes command-line output for selected grid cells.
+5. Add Windows/MSVC ecCodes packaging and runtime DLL deployment; the current weather-engine CI validates Linux only.
+6. Add temporal interpolation, mission-time sampling and snapshot lineage integration.
+7. Connect the adapter to the production planning invocation only after all above tests pass.
 
-The service currently performs **acquisition and container validation only**. It does not decode the GRIB fields into meteorological values. Manifest fields:
-- `classification = LIVE_MODEL_DATA_UNDECODED`
-- `decode_status = NOT_PERFORMED`
-- `optimizer_use_status = BLOCKED_UNTIL_DECODED_AND_QC_PASSED`
-
-Therefore, the downloaded file is not yet passed into `WindPerformanceTrajectory`. This is intentional: the existing optimizer consumes per-segment wind samples and must not receive synthetic, stale, missing or undecoded data.
-
-## 4. Next required integration steps
-
-1. Add ecCodes GRIB2 decoding and verify actual `UGRD`/`VGRD` messages, levels, grid coordinates, units and valid times.
-2. Implement spatial and vertical interpolation with explicit quality flags; preserve the model-level identity and vertical datum.
-3. Build a mission query from route bounds, altitude range and estimated segment-time window.
-4. Convert decoded wind fields into per-segment `WindSample` values for `WindPerformanceTrajectory`.
-5. Persist immutable forecast snapshot IDs so mission calculations are reproducible.
-6. Add a background refresh scheduler and a multi-lead request queue. Existing files must be reused; HMI and optimizer must not wait on network I/O.
-7. Add ECMWF IFS as an independent provider using the same normalized data contract.
-
-## 5. Verification
-
-Offline contract test:
-
-```sh
-cmake -S qt/BlueSkyPRO-HMI -B build-weather
-cmake --build build-weather --target weather_data_service_test
-ctest --test-dir build-weather -R weather_data_service_contract --output-on-failure
-```
-
-The offline test checks URL construction, supported levels, forecast-step validation and GRIB2 container guards. It does not prove live NOAA availability or scientific decoding.
-
-A live download should be performed from a network-enabled Windows or CI runner using a currently published date/cycle and a small mission-area bounding box. After download, run `grib_ls` or equivalent ecCodes inspection and confirm both U/V fields at each requested AGL level before enabling optimizer consumption.
+Until then, downloaded or decoded forecast data must not be treated as approved operational wind input. Synthetic Virtual Flight data and live forecast data remain separate classifications.
