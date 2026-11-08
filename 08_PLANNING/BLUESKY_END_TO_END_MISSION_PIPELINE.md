@@ -27,16 +27,16 @@ Changed dependency -> invalidate affected downstream calculations.
 |---|---|---|
 | Task input | qt/BlueSkyPRO-HMI/qml/TaskCreation.ui.qml | Captures free text and template choices; AUTO path does not submit a canonical planning request |
 | Template suggestion | MissionTemplateResolver | Explainable lexical baseline, not semantic intent understanding |
-| Mission model | ManualMissionModelAdapter; 04_SOFTWARE/PLANNING/model/mission_model.hpp | Structural manual-geometry adapter only; reduced JSON representation |
+| Mission model | ManualMissionModelAdapter; 04_SOFTWARE/PLANNING/model/mission_model.hpp | MANUAL adapter builds a structurally checked model, but emits reduced JSON; canonical contract reconciliation remains open |
 | Schema | 08_PLANNING/schemas/mission-model.schema.json | Schema and C++ Mission/adapter serialization require reconciliation |
 | Geometry | ManualGeometryBridge | Manual map geometry exists; AUTO task flow is not joined to the same aggregate |
 | Environment | WeatherDataService, FaaNmsClient and planning validators | No proven single immutable mission-scoped DEM/NOTAM/weather/wind snapshot assembled end-to-end |
-| Planning core | 04_SOFTWARE/PLANNING/orchestrator/algorithm_orchestrator.* | Exists in planning library, but HMI CMake does not link the full planning library |
+| Planning core | 04_SOFTWARE/PLANNING/orchestrator/algorithm_orchestrator.* | Shared planning library is linked to HMI; a planning application service connecting both launch modes to calculation is not yet implemented |
 | Solvers | A*, Dijkstra and other planning components | A*/Dijkstra are graph route solvers, not coverage or 3D viewpoint planners |
 | Assessment | VirtualFlightAssessmentBridge | Current assessment uses synthetic airspace/NOTAM fixtures; not authoritative operational validation |
 | PlanningBridge | PlanningBridge | Process/JSON result bridge, not the planning engine |
 
-MainContent.qml currently records AUTO task text/template IDs and opens the workspace. The manual set handler builds a structurally valid model but explicitly leaves route generation disconnected and blocks completion. These are confirmed breaks in the user-visible chain.
+MainContent.qml records AUTO task text/template IDs and opens the workspace. It also has a distinct MANUAL state and manual-geometry handling. The manual set handler builds a structurally valid model but explicitly leaves route generation disconnected and blocks completion. These are confirmed breaks in the user-visible chain.
 
 ## 4. One canonical mission model
 
@@ -92,7 +92,33 @@ A solver-reported FEASIBLE value is not independent validation. Hard constraints
 
 The operator may correct intent, geometry, vehicle assignment and preferences, but cannot waive mandatory safety constraints.
 
-## 10. First operational vertical slice
+## 10. Separate AUTO and MANUAL launch modes
+
+AUTO and MANUAL are two distinct operator launch paths, not two labels for the same screen and not a mode inferred silently from the data. The HMI must expose and preserve a deliberate choice of launch mode before mission creation begins.
+
+### AUTO — task-driven launch
+- Entry point starts from a free-text task description and/or operator-selected task templates.
+- The system interprets intent, recommends templates, requests missing information and asks the operator to confirm the interpreted task.
+- The operator is not required to construct geometry manually as the primary way to express the task; the system may request or support AOI confirmation as an input step.
+
+### MANUAL — operator-driven launch
+- Entry point is separate from AUTO and explicitly starts manual mission composition.
+- The operator directly defines mission geometry and selects applicable mission parameters, constraints, vehicle and payload inputs.
+- The system performs structural and completeness checks, then submits the manually authored mission for the same planning and independent-validation pipeline.
+- AUTO intent inference must not overwrite manual geometry or silently change the selected mode. Manual inputs must remain editable until the operator submits them.
+
+### Shared downstream services
+Both launch paths create the same versioned canonical Mission aggregate, with `mission_mode` set explicitly to `AUTO` or `MANUAL`. They may share environment acquisition, capability resolution, planning algorithms, candidate evaluation, hard gates, provenance and mission-package controls. Shared downstream services do not remove the separate HMI launch paths or their distinct input responsibilities.
+
+### Required mode invariants
+1. The selected launch mode is explicit, visible and persisted in the mission model and audit trace.
+2. Starting AUTO cannot silently enter manual composition; starting MANUAL cannot trigger task-text interpretation as a substitute for operator input.
+3. Each mode has its own entry action, input workflow, validation feedback and return/cancel behaviour.
+4. Both modes use the same canonical model version and the same non-bypassable safety gates after their mode-specific inputs are assembled.
+5. Switching modes must be deliberate. The system must not discard unsaved geometry, task text or confirmed inputs without warning and an explicit operator decision.
+6. Tests must prove that each launch action enters the correct workflow and that the resulting mission carries the matching mode through planning requests and results.
+
+## 11. First operational vertical slice
 
 Implement MT-01 mapping for one UAV, one polygon AOI and one configured camera before attempting all 13 planners.
 
@@ -102,7 +128,7 @@ Required output: mapping decomposition, coverage candidate, route/trajectory, GS
 
 This slice proves the interfaces among HMI, canonical model, environment services, registry, planning core and validation. MT-02 and MT-03 then reuse the same pipeline with domain-specific capabilities.
 
-## 11. Immediate implementation blockers
+## 12. Immediate implementation blockers
 
 1. Reconcile JSON Schema, C++ Mission and adapter serialization.
 2. Replace AUTO hand-off that only stores task text/template IDs with canonical task submission.
@@ -114,8 +140,11 @@ This slice proves the interfaces among HMI, canonical model, environment service
 8. Implement MT-01 coverage and candidate evidence before claiming automatic mapping support.
 9. Add end-to-end tests for task-to-validated-candidate, missing/stale inputs and dependency changes.
 
-## 12. Acceptance criteria
+## 13. Acceptance criteria
 
+- AUTO and MANUAL have distinct, explicit HMI launch actions and mode-specific input workflows.
+- The selected mode is retained in the canonical model, planning request/result and audit trace.
+- Switching modes cannot silently discard unsaved operator input.
 - One mission ID/version is traceable from task submission to selected candidate.
 - Original task, templates and objective profile are retained.
 - Geometry and environmental sources are scoped and versioned.
@@ -126,6 +155,6 @@ This slice proves the interfaces among HMI, canonical model, environment service
 - Changing any dependency invalidates affected calculations.
 - No solver or template recommendation grants flight release.
 
-## 13. Status reporting rule
+## 14. Status reporting rule
 
 Do not report the full chain as implemented until an automated end-to-end test demonstrates task description -> canonical model -> scoped inputs -> decomposition -> solver -> independent validation -> selected candidate. Architecture documents and isolated unit tests are not proof of operational planning.
