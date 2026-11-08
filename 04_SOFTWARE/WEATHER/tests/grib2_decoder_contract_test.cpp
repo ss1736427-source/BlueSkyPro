@@ -67,7 +67,7 @@ int main()
 
     {
         const auto& grid = fields.front();
-        const std::size_t y = grid.rows / 2;
+        const std::size_t y = (grid.rows / 2 < grid.rows - 1) ? grid.rows / 2 : grid.rows - 2;
         const std::size_t x = grid.columns / 2;
         const double lat0 = grid.latitudes_deg[y];
         const double lat1 = grid.latitudes_deg[y + 1];
