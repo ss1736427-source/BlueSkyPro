@@ -189,3 +189,36 @@ Every template requires positive, ambiguous/missing-input, incompatible-payload,
 13. ISO/CD 25461, *UAS Counter-UAS functional requirements for detection, localization and identification*, committee draft, 2026 — DTI architecture; countermeasures excluded. https://www.iso.org/standard/90482.html
 
 These sources establish method families, not BlueSky implementation status, certification or universal thresholds. Numeric limits must come from aircraft, payload calibration, task requirements, operating rules and verification evidence.
+
+
+## 9. MT-01 implementation status — 2026-11-09
+
+A first deterministic 2D sweep-line candidate generator is registered in
+`04_SOFTWARE/PLANNING/coverage_path_planner.cpp` and built as part of
+`bluesky_planning`. Its public input/result contract is in
+`coverage_path_planner.hpp`; the standalone regression target is
+`coverage_path_planner_test`.
+
+Implemented baseline:
+- camera/GSD-derived AGL altitude and altitude-bound rejection;
+- image footprint, cross-track line spacing and forward image-trigger spacing calculations;
+- local equirectangular projection with a 50 km extent limit;
+- horizontal scanline intersection and subtraction of exclusion polygons;
+- deterministic scanline ordering, alternating direction per scanline;
+- rejection of degenerate and self-intersecting AOI/exclusion rings;
+- explicit coverage-segment and scanline counts;
+- coverage-leg-only length/time metrics, excluding turns and transit.
+
+Not implemented and therefore not to be inferred from this baseline:
+- actual camera trigger events or along-track capture waypoints;
+- cellular decomposition for complex concave/multi-component operational areas;
+- connecting transit/turn trajectories between disjoint segments or scanlines;
+- DEM terrain following, obstacle avoidance, wind and aircraft energy model;
+- geometric coverage-union proof, achieved coverage percentage or uncovered-area proof;
+- NOTAM/airspace, separation, vehicle/payload capability and independent safety gates;
+- AUTO application-service integration or MANUAL route-generation integration.
+
+The planner result status `CANDIDATE_2D_COVERAGE_ONLY` is intentionally not a
+flight-ready route or authorization. Its time metric is coverage-leg time only.
+The regression test is necessary but not sufficient evidence of operational
+survey performance. CI build/test must pass before this baseline is accepted.
