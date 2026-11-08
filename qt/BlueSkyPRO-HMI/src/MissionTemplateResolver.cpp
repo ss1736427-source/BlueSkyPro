@@ -35,9 +35,9 @@ bool isNegatedOccurrence(const QString &text, int matchStart)
     // Match the complete negating phrase at the end of the preceding text.
     // Avoid relying on a Unicode word-boundary before Cyrillic "не".
     static const QRegularExpression negation(
-        QStringLiteral("(?:^|[\\s,;:])(?:не\\s+(?:(?:нужно|надо|требуется|следует|планируется)\\s+)?"
-                       "|без\\s+(?:необходимости\\s+)?"
-                       "|исключить\\s+)$"),
+        QStringLiteral("(?:^|[\\s,;:])(?:не(?:\\s+(?:нужно|надо|требуется|следует|планируется))?"
+                       "|без(?:\\s+необходимости)?"
+                       "|исключить)$"),
         QRegularExpression::CaseInsensitiveOption);
     return negation.match(prefix).hasMatch();
 }
