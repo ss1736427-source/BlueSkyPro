@@ -52,6 +52,8 @@ struct WeatherCoverageRequest {
     double spatial_buffer_m{0.0};
     WeatherCoverageWindow time_window;
     std::vector<double> required_altitudes_agl_m;
+    // Discrete NOAA GFS AGL levels to download for exact/bounded interpolation.
+    std::vector<int> provider_levels_agl_m;
 };
 
 struct WeatherCoverageRequestOptions {
