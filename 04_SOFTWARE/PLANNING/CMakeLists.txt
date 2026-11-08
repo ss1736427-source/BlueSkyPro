@@ -48,7 +48,10 @@ target_include_directories(bluesky_planning PUBLIC
 if(BLUESKY_ENABLE_ECCODES)
     find_path(ECCODES_INCLUDE_DIR eccodes.h REQUIRED)
     find_library(ECCODES_LIBRARY NAMES eccodes REQUIRED)
-    target_sources(bluesky_planning PRIVATE ../WEATHER/grib2_decoder.cpp)
+    target_sources(bluesky_planning PRIVATE
+        ../WEATHER/grib2_decoder.cpp
+        ../WEATHER/grib2_weather_pipeline.cpp
+    )
     target_include_directories(bluesky_planning PRIVATE ${ECCODES_INCLUDE_DIR})
     target_link_libraries(bluesky_planning PUBLIC ${ECCODES_LIBRARY})
     target_compile_definitions(bluesky_planning PUBLIC BLUESKY_HAVE_ECCODES=1)
