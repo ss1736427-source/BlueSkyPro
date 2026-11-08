@@ -71,6 +71,10 @@ int main()
     assert(result.request.required_altitudes_agl_m[0] == 30.0);
     assert(result.request.required_altitudes_agl_m[1] == 50.0);
     assert(result.request.required_altitudes_agl_m[2] == 80.0);
+    assert(result.request.provider_levels_agl_m.size() == 3);
+    assert(result.request.provider_levels_agl_m[0] == 30);
+    assert(result.request.provider_levels_agl_m[1] == 50);
+    assert(result.request.provider_levels_agl_m[2] == 80);
 
     auto mismatchedRoute = route;
     mismatchedRoute.lineage.mission_version = "2";
@@ -102,6 +106,21 @@ int main()
     const auto areaLevelFailure = WeatherCoverageRequestBuilder::build(
         mission, route, missingAreaLevels);
     assert(!areaLevelFailure.valid);
+
+    auto interpolatedOptions = options;
+    interpolatedOptions.required_area_altitudes_agl_m = {65.0};
+    const auto interpolated = WeatherCoverageRequestBuilder::build(
+        mission, route, interpolatedOptions);
+    assert(interpolated.valid);
+    assert(interpolated.request.provider_levels_agl_m.size() == 2);
+    assert(interpolated.request.provider_levels_agl_m[0] == 50);
+    assert(interpolated.request.provider_levels_agl_m[1] == 80);
+
+    auto largeGapRoute = route;
+    largeGapRoute.waypoints.front().altitude_m = 150.0;
+    const auto largeGapFailure = WeatherCoverageRequestBuilder::build(
+        mission, largeGapRoute, options);
+    assert(!largeGapFailure.valid);
 
     auto datelineRoute = route;
     datelineRoute.waypoints.front().position.longitude_deg = 179.9;
