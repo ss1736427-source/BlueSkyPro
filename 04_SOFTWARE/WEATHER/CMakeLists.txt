@@ -10,6 +10,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_library(bluesky_weather
     wind_interpolator.cpp
     route_wind_adapter.cpp
+    weather_trajectory_calculator.cpp
+    ../PLANNING/wind_performance_trajectory.cpp
 )
 target_include_directories(bluesky_weather PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
