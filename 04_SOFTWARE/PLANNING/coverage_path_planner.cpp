@@ -1,148 +1,82 @@
 #include "coverage_path_planner.hpp"
-
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <utility>
-
-namespace bluesky::planning {
-namespace {
-constexpr double kPi = 3.14159265358979323846;
-constexpr double kEarthRadiusM = 6371008.8;
-struct XY { double x; double y; };
-struct Interval { double lo; double hi; };
-
-bool finite(double v) { return std::isfinite(v); }
-
-bool validRing(const std::vector<GeoPoint>& ring) {
-    if (ring.size() < 3) return false;
-    for (const auto& p : ring)
-        if (!finite(p.latitude_deg) || !finite(p.longitude_deg) ||
-            p.latitude_deg < -90.0 || p.latitude_deg > 90.0 ||
-            p.longitude_deg < -180.0 || p.longitude_deg > 180.0) return false;
-    return true;
+namespace bluesky::planning { namespace {
+constexpr double kPi=3.14159265358979323846, kEarthRadiusM=6371008.8, kEps=1e-7;
+struct XY{double x,y;}; struct Interval{double lo,hi;};
+bool finite(double v){return std::isfinite(v);}
+double cross(XY a,XY b,XY c){return (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);}
+bool onSegment(XY a,XY b,XY p){return std::abs(cross(a,b,p))<=kEps&&p.x>=std::min(a.x,b.x)-kEps&&p.x<=std::max(a.x,b.x)+kEps&&p.y>=std::min(a.y,b.y)-kEps&&p.y<=std::max(a.y,b.y)+kEps;}
+bool intersects(XY a,XY b,XY c,XY d){
+ double x=cross(a,b,c),y=cross(a,b,d),z=cross(c,d,a),w=cross(c,d,b);
+ if(((x>kEps&&y< -kEps)||(x< -kEps&&y>kEps))&&((z>kEps&&w< -kEps)||(z< -kEps&&w>kEps)))return true;
+ return onSegment(a,b,c)||onSegment(a,b,d)||onSegment(c,d,a)||onSegment(c,d,b);
 }
-
-XY project(const GeoPoint& p, double lat0, double lon0) {
-    const double c = std::cos(lat0 * kPi / 180.0);
-    return {kEarthRadiusM * (p.longitude_deg-lon0) * kPi/180.0 * c,
-            kEarthRadiusM * (p.latitude_deg-lat0) * kPi/180.0};
+bool validRing(const std::vector<XY>& r){
+ if(r.size()<3)return false; double area=0;
+ for(size_t i=0;i<r.size();++i){auto a=r[i],b=r[(i+1)%r.size()];if(std::hypot(a.x-b.x,a.y-b.y)<0.01)return false;area+=a.x*b.y-b.x*a.y;}
+ if(std::abs(area)<0.02)return false;
+ for(size_t i=0;i<r.size();++i)for(size_t j=i+1;j<r.size();++j){
+  size_t i2=(i+1)%r.size(),j2=(j+1)%r.size(); if(i==j||i2==j||j2==i)continue;
+  if(intersects(r[i],r[i2],r[j],r[j2]))return false;
+ } return true;
 }
-GeoPoint unproject(const XY& p, double lat0, double lon0) {
-    const double c = std::cos(lat0 * kPi / 180.0);
-    return {lat0 + p.y / kEarthRadiusM * 180.0/kPi,
-            lon0 + p.x / (kEarthRadiusM*c) * 180.0/kPi};
+bool validGeo(const std::vector<GeoPoint>& r){
+ if(r.size()<3)return false; for(const auto&p:r)if(!finite(p.latitude_deg)||!finite(p.longitude_deg)||p.latitude_deg< -90||p.latitude_deg>90||p.longitude_deg< -180||p.longitude_deg>180)return false; return true;
 }
-std::vector<double> intersections(const std::vector<XY>& ring, double y) {
-    std::vector<double> xs;
-    for (std::size_t i=0,j=ring.size()-1;i<ring.size();j=i++) {
-        const auto& a=ring[j]; const auto& b=ring[i];
-        if ((a.y <= y && b.y > y) || (b.y <= y && a.y > y))
-            xs.push_back(a.x + (y-a.y)*(b.x-a.x)/(b.y-a.y));
-    }
-    std::sort(xs.begin(),xs.end());
-    return xs;
+XY project(const GeoPoint&p,double lat,double lon){double c=std::cos(lat*kPi/180);return{kEarthRadiusM*(p.longitude_deg-lon)*kPi/180*c,kEarthRadiusM*(p.latitude_deg-lat)*kPi/180};}
+GeoPoint unproject(XY p,double lat,double lon){double c=std::cos(lat*kPi/180);return{lat+p.y/kEarthRadiusM*180/kPi,lon+p.x/(kEarthRadiusM*c)*180/kPi};}
+std::vector<double> intersectionsAt(const std::vector<XY>&r,double y){
+ std::vector<double>x;for(size_t i=0,j=r.size()-1;i<r.size();j=i++){auto a=r[j],b=r[i];if((a.y<=y&&b.y>y)||(b.y<=y&&a.y>y))x.push_back(a.x+(y-a.y)*(b.x-a.x)/(b.y-a.y));}std::sort(x.begin(),x.end());return x;
 }
-std::vector<Interval> intervalsFor(const std::vector<XY>& ring, double y) {
-    const auto xs=intersections(ring,y);
-    std::vector<Interval> out;
-    for (std::size_t i=1;i<xs.size();i+=2)
-        if (xs[i]-xs[i-1] > 0.01) out.push_back({xs[i-1],xs[i]});
-    return out;
-}
-std::vector<Interval> subtractIntervals(std::vector<Interval> base,
-                                        const std::vector<Interval>& cuts) {
-    for (const auto& cut:cuts) {
-        std::vector<Interval> next;
-        for (const auto& b:base) {
-            if (cut.hi<=b.lo || cut.lo>=b.hi) { next.push_back(b); continue; }
-            if (cut.lo>b.lo) next.push_back({b.lo,std::min(cut.lo,b.hi)});
-            if (cut.hi<b.hi) next.push_back({std::max(cut.hi,b.lo),b.hi});
-        }
-        base=std::move(next);
-    }
-    return base;
+std::vector<Interval> spansAt(const std::vector<XY>&r,double y){auto x=intersectionsAt(r,y);std::vector<Interval>s;for(size_t i=1;i<x.size();i+=2)if(x[i]-x[i-1]>0.01)s.push_back({x[i-1],x[i]});return s;}
+std::vector<Interval> subtract(std::vector<Interval>b,const std::vector<Interval>&cuts){
+ for(auto c:cuts){std::vector<Interval>n;for(auto s:b){if(c.hi<=s.lo||c.lo>=s.hi){n.push_back(s);continue;}if(c.lo>s.lo)n.push_back({s.lo,std::min(c.lo,s.hi)});if(c.hi<s.hi)n.push_back({std::max(c.hi,s.lo),s.hi});}b=std::move(n);}return b;
 }
 }
-
-CoveragePlanResult CoveragePathPlanner::generate(const CoverageMissionInput& in) {
-    CoveragePlanResult out;
-    auto fail=[&](const std::string& why){out.valid=false;out.status="INVALID_INPUT";out.diagnostics.push_back(why);return out;};
-    if (!validRing(in.area_of_interest)) return fail("AOI must be a valid polygon ring with at least three geographic vertices.");
-    const auto& c=in.camera;
-    if (!(finite(c.focal_length_mm)&&c.focal_length_mm>0&&finite(c.pixel_pitch_um)&&c.pixel_pitch_um>0&&
-          c.image_width_px>0&&c.image_height_px>0&&finite(c.target_gsd_cm_px)&&c.target_gsd_cm_px>0))
-        return fail("Camera calibration and target GSD must be positive.");
-    if (!(finite(c.forward_overlap_percent)&&c.forward_overlap_percent>=0&&c.forward_overlap_percent<90&&
-          finite(c.side_overlap_percent)&&c.side_overlap_percent>=0&&c.side_overlap_percent<90))
-        return fail("Forward and side overlap must be in [0,90) percent.");
-    if (!(finite(in.minimum_altitude_agl_m)&&finite(in.maximum_altitude_agl_m)&&
-          in.minimum_altitude_agl_m>=0&&in.maximum_altitude_agl_m>=in.minimum_altitude_agl_m&&
-          finite(in.cruise_speed_mps)&&in.cruise_speed_mps>0&&finite(in.line_angle_deg)))
-        return fail("Altitude bounds, cruise speed or sweep angle are invalid.");
-    for (const auto& hole:in.exclusion_areas)
-        if (!validRing(hole)) return fail("Each exclusion area must be a valid polygon ring.");
-
-    const double gsd_m=c.target_gsd_cm_px/100.0;
-    const double altitude=gsd_m*(c.focal_length_mm*1e-3)/(c.pixel_pitch_um*1e-6);
-    if (altitude<in.minimum_altitude_agl_m || altitude>in.maximum_altitude_agl_m)
-        return fail("Camera-derived AGL altitude is outside configured mission limits.");
-    const double fw=gsd_m*c.image_width_px, fh=gsd_m*c.image_height_px;
-    const double spacing=fw*(1.0-c.side_overlap_percent/100.0);
-    if (!(finite(spacing)&&spacing>0.01)) return fail("Calculated coverage line spacing is invalid.");
-
-    double lat0=0,lon0=0;
-    for (const auto& p:in.area_of_interest){lat0+=p.latitude_deg;lon0+=p.longitude_deg;}
-    lat0/=in.area_of_interest.size();lon0/=in.area_of_interest.size();
-    if (std::abs(lat0)>85.0) return fail("AOI latitude is outside the supported local tangent approximation.");
-    std::vector<XY> area; for(const auto& p:in.area_of_interest) area.push_back(project(p,lat0,lon0));
-    std::vector<std::vector<XY>> holes;
-    for(const auto& ring:in.exclusion_areas){std::vector<XY> h;for(const auto& p:ring)h.push_back(project(p,lat0,lon0));holes.push_back(std::move(h));}
-
-    const double angle=in.line_angle_deg*kPi/180.0;
-    // Rotate local coordinates so scan lines are horizontal in the working frame.
-    auto rotate=[&](XY p){return XY{p.x*std::cos(angle)+p.y*std::sin(angle),-p.x*std::sin(angle)+p.y*std::cos(angle)};};
-    auto unrotate=[&](XY p){return XY{p.x*std::cos(angle)-p.y*std::sin(angle),p.x*std::sin(angle)+p.y*std::cos(angle)};};
-    for(auto& p:area)p=rotate(p);
-    for(auto& h:holes)for(auto& p:h)p=rotate(p);
-    double minY=std::numeric_limits<double>::max(),maxY=-minY;
-    for(const auto& p:area){minY=std::min(minY,p.y);maxY=std::max(maxY,p.y);}
-    const std::size_t lines=static_cast<std::size_t>(std::ceil((maxY-minY)/spacing));
-    if(lines==0||lines>100000) return fail("AOI produces an empty or excessive number of coverage lines.");
-    double length=0; bool reverse=false;
-    for(std::size_t line=0;line<lines;++line){
-        const double y=minY+spacing*(static_cast<double>(line)+0.5);
-        auto spans=intervalsFor(area,y);
-        for(const auto& h:holes){auto cuts=intervalsFor(h,y);spans=subtractIntervals(std::move(spans),cuts);}
-        if(spans.empty())continue;
-        if(reverse)std::reverse(spans.begin(),spans.end());
-        for(auto span:spans){
-            if(reverse)std::swap(span.lo,span.hi);
-            XY a=unrotate({span.lo,y}),b=unrotate({span.hi,y});
-            const double d=std::hypot(b.x-a.x,b.y-a.y);
-            if(d<0.1)continue;
-            if(!out.waypoints.empty()) length+=0; // transit turns are not yet modelled
-            out.waypoints.push_back(unproject(a,lat0,lon0));
-            out.waypoints.push_back(unproject(b,lat0,lon0));
-            length+=d;
-            reverse=!reverse;
-        }
-    }
-    if(out.waypoints.size()<2)return fail("No usable coverage strips intersect the AOI after exclusions.");
-    out.metrics.target_gsd_cm_px=c.target_gsd_cm_px;
-    out.metrics.calculated_altitude_agl_m=altitude;
-    out.metrics.footprint_width_m=fw;
-    out.metrics.footprint_height_m=fh;
-    out.metrics.line_spacing_m=spacing;
-    out.metrics.estimated_track_length_m=length;
-    out.metrics.estimated_flight_time_s=length/in.cruise_speed_mps;
-    out.metrics.coverage_line_count=out.waypoints.size()/2;
-    out.metrics.exclusion_gap_count=in.exclusion_areas.size();
-    out.valid=true;
-    out.status="CANDIDATE_2D_COVERAGE_ONLY";
-    out.diagnostics.push_back("Candidate is a 2D sweep-line geometry; turn, terrain, obstacle, wind, energy and regulatory validation are not included.");
-    out.diagnostics.push_back("Forward overlap is recorded as an input but along-track image triggering is not generated by this baseline.");
-    return out;
+CoveragePlanResult CoveragePathPlanner::generate(const CoverageMissionInput&in){
+ CoveragePlanResult out;auto fail=[&](const std::string&m){out.valid=false;out.status="INVALID_INPUT";out.diagnostics.push_back(m);return out;};
+ if(!validGeo(in.area_of_interest))return fail("AOI requires at least three finite geographic vertices.");
+ const auto&c=in.camera;
+ if(!(finite(c.focal_length_mm)&&c.focal_length_mm>0&&finite(c.pixel_pitch_um)&&c.pixel_pitch_um>0&&c.image_width_px&&c.image_height_px&&finite(c.target_gsd_cm_px)&&c.target_gsd_cm_px>0))return fail("Camera calibration and target GSD must be positive.");
+ if(!(finite(c.forward_overlap_percent)&&c.forward_overlap_percent>=0&&c.forward_overlap_percent<90&&finite(c.side_overlap_percent)&&c.side_overlap_percent>=0&&c.side_overlap_percent<90))return fail("Forward and side overlap must be in [0,90) percent.");
+ if(!(finite(in.minimum_altitude_agl_m)&&finite(in.maximum_altitude_agl_m)&&in.minimum_altitude_agl_m>=0&&in.maximum_altitude_agl_m>=in.minimum_altitude_agl_m&&finite(in.cruise_speed_mps)&&in.cruise_speed_mps>0&&finite(in.line_angle_deg)))return fail("Altitude bounds, cruise speed or sweep angle are invalid.");
+ double lat=0,lon=0;for(auto p:in.area_of_interest){lat+=p.latitude_deg;lon+=p.longitude_deg;}lat/=in.area_of_interest.size();lon/=in.area_of_interest.size();
+ if(std::abs(lat)>85)return fail("AOI latitude is outside supported local projection range.");
+ std::vector<XY>area;for(auto p:in.area_of_interest)area.push_back(project(p,lat,lon));
+ if(!validRing(area))return fail("AOI ring is degenerate or self-intersecting.");
+ double minX=std::numeric_limits<double>::max(),maxX=-minX,minY=minX,maxY=-minX;
+ for(auto p:area){minX=std::min(minX,p.x);maxX=std::max(maxX,p.x);minY=std::min(minY,p.y);maxY=std::max(maxY,p.y);}
+ if(maxX-minX>50000||maxY-minY>50000)return fail("AOI exceeds the 50 km local-projection extent limit.");
+ std::vector<std::vector<XY>>holes;
+ for(const auto&r:in.exclusion_areas){if(!validGeo(r))return fail("Exclusion polygon requires at least three finite vertices.");std::vector<XY>h;for(auto p:r)h.push_back(project(p,lat,lon));if(!validRing(h))return fail("An exclusion ring is degenerate or self-intersecting.");holes.push_back(std::move(h));}
+ double gsd=c.target_gsd_cm_px/100,alt=gsd*(c.focal_length_mm*1e-3)/(c.pixel_pitch_um*1e-6);
+ if(alt<in.minimum_altitude_agl_m||alt>in.maximum_altitude_agl_m)return fail("Camera-derived AGL altitude is outside mission limits.");
+ double fw=gsd*c.image_width_px,fh=gsd*c.image_height_px,spacing=fw*(1-c.side_overlap_percent/100),trigger=fh*(1-c.forward_overlap_percent/100);
+ if(!(finite(spacing)&&spacing>0.01&&finite(trigger)&&trigger>0.01))return fail("Calculated coverage or trigger spacing is invalid.");
+ double angle=std::remainder(in.line_angle_deg,360.0)*kPi/180;
+ auto rot=[&](XY p){return XY{p.x*std::cos(angle)+p.y*std::sin(angle),-p.x*std::sin(angle)+p.y*std::cos(angle)};};
+ auto unrot=[&](XY p){return XY{p.x*std::cos(angle)-p.y*std::sin(angle),p.x*std::sin(angle)+p.y*std::cos(angle)};};
+ for(auto&p:area)p=rot(p);for(auto&h:holes)for(auto&p:h)p=rot(p);
+ minY=std::numeric_limits<double>::max();maxY=-minY;for(auto p:area){minY=std::min(minY,p.y);maxY=std::max(maxY,p.y);}
+ size_t possible=static_cast<size_t>(std::ceil((maxY-minY)/spacing));if(!possible||possible>100000)return fail("AOI produces an empty or excessive number of coverage lines.");
+ double length=0;size_t lines=0,segments=0,gaps=0;
+ for(size_t line=0;line<possible;++line){
+  double y=minY+spacing*(double(line)+0.5);auto spans=spansAt(area,y);
+  for(const auto&h:holes){auto cuts=spansAt(h,y);if(!cuts.empty()&&!spans.empty())++gaps;spans=subtract(std::move(spans),cuts);}
+  spans.erase(std::remove_if(spans.begin(),spans.end(),[](auto s){return s.hi-s.lo<0.1;}),spans.end());if(spans.empty())continue;
+  if(line%2)std::reverse(spans.begin(),spans.end());++lines;
+  for(auto s:spans){if(line%2)std::swap(s.lo,s.hi);XY a=unrot({s.lo,y}),b=unrot({s.hi,y});out.waypoints.push_back(unproject(a,lat,lon));out.waypoints.push_back(unproject(b,lat,lon));length+=std::hypot(b.x-a.x,b.y-a.y);++segments;}
+ }
+ if(out.waypoints.size()<2)return fail("No usable coverage strips intersect the AOI after exclusions.");
+ out.metrics.target_gsd_cm_px=c.target_gsd_cm_px;out.metrics.calculated_altitude_agl_m=alt;out.metrics.footprint_width_m=fw;out.metrics.footprint_height_m=fh;out.metrics.line_spacing_m=spacing;out.metrics.forward_trigger_spacing_m=trigger;out.metrics.estimated_coverage_leg_length_m=length;out.metrics.estimated_coverage_leg_time_s=length/in.cruise_speed_mps;out.metrics.coverage_line_count=lines;out.metrics.coverage_segment_count=segments;out.metrics.exclusion_intersection_count=gaps;
+ out.valid=true;out.status="CANDIDATE_2D_COVERAGE_ONLY";
+ out.diagnostics.push_back("Coverage-leg length/time exclude transitions, turns and ferry legs; they are not total mission distance or flight time.");
+ out.diagnostics.push_back("Forward trigger spacing is calculated; camera trigger events are not emitted.");
+ out.diagnostics.push_back("No DEM following, turn kinematics, obstacle routing, wind/energy model, coverage-union proof or regulatory validation.");
+ out.diagnostics.push_back("Local equirectangular projection is limited to AOIs no larger than 50 km in either projected dimension.");
+ return out;
 }
-
 } // namespace bluesky::planning
