@@ -23,7 +23,9 @@ if(BLUESKY_ENABLE_ECCODES)
     find_path(ECCODES_INCLUDE_DIR eccodes.h REQUIRED)
     find_library(ECCODES_LIBRARY NAMES eccodes REQUIRED)
     target_sources(bluesky_weather PRIVATE grib2_decoder.cpp grib2_weather_pipeline.cpp)
-    target_include_directories(bluesky_weather PRIVATE ${ECCODES_INCLUDE_DIR})
+    # The GRIB2 contract test includes ecCodes directly to generate synthetic fixtures.
+    # Export the include directory to dependent test targets as well.
+    target_include_directories(bluesky_weather PUBLIC ${ECCODES_INCLUDE_DIR})
     target_link_libraries(bluesky_weather PUBLIC ${ECCODES_LIBRARY})
     target_compile_definitions(bluesky_weather PUBLIC BLUESKY_HAVE_ECCODES=1)
 endif()
