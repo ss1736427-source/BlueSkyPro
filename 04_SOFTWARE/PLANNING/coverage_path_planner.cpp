@@ -16,10 +16,10 @@ bool intersects(XY a,XY b,XY c,XY d){
 }
 bool validRing(const std::vector<XY>& r){
  if(r.size()<3)return false; double area=0;
- for(size_t i=0;i<r.size();++i){auto a=r[i],b=r[(i+1)%r.size()];if(std::hypot(a.x-b.x,a.y-b.y)<0.01)return false;area+=a.x*b.y-b.x*a.y;}
+ for(std::size_t i=0;i<r.size();++i){auto a=r[i],b=r[(i+1)%r.size()];if(std::hypot(a.x-b.x,a.y-b.y)<0.01)return false;area+=a.x*b.y-b.x*a.y;}
  if(std::abs(area)<0.02)return false;
- for(size_t i=0;i<r.size();++i)for(size_t j=i+1;j<r.size();++j){
-  size_t i2=(i+1)%r.size(),j2=(j+1)%r.size(); if(i==j||i2==j||j2==i)continue;
+ for(std::size_t i=0;i<r.size();++i)for(std::size_t j=i+1;j<r.size();++j){
+  std::size_t i2=(i+1)%r.size(),j2=(j+1)%r.size(); if(i==j||i2==j||j2==i)continue;
   if(intersects(r[i],r[i2],r[j],r[j2]))return false;
  } return true;
 }
@@ -29,9 +29,9 @@ bool validGeo(const std::vector<GeoPoint>& r){
 XY project(const GeoPoint&p,double lat,double lon){double c=std::cos(lat*kPi/180);return{kEarthRadiusM*(p.longitude_deg-lon)*kPi/180*c,kEarthRadiusM*(p.latitude_deg-lat)*kPi/180};}
 GeoPoint unproject(XY p,double lat,double lon){double c=std::cos(lat*kPi/180);return{lat+p.y/kEarthRadiusM*180/kPi,lon+p.x/(kEarthRadiusM*c)*180/kPi};}
 std::vector<double> intersectionsAt(const std::vector<XY>&r,double y){
- std::vector<double>x;for(size_t i=0,j=r.size()-1;i<r.size();j=i++){auto a=r[j],b=r[i];if((a.y<=y&&b.y>y)||(b.y<=y&&a.y>y))x.push_back(a.x+(y-a.y)*(b.x-a.x)/(b.y-a.y));}std::sort(x.begin(),x.end());return x;
+ std::vector<double>x;for(std::size_t i=0,j=r.size()-1;i<r.size();j=i++){auto a=r[j],b=r[i];if((a.y<=y&&b.y>y)||(b.y<=y&&a.y>y))x.push_back(a.x+(y-a.y)*(b.x-a.x)/(b.y-a.y));}std::sort(x.begin(),x.end());return x;
 }
-std::vector<Interval> spansAt(const std::vector<XY>&r,double y){auto x=intersectionsAt(r,y);std::vector<Interval>s;for(size_t i=1;i<x.size();i+=2)if(x[i]-x[i-1]>0.01)s.push_back({x[i-1],x[i]});return s;}
+std::vector<Interval> spansAt(const std::vector<XY>&r,double y){auto x=intersectionsAt(r,y);std::vector<Interval>s;for(std::size_t i=1;i<x.size();i+=2)if(x[i]-x[i-1]>0.01)s.push_back({x[i-1],x[i]});return s;}
 std::vector<Interval> subtract(std::vector<Interval>b,const std::vector<Interval>&cuts){
  for(auto c:cuts){std::vector<Interval>n;for(auto s:b){if(c.hi<=s.lo||c.lo>=s.hi){n.push_back(s);continue;}if(c.lo>s.lo)n.push_back({s.lo,std::min(c.lo,s.hi)});if(c.hi<s.hi)n.push_back({std::max(c.hi,s.lo),s.hi});}b=std::move(n);}return b;
 }
@@ -61,9 +61,9 @@ CoveragePlanResult CoveragePathPlanner::generate(const CoverageMissionInput&in){
  auto unrot=[&](XY p){return XY{p.x*std::cos(angle)-p.y*std::sin(angle),p.x*std::sin(angle)+p.y*std::cos(angle)};};
  for(auto&p:area)p=rot(p);for(auto&h:holes)for(auto&p:h)p=rot(p);
  minY=std::numeric_limits<double>::max();maxY=-minY;for(auto p:area){minY=std::min(minY,p.y);maxY=std::max(maxY,p.y);}
- size_t possible=static_cast<size_t>(std::ceil((maxY-minY)/spacing));if(!possible||possible>100000)return fail("AOI produces an empty or excessive number of coverage lines.");
- double length=0;size_t lines=0,segments=0,gaps=0;
- for(size_t line=0;line<possible;++line){
+ std::size_t possible=static_cast<std::size_t>(std::ceil((maxY-minY)/spacing));if(!possible||possible>100000)return fail("AOI produces an empty or excessive number of coverage lines.");
+ double length=0;std::size_t lines=0,segments=0,gaps=0;
+ for(std::size_t line=0;line<possible;++line){
   double y=minY+spacing*(double(line)+0.5);auto spans=spansAt(area,y);
   for(const auto&h:holes){auto cuts=spansAt(h,y);if(!cuts.empty()&&!spans.empty())++gaps;spans=subtract(std::move(spans),cuts);}
   spans.erase(std::remove_if(spans.begin(),spans.end(),[](auto s){return s.hi-s.lo<0.1;}),spans.end());if(spans.empty())continue;
