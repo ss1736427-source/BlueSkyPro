@@ -33,6 +33,14 @@ set_source_files_properties("${MAPLIBRE_CSS}" PROPERTIES QT_RESOURCE_ALIAS "mapl
 
 qt_standard_project_setup(REQUIRES 6.5)
 
+# Use the shared planning library as the single implementation of planning logic.
+# EXCLUDE_FROM_ALL keeps standalone planning test executables out of the HMI default build.
+add_subdirectory(
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/PLANNING
+    ${CMAKE_CURRENT_BINARY_DIR}/bluesky-planning
+    EXCLUDE_FROM_ALL
+)
+
 qt_policy(SET QTP0004 NEW)
 
 set_source_files_properties(qml/Theme.qml
@@ -47,11 +55,6 @@ qt_add_executable(appBlueSkyPRO
     src/MissionTemplateResolver.h
     src/VirtualFlightAssessmentBridge.cpp
     src/VirtualFlightAssessmentBridge.h
-    ../../04_SOFTWARE/PLANNING/manual_route_candidate_builder.cpp
-    ../../04_SOFTWARE/PLANNING/manual_route_candidate_assessment.cpp
-    ../../04_SOFTWARE/PLANNING/constrained_open_space.cpp
-    ../../04_SOFTWARE/PLANNING/notam_prohibited_zone_validator.cpp
-    ../../04_SOFTWARE/PLANNING/route_constraint_validator.cpp
     src/ManualGeometryBridge.cpp
     src/ManualGeometryBridge.h
     src/ManualMissionModelAdapter.cpp
@@ -116,7 +119,7 @@ qt_add_resources(appBlueSkyPRO maplibre_vendor
 
 target_compile_features(appBlueSkyPRO PRIVATE cxx_std_20)
 target_include_directories(appBlueSkyPRO PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../..)
-target_link_libraries(appBlueSkyPRO PRIVATE Qt6::Core Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::WebEngineQuick Qt6::WebEngineCore Qt6::WebChannel)
+target_link_libraries(appBlueSkyPRO PRIVATE bluesky_planning Qt6::Core Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::WebEngineQuick Qt6::WebEngineCore Qt6::WebChannel)
 if(WIN32)
     target_link_libraries(appBlueSkyPRO PRIVATE Advapi32)
 endif()
