@@ -129,5 +129,15 @@ int main()
         mission, datelineRoute, options);
     assert(!datelineFailure.valid);
 
+    auto oversizedMission = mission;
+    oversizedMission.geometry_objects.front().coordinates = {
+        {0.0, 0.0, std::nullopt, std::nullopt},
+        {31.0, 0.0, std::nullopt, std::nullopt},
+        {31.0, 1.0, std::nullopt, std::nullopt}
+    };
+    const auto oversizedFailure = WeatherCoverageRequestBuilder::build(
+        oversizedMission, route, options);
+    assert(!oversizedFailure.valid);
+
     return 0;
 }
