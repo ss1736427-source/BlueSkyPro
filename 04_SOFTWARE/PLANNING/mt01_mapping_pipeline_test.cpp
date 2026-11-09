@@ -39,7 +39,7 @@ static Mt01MappingRequest makeRequest()
     request.camera.target_gsd_cm_px = 3.0;
     request.camera.forward_overlap_percent = 80.0;
     request.camera.side_overlap_percent = 70.0;
-    request.camera.camera_configuration_id = "DJI-MAVIC-3E-WIDE-STANDARD";
+    request.camera.camera_configuration_id = "DJI-MAVIC-3E-WIDE";
     request.camera.calibration_source_reference =
         "DJI Mavic 3 Enterprise manufacturer specifications";
     request.camera.intrinsic_calibration_verified = false;
@@ -93,6 +93,15 @@ int main()
     auto wrongTemplate = request;
     wrongTemplate.mission.selected_template_ids = {"MT-02"};
     assert(Mt01MappingPipeline::calculate(wrongTemplate).status == Mt01PipelineStatus::NeedsInput);
+
+    auto mismatchedCamera = request;
+    mismatchedCamera.camera.camera_configuration_id = "UNASSIGNED-CAMERA";
+    const auto cameraMismatch = Mt01MappingPipeline::calculate(mismatchedCamera);
+    assert(cameraMismatch.status == Mt01PipelineStatus::NeedsInput);
+    bool mismatchReported = false;
+    for (const auto& finding : cameraMismatch.findings)
+        if (finding == "CAMERA_ASSIGNMENT_MISMATCH") mismatchReported = true;
+    assert(mismatchReported);
 
     return 0;
 }
