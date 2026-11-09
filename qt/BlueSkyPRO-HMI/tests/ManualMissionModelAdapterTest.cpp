@@ -148,5 +148,24 @@ int main(int argc, char **argv)
     assert(missingIntent.value(QStringLiteral("errors")).toStringList().contains(
         QStringLiteral("MISSION_OBJECTIVE_REQUIRED")));
 
+
+    QVariantMap autoContext{
+        {QStringLiteral("taskDescription"), QStringLiteral("Картографирование участка")},
+        {QStringLiteral("objective"), QStringLiteral("Создать ортофотоплан")},
+        {QStringLiteral("taskType"), QStringLiteral("MAPPING")},
+        {QStringLiteral("vehicleAssignments"), QVariantList{}},
+        {QStringLiteral("equipmentAssignments"), QVariantList{}}
+    };
+    const QVariantMap autoMission = adapter.buildAutoMissionV2(
+        {QStringLiteral("MT-01")}, QStringLiteral("MISSION-AUTO-V2"), 1, autoContext);
+    assert(autoMission.value(QStringLiteral("valid")).toBool());
+    const QJsonDocument autoDocument = QJsonDocument::fromJson(
+        autoMission.value(QStringLiteral("missionModelJson")).toString().toUtf8());
+    assert(autoDocument.isObject());
+    assert(autoDocument.object().value(QStringLiteral("missionMode")).toString() == QStringLiteral("AUTO"));
+    assert(autoDocument.object().value(QStringLiteral("status")).toString() == QStringLiteral("DRAFT"));
+    assert(autoDocument.object().value(QStringLiteral("geometryObjects")).toArray().isEmpty());
+    assert(!autoMission.value(QStringLiteral("flightReleaseEligible")).toBool());
+
     return 0;
 }
