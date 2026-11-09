@@ -335,3 +335,10 @@ The module provides:
 CMake target/test registration is present in `04_SOFTWARE/PLANNING/CMakeLists.txt`.
 
 **Scope limitation:** this is a first software primitive, not yet a complete aircraft trajectory validator. It does not yet model coupled fixed-wing stall/load-factor physics internally, wind-corrected ground-track curvature, climb/descent, altitude/terrain clearance, swept-volume geometry, energy/reserve, camera stabilization or VTOL transition phases. Fixed-wing minimum safe speed is currently accepted only as an externally validated, configuration-specific input basis. The route adapter is available, but the full candidate/orchestrator/HMI path is not yet wired to it. No claim is made that all 13 templates already execute this validator.
+
+
+## 11. Orchestrator connection for the shared flight-safety gate
+
+The solver contract supports an explicit `requires_flight_safety_validation` switch, an optional validated `FlightSafetyEnvelope`, and per-candidate `FlightSafetySegmentState` records. For a flight task with the switch enabled, the orchestrator runs the shared dynamic validator before candidate ranking. A missing envelope, missing segment dynamics, unknown/unvalidated evidence or any limit exceedance prevents selection. Exact use of a validated maximum is allowed only when the complete current gate passes and is returned as structured operator-warning data.
+
+This connection does not mean all solvers currently provide the required trajectory data. A flight application service must enable the gate and supply the exact aircraft configuration; each solver must emit a complete state for every flown segment. The current validator does not yet cover wind-corrected ground-track, coupled load/stall calculations, terrain/obstacle swept volume, energy/reserve or all mission-specific gates. MANUAL and AUTO share this downstream gate but retain distinct launch and input workflows.
