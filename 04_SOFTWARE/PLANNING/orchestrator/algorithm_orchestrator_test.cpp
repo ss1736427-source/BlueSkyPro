@@ -476,5 +476,16 @@ int main() {
     assert(overLimitDecision.selected_candidate_id.empty());
     assert(!overLimitDecision.rejected_candidates.empty());
 
+    MissionProblem multiVehicleProblem = flightProblem;
+    multiVehicleProblem.mission_id = "ORCH-FLIGHT-SAFETY-MULTI-004";
+    multiVehicleProblem.vehicle_ids = {"TEST-VEHICLE", "TEST-VEHICLE-2"};
+    TestContext multiVehicleContext(multiVehicleProblem, ComputeBudget{1000, 256, 8});
+    std::vector<std::unique_ptr<Solver>> multiVehicleSolvers;
+    multiVehicleSolvers.push_back(std::make_unique<FlightDynamicsSolver>(15.0, 0.2));
+    AlgorithmOrchestrator multiVehicleOrchestrator(std::move(multiVehicleSolvers));
+    const auto multiVehicleDecision = multiVehicleOrchestrator.solve(multiVehicleContext);
+    assert(multiVehicleDecision.feasibility == Feasibility::Infeasible);
+    assert(multiVehicleDecision.selected_candidate_id.empty());
+
     return 0;
 }
