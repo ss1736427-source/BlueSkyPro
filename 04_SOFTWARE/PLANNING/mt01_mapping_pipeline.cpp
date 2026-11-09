@@ -47,6 +47,19 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
             && vehicle.configuration_type != "DERIVED") {
             addFinding(result, "VEHICLE_CONFIGURATION_TYPE_INVALID");
         }
+        if (vehicle.validation_state != "VALIDATED"
+            && vehicle.validation_state != "APPROVED") {
+            addFinding(result, "VEHICLE_CONFIGURATION_NOT_VALIDATED");
+        }
+        if (vehicle.configuration_type == "STANDARD"
+            && vehicle.approval_state != "APPROVED") {
+            addFinding(result, "STANDARD_CONFIGURATION_NOT_APPROVED");
+        }
+        if (vehicle.configuration_type != "STANDARD"
+            && vehicle.approval_state != "APPROVED"
+            && vehicle.approval_state != "PENDING") {
+            addFinding(result, "CUSTOM_CONFIGURATION_APPROVAL_STATE_INVALID");
+        }
     }
 
     const EquipmentAssignment* camera = nullptr;
@@ -136,6 +149,11 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
     result.status = Mt01PipelineStatus::CoverageCandidateAvailable;
     result.coverage_candidate_available = true;
     result.flight_release_eligible = false;
+    if (mission.vehicle_assignments.front().configuration_type != "STANDARD"
+        && mission.vehicle_assignments.front().approval_state == "PENDING") {
+        addFinding(result,
+            "CUSTOM_CONFIGURATION_APPROVAL_PENDING: analysis candidate only; operational use remains blocked until the required approval is completed.");
+    }
     addFinding(result,
         "COVERAGE_CANDIDATE_ONLY: straight coverage legs are calculated; turns, transitions and total trajectory are not generated.");
     addFinding(result,
