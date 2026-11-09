@@ -29,6 +29,8 @@ struct MissionProblem {
     const PlanningGraph* planning_graph{nullptr};
     // Flight tasks must opt in explicitly; missing safety evidence then blocks candidates.
     bool requires_flight_safety_validation{false};
+    // Current contract is single-aircraft only; this must match the sole vehicle_ids entry.
+    std::string flight_safety_vehicle_id;
     std::optional<FlightSafetyEnvelope> flight_safety_envelope;
 };
 
