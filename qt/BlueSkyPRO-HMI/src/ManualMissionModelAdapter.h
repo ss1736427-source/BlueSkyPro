@@ -28,4 +28,9 @@ public:
                                             int missionVersion,
                                             bool compositionComplete,
                                             const QVariantMap &missionContext) const;
+
+    Q_INVOKABLE QVariantMap buildAutoMissionV2(const QStringList &selectedTemplateIds,
+                                                const QString &missionId,
+                                                int missionVersion,
+                                                const QVariantMap &missionContext) const;
 };
