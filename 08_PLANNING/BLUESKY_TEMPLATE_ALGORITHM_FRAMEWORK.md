@@ -225,3 +225,38 @@ The planner result status `CANDIDATE_2D_COVERAGE_ONLY` is intentionally not a
 flight-ready route or authorization. Its time metric is coverage-leg time only.
 The regression test is necessary but not sufficient evidence of operational
 survey performance. CI build/test must pass before this baseline is accepted.
+
+
+### MT-01 next engineering gate — vehicle-constrained transitions
+
+The next implementation increment must not connect coverage segments with unqualified straight lines. A transition is a trajectory candidate and must satisfy the same hard feasibility boundary as every other route segment.
+
+Required vehicle motion contract:
+- explicit airframe/motion class: fixed-wing, multirotor, or other supported class;
+- validated minimum turn radius or a validated speed/bank/lateral-acceleration envelope, with units and source/version;
+- applicable airspeed range and the speed at which the turn constraint is valid;
+- for fixed-wing, a coordinated-turn model may derive radius from speed and bank angle only when both are authoritative for the configured aircraft and operating condition; do not apply this formula universally to multirotors;
+- multirotor stop/yaw/translate behavior requires its own validated dynamic limits and must not be represented as fixed-wing Dubins motion.
+
+Required transition result contract:
+- separate coverage legs from turn, transit and reposition segments;
+- retain segment type, geometry, length, speed profile, vehicle-model identity/version and calculation-input identity;
+- report transition distance/time separately from coverage distance/time;
+- reject unsupported or incomplete vehicle motion models rather than substituting a generic radius.
+
+Required feasibility checks:
+- validate the complete transition geometry, not only its endpoints;
+- test the transition against AOI/exclusion geometry and the versioned constrained-environment snapshot, including altitude datum compatibility;
+- do not assume turns may leave the AOI; an explicit permitted turn-area/operating-domain policy is required;
+- later integrate terrain clearance, wind/performance, energy reserve, NOTAM/airspace and independent route validation before any candidate can be promoted.
+
+Acceptance tests must include radius/curvature bounds, speed-envelope violations, turn-area boundary violations, exclusion intersection, restricted-environment intersection, unsupported vehicle class, missing model provenance and deterministic output. No transition result may imply flight readiness or authorization.
+
+Implementation sequencing:
+1. introduce the versioned vehicle motion-model contract and input validation;
+2. implement a bounded trajectory primitive for one explicitly supported vehicle class;
+3. validate its entire geometry against restrictions and permitted turn domain;
+4. add segment-typed route output and separate distance/time metrics;
+5. integrate independent route validation and only then connect it to the MT-01 candidate pipeline.
+
+Until these gates are implemented and tested, MT-01 remains a 2D coverage-leg candidate generator. No transition distance, total mission time, turn feasibility or flight-ready route is claimed.
