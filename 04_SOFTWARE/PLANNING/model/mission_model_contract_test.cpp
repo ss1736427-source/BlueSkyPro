@@ -31,7 +31,7 @@ int main() {
 
     mission.environment_snapshots.push_back({
         "ENV-001", "1", {{"wind", "weather-source", "2026-09-11T19:00:00Z", "valid", "fresh", "nominal"}}});
-    mission.vehicle_assignments.push_back({"UAV-01", "CFG-01", "CONFIG-01", "STANDARD"});
+    mission.vehicle_assignments.push_back({"UAV-01", "CFG-01", "CONFIG-01", "STANDARD", "APPROVED", "APPROVED"});
     mission.equipment_assignments.push_back({"UAV-01", "EQUIPMENT-01", "EQUIPMENT-PROFILE-01", "CAMERA", "EQUIPMENT-CFG-01", "COMPATIBLE", "VERIFIED", "VERIFIED"});
     mission.route_candidates.push_back({"CAND-01", "astar", "1"});
     mission.selected_solution = {"CAND-01", "INPUT-01", "astar-1", "energy-model-1", "preserve reserve"};
