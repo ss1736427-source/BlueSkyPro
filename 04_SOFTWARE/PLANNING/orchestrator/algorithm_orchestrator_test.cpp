@@ -75,6 +75,8 @@ public:
         candidate.objective_score = 1.0;
         candidate.feasibility = Feasibility::Feasible;
         candidate.flight_dynamics.push_back({"leg-1", speed_, bank_, std::nullopt});
+        candidate.flight_dynamics_complete = true;
+        candidate.flight_dynamics_expected_segment_count = 1;
         context.publish(std::move(candidate));
         return RunState::Completed;
     }
@@ -486,6 +488,15 @@ int main() {
     const auto multiVehicleDecision = multiVehicleOrchestrator.solve(multiVehicleContext);
     assert(multiVehicleDecision.feasibility == Feasibility::Infeasible);
     assert(multiVehicleDecision.selected_candidate_id.empty());
+
+    MissionProblem incompleteDynamicsProblem = flightProblem;
+    incompleteDynamicsProblem.mission_id = "ORCH-FLIGHT-SAFETY-INCOMPLETE-005";
+    TestContext incompleteDynamicsContext(incompleteDynamicsProblem, ComputeBudget{1000, 256, 8});
+    std::vector<std::unique_ptr<Solver>> incompleteDynamicsSolvers;
+    incompleteDynamicsSolvers.push_back(std::make_unique<FlightDynamicsSolver>(15.0, 0.2));
+    AlgorithmOrchestrator incompleteDynamicsOrchestrator(std::move(incompleteDynamicsSolvers));
+    const auto incompleteDynamicsDecision = incompleteDynamicsOrchestrator.solve(incompleteDynamicsContext);
+    assert(incompleteDynamicsDecision.feasibility == Feasibility::Feasible);
 
     return 0;
 }
