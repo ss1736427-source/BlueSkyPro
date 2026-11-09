@@ -292,7 +292,7 @@ Until these gates are implemented and tested, MT-01 remains a 2D coverage-leg ca
 The vehicle-motion model now includes a preliminary deterministic speed-selection function for fixed-wing coordinated turns.
 
 Implemented contract:
-- when a requested turn radius cannot be met at the current speed, evaluate the lowest admissible turn speed;
+- retain the current speed when it already meets the requested turn radius; reduce speed only when the current-speed radius is too large, then evaluate the lowest admissible turn speed;
 - calculate bank-adjusted stall speed as Vs_bank = Vs_clean / sqrt(cos(bank)) for the coordinated level-turn approximation;
 - apply an explicit safety-margin factor greater than 1.0;
 - enforce the configured aircraft minimum/maximum speed envelope;
