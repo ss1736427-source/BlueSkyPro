@@ -342,7 +342,40 @@ The official manufacturer specifications and compatibility documentation are ext
 - DJI Matrice 4 Series official specifications: https://enterprise.dji.com/matrice-4-series/specs
 - DJI Matrice 4 Series official FAQ: https://enterprise.dji.com/matrice-4-series/faq
 
-## 20. Status
+## 20. Reference UAV — DJI Mavic 3E
+
+The DJI Mavic 3E is added as a compact mapping-capable reference platform. Its camera and battery are integrated/family-specific; it is not a generic interchangeable-payload configuration.
+
+| Parameter | Manufacturer-declared value | Provenance / condition |
+|---|---|---|
+| Model | DJI Mavic 3E | DJI official specifications |
+| Weight | 915 g | With propellers, without accessories; DJI standard definition |
+| Maximum takeoff weight | 1050 g | Standard battery/propeller configuration |
+| Maximum takeoff weight, EU C1 battery configuration | 899 g | Requires DJI Mavic 3 Enterprise Series Battery (EU C1 Version) and low-noise propellers |
+| Maximum horizontal speed, Normal | 15 m/s | Sea level, no wind |
+| Maximum horizontal speed, Sport | 21 m/s forward; 20 m/s side; 19 m/s backward | Sea level, no wind; mode-specific maximum |
+| Maximum wind resistance | 12 m/s | Manufacturer footnote limits this stated resistance to take-off and landing |
+| Maximum flight time | 45 min | No-wind reference test; constant 32.4 km/h until battery 0%; not an operational endurance allowance |
+| Maximum flight time, EU C1 configuration | 36 min | No-wind reference test |
+| Maximum pitch angle | 30° Normal; 35° Sport | Manufacturer-declared mode maxima |
+| Maximum angular velocity | 200°/s | Body angular velocity; not a horizontal turn-rate/radius model |
+| GNSS | GPS + Galileo + BeiDou; GLONASS with RTK module | DJI official specifications |
+| Operating temperature | -10 °C to +40 °C | DJI official specifications |
+| Integrated wide camera | 4/3 CMOS, 20 MP, 5280 × 3956 px | DJI official specifications |
+| Wide-camera lens | 24 mm equivalent, FOV 84°, f/2.8–f/11 | DJI official specifications |
+| Wide-camera shutter | Mechanical 8–1/2000 s; electronic 8–1/8000 s | DJI official specifications |
+| Timed capture | JPEG 0.7 s minimum; JPEG+RAW 3 s minimum | DJI published interval choices |
+| Photo format | JPEG / DNG (RAW) | DJI official specifications |
+| RTK module | Optional DJI Mavic 3 Enterprise Series RTK Module | RTK Fix: 1 cm + 1 ppm horizontal; 1.5 cm + 1 ppm vertical |
+
+**Configuration rule:** represent the Mavic 3E wide camera as fixed/integrated equipment. Do not offer arbitrary external payload assignment. Model the standard and EU C1 battery/propeller combinations as distinct configurations; do not mix their declared mass, endurance or speed data.
+
+**Planning limitations:** the manufacturer specification does not establish a validated sustained lateral-acceleration envelope or minimum horizontal turn radius. Maximum angular velocity is not a substitute. These maneuverability fields remain `UNKNOWN` until validated configuration read-back and representative flight evidence exist. Individual camera calibration (principal point and distortion coefficients), actual RTK status, battery condition/SOC/SOH and a qualified mission energy model are also not supplied by this reference record. This entry therefore enables reference configuration selection and preliminary/synthetic MT-01 planning only; it does not qualify a flight-ready configuration.
+
+Official source: DJI Mavic 3 Enterprise Specifications — https://enterprise.dji.com/mavic-3-enterprise/specs
+
+## 21. Status
+
 
 **REFERENCE_ONLY — expanded official-data seed.**
 
