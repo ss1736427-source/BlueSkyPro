@@ -280,6 +280,12 @@ Item {
                 root.headerAlertsOpen = false
             }
             onApplyRequested: root.missionProfileOpen = false
+            onMapRequested: {
+                // Keep the canonical RouteController state intact. The MAP
+                // workspace renders the same route and remains the editing surface.
+                root.missionProfileOpen = false
+                bottomToolbar.activateTool("MAP")
+            }
         }
 
         Connections {
