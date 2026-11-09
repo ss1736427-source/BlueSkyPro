@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace bluesky::planning {
 
@@ -51,6 +52,16 @@ struct CandidateSolution {
     bool flight_dynamics_complete{false};
     std::size_t flight_dynamics_expected_segment_count{0};
 };
+
+// Standard handoff for route-producing solvers. Incomplete structural routes
+// remain explicitly incomplete and are rejected by the orchestrator flight gate.
+inline void attachFlightSafetyDynamics(CandidateSolution& candidate, const Route& route)
+{
+    auto profile = buildFlightSafetyCandidateDynamics(route);
+    candidate.flight_dynamics = std::move(profile.segments);
+    candidate.flight_dynamics_complete = profile.complete;
+    candidate.flight_dynamics_expected_segment_count = profile.expected_segment_count;
+}
 
 struct SolverMetadata {
     std::string solver_id;
