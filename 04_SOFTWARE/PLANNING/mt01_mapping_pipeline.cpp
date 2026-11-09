@@ -1,6 +1,7 @@
 #include "mt01_mapping_pipeline.hpp"
 
 #include <algorithm>
+#include <utility>
 
 namespace bluesky::planning {
 namespace {
