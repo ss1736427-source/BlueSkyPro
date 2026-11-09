@@ -31,7 +31,7 @@ Changed dependency -> invalidate affected downstream calculations.
 | Schema | 08_PLANNING/schemas/mission-model.schema.json | Schema and C++ Mission/adapter serialization require reconciliation |
 | Geometry | ManualGeometryBridge | Manual map geometry exists; AUTO task flow is not joined to the same aggregate |
 | Environment | WeatherDataService, FaaNmsClient and planning validators | No proven single immutable mission-scoped DEM/NOTAM/weather/wind snapshot assembled end-to-end |
-| Planning core | 04_SOFTWARE/PLANNING/orchestrator/algorithm_orchestrator.* | Shared planning library is linked to HMI; a planning application service connecting both launch modes to calculation is not yet implemented |
+| Planning core | 04_SOFTWARE/PLANNING/mt01_mapping_pipeline.* and orchestrator | First MT-01 canonical-mission-to-2D-coverage service exists in the planning library; HMI handoff, complete trajectory and shared application service for both launch modes remain open |
 | Solvers | A*, Dijkstra and other planning components | A*/Dijkstra are graph route solvers, not coverage or 3D viewpoint planners |
 | Assessment | VirtualFlightAssessmentBridge | Current assessment uses synthetic airspace/NOTAM fixtures; not authoritative operational validation |
 | PlanningBridge | PlanningBridge | Process/JSON result bridge, not the planning engine |
@@ -160,7 +160,7 @@ This slice proves the interfaces among HMI, canonical model, environment service
 5. Link the planning library to the application as a stable CMake target; do not duplicate source files across targets.
 6. Keep synthetic assessment as test-only; implement mission-scoped authoritative input adapters.
 7. Implement the capability registry and eligibility explanations.
-8. Implement MT-01 coverage and candidate evidence before claiming automatic mapping support.
+8. Extend the MT-01 2D candidate stage with complete transitions/turns, task-quality evidence and route-level candidate lineage; connect it to the HMI/application service.
 9. Add end-to-end tests for task-to-validated-candidate, missing/stale inputs and dependency changes.
 
 ## 13. Acceptance criteria
