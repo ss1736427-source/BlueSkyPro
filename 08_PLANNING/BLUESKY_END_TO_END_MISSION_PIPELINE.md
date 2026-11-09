@@ -88,6 +88,19 @@ When a standard transition cannot capture the next path line, the planner may ge
 
 If no candidate passes all mandatory gates, return BLOCKED/INFEASIBLE with the binding reason(s). Do not silently relax a limit or rank an unsafe candidate. If the selected admissible trajectory reaches one or more validated maximum aircraft limits, the result and HMI must show the warning **«ВНИМАНИЕ: расчёт выполнен с использованием максимально допустимых режимов БВС»** and enumerate each exact parameter, planned value, limit, units and affected segment. No special warning is required for parameters merely approaching a limit. No parameter may exceed its applicable validated limit. The same downstream validator applies to AUTO and MANUAL; their separate entry workflows and input responsibilities remain unchanged.
 
+### 8D. MT-01 canonical mission-to-coverage pipeline — first integration slice
+
+The planning library now contains `Mt01MappingPipeline`, which accepts the canonical `Mission` aggregate and a separately versioned camera-configuration input, resolves the single MT-01 polygon AOI, checks the explicit AUTO/MANUAL mode, task identity, one-aircraft/one-camera assignment and geometry-to-template association, then calls the existing 2D coverage generator.
+
+The stage returns a `COVERAGE_CANDIDATE_AVAILABLE` result only when those structural inputs and the 2D coverage calculation pass. It explicitly sets `flight_release_eligible=false`. It does not convert the candidate into a complete route or mission package.
+
+The camera model now carries a camera-configuration identity, source reference and an explicit individual-intrinsics verification state. Manufacturer optical geometry may be used for a labelled reference calculation, but the result reports `CAMERA_CALIBRATION_UNVERIFIED` until actual camera/lens intrinsics and distortion calibration are controlled. A verified state without configuration identity and source provenance is rejected.
+
+A Mavic 3E reference-geometry regression uses the repository's documented 12.29 mm focal length, 3.3 µm nominal pixel pitch and 5280 × 3956 image dimensions. At a requested 3 cm GSD, 80% forward overlap and 70% side overlap, the nominal geometry calculation yields approximately 111.73 m AGL, 23.736 m forward trigger spacing and 47.52 m line spacing. These are **reference calculation outputs**, not a flight prescription: individual camera calibration, surface/DEM reference and all operational gates remain unresolved.
+
+The MT-01 pipeline has a standalone CTest target. The current scope is intentionally limited to canonical mission structural handoff and 2D straight coverage legs. It does not yet generate turns/transitions, construct an immutable DEM/NOTAM/weather/wind snapshot, prove coverage union, calculate qualified energy/reserve or perform final independent validation. Those missing stages keep flight release blocked.
+
+
 ## 9. Operator workflow
 
 1. Describe task and define AOI/target.
