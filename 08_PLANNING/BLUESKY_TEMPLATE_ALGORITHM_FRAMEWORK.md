@@ -206,6 +206,8 @@ Implemented baseline:
 - horizontal scanline intersection and subtraction of exclusion polygons;
 - deterministic scanline ordering, alternating direction per scanline;
 - rejection of degenerate and self-intersecting AOI/exclusion rings;
+- normalization of a repeated closing vertex in AOI and exclusion rings;
+- rejection of exclusion polygons that cross the AOI boundary, lie partly outside it, or overlap/contain another exclusion polygon;
 - explicit coverage-segment and scanline counts;
 - coverage-leg-only length/time metrics, excluding turns and transit.
 
