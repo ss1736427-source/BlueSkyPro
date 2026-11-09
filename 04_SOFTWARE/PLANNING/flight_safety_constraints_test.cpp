@@ -88,6 +88,25 @@ int main()
     assert(!maxAndOver.maximum_regime_warning_required);
     assert(maxAndOver.maximum_regime_uses.empty());
 
+    // Route adapter applies the same shared gate to every segment.
+    Route route;
+    route.segments.push_back({"SEG-1", "A", "B", 100.0, 25.0,
+                              *e.maximum_bank_angle_rad, 1.0});
+    auto routeMaximum = FlightSafetyConstraintValidator::validateRoute(e, route);
+    assert(routeMaximum.status == FlightSafetyStatus::Allowed);
+    assert(routeMaximum.maximum_regime_warning_required);
+    assert(routeMaximum.maximum_regime_uses.size() == 2);
+
+    route.segments[0].nominal_speed_mps = 25.1;
+    auto routeOverspeed = FlightSafetyConstraintValidator::validateRoute(e, route);
+    assert(routeOverspeed.status == FlightSafetyStatus::Rejected);
+    assert(!routeOverspeed.maximum_regime_warning_required);
+
+    route.segments[0].nominal_speed_mps = 20.0;
+    route.segments[0].bank_angle_rad.reset();
+    assert(FlightSafetyConstraintValidator::validateRoute(e, route).status
+           == FlightSafetyStatus::Unknown);
+
     // Missing or advisory-only evidence is Unknown and cannot pass the hard gate.
     auto missingSource = e;
     missingSource.source_reference.clear();
