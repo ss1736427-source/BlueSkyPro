@@ -114,6 +114,9 @@ AlgorithmOrchestrator::AlgorithmOrchestrator(
 OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
     OrchestratorDecision decision;
     CandidateSolution best;
+    std::vector<MaximumRegimeUse> bestMaximumRegimeUses;
+    bool bestMaximumRegimeWarning = false;
+    std::string bestOperatorWarning;
     bool have_best = false;
 
     if (!objective_priorities_are_supported(context.problem())) {
@@ -156,6 +159,29 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
             }
 
             std::vector<std::string> violations = candidate.constraint_violations;
+            FlightSafetyValidationResult flightSafety;
+            if (context.problem().requires_flight_safety_validation) {
+                if (!context.problem().flight_safety_envelope.has_value()) {
+                    violations.push_back("FLIGHT_SAFETY_UNKNOWN: отсутствует подтверждённый контур ограничений выбранной конфигурации БВС.");
+                } else if (candidate.flight_dynamics.empty()) {
+                    violations.push_back("FLIGHT_SAFETY_UNKNOWN: кандидат не содержит динамику каждого участка траектории.");
+                } else {
+                    flightSafety = FlightSafetyConstraintValidator::validate(
+                        *context.problem().flight_safety_envelope, candidate.flight_dynamics);
+                    if (flightSafety.status != FlightSafetyStatus::Allowed) {
+                        if (flightSafety.findings.empty()) {
+                            violations.push_back("FLIGHT_SAFETY_UNKNOWN: динамические ограничения БВС не подтверждены.");
+                        } else {
+                            for (const auto& finding : flightSafety.findings) {
+                                std::ostringstream reason;
+                                reason << "FLIGHT_SAFETY: " << finding.detail;
+                                if (!finding.segment_id.empty()) reason << " Участок: " << finding.segment_id << ".";
+                                violations.push_back(reason.str());
+                            }
+                        }
+                    }
+                }
+            }
             if (constraint_validator_) {
                 const auto validated_violations =
                     constraint_validator_(context.problem(), candidate);
@@ -182,6 +208,9 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
 
             if (!have_best || better_candidate(candidate, best, context.problem())) {
                 best = candidate;
+                bestMaximumRegimeUses = flightSafety.maximum_regime_uses;
+                bestMaximumRegimeWarning = flightSafety.maximum_regime_warning_required;
+                bestOperatorWarning = flightSafety.operator_warning;
                 have_best = true;
             }
         }
@@ -198,6 +227,9 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
     decision.feasibility = Feasibility::Feasible;
     decision.selected_solver_id = best.solver_id;
     decision.selected_candidate_id = best.candidate_id;
+    decision.selected_maximum_regime_uses = std::move(bestMaximumRegimeUses);
+    decision.maximum_regime_warning_required = bestMaximumRegimeWarning;
+    decision.operator_warning = std::move(bestOperatorWarning);
 
     std::ostringstream explanation;
     explanation << "Выбран маршрут, рассчитанный алгоритмом " << best.solver_id
