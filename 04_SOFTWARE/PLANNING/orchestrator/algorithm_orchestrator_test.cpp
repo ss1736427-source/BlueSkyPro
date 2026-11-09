@@ -440,6 +440,8 @@ int main() {
     MissionProblem flightProblem = problem;
     flightProblem.mission_id = "ORCH-FLIGHT-SAFETY-001";
     flightProblem.requires_flight_safety_validation = true;
+    flightProblem.vehicle_ids = {"TEST-VEHICLE"};
+    flightProblem.flight_safety_vehicle_id = "TEST-VEHICLE";
     flightProblem.flight_safety_envelope = validatedEnvelope;
     TestContext flightContext(flightProblem, ComputeBudget{1000, 256, 8});
     std::vector<std::unique_ptr<Solver>> flightSolvers;
