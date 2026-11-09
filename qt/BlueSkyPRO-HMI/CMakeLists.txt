@@ -141,7 +141,7 @@ add_executable(mt01_mapping_bridge_test
     src/Mt01MappingBridge.cpp
     src/Mt01MappingBridge.h
 )
-target_include_directories(mt01_mapping_bridge_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+target_include_directories(mt01_mapping_bridge_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.. ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(mt01_mapping_bridge_test PRIVATE bluesky_planning Qt6::Core)
 target_compile_features(mt01_mapping_bridge_test PRIVATE cxx_std_20)
 target_compile_options(mt01_mapping_bridge_test PRIVATE
