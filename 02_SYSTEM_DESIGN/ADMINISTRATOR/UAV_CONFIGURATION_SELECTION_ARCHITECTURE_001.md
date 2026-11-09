@@ -115,6 +115,22 @@ Payload:
 
 The operator may accept the automatic recommendation or select among the remaining valid alternatives.
 
+## 7A. Operator CUSTOM equipment extension
+
+The standard compatibility-filtered workflow shall not prevent an operator from configuring mission-specific non-standard equipment.
+
+The operator may:
+- use a fully CUSTOM UAV/platform; or
+- retain a standard UAV and its approved baseline, then add a non-standard camera, sensor, mount, payload or other equipment as a separate CUSTOM mission configuration.
+
+The second case is a derived configuration. It shall preserve the baseline configuration ID/revision and record every added, removed or modified component. It shall not rewrite the approved standard configuration.
+
+Non-standard equipment may be entered locally by the operator and retained as DRAFT / VALIDATION_REQUIRED. The system shall capture its identity, technical parameters, interfaces, mass, power, mounting, source documents and calibration status as applicable. Unknown data remain UNKNOWN.
+
+The compatibility engine shall evaluate what it can establish and report unresolved relationships. It shall not label unknown compatibility as compatible. A CUSTOM configuration with unresolved safety-critical compatibility, mass, power, mounting, control, navigation or sensor/calibration data shall not be presented as flight-ready.
+
+A custom record may be submitted to Administrator/engineering review and promoted into the controlled equipment catalogue only after the applicable verification and approval process.
+
 ## 8. No-valid-configuration behavior
 
 If no configuration satisfies the mission requirements, the system shall not expose incompatible hardware as an apparent solution.
