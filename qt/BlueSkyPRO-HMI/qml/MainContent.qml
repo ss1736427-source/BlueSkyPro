@@ -29,6 +29,9 @@ Item {
     property string manualModelValidationStatus: "NOT_CHECKED"
     property string manualMissionModelJson: ""
     property string missionTaskDescription: ""
+    property string autoMissionModelJson: ""
+    property string autoMissionModelStatus: "NOT_BUILT"
+    property int autoMissionVersion: 1
     // These assignments are populated only by the approved configuration selector.
     // Empty collections are intentional until exact catalogue IDs/revisions exist.
     property var manualVehicleAssignments: []
@@ -873,6 +876,26 @@ Item {
             root.missionSummary = taskText.trim().length > 0
                                   ? taskText.trim()
                                   : "Выбрано шаблонов: " + templateIndices.length
+
+            // AUTO and MANUAL now serialize into the same v2 mission contract.
+            // The AUTO record is a DRAFT until AOI and exact vehicle/equipment
+            // configuration snapshots are supplied by their authoritative services.
+            var autoContext = {
+                taskDescription: root.missionTaskDescription,
+                objective: root.missionTaskDescription,
+                taskType: templateIds.indexOf("MT-01") >= 0
+                          ? "MAPPING" : (templateIds.length > 0 ? templateIds[0] : ""),
+                vehicleAssignments: [],
+                equipmentAssignments: []
+            }
+            var autoBuild = manualMissionModelAdapter.buildAutoMissionV2(
+                        templateIds, root.missionId, root.autoMissionVersion, autoContext)
+            root.autoMissionModelJson = autoBuild.valid
+                    ? String(autoBuild.missionModelJson || "") : ""
+            root.autoMissionModelStatus = autoBuild.valid
+                    ? (autoBuild.geometryComplete ? "DRAFT" : "DRAFT_AOI_AND_CONFIGURATION_REQUIRED")
+                    : autoBuild.errors.join(", ")
+            root.autoMissionVersion += 1
             root.missionState = "AUTO"
             root.taskCreationVisible = false
             root.missionSplashVisible = true
