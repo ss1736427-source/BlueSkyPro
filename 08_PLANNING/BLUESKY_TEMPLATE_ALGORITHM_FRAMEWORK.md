@@ -212,7 +212,7 @@ Implemented baseline:
 - coverage-leg-only length/time metrics, excluding turns and transit.
 
 Not implemented and therefore not to be inferred from this baseline:
-- actual camera trigger events or along-track capture waypoints;
+- camera latency compensation, trigger behavior during turns/transitions, and flight-controller command integration;
 - cellular decomposition for complex concave/multi-component operational areas;
 - connecting transit/turn trajectories between disjoint segments or scanlines;
 - DEM terrain following, obstacle avoidance, wind and aircraft energy model;
