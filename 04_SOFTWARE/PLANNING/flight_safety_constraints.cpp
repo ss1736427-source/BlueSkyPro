@@ -71,6 +71,21 @@ FlightSafetyValidationResult FlightSafetyConstraintValidator::validate(
         unknown("Only official or flight-test validated limits may satisfy the flight-safety hard gate.");
         return result;
     }
+    const std::string requiredSpeedReference =
+        envelope.motion_class == MotionClass::FixedWing ? "TAS" : "AIR_RELATIVE";
+    if (envelope.speed_reference != requiredSpeedReference) {
+        unknown("Speed reference does not match the selected vehicle motion class.");
+        return result;
+    }
+    if (envelope.minimum_speed_basis.empty()) {
+        unknown("The basis for the minimum safe speed must be explicit and configuration-specific.");
+        return result;
+    }
+    if (envelope.motion_class == MotionClass::FixedWing
+        && envelope.minimum_speed_basis != "CONFIGURATION_SPECIFIC_STALL_SPEED_WITH_BANK_AND_MARGIN") {
+        unknown("Fixed-wing minimum speed must include configuration-specific stall speed, bank/load factor and safety margin.");
+        return result;
+    }
     if (!finitePositive(envelope.minimum_speed_mps)
         || !finitePositive(envelope.maximum_speed_mps)
         || *envelope.minimum_speed_mps > *envelope.maximum_speed_mps
