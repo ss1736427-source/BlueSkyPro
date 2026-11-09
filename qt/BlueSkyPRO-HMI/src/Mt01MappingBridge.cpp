@@ -10,6 +10,7 @@
 
 #include <cmath>
 #include <string>
+#include <utility>
 
 using namespace bluesky::planning;
 
