@@ -19,4 +19,13 @@ public:
                                          const QString &missionId,
                                          int missionVersion,
                                          bool compositionComplete) const;
+
+    // Produces the complete v2 mission aggregate used by MT-01.
+    // missionContext must carry explicit task/intent and exact equipment bindings.
+    Q_INVOKABLE QVariantMap buildMissionV2(const QString &geometryJson,
+                                            const QStringList &selectedTemplateIds,
+                                            const QString &missionId,
+                                            int missionVersion,
+                                            bool compositionComplete,
+                                            const QVariantMap &missionContext) const;
 };
