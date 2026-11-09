@@ -26,10 +26,17 @@ struct CoverageMetrics {
  std::size_t coverage_line_count{0}; std::size_t coverage_segment_count{0};
  std::size_t exclusion_intersection_count{0};
 };
+struct CoverageCapturePoint {
+ GeoPoint position;
+ std::size_t coverage_segment_index{0};
+ double distance_from_segment_start_m{0.0};
+};
 struct CoveragePlanResult {
  bool valid{false}; std::string status; std::vector<GeoPoint> waypoints;
+ std::vector<CoverageCapturePoint> capture_points;
  CoverageMetrics metrics; std::vector<std::string> diagnostics;
 };
-// 2D candidate generator only; no turn/transit routing, trigger events, DEM or safety validation.
+// 2D candidate generator; emits image trigger positions along straight coverage legs only.
+// Assumes image_height_px is the along-track sensor dimension; no turns, transit, DEM or safety validation.
 class CoveragePathPlanner { public: static CoveragePlanResult generate(const CoverageMissionInput& input); };
 } // namespace bluesky::planning
