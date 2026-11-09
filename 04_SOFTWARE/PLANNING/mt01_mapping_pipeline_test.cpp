@@ -16,7 +16,7 @@ static Mt01MappingRequest makeRequest()
     mission.intent.objective = "Photogrammetric orthomosaic";
     mission.intent.task_type = "MAPPING";
     mission.task.description = "Map the defined area at 3 cm GSD";
-    mission.vehicle_assignments.push_back({"DJI-MAVIC-3E", "MAVIC-3E-STANDARD-REFERENCE-001", "MAVIC-3E-STANDARD", "STANDARD"});
+    mission.vehicle_assignments.push_back({"DJI-MAVIC-3E", "MAVIC-3E-STANDARD-REFERENCE-001", "MAVIC-3E-STANDARD", "STANDARD", "APPROVED", "APPROVED"});
     mission.equipment_assignments.push_back({"DJI-MAVIC-3E", "DJI-MAVIC-3E-WIDE", "DJI-MAVIC-3E-WIDE-PROFILE", "CAMERA", "MAVIC-3E-WIDE-REFERENCE-001", "COMPATIBLE", "VERIFIED", "NOT_VERIFIED"});
 
     MissionGeometryObject aoi;
@@ -109,6 +109,8 @@ int main()
     customConfiguration.mission.vehicle_assignments.front().configuration_id = "MAVIC-3E-DERIVED-CUSTOM-01";
     customConfiguration.mission.vehicle_assignments.front().configuration_version = "2";
     customConfiguration.mission.vehicle_assignments.front().configuration_type = "CUSTOM";
+    customConfiguration.mission.vehicle_assignments.front().validation_state = "VALIDATED";
+    customConfiguration.mission.vehicle_assignments.front().approval_state = "PENDING";
     const auto customResult = Mt01MappingPipeline::calculate(customConfiguration);
     assert(customResult.status == Mt01PipelineStatus::CoverageCandidateAvailable);
     assert(!customResult.flight_release_eligible);
