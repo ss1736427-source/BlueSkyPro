@@ -46,7 +46,7 @@ int main()
     assert(atMaximum.status == FlightSafetyStatus::Allowed);
     assert(atMaximum.maximum_regime_warning_required);
     assert(atMaximum.maximum_regime_uses.size() == 3);
-    assert(atMaximum.operator_warning.find("максимально допустимыми режимами") != std::string::npos);
+    assert(atMaximum.operator_warning.find("максимально допустимых режимов БВС") != std::string::npos);
 
     // Report only the parameter that actually reaches its maximum.
     auto oneMaximum = FlightSafetyConstraintValidator::validate(
