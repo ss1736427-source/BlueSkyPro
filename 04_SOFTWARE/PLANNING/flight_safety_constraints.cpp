@@ -43,6 +43,36 @@ void recordMaximum(FlightSafetyValidationResult& result,
 
 } // namespace
 
+FlightSafetyCandidateDynamics buildFlightSafetyCandidateDynamics(const Route& route)
+{
+    FlightSafetyCandidateDynamics result;
+    result.expected_segment_count = route.segments.size();
+    result.segments.reserve(route.segments.size());
+
+    bool allSegmentsHaveExplicitDynamics = !route.segments.empty();
+    for (const auto& segment : route.segments) {
+        result.segments.push_back({
+            segment.segment_id,
+            segment.nominal_speed_mps,
+            segment.bank_angle_rad,
+            segment.lateral_acceleration_mps2
+        });
+        if (segment.segment_id.empty() || !std::isfinite(segment.nominal_speed_mps)
+            || segment.nominal_speed_mps <= 0.0
+            || (!segment.bank_angle_rad && !segment.lateral_acceleration_mps2)) {
+            allSegmentsHaveExplicitDynamics = false;
+        }
+    }
+
+    const bool routeStructureComplete =
+        route.waypoints.size() >= 2
+        && route.segments.size() + 1 == route.waypoints.size();
+    result.complete = route.trajectory_geometry_complete
+        && routeStructureComplete
+        && allSegmentsHaveExplicitDynamics;
+    return result;
+}
+
 FlightSafetyValidationResult FlightSafetyConstraintValidator::validate(
     const FlightSafetyEnvelope& envelope,
     const std::vector<FlightSafetySegmentState>& segments,
