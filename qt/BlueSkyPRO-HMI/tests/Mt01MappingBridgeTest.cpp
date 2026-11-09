@@ -99,5 +99,18 @@ int main(int argc, char **argv)
     missingInputs.remove("cruiseSpeedMps");
     const QVariantMap missing = bridge.calculate(validMissionJson(), missingInputs);
     assert(missing.value("findings").toStringList().contains("MT01_NUMERIC_PARAMETERS_REQUIRED"));
+
+    QJsonObject unassignedMissionObject = QJsonDocument::fromJson(validMissionJson().toUtf8()).object();
+    unassignedMissionObject.insert("vehicleAssignments", QJsonArray{});
+    unassignedMissionObject.insert("equipmentAssignments", QJsonArray{});
+    const QVariantMap unassigned = bridge.calculate(
+        QString::fromUtf8(QJsonDocument(unassignedMissionObject).toJson(QJsonDocument::Compact)),
+        QVariantMap{});
+    assert(unassigned.value("status").toString() == "NEEDS_INPUT");
+    const QStringList unassignedFindings = unassigned.value("findings").toStringList();
+    assert(unassignedFindings.contains("MT01_REQUIRES_EXACTLY_ONE_ASSIGNED_VEHICLE"));
+    assert(unassignedFindings.contains("MT01_CAMERA_EQUIPMENT_ASSIGNMENT_REQUIRED"));
+    assert(!unassigned.value("flightReleaseEligible").toBool());
+
     return 0;
 }
