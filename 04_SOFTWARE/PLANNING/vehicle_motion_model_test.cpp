@@ -58,5 +58,40 @@ int main() {
     badAccel.lateral_acceleration_mps2 = 0.0;
     assert(!VehicleMotionModelEvaluator::estimateTurnRadius(badAccel).valid);
 
+
+    // Fixed-wing turn speed is reduced only to the stall-margin constrained minimum.
+    auto speedModel = fixed;
+    speedModel.evidence = MotionEvidence::FlightTestValidated;
+    speedModel.minimum_speed_mps = 8.0;
+    speedModel.maximum_speed_mps = 22.0;
+    const auto slowTurn = VehicleMotionModelEvaluator::recommendMinimumTurnSpeed(
+        speedModel, 60.0, 10.0, 1.30);
+    assert(slowTurn.valid);
+    assert(slowTurn.may_satisfy_motion_hard_gate);
+    assert(slowTurn.selected_speed_mps >= slowTurn.minimum_safe_turn_speed_mps);
+    assert(std::abs(slowTurn.selected_speed_mps - slowTurn.minimum_safe_turn_speed_mps) < 1e-9);
+    assert(slowTurn.radius_requirement_met);
+    assert(slowTurn.achieved_ideal_radius_m <= 60.0);
+
+    // A tighter radius must be rejected if it would require flying below the safe minimum.
+    const auto impossibleTightTurn = VehicleMotionModelEvaluator::recommendMinimumTurnSpeed(
+        speedModel, 35.0, 10.0, 1.30);
+    assert(!impossibleTightTurn.valid);
+
+    // Missing stall data and an invalid margin are never silently substituted.
+    const auto missingStall = VehicleMotionModelEvaluator::recommendMinimumTurnSpeed(
+        speedModel, 60.0, 0.0, 1.30);
+    assert(!missingStall.valid);
+    const auto unsafeMargin = VehicleMotionModelEvaluator::recommendMinimumTurnSpeed(
+        speedModel, 60.0, 10.0, 1.0);
+    assert(!unsafeMargin.valid);
+
+    // A configured envelope that cannot contain the stall-margin speed is infeasible.
+    auto narrowEnvelope = speedModel;
+    narrowEnvelope.maximum_speed_mps = 12.0;
+    const auto noSafeSpeed = VehicleMotionModelEvaluator::recommendMinimumTurnSpeed(
+        narrowEnvelope, 60.0, 10.0, 1.30);
+    assert(!noSafeSpeed.valid);
+
     return 0;
 }
