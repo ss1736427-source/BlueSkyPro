@@ -136,6 +136,7 @@ public:
         const VehicleMotionModel& model,
         double requested_radius_m,
         double stall_speed_clean_mps,
+        const std::string& stall_speed_reference,
         double stall_margin_factor) {
         TurnSpeedRecommendation out;
         out.requested_radius_m = requested_radius_m;
@@ -157,13 +158,14 @@ public:
         }
         if (!finitePositive(requested_radius_m) ||
             !finitePositive(stall_speed_clean_mps) ||
+            stall_speed_reference != "TAS" ||
             !finitePositive(stall_margin_factor) || stall_margin_factor <= 1.0 ||
             !finitePositive(model.minimum_speed_mps) ||
             !finitePositive(model.maximum_speed_mps) ||
             model.minimum_speed_mps > model.maximum_speed_mps ||
             !std::isfinite(model.bank_angle_rad) ||
             model.bank_angle_rad <= 0.0 || model.bank_angle_rad >= pi / 2.0) {
-            out.diagnostic = "Invalid radius, stall data, safety margin, speed envelope or bank angle.";
+            out.diagnostic = "Invalid radius, TAS-referenced stall data, safety margin, speed envelope or bank angle.";
             return out;
         }
 
