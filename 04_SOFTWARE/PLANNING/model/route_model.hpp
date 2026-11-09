@@ -67,6 +67,9 @@ struct Route {
     RouteLineage lineage;
     std::vector<RouteWaypoint> waypoints;
     std::vector<RouteSegment> segments;
+    // True only when this Route includes every flown leg and transition/turn segment.
+    // Structural waypoint chains alone must leave this false.
+    bool trajectory_geometry_complete{false};
     RouteConstraints constraints;
     RouteEnvironmentReference environment;
 };
