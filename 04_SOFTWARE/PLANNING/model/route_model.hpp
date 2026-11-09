@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -30,6 +31,9 @@ struct RouteSegment {
     std::string to_waypoint_id;
     double distance_m{0.0};
     double nominal_speed_mps{0.0};
+    // Required by the shared dynamic safety gate for the applicable vehicle class.
+    std::optional<double> bank_angle_rad;
+    std::optional<double> lateral_acceleration_mps2;
 };
 
 struct RouteConstraints {
