@@ -78,6 +78,16 @@ Every candidate must pass independent checks for geometry/altitude references, D
 
 A solver-reported FEASIBLE value is not independent validation. Hard constraints are gates. Only admissible candidates enter objective ranking. INFEASIBLE, UNCERTAIN, PARTIAL and FEASIBLE remain distinct.
 
+## 8A. System-wide flight safety constraints
+
+All 13 mission templates and both AUTO and MANUAL launch modes are subject to the same mandatory [Flight Safety Constraints Policy](FLIGHT_SAFETY_CONSTRAINTS_POLICY.md). The policy is a non-bypassable hard gate, not a template-specific optimization preference.
+
+Every generated trajectory must remain within the exact aircraft configuration's validated speed, bank/roll, acceleration, altitude and energy/reserve envelope. Fixed-wing speed selection must preserve the configuration-specific stall margin under bank/load factor. Multirotor and VTOL vehicles require their own validated, phase-appropriate motion envelopes; yaw rate alone is not a substitute for translational turn capability.
+
+When a standard transition cannot capture the next path line, the planner may generate an earlier, longer or multi-stage maneuver, increase total course change, or add straight transit/stabilization segments. This is geometric path extension, not permission to exceed bank, speed or other aircraft limits. The entire swept path must remain inside an explicitly permitted maneuvering domain and pass the versioned terrain, obstacle, airspace/NOTAM, weather/wind, C2, separation and energy checks.
+
+If no candidate passes all mandatory gates, return BLOCKED/INFEASIBLE with the binding reason(s). Do not silently relax a limit or rank an unsafe candidate. The same downstream validator applies to AUTO and MANUAL; their separate entry workflows and input responsibilities remain unchanged.
+
 ## 9. Operator workflow
 
 1. Describe task and define AOI/target.
