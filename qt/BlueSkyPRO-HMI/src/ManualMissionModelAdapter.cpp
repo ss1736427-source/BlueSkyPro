@@ -273,3 +273,85 @@ QVariantMap ManualMissionModelAdapter::buildMission(const QString &geometryJson,
     result.insert(QStringLiteral("flightReleaseEligible"), false);
     return result;
 }
+
+
+QVariantMap ManualMissionModelAdapter::buildMissionV2(
+    const QString &geometryJson,
+    const QStringList &selectedTemplateIds,
+    const QString &missionId,
+    int missionVersion,
+    bool compositionComplete,
+    const QVariantMap &missionContext) const
+{
+    QVariantMap result = buildMission(geometryJson, selectedTemplateIds,
+                                      missionId, missionVersion, compositionComplete);
+    if (!result.value(QStringLiteral("valid")).toBool())
+        return result;
+
+    QStringList errors = result.value(QStringLiteral("errors")).toStringList();
+    const QString taskDescription =
+        missionContext.value(QStringLiteral("taskDescription")).toString().trimmed();
+    const QString objective =
+        missionContext.value(QStringLiteral("objective")).toString().trimmed();
+    const QString taskType =
+        missionContext.value(QStringLiteral("taskType")).toString().trimmed();
+
+    if (taskDescription.isEmpty())
+        errors.push_back(QStringLiteral("TASK_DESCRIPTION_REQUIRED"));
+    if (objective.isEmpty())
+        errors.push_back(QStringLiteral("MISSION_OBJECTIVE_REQUIRED"));
+    if (taskType.isEmpty())
+        errors.push_back(QStringLiteral("MISSION_TASK_TYPE_REQUIRED"));
+
+    const QVariant vehiclesValue = missionContext.value(QStringLiteral("vehicleAssignments"));
+    const QVariant equipmentValue = missionContext.value(QStringLiteral("equipmentAssignments"));
+    if (!vehiclesValue.canConvert<QVariantList>())
+        errors.push_back(QStringLiteral("VEHICLE_ASSIGNMENTS_INVALID"));
+    if (!equipmentValue.canConvert<QVariantList>())
+        errors.push_back(QStringLiteral("EQUIPMENT_ASSIGNMENTS_INVALID"));
+
+    QJsonParseError parseError;
+    const QJsonDocument baseDocument = QJsonDocument::fromJson(
+        result.value(QStringLiteral("missionModelJson")).toString().toUtf8(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !baseDocument.isObject()) {
+        errors.push_back(QStringLiteral("MISSION_MODEL_SERIALIZATION_INVALID"));
+        result.insert(QStringLiteral("valid"), false);
+        result.insert(QStringLiteral("errors"), errors);
+        return result;
+    }
+
+    QJsonObject canonical = baseDocument.object();
+    canonical.insert(QStringLiteral("status"), QStringLiteral("DRAFT"));
+    canonical.insert(QStringLiteral("task"), QJsonObject{
+        {QStringLiteral("description"), taskDescription}
+    });
+    canonical.insert(QStringLiteral("intent"), QJsonObject{
+        {QStringLiteral("objective"), objective},
+        {QStringLiteral("taskType"), taskType}
+    });
+
+    const QVariantList vehicles = vehiclesValue.canConvert<QVariantList>()
+        ? vehiclesValue.toList() : QVariantList{};
+    const QVariantList equipment = equipmentValue.canConvert<QVariantList>()
+        ? equipmentValue.toList() : QVariantList{};
+    canonical.insert(QStringLiteral("vehicleAssignments"),
+                     QJsonArray::fromVariantList(vehicles));
+    canonical.insert(QStringLiteral("equipmentAssignments"),
+                     QJsonArray::fromVariantList(equipment));
+
+    const QVariantMap constraints = missionContext.value(QStringLiteral("constraints")).toMap();
+    if (!constraints.isEmpty())
+        canonical.insert(QStringLiteral("constraints"),
+                         QJsonObject::fromVariantMap(constraints));
+
+    errors.removeDuplicates();
+    result.insert(QStringLiteral("valid"), errors.isEmpty());
+    result.insert(QStringLiteral("errors"), errors);
+    result.insert(QStringLiteral("missionModelJson"),
+                  QString::fromUtf8(QJsonDocument(canonical).toJson(QJsonDocument::Compact)));
+    result.insert(QStringLiteral("schemaVersion"), QStringLiteral("2"));
+    result.insert(QStringLiteral("configurationComplete"),
+                  !vehicles.isEmpty() && !equipment.isEmpty());
+    result.insert(QStringLiteral("flightReleaseEligible"), false);
+    return result;
+}
