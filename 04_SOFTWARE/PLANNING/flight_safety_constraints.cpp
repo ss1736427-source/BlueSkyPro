@@ -184,4 +184,22 @@ FlightSafetyValidationResult FlightSafetyConstraintValidator::validate(
     return result;
 }
 
+FlightSafetyValidationResult FlightSafetyConstraintValidator::validateRoute(
+    const FlightSafetyEnvelope& envelope,
+    const Route& route,
+    double equalityTolerance)
+{
+    std::vector<FlightSafetySegmentState> states;
+    states.reserve(route.segments.size());
+    for (const auto& segment : route.segments) {
+        states.push_back({
+            segment.segment_id,
+            segment.nominal_speed_mps,
+            segment.bank_angle_rad,
+            segment.lateral_acceleration_mps2
+        });
+    }
+    return validate(envelope, states, equalityTolerance);
+}
+
 } // namespace bluesky::planning
