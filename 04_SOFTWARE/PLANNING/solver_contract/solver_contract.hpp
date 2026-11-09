@@ -1,6 +1,8 @@
 #pragma once
 
 #include "../model/planning_graph.hpp"
+#include "../model/flight_safety_constraints.hpp"
+#include <optional>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -25,6 +27,9 @@ struct MissionProblem {
     std::vector<std::string> objective_priorities;
     std::string environment_version;
     const PlanningGraph* planning_graph{nullptr};
+    // Flight tasks must opt in explicitly; missing safety evidence then blocks candidates.
+    bool requires_flight_safety_validation{false};
+    std::optional<FlightSafetyEnvelope> flight_safety_envelope;
 };
 
 struct CandidateSolution {
@@ -38,6 +43,8 @@ struct CandidateSolution {
     double estimated_reserve_wh{0.0};
     double objective_score{0.0};
     Feasibility feasibility{Feasibility::Uncertain};
+    // One state per flown trajectory segment; IDs must be unique and non-empty.
+    std::vector<FlightSafetySegmentState> flight_dynamics;
 };
 
 struct SolverMetadata {
