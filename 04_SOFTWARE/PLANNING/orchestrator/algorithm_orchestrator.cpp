@@ -161,7 +161,11 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
             std::vector<std::string> violations = candidate.constraint_violations;
             FlightSafetyValidationResult flightSafety;
             if (context.problem().requires_flight_safety_validation) {
-                if (!context.problem().flight_safety_envelope.has_value()) {
+                if (context.problem().vehicle_ids.size() != 1 ||
+                    context.problem().flight_safety_vehicle_id.empty() ||
+                    context.problem().vehicle_ids.front() != context.problem().flight_safety_vehicle_id) {
+                    violations.push_back("FLIGHT_SAFETY_UNKNOWN: текущий safety-контракт требует ровно один назначенный БВС и точную привязку контура к его идентификатору.");
+                } else if (!context.problem().flight_safety_envelope.has_value()) {
                     violations.push_back("FLIGHT_SAFETY_UNKNOWN: отсутствует подтверждённый контур ограничений выбранной конфигурации БВС.");
                 } else if (candidate.flight_dynamics.empty()) {
                     violations.push_back("FLIGHT_SAFETY_UNKNOWN: кандидат не содержит динамику каждого участка траектории.");
