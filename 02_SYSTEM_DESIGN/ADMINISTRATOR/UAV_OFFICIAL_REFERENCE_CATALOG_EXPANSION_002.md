@@ -228,3 +228,12 @@ OPERATOR SELECTION
 `REFERENCE_CATALOGUE_EXPANSION`
 
 This document is a controlled research/reference input. It does not by itself establish airworthiness, operational approval, Russian certification compliance, or acceptance of any particular mission configuration.
+
+
+## 10. Maneuverability reference dataset
+
+The source-qualified maneuverability examples for DJI Matrice 350 RTK, WingtraOne GEN II and Quantum-Systems Trinity Pro are maintained separately in:
+
+`07_DATA/UAV_Types/UAV-MANEUVERABILITY-REFERENCE-001.md`
+
+The dataset records manufacturer-published speed/attitude data, autopilot parameter references, valid derivation equations and explicit UNKNOWN turn-radius fields. No turn radius is inferred from yaw rate or cruise speed alone. This dataset is a reference input; aircraft-specific operational limits still require exact configuration and validation.
