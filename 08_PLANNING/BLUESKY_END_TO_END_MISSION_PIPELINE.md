@@ -168,3 +168,9 @@ This slice proves the interfaces among HMI, canonical model, environment service
 ## 14. Status reporting rule
 
 Do not report the full chain as implemented until an automated end-to-end test demonstrates task description -> canonical model -> scoped inputs -> decomposition -> solver -> independent validation -> selected candidate. Architecture documents and isolated unit tests are not proof of operational planning.
+
+## 8B. Shared dynamic safety validator — implementation status
+
+A reusable C++ hard-gate primitive is now registered in the planning library and its CTest suite. It validates per-segment speed and the motion-class-specific dynamic limit against official/flight-test validated aircraft configuration data. It rejects over-limit and unknown/unvalidated inputs. Exact use of a permitted maximum is returned as structured data for HMI warning; approaching a limit does not trigger this warning. A route adapter applies the same check to every route segment.
+
+This is not yet end-to-end integration. The current orchestrator candidate contract does not carry the complete aircraft configuration and per-segment dynamics needed to invoke the validator by itself. The route adapter is available, but candidate/orchestrator wiring, coupled dynamics (including bank-dependent stall margin), wind/ground-track, spatial swept-path, energy and HMI display remain implementation gates. Until those are complete, this primitive must not be represented as proof that every template is safety-validated.
