@@ -103,5 +103,28 @@ int main()
         if (finding == "CAMERA_ASSIGNMENT_MISMATCH") mismatchReported = true;
     assert(mismatchReported);
 
+    // CUSTOM derived configurations are accepted for analysis only when the
+    // exact equipment assignment has confirmed compatibility and verification.
+    auto customConfiguration = request;
+    customConfiguration.mission.vehicle_assignments.front().configuration_id = "MAVIC-3E-DERIVED-CUSTOM-01";
+    customConfiguration.mission.vehicle_assignments.front().configuration_version = "2";
+    customConfiguration.mission.vehicle_assignments.front().configuration_type = "CUSTOM";
+    const auto customResult = Mt01MappingPipeline::calculate(customConfiguration);
+    assert(customResult.status == Mt01PipelineStatus::CoverageCandidateAvailable);
+    assert(!customResult.flight_release_eligible);
+
+    auto unknownCompatibility = customConfiguration;
+    unknownCompatibility.mission.equipment_assignments.front().compatibility_state = "UNKNOWN";
+    const auto unknownResult = Mt01MappingPipeline::calculate(unknownCompatibility);
+    assert(unknownResult.status == Mt01PipelineStatus::NeedsInput);
+    bool compatibilityBlocked = false;
+    for (const auto& finding : unknownResult.findings)
+        if (finding == "CAMERA_COMPATIBILITY_NOT_CONFIRMED") compatibilityBlocked = true;
+    assert(compatibilityBlocked);
+
+    auto wrongVehicleBinding = request;
+    wrongVehicleBinding.mission.equipment_assignments.front().vehicle_id = "OTHER-UAV";
+    assert(Mt01MappingPipeline::calculate(wrongVehicleBinding).status == Mt01PipelineStatus::NeedsInput);
+
     return 0;
 }
