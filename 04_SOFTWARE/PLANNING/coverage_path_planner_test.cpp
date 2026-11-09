@@ -40,5 +40,34 @@ int main(){
   {{0.0008,0.0008},{0.0008,0.0016},{0.0016,0.0016},{0.0016,0.0008}}
  };assert(!CoveragePathPlanner::generate(overlapping).valid);
  auto concave=in;concave.area_of_interest={{0,0},{0,0.002},{0.0008,0.002},{0.0008,0.0008},{0.002,0.0008},{0.002,0}};assert(CoveragePathPlanner::generate(concave).valid);
+ // DJI Mavic 3E manufacturer optical geometry: a reference calculation only.
+ // It must remain explicitly uncalibrated until individual camera intrinsics exist.
+ auto mavic=input();
+ mavic.camera.focal_length_mm=12.29;
+ mavic.camera.pixel_pitch_um=3.3;
+ mavic.camera.image_width_px=5280;
+ mavic.camera.image_height_px=3956;
+ mavic.camera.target_gsd_cm_px=3.0;
+ mavic.camera.forward_overlap_percent=80.0;
+ mavic.camera.side_overlap_percent=70.0;
+ mavic.camera.camera_configuration_id="DJI-MAVIC-3E-WIDE-STANDARD";
+ mavic.camera.calibration_source_reference="DJI Mavic 3 Enterprise manufacturer specifications";
+ mavic.camera.intrinsic_calibration_verified=false;
+ mavic.minimum_altitude_agl_m=50.0;
+ mavic.maximum_altitude_agl_m=150.0;
+ const auto mavicReference=CoveragePathPlanner::generate(mavic);
+ assert(mavicReference.valid);
+ assert(!mavicReference.intrinsic_calibration_verified);
+ assert(std::abs(mavicReference.metrics.calculated_altitude_agl_m-111.7272727)<0.01);
+ assert(std::abs(mavicReference.metrics.line_spacing_m-47.52)<0.01);
+ assert(std::abs(mavicReference.metrics.forward_trigger_spacing_m-23.736)<0.01);
+ bool calibrationWarning=false;
+ for(const auto& diagnostic:mavicReference.diagnostics)
+  if(diagnostic.find("individual camera/lens intrinsics")!=std::string::npos)calibrationWarning=true;
+ assert(calibrationWarning);
+ auto falselyVerified=mavic;
+ falselyVerified.camera.intrinsic_calibration_verified=true;
+ falselyVerified.camera.calibration_source_reference.clear();
+ assert(!CoveragePathPlanner::generate(falselyVerified).valid);
  return 0;
 }
