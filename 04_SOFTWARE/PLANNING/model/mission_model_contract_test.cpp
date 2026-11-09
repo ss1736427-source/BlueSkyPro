@@ -31,8 +31,8 @@ int main() {
 
     mission.environment_snapshots.push_back({
         "ENV-001", "1", {{"wind", "weather-source", "2026-09-11T19:00:00Z", "valid", "fresh", "nominal"}}});
-    mission.vehicle_assignments.push_back({"UAV-01", "CFG-01"});
-    mission.payload_assignments.push_back({"PAYLOAD-01", "CFG-01"});
+    mission.vehicle_assignments.push_back({"UAV-01", "CFG-01", "CONFIG-01", "STANDARD"});
+    mission.equipment_assignments.push_back({"UAV-01", "EQUIPMENT-01", "EQUIPMENT-PROFILE-01", "CAMERA", "EQUIPMENT-CFG-01", "COMPATIBLE", "VERIFIED", "VERIFIED"});
     mission.route_candidates.push_back({"CAND-01", "astar", "1"});
     mission.selected_solution = {"CAND-01", "INPUT-01", "astar-1", "energy-model-1", "preserve reserve"};
     mission.regulatory_plans.push_back({"FPL-01", "pending", "1"});
@@ -51,7 +51,8 @@ int main() {
     assert(mission.constraints.mandatory.size() == 2);
     assert(mission.environment_snapshots.size() == 1);
     assert(mission.vehicle_assignments.size() == 1);
-    assert(mission.payload_assignments.size() == 1);
+    assert(mission.equipment_assignments.size() == 1);
+    assert(mission.equipment_assignments.front().equipment_id == "EQUIPMENT-01");
     assert(mission.route_candidates.size() == 1);
     assert(mission.selected_solution.candidate_id == "CAND-01");
     assert(mission.regulatory_plans.size() == 1);
