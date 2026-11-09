@@ -227,6 +227,29 @@ The regression test is necessary but not sufficient evidence of operational
 survey performance. CI build/test must pass before this baseline is accepted.
 
 
+### Vehicle motion model software baseline — 2026-11-09
+
+A first reusable C++ contract is now present in
+`04_SOFTWARE/PLANNING/model/vehicle_motion_model.hpp`, with regression coverage in
+`04_SOFTWARE/PLANNING/vehicle_motion_model_test.cpp` and CTest registration.
+
+Implemented:
+- fixed-wing coordinated level-turn radius from explicit TAS and bank angle;
+- multirotor idealized horizontal-turn radius from explicit air-relative speed and sustained lateral acceleration;
+- exact model/version/configuration identity and source provenance requirements;
+- speed-envelope and physical-input validation;
+- `DerivedScenario` estimates remain advisory and cannot satisfy the vehicle-motion hard gate;
+- only `OfficialValidated` or `FlightTestValidated` evidence can set the evaluator's hard-gate eligibility flag.
+
+Not implemented by this evaluator:
+- wind-corrected ground-track turn geometry;
+- VTOL hover/transition/recovery dynamics;
+- bounded-curvature or acceleration-limited trajectory generation;
+- collision/restriction checks over generated turn geometry;
+- energy and independent route-integrity validation.
+
+The evaluator returns an air-relative idealized radius only. Its hard-gate eligibility flag is necessary but not sufficient for route acceptance. No route is made flight-ready by this calculation.
+
 ### MT-01 next engineering gate — vehicle-constrained transitions
 
 The next implementation increment must not connect coverage segments with unqualified straight lines. A transition is a trajectory candidate and must satisfy the same hard feasibility boundary as every other route segment.
