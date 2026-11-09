@@ -41,6 +41,7 @@ add_library(bluesky_planning
     ../WEATHER/wind_interpolator.cpp
     ../WEATHER/route_wind_adapter.cpp
     ../WEATHER/weather_trajectory_calculator.cpp
+    ../WEATHER/gfs_forecast_planner.cpp
 )
 
 target_include_directories(bluesky_planning PUBLIC
@@ -301,6 +302,16 @@ target_link_libraries(capability_execution_integration_test PRIVATE bluesky_plan
     add_test(NAME mission_transfer_runtime_test COMMAND mission_transfer_runtime_test)
     add_test(NAME parameter_configuration_runtime_test COMMAND parameter_configuration_runtime_test)
     add_test(NAME capability_execution_integration_test COMMAND capability_execution_integration_test)
+
+add_executable(gfs_forecast_planner_test
+    ../WEATHER/tests/gfs_forecast_planner_test.cpp
+)
+target_link_libraries(gfs_forecast_planner_test PRIVATE bluesky_planning)
+target_compile_options(gfs_forecast_planner_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME gfs_forecast_planner_contract COMMAND gfs_forecast_planner_test)
 
 add_executable(weather_engine_test
     ../WEATHER/tests/weather_engine_test.cpp
