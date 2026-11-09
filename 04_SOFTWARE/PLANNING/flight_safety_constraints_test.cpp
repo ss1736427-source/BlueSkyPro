@@ -171,5 +171,25 @@ int main()
         e, {segment(18.0, 0.3, 1.0), segment(18.0, 0.3, 1.0)});
     assert(duplicateSegment.status == FlightSafetyStatus::Unknown);
 
+    // Concrete MT-01 regression: Mavic 3E has published speed data, but no
+    // validated configuration-specific motion envelope in the controlled sources.
+    // A numerically populated candidate must therefore remain UNKNOWN.
+    FlightSafetyEnvelope mavic3e;
+    mavic3e.vehicle_model_id = "DJI-MAVIC-3E";
+    mavic3e.model_version = "MAVIC-3E-REFERENCE-001";
+    mavic3e.configuration_id = "MAVIC-3E-STANDARD-BATTERY-REFERENCE";
+    mavic3e.source_reference = "https://enterprise.dji.com/mavic-3-enterprise/specs";
+    mavic3e.speed_reference = "AIR_RELATIVE";
+    mavic3e.minimum_speed_basis = "UNKNOWN";
+    mavic3e.evidence = FlightSafetyEvidence::Unknown;
+    mavic3e.motion_class = MotionClass::Multirotor;
+    mavic3e.minimum_speed_mps.reset();
+    mavic3e.maximum_speed_mps = 15.0; // published Normal-mode maximum, not a validated mission limit
+    mavic3e.maximum_lateral_acceleration_mps2.reset(); // manufacturer value not published
+    const auto mavic3eUnknown = FlightSafetyConstraintValidator::validate(
+        mavic3e, {segment(10.0, 0.0, 1.0)});
+    assert(mavic3eUnknown.status == FlightSafetyStatus::Unknown);
+    assert(!mavic3eUnknown.findings.empty());
+
     return 0;
 }
