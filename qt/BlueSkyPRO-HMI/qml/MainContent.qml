@@ -28,6 +28,13 @@ Item {
     property bool manualSetBlocked: false
     property string manualModelValidationStatus: "NOT_CHECKED"
     property string manualMissionModelJson: ""
+    property string missionTaskDescription: ""
+    // These assignments are populated only by the approved configuration selector.
+    // Empty collections are intentional until exact catalogue IDs/revisions exist.
+    property var manualVehicleAssignments: []
+    property var manualEquipmentAssignments: []
+    property var mt01CameraParameters: ({})
+    property var manualMt01Result: ({})
     property string manualSetBaselineResultId: ""
     // Manual input version advances whenever templates or operator geometry changes.
     property int manualMissionVersion: 1
@@ -450,27 +457,48 @@ Item {
                 // Build the typed Common Mission Model from the exact geometry
                 // currently published by the map. This validates structure only;
                 // it does not calculate a route or authorize flight.
-                var modelResult = manualMissionModelAdapter.buildMission(
+                var missionContext = {
+                    taskDescription: root.missionTaskDescription,
+                    objective: root.missionTaskDescription,
+                    taskType: root.manualSelectedTemplateIds.indexOf("MT-01") >= 0 ? "MAPPING" : "",
+                    vehicleAssignments: root.manualVehicleAssignments,
+                    equipmentAssignments: root.manualEquipmentAssignments
+                }
+                var modelResult = manualMissionModelAdapter.buildMissionV2(
                             manualGeometryBridge.geometryJson,
                             root.manualSelectedTemplateIds,
                             root.missionId,
                             root.manualMissionVersion,
-                            root.manualCompositionComplete)
-                root.manualModelValidationStatus = modelResult.valid
-                        ? "MODEL_STRUCTURALLY_VALID_ROUTE_GENERATION_NOT_CONNECTED"
-                        : modelResult.errors.join(", ")
+                            root.manualCompositionComplete,
+                            missionContext)
                 root.manualMissionModelJson = modelResult.valid
                         ? String(modelResult.missionModelJson || "") : ""
                 if (!modelResult.valid) {
+                    root.manualModelValidationStatus = modelResult.errors.join(", ")
                     root.manualSetRequested = false
                     root.manualSetBlocked = true
                     root.missionState = "MANUAL"
                     return
                 }
 
-                // Keep release blocked until a versioned Planning Core request
-                // consumes this canonical model and returns fresh authoritative
-                // route + safety verification results.
+                if (root.manualSelectedTemplateIds.indexOf("MT-01") < 0) {
+                    root.manualModelValidationStatus = "TEMPLATE_PIPELINE_NOT_CONNECTED"
+                    root.manualSetRequested = false
+                    root.manualSetBlocked = true
+                    root.missionState = "MANUAL"
+                    return
+                }
+
+                // Invoke the real MT-01 planning bridge with the same v2 mission
+                // aggregate produced by the editor. Missing assignments and
+                // unverified equipment are returned as explicit blockers.
+                root.manualMt01Result = mt01MappingBridge.calculate(
+                            root.manualMissionModelJson,
+                            root.mt01CameraParameters)
+                var findings = root.manualMt01Result.findings || []
+                root.manualModelValidationStatus =
+                        String(root.manualMt01Result.status || "NEEDS_INPUT")
+                        + (findings.length > 0 ? ": " + findings.join("; ") : "")
                 root.manualSetRequested = false
                 root.manualSetBlocked = true
                 root.missionState = "MANUAL"
@@ -841,6 +869,7 @@ Item {
         onMissionSetRequested: function(templateIndices, taskText, templateIds) {
             root.missionTemplateIndices = templateIndices
             root.missionTemplateIds = templateIds
+            root.missionTaskDescription = taskText.trim()
             root.missionSummary = taskText.trim().length > 0
                                   ? taskText.trim()
                                   : "Выбрано шаблонов: " + templateIndices.length
