@@ -116,5 +116,37 @@ int main(int argc, char **argv)
     assert(malformed.value(QStringLiteral("errors")).toStringList().contains(
         QStringLiteral("MANUAL_GEOMETRY_JSON_INVALID")));
 
+
+    // v2 serializes the full mission context and preserves an unassigned draft
+    // as DRAFT; route calculation itself must reject missing vehicle/equipment.
+    QVariantMap mt01Context{
+        {QStringLiteral("taskDescription"), QStringLiteral("Картографировать AOI")},
+        {QStringLiteral("objective"), QStringLiteral("Получить ортофотоплан")},
+        {QStringLiteral("taskType"), QStringLiteral("MAPPING")},
+        {QStringLiteral("vehicleAssignments"), QVariantList{}},
+        {QStringLiteral("equipmentAssignments"), QVariantList{}}
+    };
+    const QVariantMap v2 = adapter.buildMissionV2(
+        geometry, {QStringLiteral("MT-01")}, QStringLiteral("MISSION-V2"), 7, true, mt01Context);
+    assert(v2.value(QStringLiteral("valid")).toBool());
+    assert(v2.value(QStringLiteral("schemaVersion")).toString() == QStringLiteral("2"));
+    assert(!v2.value(QStringLiteral("configurationComplete")).toBool());
+    const QJsonDocument v2Document = QJsonDocument::fromJson(
+        v2.value(QStringLiteral("missionModelJson")).toString().toUtf8());
+    assert(v2Document.isObject());
+    const QJsonObject v2Object = v2Document.object();
+    assert(v2Object.value(QStringLiteral("status")).toString() == QStringLiteral("DRAFT"));
+    assert(v2Object.value(QStringLiteral("task")).toObject()
+               .value(QStringLiteral("description")).toString() == QStringLiteral("Картографировать AOI"));
+    assert(v2Object.value(QStringLiteral("vehicleAssignments")).toArray().isEmpty());
+    assert(v2Object.value(QStringLiteral("equipmentAssignments")).toArray().isEmpty());
+
+    mt01Context.remove(QStringLiteral("objective"));
+    const QVariantMap missingIntent = adapter.buildMissionV2(
+        geometry, {QStringLiteral("MT-01")}, QStringLiteral("MISSION-V2"), 8, true, mt01Context);
+    assert(!missingIntent.value(QStringLiteral("valid")).toBool());
+    assert(missingIntent.value(QStringLiteral("errors")).toStringList().contains(
+        QStringLiteral("MISSION_OBJECTIVE_REQUIRED")));
+
     return 0;
 }
