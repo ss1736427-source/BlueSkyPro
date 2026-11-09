@@ -82,6 +82,17 @@ struct FlightSafetyValidationResult {
     std::string operator_warning;
 };
 
+struct FlightSafetyCandidateDynamics {
+    std::vector<FlightSafetySegmentState> segments;
+    bool complete{false};
+    std::size_t expected_segment_count{0};
+};
+
+// Copies explicit dynamics from a complete trajectory Route. It never infers
+// bank/acceleration and never treats an ordinary waypoint chain as a complete
+// trajectory containing all turns/transitions.
+FlightSafetyCandidateDynamics buildFlightSafetyCandidateDynamics(const Route& route);
+
 class FlightSafetyConstraintValidator {
 public:
     // Every configured limit is a hard bound. Missing mandatory evidence is Unknown,
