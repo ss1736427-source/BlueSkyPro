@@ -238,6 +238,8 @@ Required vehicle motion contract:
 - for fixed-wing, a coordinated-turn model may derive radius from speed and bank angle only when both are authoritative for the configured aircraft and operating condition; do not apply this formula universally to multirotors;
 - multirotor stop/yaw/translate behavior requires its own validated dynamic limits and must not be represented as fixed-wing Dubins motion.
 
+**Calculated-data policy:** when manufacturer maneuverability data is absent, the vehicle reference dataset may provide explicitly assumed scenario curves (e.g. fixed-wing bank-angle sweeps or multirotor lateral-acceleration sweeps). These are advisory sensitivity inputs only. They must carry `DERIVED_SCENARIO` / `UNVALIDATED_ASSUMPTION` provenance and cannot satisfy the validated motion-model hard gate, establish a minimum turn radius, or promote a candidate to flight-ready. A scenario-based candidate must remain `MOTION_MODEL_UNVERIFIED` until exact-configuration limits are read back and validated with representative evidence. Wind-dependent ground-track geometry is evaluated separately from air-relative turn geometry.
+
 Required transition result contract:
 - separate coverage legs from turn, transit and reposition segments;
 - retain segment type, geometry, length, speed profile, vehicle-model identity/version and calculation-input identity;
