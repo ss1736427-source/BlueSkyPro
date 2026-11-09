@@ -213,6 +213,7 @@ Implemented baseline:
 
 Not implemented and therefore not to be inferred from this baseline:
 - camera latency compensation, trigger behavior during turns/transitions, and flight-controller command integration;
+- explicit endpoint capture stations are emitted for each straight coverage leg; this does not prove edge coverage because the camera footprint/overscan and trigger timing are not modeled;
 - cellular decomposition for complex concave/multi-component operational areas;
 - connecting transit/turn trajectories between disjoint segments or scanlines;
 - DEM terrain following, obstacle avoidance, wind and aircraft energy model;
