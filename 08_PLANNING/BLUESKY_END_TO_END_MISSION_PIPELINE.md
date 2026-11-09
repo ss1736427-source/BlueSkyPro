@@ -86,7 +86,7 @@ Every generated trajectory must remain within the exact aircraft configuration's
 
 When a standard transition cannot capture the next path line, the planner may generate an earlier, longer or multi-stage maneuver, increase total course change, or add straight transit/stabilization segments. This is geometric path extension, not permission to exceed bank, speed or other aircraft limits. The entire swept path must remain inside an explicitly permitted maneuvering domain and pass the versioned terrain, obstacle, airspace/NOTAM, weather/wind, C2, separation and energy checks.
 
-If no candidate passes all mandatory gates, return BLOCKED/INFEASIBLE with the binding reason(s). Do not silently relax a limit or rank an unsafe candidate. The same downstream validator applies to AUTO and MANUAL; their separate entry workflows and input responsibilities remain unchanged.
+If no candidate passes all mandatory gates, return BLOCKED/INFEASIBLE with the binding reason(s). Do not silently relax a limit or rank an unsafe candidate. If the selected admissible trajectory reaches one or more validated maximum aircraft limits, the result and HMI must show the warning **«ВНИМАНИЕ: расчёт выполнен с использованием максимально допустимых режимов БВС»** and enumerate each exact parameter, planned value, limit, units and affected segment. Parameters merely approaching a limit must be identified separately and must not be described as having reached the maximum. The same downstream validator applies to AUTO and MANUAL; their separate entry workflows and input responsibilities remain unchanged.
 
 ## 9. Operator workflow
 
