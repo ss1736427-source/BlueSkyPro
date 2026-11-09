@@ -36,6 +36,7 @@ struct FlightSafetyEnvelope {
     std::string configuration_id;
     std::string source_reference;
     std::string speed_reference;
+    std::string minimum_speed_basis;
     FlightSafetyEvidence evidence{FlightSafetyEvidence::Unknown};
     MotionClass motion_class{MotionClass::FixedWing};
 
