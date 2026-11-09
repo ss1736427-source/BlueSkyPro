@@ -56,8 +56,10 @@ private:
 
 class FlightDynamicsSolver final : public Solver {
 public:
-    FlightDynamicsSolver(double speed, double bank, bool complete = true)
-        : speed_(speed), bank_(bank), complete_(complete) {}
+    FlightDynamicsSolver(double speed, double bank, bool complete = true,
+                         std::size_t expectedSegments = 1)
+        : speed_(speed), bank_(bank), complete_(complete),
+          expected_segments_(expectedSegments) {}
     SolverMetadata metadata() const override {
         return {"flight-dynamics", "test", {"point_to_point"}, false, true};
     }
@@ -77,7 +79,7 @@ public:
         candidate.feasibility = Feasibility::Feasible;
         candidate.flight_dynamics.push_back({"leg-1", speed_, bank_, std::nullopt});
         candidate.flight_dynamics_complete = complete_;
-        candidate.flight_dynamics_expected_segment_count = 1;
+        candidate.flight_dynamics_expected_segment_count = expected_segments_;
         context.publish(std::move(candidate));
         return RunState::Completed;
     }
@@ -86,6 +88,7 @@ private:
     double speed_;
     double bank_;
     bool complete_;
+    std::size_t expected_segments_;
 };
 
 class InvalidCandidateSolver final : public Solver {
@@ -500,6 +503,17 @@ int main() {
     const auto incompleteDynamicsDecision = incompleteDynamicsOrchestrator.solve(incompleteDynamicsContext);
     assert(incompleteDynamicsDecision.feasibility == Feasibility::Infeasible);
     assert(incompleteDynamicsDecision.selected_candidate_id.empty());
+
+    MissionProblem mismatchedDynamicsProblem = flightProblem;
+    mismatchedDynamicsProblem.mission_id = "ORCH-FLIGHT-SAFETY-COUNT-MISMATCH-006";
+    TestContext mismatchedDynamicsContext(mismatchedDynamicsProblem, ComputeBudget{1000, 256, 8});
+    std::vector<std::unique_ptr<Solver>> mismatchedDynamicsSolvers;
+    mismatchedDynamicsSolvers.push_back(
+        std::make_unique<FlightDynamicsSolver>(15.0, 0.2, true, 2));
+    AlgorithmOrchestrator mismatchedDynamicsOrchestrator(std::move(mismatchedDynamicsSolvers));
+    const auto mismatchedDynamicsDecision = mismatchedDynamicsOrchestrator.solve(mismatchedDynamicsContext);
+    assert(mismatchedDynamicsDecision.feasibility == Feasibility::Infeasible);
+    assert(mismatchedDynamicsDecision.selected_candidate_id.empty());
 
     return 0;
 }
