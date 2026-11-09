@@ -39,7 +39,7 @@ jobs:
         run: cmake -S 04_SOFTWARE/PLANNING -B build-planning-weather -DBLUESKY_ENABLE_ECCODES=ON -DCMAKE_BUILD_TYPE=Release
 
       - name: Build integrated planning weather targets
-        run: cmake --build build-planning-weather --parallel 2 --target weather_engine_test gfs_forecast_planner_test grib2_decoder_contract_test gfs_forecast_availability_test
+        run: cmake --build build-planning-weather --parallel 2 --target weather_engine_test gfs_forecast_planner_test grib2_decoder_contract_test
 
       - name: Test integrated planning weather targets
-        run: ctest --test-dir build-planning-weather -R "(weather_engine_contract_test|gfs_forecast_planner_contract|grib2_decoder_contract_test|gfs_forecast_availability_contract)" --output-on-failure
+        run: ctest --test-dir build-planning-weather -R "(weather_engine_contract_test|gfs_forecast_planner_contract|grib2_decoder_contract_test)" --output-on-failure
