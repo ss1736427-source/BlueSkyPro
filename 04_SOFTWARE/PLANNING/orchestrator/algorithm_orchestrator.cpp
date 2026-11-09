@@ -167,8 +167,11 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
                     violations.push_back("FLIGHT_SAFETY_UNKNOWN: текущий safety-контракт требует ровно один назначенный БВС и точную привязку контура к его идентификатору.");
                 } else if (!context.problem().flight_safety_envelope.has_value()) {
                     violations.push_back("FLIGHT_SAFETY_UNKNOWN: отсутствует подтверждённый контур ограничений выбранной конфигурации БВС.");
-                } else if (candidate.flight_dynamics.empty()) {
-                    violations.push_back("FLIGHT_SAFETY_UNKNOWN: кандидат не содержит динамику каждого участка траектории.");
+                } else if (!candidate.flight_dynamics_complete ||
+                           candidate.flight_dynamics_expected_segment_count == 0 ||
+                           candidate.flight_dynamics.size() !=
+                               candidate.flight_dynamics_expected_segment_count) {
+                    violations.push_back("FLIGHT_SAFETY_UNKNOWN: динамический профиль не подтверждён как полный для всех участков траектории, включая переходы и развороты.");
                 } else {
                     flightSafety = FlightSafetyConstraintValidator::validate(
                         *context.problem().flight_safety_envelope, candidate.flight_dynamics);
