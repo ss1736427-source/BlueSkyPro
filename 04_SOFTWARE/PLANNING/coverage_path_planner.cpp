@@ -58,6 +58,7 @@ CoveragePlanResult CoveragePathPlanner::generate(const CoverageMissionInput&in){
  if(!validGeo(in.area_of_interest))return fail("AOI requires at least three finite geographic vertices.");
  const auto&c=in.camera;
  if(!(finite(c.focal_length_mm)&&c.focal_length_mm>0&&finite(c.pixel_pitch_um)&&c.pixel_pitch_um>0&&c.image_width_px&&c.image_height_px&&finite(c.target_gsd_cm_px)&&c.target_gsd_cm_px>0))return fail("Camera calibration and target GSD must be positive.");
+ if(c.intrinsic_calibration_verified&&(c.camera_configuration_id.empty()||c.calibration_source_reference.empty()))return fail("Verified camera intrinsics require an exact camera configuration and calibration source reference.");
  if(!(finite(c.forward_overlap_percent)&&c.forward_overlap_percent>=0&&c.forward_overlap_percent<90&&finite(c.side_overlap_percent)&&c.side_overlap_percent>=0&&c.side_overlap_percent<90))return fail("Forward and side overlap must be in [0,90) percent.");
  if(!(finite(in.minimum_altitude_agl_m)&&finite(in.maximum_altitude_agl_m)&&in.minimum_altitude_agl_m>=0&&in.maximum_altitude_agl_m>=in.minimum_altitude_agl_m&&finite(in.cruise_speed_mps)&&in.cruise_speed_mps>0&&finite(in.line_angle_deg)))return fail("Altitude bounds, cruise speed or sweep angle are invalid.");
  double lat=0,lon=0;for(auto p:in.area_of_interest){lat+=p.latitude_deg;lon+=p.longitude_deg;}lat/=in.area_of_interest.size();lon/=in.area_of_interest.size();
@@ -120,9 +121,10 @@ CoveragePlanResult CoveragePathPlanner::generate(const CoverageMissionInput&in){
  }
  if(out.waypoints.size()<2)return fail("No usable coverage strips intersect the AOI after exclusions.");
  out.metrics.target_gsd_cm_px=c.target_gsd_cm_px;out.metrics.calculated_altitude_agl_m=alt;out.metrics.footprint_width_m=fw;out.metrics.footprint_height_m=fh;out.metrics.line_spacing_m=spacing;out.metrics.forward_trigger_spacing_m=trigger;out.metrics.estimated_coverage_leg_length_m=length;out.metrics.estimated_coverage_leg_time_s=length/in.cruise_speed_mps;out.metrics.coverage_line_count=lines;out.metrics.coverage_segment_count=segments;out.metrics.exclusion_intersection_count=gaps;
- out.valid=true;out.status="CANDIDATE_2D_COVERAGE_ONLY";
+ out.valid=true;out.status="CANDIDATE_2D_COVERAGE_ONLY";out.intrinsic_calibration_verified=c.intrinsic_calibration_verified;
  out.diagnostics.push_back("Coverage-leg length/time exclude transitions, turns and ferry legs; they are not total mission distance or flight time.");
  out.diagnostics.push_back("Capture points are emitted along straight coverage legs; image_height_px is assumed to be the along-track sensor dimension. Turn/transition capture and camera latency compensation are not modeled.");
+ if(!c.intrinsic_calibration_verified)out.diagnostics.push_back("Camera optical geometry is reference-only; individual camera/lens intrinsics and distortion calibration are not verified.");
  out.diagnostics.push_back("No DEM following, turn kinematics, obstacle routing, wind/energy model, coverage-union proof or regulatory validation.");
  out.diagnostics.push_back("Local equirectangular projection is limited to AOIs no larger than 50 km in either projected dimension.");
  return out;
