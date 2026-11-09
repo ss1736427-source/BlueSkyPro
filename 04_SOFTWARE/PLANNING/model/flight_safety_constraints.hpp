@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vehicle_motion_model.hpp"
+#include "route_model.hpp"
 
 #include <optional>
 #include <string>
@@ -88,6 +89,12 @@ public:
     static FlightSafetyValidationResult validate(
         const FlightSafetyEnvelope& envelope,
         const std::vector<FlightSafetySegmentState>& segments,
+        double equality_tolerance = 1e-6);
+
+    // Route adapter: every route segment is checked by the same shared envelope gate.
+    static FlightSafetyValidationResult validateRoute(
+        const FlightSafetyEnvelope& envelope,
+        const Route& route,
         double equality_tolerance = 1e-6);
 };
 
