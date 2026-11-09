@@ -118,6 +118,61 @@ VTOL aircraft require mode-specific envelopes:
 
 A single universal turn radius across all phases is invalid unless the manufacturer explicitly defines and validates such a model.
 
+
+
+## 4.4 Preliminary calculated maneuverability scenarios — NOT VALIDATED
+
+Where the manufacturer does not publish turn performance, BlueSky may calculate **scenario estimates** from published speed and explicitly assumed dynamic limits. These estimates are useful for engineering comparison, early route-space sizing and identifying missing data. They are **not aircraft limits**, are not flight-test evidence and must not independently pass a safety hard gate.
+
+### DJI Matrice 350 RTK — multirotor scenario
+
+The manufacturer publishes maximum horizontal speed of 23 m/s but no sustained lateral-acceleration envelope. The following table evaluates the idealized relation `R = V²/a_lat` at 23 m/s using selected hypothetical sustained lateral-acceleration cases:
+
+| Assumed sustained lateral acceleration | Calculated air-relative radius |
+|---:|---:|
+| 1.0 m/s² | 529.0 m |
+| 2.0 m/s² | 264.5 m |
+| 3.0 m/s² | 176.3 m |
+| 4.0 m/s² | 132.2 m |
+
+**Classification:** `DERIVED_SCENARIO`; confidence low; not validated for M350 RTK. The acceleration values above are scenario inputs, not DJI-published values and not inferred from yaw rate, pitch angle or ArduPilot parameter ranges. At lower selected speeds the idealized radius reduces quadratically for the same assumed acceleration. Actual path response depends on controller limits, payload/mass/CG, wind, speed, mode and transient response. Do not select one row as the aircraft's operational turn radius without configuration read-back and flight validation.
+
+### WingtraOne GEN II — fixed-wing cruise scenario
+
+Using the published 16 m/s flight-speed value as a provisional TAS proxy, the coordinated-level-turn equation gives:
+
+| Assumed bank angle | Calculated air-relative radius |
+|---:|---:|
+| 15 deg | 97.4 m |
+| 20 deg | 71.7 m |
+| 25 deg | 56.0 m |
+| 30 deg | 45.2 m |
+
+**Classification:** `DERIVED_SCENARIO`; confidence low; not validated for WingtraOne GEN II. The bank angles are hypothetical analysis points, not Wingtra-published operational limits. The 16 m/s published speed is not explicitly identified as TAS in the reviewed product specification; treating it as TAS is an assumption. The values apply only to idealized wing-borne, coordinated, level turns, not hover or transition.
+
+### Quantum-Systems Trinity Pro — wing-borne cruise scenario
+
+Using the published 17 m/s optimal cruise-speed value as a provisional TAS proxy:
+
+| Assumed bank angle | Calculated air-relative radius |
+|---:|---:|
+| 15 deg | 110.0 m |
+| 20 deg | 81.0 m |
+| 25 deg | 63.2 m |
+| 30 deg | 51.0 m |
+
+**Classification:** `DERIVED_SCENARIO`; confidence low; not validated for Trinity Pro. The bank angles are hypothetical analysis points, not manufacturer-published operational limits. The published optimal cruise speed is not explicitly identified as TAS in the reviewed technical sheet; treating it as TAS is an assumption. Values apply only to wing-borne cruise, not hover or transition.
+
+### Required handling in BlueSky PRO
+
+1. Store these values as scenario curves/ranges with all assumptions, not as a single `minimum_turn_radius` field.
+2. Preserve source speed and its reference ambiguity (TAS/IAS/GS unknown unless the source explicitly states it).
+3. Mark assumed bank angle or lateral acceleration as `UNVALIDATED_ASSUMPTION`; never promote it to `OFFICIAL_SPEC`.
+4. AUTO may use scenario values for preliminary candidate generation and sensitivity analysis only. A candidate relying on them remains `MOTION_MODEL_UNVERIFIED` and cannot pass the vehicle-motion hard gate or become flight-ready.
+5. MANUAL may display the estimate as advisory information, while retaining the same explicit unverified status.
+6. Once actual configuration values and representative flight-test evidence are available, create a separately versioned validated motion model. Do not silently overwrite the original assumptions.
+7. Ground-track turns must be recomputed with wind; the tables above are air-relative idealized radii.
+
 ## 5. BlueSky PRO ingestion contract
 
 For each concrete UAV configuration, store:
