@@ -357,3 +357,81 @@ QVariantMap ManualMissionModelAdapter::buildMissionV2(
     result.insert(QStringLiteral("flightReleaseEligible"), false);
     return result;
 }
+
+
+QVariantMap ManualMissionModelAdapter::buildAutoMissionV2(
+    const QStringList &selectedTemplateIds,
+    const QString &missionId,
+    int missionVersion,
+    const QVariantMap &missionContext) const
+{
+    QStringList errors;
+    if (missionId.trimmed().isEmpty())
+        errors.push_back(QStringLiteral("MISSION_ID_REQUIRED"));
+    if (missionVersion < 1)
+        errors.push_back(QStringLiteral("MISSION_VERSION_INVALID"));
+    if (selectedTemplateIds.isEmpty())
+        errors.push_back(QStringLiteral("AUTO_TEMPLATE_REQUIRED"));
+
+    const QString taskDescription =
+        missionContext.value(QStringLiteral("taskDescription")).toString().trimmed();
+    const QString objective =
+        missionContext.value(QStringLiteral("objective")).toString().trimmed();
+    const QString taskType =
+        missionContext.value(QStringLiteral("taskType")).toString().trimmed();
+    if (taskDescription.isEmpty())
+        errors.push_back(QStringLiteral("TASK_DESCRIPTION_REQUIRED"));
+    if (objective.isEmpty())
+        errors.push_back(QStringLiteral("MISSION_OBJECTIVE_REQUIRED"));
+    if (taskType.isEmpty())
+        errors.push_back(QStringLiteral("MISSION_TASK_TYPE_REQUIRED"));
+
+    const QVariant vehiclesValue = missionContext.value(QStringLiteral("vehicleAssignments"));
+    const QVariant equipmentValue = missionContext.value(QStringLiteral("equipmentAssignments"));
+    if (!vehiclesValue.canConvert<QVariantList>())
+        errors.push_back(QStringLiteral("VEHICLE_ASSIGNMENTS_INVALID"));
+    if (!equipmentValue.canConvert<QVariantList>())
+        errors.push_back(QStringLiteral("EQUIPMENT_ASSIGNMENTS_INVALID"));
+
+    QJsonArray templates;
+    for (const QString &id : selectedTemplateIds)
+        templates.append(id);
+
+    const QVariantList vehicles = vehiclesValue.canConvert<QVariantList>()
+        ? vehiclesValue.toList() : QVariantList{};
+    const QVariantList equipment = equipmentValue.canConvert<QVariantList>()
+        ? equipmentValue.toList() : QVariantList{};
+    QJsonObject canonical{
+        {QStringLiteral("missionId"), missionId},
+        {QStringLiteral("missionVersion"), missionVersion},
+        {QStringLiteral("status"), QStringLiteral("DRAFT")},
+        {QStringLiteral("missionMode"), QStringLiteral("AUTO")},
+        {QStringLiteral("selectedTemplateIds"), templates},
+        {QStringLiteral("task"), QJsonObject{
+            {QStringLiteral("description"), taskDescription}
+        }},
+        {QStringLiteral("intent"), QJsonObject{
+            {QStringLiteral("objective"), objective},
+            {QStringLiteral("taskType"), taskType}
+        }},
+        {QStringLiteral("geometryObjects"), QJsonArray{}},
+        {QStringLiteral("vehicleAssignments"), QJsonArray::fromVariantList(vehicles)},
+        {QStringLiteral("equipmentAssignments"), QJsonArray::fromVariantList(equipment)}
+    };
+
+    const QVariantMap constraints = missionContext.value(QStringLiteral("constraints")).toMap();
+    if (!constraints.isEmpty())
+        canonical.insert(QStringLiteral("constraints"), QJsonObject::fromVariantMap(constraints));
+
+    errors.removeDuplicates();
+    return {
+        {QStringLiteral("valid"), errors.isEmpty()},
+        {QStringLiteral("errors"), errors},
+        {QStringLiteral("schemaVersion"), QStringLiteral("2")},
+        {QStringLiteral("missionModelJson"),
+         QString::fromUtf8(QJsonDocument(canonical).toJson(QJsonDocument::Compact))},
+        {QStringLiteral("configurationComplete"), !vehicles.isEmpty() && !equipment.isEmpty()},
+        {QStringLiteral("geometryComplete"), false},
+        {QStringLiteral("flightReleaseEligible"), false}
+    };
+}
