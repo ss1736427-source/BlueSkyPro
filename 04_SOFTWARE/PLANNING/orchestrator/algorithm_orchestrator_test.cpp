@@ -430,6 +430,21 @@ int main() {
     assert(unreachable_context.candidates().empty());
 
     // Flight candidates are gated by validated aircraft limits before ranking.
+    // Standard producer handoff copies only explicit route dynamics.
+    Route handoffRoute;
+    handoffRoute.waypoints = {
+        {"A", {10.0, 20.0}, 100.0, true, AltitudeReference::AGL},
+        {"B", {10.001, 20.0}, 100.0, true, AltitudeReference::AGL}
+    };
+    handoffRoute.segments.push_back(
+        {"leg-1", "A", "B", 100.0, 15.0, 0.2, std::nullopt});
+    handoffRoute.trajectory_geometry_complete = true;
+    CandidateSolution handoffCandidate;
+    attachFlightSafetyDynamics(handoffCandidate, handoffRoute);
+    assert(handoffCandidate.flight_dynamics_complete);
+    assert(handoffCandidate.flight_dynamics_expected_segment_count == 1);
+    assert(handoffCandidate.flight_dynamics.size() == 1);
+
     FlightSafetyEnvelope validatedEnvelope;
     validatedEnvelope.vehicle_model_id = "TEST-FW";
     validatedEnvelope.model_version = "1";
