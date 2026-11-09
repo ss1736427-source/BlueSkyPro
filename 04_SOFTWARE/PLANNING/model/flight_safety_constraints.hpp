@@ -1,5 +1,7 @@
 #pragma once
 
+#include "vehicle_motion_model.hpp"
+
 #include <optional>
 #include <string>
 #include <vector>
@@ -20,6 +22,7 @@ enum class FlightSafetyStatus {
 };
 
 enum class FlightSafetyParameter {
+    ModelEvidence,
     MinimumSpeed,
     MaximumSpeed,
     MaximumBankAngle,
@@ -33,6 +36,7 @@ struct FlightSafetyEnvelope {
     std::string source_reference;
     std::string speed_reference;
     FlightSafetyEvidence evidence{FlightSafetyEvidence::Unknown};
+    MotionClass motion_class{MotionClass::FixedWing};
 
     std::optional<double> minimum_speed_mps;
     std::optional<double> maximum_speed_mps;
