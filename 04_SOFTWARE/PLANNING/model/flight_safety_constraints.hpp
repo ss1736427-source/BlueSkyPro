@@ -3,6 +3,7 @@
 #include "vehicle_motion_model.hpp"
 #include "route_model.hpp"
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
