@@ -98,7 +98,11 @@ The camera model now carries a camera-configuration identity, source reference a
 
 A Mavic 3E reference-geometry regression uses the repository's documented 12.29 mm focal length, 3.3 µm nominal pixel pitch and 5280 × 3956 image dimensions. At a requested 3 cm GSD, 80% forward overlap and 70% side overlap, the nominal geometry calculation yields approximately 111.73 m AGL, 23.736 m forward trigger spacing and 47.52 m line spacing. These are **reference calculation outputs**, not a flight prescription: individual camera calibration, surface/DEM reference and all operational gates remain unresolved.
 
-The MT-01 pipeline has a standalone CTest target. The current scope is intentionally limited to canonical mission structural handoff and 2D straight coverage legs. It does not yet generate turns/transitions, construct an immutable DEM/NOTAM/weather/wind snapshot, prove coverage union, calculate qualified energy/reserve or perform final independent validation. Those missing stages keep flight release blocked.
+The MT-01 pipeline has a standalone CTest target. The current scope is intentionally limited to canonical mission structural handoff and 2D straight coverage legs.
+
+The HMI mission profile is backed by the shared `RouteController` rather than a local authoritative route cache. The profile window now provides a direct **КАРТА** action: it closes the overlay and activates the existing MAP workspace without clearing or recreating the canonical route. The map's route projection continues to read the same controller waypoint list. This is a navigation/handoff integration only; it does not imply that the MT-01 calculation pipeline is already invoked by the HMI or that route geometry is operationally validated.
+
+The flight-profile graph still contains illustrative terrain/time-axis values and must not be interpreted as measured DEM, calculated mission duration, energy, or a validated vertical profile. These placeholders must be replaced by versioned planning outputs before the profile can be considered operational. It does not yet generate turns/transitions, construct an immutable DEM/NOTAM/weather/wind snapshot, prove coverage union, calculate qualified energy/reserve or perform final independent validation. Those missing stages keep flight release blocked.
 
 
 ## 9. Operator workflow
