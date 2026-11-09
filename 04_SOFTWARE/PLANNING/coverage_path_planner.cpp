@@ -103,12 +103,18 @@ CoveragePlanResult CoveragePathPlanner::generate(const CoverageMissionInput&in){
     return fail("Camera trigger output exceeds the 2,000,000 point safety limit.");
    out.waypoints.push_back(unproject(a,lat,lon));
    out.waypoints.push_back(unproject(b,lat,lon));
+   double lastCaptureDistance=-1.0;
    for(std::size_t k=0;k<static_cast<std::size_t>(triggerCount);++k){
     const double d=std::min(double(k)*trigger,segmentLength);
     const double ratio=segmentLength>0.0?d/segmentLength:0.0;
     XY point{a.x+(b.x-a.x)*ratio,a.y+(b.y-a.y)*ratio};
     out.capture_points.push_back({unproject(point,lat,lon),segments,d});
+    lastCaptureDistance=d;
    }
+   // Include the segment endpoint when the remaining gap is non-zero so the
+   // final part of every coverage leg is not silently left without a capture station.
+   if(segmentLength-lastCaptureDistance>0.01)
+    out.capture_points.push_back({unproject(b,lat,lon),segments,segmentLength});
    length+=segmentLength;++segments;
   }
  }
