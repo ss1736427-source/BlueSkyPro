@@ -16,6 +16,8 @@ TASK + GEOMETRY → INTENT / CONSTRAINTS → TEMPLATE(S) + OBJECTIVE PROFILE
 
 **Invariants:** (1) Safety, regulatory, vehicle, payload, C2, separation and minimum reserve are hard feasibility gates, never weighted preferences. (2) Optimize mission success and task quality first; optimize energy/time/resource/smoothness only among admissible candidates. (3) Reproducibility requires versioned inputs, data timestamps, calibration, algorithm and parameters. (4) Prefer deterministic explainable baselines; use learning/metaheuristics only where measured complexity justifies them, with independent validation. (5) Recalculate affected dependencies and visibly version the mission. (6) Operator states intent and confirms; no algorithm selection required. (7) Recommendation is not flight authorization.
 
+**Mandatory safety policy:** All 13 templates and all planning modes are governed by [Flight Safety Constraints Policy](FLIGHT_SAFETY_CONSTRAINTS_POLICY.md). Vehicle speed, bank, acceleration, stall margin, altitude, energy/reserve and full-path spatial/environmental checks are non-bypassable feasibility gates. Template-specific logic may add stricter constraints but may not weaken this common policy. A longer turn-out, extended transition or larger course change may be generated to capture a path line, but may never be achieved by exceeding the aircraft envelope. If no admissible trajectory exists, the candidate is infeasible.
+
 ## 2. Reusable algorithm capabilities
 
 | Capability | Method families | What it solves |
