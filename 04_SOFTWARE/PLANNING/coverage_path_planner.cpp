@@ -26,6 +26,23 @@ bool validRing(const std::vector<XY>& r){
 bool validGeo(const std::vector<GeoPoint>& r){
  if(r.size()<3)return false; for(const auto&p:r)if(!finite(p.latitude_deg)||!finite(p.longitude_deg)||p.latitude_deg< -90||p.latitude_deg>90||p.longitude_deg< -180||p.longitude_deg>180)return false; return true;
 }
+void normalizeRing(std::vector<XY>& r){
+ if(r.size()>3&&std::hypot(r.front().x-r.back().x,r.front().y-r.back().y)<0.01)r.pop_back();
+}
+bool pointInRing(const std::vector<XY>& r,XY p){
+ bool inside=false;
+ for(std::size_t i=0,j=r.size()-1;i<r.size();j=i++){
+  const auto a=r[i],b=r[j];
+  if(onSegment(a,b,p))return true;
+  if(((a.y>p.y)!=(b.y>p.y))&&(p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x))inside=!inside;
+ }
+ return inside;
+}
+bool ringsIntersect(const std::vector<XY>& a,const std::vector<XY>& b){
+ for(std::size_t i=0;i<a.size();++i)for(std::size_t j=0;j<b.size();++j)
+  if(intersects(a[i],a[(i+1)%a.size()],b[j],b[(j+1)%b.size()]))return true;
+ return false;
+}
 XY project(const GeoPoint&p,double lat,double lon){double c=std::cos(lat*kPi/180);return{kEarthRadiusM*(p.longitude_deg-lon)*kPi/180*c,kEarthRadiusM*(p.latitude_deg-lat)*kPi/180};}
 GeoPoint unproject(XY p,double lat,double lon){double c=std::cos(lat*kPi/180);return{lat+p.y/kEarthRadiusM*180/kPi,lon+p.x/(kEarthRadiusM*c)*180/kPi};}
 std::vector<double> intersectionsAt(const std::vector<XY>&r,double y){
@@ -45,13 +62,22 @@ CoveragePlanResult CoveragePathPlanner::generate(const CoverageMissionInput&in){
  if(!(finite(in.minimum_altitude_agl_m)&&finite(in.maximum_altitude_agl_m)&&in.minimum_altitude_agl_m>=0&&in.maximum_altitude_agl_m>=in.minimum_altitude_agl_m&&finite(in.cruise_speed_mps)&&in.cruise_speed_mps>0&&finite(in.line_angle_deg)))return fail("Altitude bounds, cruise speed or sweep angle are invalid.");
  double lat=0,lon=0;for(auto p:in.area_of_interest){lat+=p.latitude_deg;lon+=p.longitude_deg;}lat/=in.area_of_interest.size();lon/=in.area_of_interest.size();
  if(std::abs(lat)>85)return fail("AOI latitude is outside supported local projection range.");
- std::vector<XY>area;for(auto p:in.area_of_interest)area.push_back(project(p,lat,lon));
+ std::vector<XY>area;for(auto p:in.area_of_interest)area.push_back(project(p,lat,lon));normalizeRing(area);
  if(!validRing(area))return fail("AOI ring is degenerate or self-intersecting.");
  double minX=std::numeric_limits<double>::max(),maxX=-minX,minY=minX,maxY=-minX;
  for(auto p:area){minX=std::min(minX,p.x);maxX=std::max(maxX,p.x);minY=std::min(minY,p.y);maxY=std::max(maxY,p.y);}
  if(maxX-minX>50000||maxY-minY>50000)return fail("AOI exceeds the 50 km local-projection extent limit.");
  std::vector<std::vector<XY>>holes;
- for(const auto&r:in.exclusion_areas){if(!validGeo(r))return fail("Exclusion polygon requires at least three finite vertices.");std::vector<XY>h;for(auto p:r)h.push_back(project(p,lat,lon));if(!validRing(h))return fail("An exclusion ring is degenerate or self-intersecting.");holes.push_back(std::move(h));}
+ for(const auto&r:in.exclusion_areas){if(!validGeo(r))return fail("Exclusion polygon requires at least three finite vertices.");std::vector<XY>h;for(auto p:r)h.push_back(project(p,lat,lon));normalizeRing(h);
+  if(!validRing(h))return fail("An exclusion ring is degenerate or self-intersecting.");
+  if(ringsIntersect(area,h))return fail("An exclusion polygon must not cross or touch the AOI boundary.");
+  for(auto p:h)if(!pointInRing(area,p))return fail("Every exclusion polygon must lie completely inside the AOI.");
+  for(const auto&existing:holes){
+   if(ringsIntersect(existing,h)||pointInRing(existing,h.front())||pointInRing(h,existing.front()))
+    return fail("Exclusion polygons must not overlap or contain one another.");
+  }
+  holes.push_back(std::move(h));
+ }
  double gsd=c.target_gsd_cm_px/100,alt=gsd*(c.focal_length_mm*1e-3)/(c.pixel_pitch_um*1e-6);
  if(alt<in.minimum_altitude_agl_m||alt>in.maximum_altitude_agl_m)return fail("Camera-derived AGL altitude is outside mission limits.");
  double fw=gsd*c.image_width_px,fh=gsd*c.image_height_px,spacing=fw*(1-c.side_overlap_percent/100),trigger=fh*(1-c.forward_overlap_percent/100);
