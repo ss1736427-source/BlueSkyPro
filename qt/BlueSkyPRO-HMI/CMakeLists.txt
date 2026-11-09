@@ -123,7 +123,7 @@ qt_add_resources(appBlueSkyPRO maplibre_vendor
 )
 
 target_compile_features(appBlueSkyPRO PRIVATE cxx_std_20)
-target_include_directories(appBlueSkyPRO PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+target_include_directories(appBlueSkyPRO PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.. ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/WEATHER)
 target_link_libraries(appBlueSkyPRO PRIVATE bluesky_planning Qt6::Core Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::WebEngineQuick Qt6::WebEngineCore Qt6::WebChannel)
 if(WIN32)
     target_link_libraries(appBlueSkyPRO PRIVATE Advapi32)
