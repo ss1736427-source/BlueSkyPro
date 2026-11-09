@@ -6,6 +6,29 @@ Define a special `CUSTOM` UAV model for cases where the aircraft, battery, paylo
 
 The `CUSTOM` model is intended to demonstrate and support manual configuration of an arbitrary UAV and its equipment while keeping the normal predefined-model workflow unchanged.
 
+## 2A. Operator-installed non-standard equipment on a standard UAV
+
+CUSTOM is not limited to an entirely custom airframe. An operator shall also be able to create a mission-specific CUSTOM configuration by adding non-standard equipment to an otherwise standard/catalogue UAV.
+
+Examples include:
+- a special RGB, multispectral, thermal, hyperspectral or scientific camera;
+- LiDAR, laser scanner, rangefinder or other measurement sensor;
+- a custom gimbal, mount, vibration isolator or payload adapter;
+- additional navigation, communication or data-acquisition equipment.
+
+The base UAV identity and its approved baseline configuration shall remain identifiable. The mission configuration shall be recorded as a separate derived configuration revision; it shall not overwrite or silently modify the approved baseline.
+
+The operator workflow shall support:
+1. select a standard UAV and its approved baseline configuration;
+2. add a non-standard equipment item or create a new equipment record;
+3. enter the available technical data and attach source documents;
+4. specify mounting, electrical, data and operational interfaces;
+5. run compatibility and mission-impact checks;
+6. save the result as CUSTOM / VALIDATION_REQUIRED;
+7. submit it for the required technical review and approval.
+
+The operator may assemble and save the configuration without prior catalogue inclusion. This permission does not itself authorize flight use.
+
 ## 2. CUSTOM principle
 
 ```text
@@ -120,6 +143,25 @@ Examples include:
 - navigation characteristics.
 
 A parameter not supplied by the user shall remain `UNKNOWN`; the system shall not invent a value.
+
+## 6A. Special camera and sensor data
+
+For imaging and measurement equipment, the editor shall expose component-specific fields where applicable, including:
+- sensor type and measurement modality;
+- manufacturer, model and hardware revision;
+- sensor dimensions, pixel dimensions and pixel pitch;
+- focal length, lens and field of view;
+- supported image/video/data formats and output interfaces;
+- trigger capability, trigger latency and timestamp source;
+- georeferencing / synchronization capability;
+- calibration state, calibration date, calibration file/reference and validity;
+- mass, dimensions, centre-of-gravity contribution;
+- power supply range, peak/nominal consumption and connector;
+- mounting type, mechanical interface and vibration constraints;
+- environmental and operating limits;
+- source documents and provenance for each critical parameter.
+
+Fields that do not apply may be marked NOT_APPLICABLE with a reason. Missing critical values remain UNKNOWN. A camera shall not be treated as calibrated merely because its nominal optical specifications are known.
 
 ## 7. Two validation states
 
