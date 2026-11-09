@@ -49,6 +49,10 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
     if (request.camera.camera_configuration_id.empty()
         || request.camera.calibration_source_reference.empty())
         addFinding(result, "CAMERA_CONFIGURATION_AND_SOURCE_PROVENANCE_REQUIRED");
+    if (mission.payload_assignments.size() == 1
+        && !request.camera.camera_configuration_id.empty()
+        && request.camera.camera_configuration_id != mission.payload_assignments.front().payload_id)
+        addFinding(result, "CAMERA_ASSIGNMENT_MISMATCH");
 
     const MissionGeometryObject* aoi = nullptr;
     for (const auto& geometry : mission.geometry_objects) {
