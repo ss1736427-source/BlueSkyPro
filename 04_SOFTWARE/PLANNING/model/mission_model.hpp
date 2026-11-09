@@ -69,6 +69,8 @@ struct VehicleAssignment {
     std::string configuration_version;
     std::string configuration_id;
     std::string configuration_type; // STANDARD, CUSTOM or DERIVED
+    std::string validation_state; // DRAFT, VALIDATING, VALIDATED, INVALID
+    std::string approval_state; // PENDING, APPROVED, SUSPENDED
 };
 
 // Canonical BlueSky domain object is Equipment / EquipmentProfile.
