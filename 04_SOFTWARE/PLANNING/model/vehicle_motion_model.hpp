@@ -184,9 +184,14 @@ public:
             return out;
         }
 
-        // For a coordinated level turn, radius decreases monotonically with TAS.
-        // Therefore the lowest admissible TAS gives the smallest achievable radius.
-        out.selected_speed_mps = out.minimum_safe_turn_speed_mps;
+        // Keep the current speed when it already meets the radius. Reduce speed
+        // only when necessary, never below the stall-margin constrained minimum.
+        const double currentRadius =
+            (model.reference_speed_mps * model.reference_speed_mps) /
+            (gravity * std::tan(model.bank_angle_rad));
+        out.selected_speed_mps = currentRadius <= requested_radius_m
+            ? model.reference_speed_mps
+            : out.minimum_safe_turn_speed_mps;
         out.achieved_ideal_radius_m =
             (out.selected_speed_mps * out.selected_speed_mps) /
             (gravity * std::tan(model.bank_angle_rad));
