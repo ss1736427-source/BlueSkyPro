@@ -79,24 +79,32 @@ bool parseMission(const QJsonObject &json, Mission &mission, QStringList &errors
         for (const QJsonValue &value : vehiclesValue.toArray()) {
             if (!value.isObject()) { errors.push_back(QStringLiteral("VEHICLE_ASSIGNMENT_INVALID")); continue; }
             const QJsonObject item = value.toObject();
-            mission.vehicle_assignments.push_back({
-                item.value(QStringLiteral("vehicleId")).toString().toStdString(),
-                item.value(QStringLiteral("configurationVersion")).toString().toStdString()
-            });
+            VehicleAssignment assignment;
+            assignment.vehicle_id = item.value(QStringLiteral("vehicleId")).toString().toStdString();
+            assignment.configuration_version = item.value(QStringLiteral("configurationVersion")).toString().toStdString();
+            assignment.configuration_id = item.value(QStringLiteral("configurationId")).toString().toStdString();
+            assignment.configuration_type = item.value(QStringLiteral("configurationType")).toString().toStdString();
+            mission.vehicle_assignments.push_back(std::move(assignment));
         }
     }
 
-    const QJsonValue payloadsValue = json.value(QStringLiteral("payloadAssignments"));
-    if (!payloadsValue.isArray()) {
-        errors.push_back(QStringLiteral("PAYLOAD_ASSIGNMENTS_INVALID"));
+    const QJsonValue equipmentValue = json.value(QStringLiteral("equipmentAssignments"));
+    if (!equipmentValue.isArray()) {
+        errors.push_back(QStringLiteral("EQUIPMENT_ASSIGNMENTS_INVALID"));
     } else {
-        for (const QJsonValue &value : payloadsValue.toArray()) {
-            if (!value.isObject()) { errors.push_back(QStringLiteral("PAYLOAD_ASSIGNMENT_INVALID")); continue; }
+        for (const QJsonValue &value : equipmentValue.toArray()) {
+            if (!value.isObject()) { errors.push_back(QStringLiteral("EQUIPMENT_ASSIGNMENT_INVALID")); continue; }
             const QJsonObject item = value.toObject();
-            mission.payload_assignments.push_back({
-                item.value(QStringLiteral("payloadId")).toString().toStdString(),
-                item.value(QStringLiteral("configurationVersion")).toString().toStdString()
-            });
+            EquipmentAssignment assignment;
+            assignment.vehicle_id = item.value(QStringLiteral("vehicleId")).toString().toStdString();
+            assignment.equipment_id = item.value(QStringLiteral("equipmentId")).toString().toStdString();
+            assignment.equipment_profile_id = item.value(QStringLiteral("equipmentProfileId")).toString().toStdString();
+            assignment.equipment_class = item.value(QStringLiteral("equipmentClass")).toString().toStdString();
+            assignment.configuration_version = item.value(QStringLiteral("configurationVersion")).toString().toStdString();
+            assignment.compatibility_state = item.value(QStringLiteral("compatibilityState")).toString().toStdString();
+            assignment.verification_state = item.value(QStringLiteral("verificationState")).toString().toStdString();
+            assignment.calibration_state = item.value(QStringLiteral("calibrationState")).toString().toStdString();
+            mission.equipment_assignments.push_back(std::move(assignment));
         }
     }
 
