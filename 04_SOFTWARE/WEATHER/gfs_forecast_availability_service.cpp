@@ -23,6 +23,7 @@ GfsForecastAvailabilityService::GfsForecastAvailabilityService(QObject *p):QObje
 QString GfsForecastAvailabilityService::state()const{return m_state;}
 QString GfsForecastAvailabilityService::lastError()const{return m_lastError;}
 QUrl GfsForecastAvailabilityService::buildAtmosDirectoryUrl(const QString&s,QString*error){
+ setErrorText(error, QString());
  QDateTime dt;if(!validCycle(s,&dt)){setErrorText(error,QStringLiteral("Cycle must be a valid UTC 00Z/06Z/12Z/18Z timestamp."));return{};}
  return QUrl(kRoot+QStringLiteral("gfs.%1/%2/atmos/").arg(dt.date().toString("yyyyMMdd"),dt.time().toString("hh")));
 }
@@ -36,6 +37,7 @@ QSet<int> GfsForecastAvailabilityService::parseAvailableForecastHours(const QByt
  if(recognized)*recognized=count>0;return result;
 }
 QStringList GfsForecastAvailabilityService::recentCandidateCyclesUtc(const QDateTime&nowUtc,int days,QString*error){
+ setErrorText(error, QString());
  if(!nowUtc.isValid()||days<1||days>14){setErrorText(error,QStringLiteral("Valid UTC time and lookbackDays 1..14 are required."));return{};}
  const auto now=nowUtc.toUTC();QStringList out;
  for(int d=0;d<days;++d){const QDate date=now.date().addDays(-d);for(int h:{18,12,6,0}){const QDateTime t(date,QTime(h,0),Qt::UTC);if(t<=now)out<<t.toString(QStringLiteral("yyyy-MM-dd'T'HH:mm:ss'Z'"));}}
