@@ -51,6 +51,17 @@ QVariantMap blocked(const QString &code)
     };
 }
 
+QVariantMap blockedFindings(const QStringList &findings)
+{
+    return {
+        {QStringLiteral("status"), QStringLiteral("NEEDS_INPUT")},
+        {QStringLiteral("coverageCandidateAvailable"), false},
+        {QStringLiteral("flightReleaseEligible"), false},
+        {QStringLiteral("coverageValid"), false},
+        {QStringLiteral("findings"), findings}
+    };
+}
+
 bool parseMission(const QJsonObject &json, Mission &mission, QStringList &errors)
 {
     mission.identity.mission_id = json.value(QStringLiteral("missionId")).toString().toStdString();
@@ -182,6 +193,57 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
         result.insert(QStringLiteral("findings"), parseErrors);
         return result;
     }
+
+    // Report mission/configuration blockers before requesting camera numbers.
+    // This lets the HMI show the actual missing operator decisions instead of
+    // hiding them behind a generic "numeric parameters required" message.
+    QStringList assignmentFindings;
+    if (mission.identity.mission_id.empty() || mission.identity.mission_version.empty())
+        assignmentFindings.push_back(QStringLiteral("MISSION_IDENTITY_REQUIRED"));
+    if (mission.task.description.empty())
+        assignmentFindings.push_back(QStringLiteral("TASK_DESCRIPTION_REQUIRED"));
+    if (mission.intent.objective.empty() || mission.intent.task_type.empty())
+        assignmentFindings.push_back(QStringLiteral("MISSION_INTENT_REQUIRED"));
+    if (mission.vehicle_assignments.size() != 1) {
+        assignmentFindings.push_back(QStringLiteral("MT01_REQUIRES_EXACTLY_ONE_ASSIGNED_VEHICLE"));
+    } else {
+        const auto &vehicle = mission.vehicle_assignments.front();
+        if (vehicle.vehicle_id.empty() || vehicle.configuration_id.empty()
+            || vehicle.configuration_version.empty())
+            assignmentFindings.push_back(QStringLiteral("VEHICLE_CONFIGURATION_BINDING_REQUIRED"));
+        if (vehicle.configuration_type != "STANDARD"
+            && vehicle.configuration_type != "CUSTOM"
+            && vehicle.configuration_type != "DERIVED")
+            assignmentFindings.push_back(QStringLiteral("VEHICLE_CONFIGURATION_TYPE_INVALID"));
+    }
+
+    const EquipmentAssignment *assignedCamera = nullptr;
+    for (const auto &equipment : mission.equipment_assignments) {
+        if (equipment.equipment_class != "CAMERA")
+            continue;
+        if (assignedCamera) {
+            assignmentFindings.push_back(QStringLiteral("MT01_REQUIRES_EXACTLY_ONE_ASSIGNED_CAMERA"));
+            break;
+        }
+        assignedCamera = &equipment;
+    }
+    if (!assignedCamera) {
+        assignmentFindings.push_back(QStringLiteral("MT01_CAMERA_EQUIPMENT_ASSIGNMENT_REQUIRED"));
+    } else {
+        if (assignedCamera->vehicle_id.empty() || assignedCamera->equipment_id.empty()
+            || assignedCamera->equipment_profile_id.empty()
+            || assignedCamera->configuration_version.empty())
+            assignmentFindings.push_back(QStringLiteral("CAMERA_EQUIPMENT_BINDING_REQUIRED"));
+        if (mission.vehicle_assignments.size() == 1
+            && assignedCamera->vehicle_id != mission.vehicle_assignments.front().vehicle_id)
+            assignmentFindings.push_back(QStringLiteral("CAMERA_ASSIGNED_TO_DIFFERENT_VEHICLE"));
+        if (assignedCamera->compatibility_state != "COMPATIBLE")
+            assignmentFindings.push_back(QStringLiteral("CAMERA_COMPATIBILITY_NOT_CONFIRMED"));
+        if (assignedCamera->verification_state != "VERIFIED")
+            assignmentFindings.push_back(QStringLiteral("CAMERA_EQUIPMENT_NOT_VERIFIED"));
+    }
+    if (!assignmentFindings.isEmpty())
+        return blockedFindings(assignmentFindings);
 
     Mt01MappingRequest request;
     request.mission = std::move(mission);
