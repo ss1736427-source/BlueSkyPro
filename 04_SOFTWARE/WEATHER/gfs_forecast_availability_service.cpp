@@ -72,7 +72,7 @@ void GfsForecastAvailabilityService::checkNextCandidate(){
 }
 void GfsForecastAvailabilityService::finishCurrentCandidate(){
  if(!m_reply)return;
- auto*reply=m_reply;const int status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+ QNetworkReply *reply=m_reply.data();const int status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
  const auto neterr=reply->error();const QString nettext=reply->errorString();const QByteArray body=reply->readAll();
  const QString cycle=m_candidates.at(m_candidateIndex).cycleTimeUtc;reply->deleteLater();m_reply=nullptr;
  if(status==404){m_candidateDiagnostics.push_back(QVariantMap{{"cycle_time_utc",cycle},{"status","NOT_PUBLISHED"},{"http_status",status}});++m_candidateIndex;checkNextCandidate();return;}
