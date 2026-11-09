@@ -124,6 +124,16 @@ int main()
         if (finding == "CAMERA_COMPATIBILITY_NOT_CONFIRMED") compatibilityBlocked = true;
     assert(compatibilityBlocked);
 
+    auto draftCustomConfiguration = customConfiguration;
+    draftCustomConfiguration.mission.vehicle_assignments.front().validation_state = "DRAFT";
+    const auto draftConfigurationResult = Mt01MappingPipeline::calculate(draftCustomConfiguration);
+    assert(draftConfigurationResult.status == Mt01PipelineStatus::NeedsInput);
+    bool configurationBlocked = false;
+    for (const auto& finding : draftConfigurationResult.findings)
+        if (finding == "VEHICLE_CONFIGURATION_NOT_VALIDATED") configurationBlocked = true;
+    assert(configurationBlocked);
+
+
     auto wrongVehicleBinding = request;
     wrongVehicleBinding.mission.equipment_assignments.front().vehicle_id = "OTHER-UAV";
     assert(Mt01MappingPipeline::calculate(wrongVehicleBinding).status == Mt01PipelineStatus::NeedsInput);
