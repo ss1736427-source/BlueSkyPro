@@ -67,6 +67,26 @@ Source: Quantum-Systems, Trinity Pro Technical Specifications, https://lp.quantu
 
 **Planning use:** Keep hover/transition/cruise envelopes separate. 17 m/s is not a basis for inventing turn radius.
 
+### DJI Mavic 3E — multirotor mapping reference
+
+| Parameter | Value | Classification | Notes |
+|---|---:|---|---|
+| Maximum horizontal speed, Normal | 15 m/s | OFFICIAL_SPEC | Sea level, no wind |
+| Maximum horizontal speed, Sport, forward | 21 m/s | OFFICIAL_SPEC | Sea level, no wind; not a mapping-speed recommendation |
+| Maximum horizontal speed, Sport, lateral | 20 m/s | OFFICIAL_SPEC | Sea level, no wind |
+| Maximum horizontal speed, Sport, backward | 19 m/s | OFFICIAL_SPEC | Sea level, no wind |
+| Maximum pitch angle, Normal | 30 deg | OFFICIAL_SPEC | Manufacturer mode maximum |
+| Maximum pitch angle, Sport | 35 deg | OFFICIAL_SPEC | Manufacturer mode maximum |
+| Maximum angular velocity | 200 deg/s | OFFICIAL_SPEC | Body angular velocity; not horizontal path curvature |
+| Maximum wind speed resistance | 12 m/s | OFFICIAL_SPEC | DJI footnote: this stated resistance applies during take-off and landing |
+| Minimum horizontal turn radius | UNKNOWN | UNKNOWN | Not published in reviewed DJI Mavic 3 Enterprise specifications |
+| Sustained lateral acceleration limit | UNKNOWN | UNKNOWN | Not established by reviewed manufacturer data |
+| Braking/deceleration envelope for mapping turns | UNKNOWN | UNKNOWN | No validated configuration-specific value in the reviewed source set |
+
+Source: DJI, Mavic 3 Enterprise Specifications, https://enterprise.dji.com/mavic-3-enterprise/specs
+
+**Planning use:** Use the published speed, pitch-angle and angular-velocity values only as mode-specific manufacturer references. Do not infer translational turn radius or sustained lateral acceleration from angular velocity or pitch angle. The 12 m/s wind figure must not be generalized into a cruise operating limit. Until the exact aircraft/firmware/mode configuration is read back and representative motion tests are completed, the Mavic 3E motion model remains UNVERIFIED; AUTO trajectories requiring bounded-curvature transitions must remain blocked by the vehicle-motion hard gate.
+
 ## 3. Autopilot configuration references — not aircraft reference values
 
 ArduPilot documentation exposes controller parameters relevant to a configured vehicle:
