@@ -37,6 +37,20 @@ struct TurnRadiusEstimate {
     std::string diagnostic;
 };
 
+
+struct TurnSpeedRecommendation {
+    bool valid{false};
+    bool may_satisfy_motion_hard_gate{false};
+    double requested_radius_m{0.0};
+    double selected_speed_mps{0.0};
+    double minimum_safe_turn_speed_mps{0.0};
+    double stall_speed_at_bank_mps{0.0};
+    double achieved_ideal_radius_m{0.0};
+    bool radius_requirement_met{false};
+    MotionEvidence evidence{MotionEvidence::Unknown};
+    std::string diagnostic;
+};
+
 class VehicleMotionModelEvaluator {
 public:
     // Returns an air-relative idealized radius. Wind correction and trajectory realization
@@ -113,6 +127,86 @@ public:
             : "Advisory scenario only: unvalidated assumptions cannot satisfy the vehicle-motion hard gate.";
         return out;
     }
+
+    // Selects the slowest admissible fixed-wing speed that can meet the requested
+    // air-relative radius at the configured bank angle. Stall speed is increased
+    // for bank load factor and then multiplied by an explicit safety margin.
+    // This is a planning estimate, not an in-flight speed command or stall protection.
+    static TurnSpeedRecommendation recommendMinimumTurnSpeed(
+        const VehicleMotionModel& model,
+        double requested_radius_m,
+        double stall_speed_clean_mps,
+        double stall_margin_factor) {
+        TurnSpeedRecommendation out;
+        out.requested_radius_m = requested_radius_m;
+        out.evidence = model.evidence;
+
+        constexpr double gravity = 9.80665;
+        constexpr double pi = 3.14159265358979323846;
+        const auto finitePositive = [](double v) { return std::isfinite(v) && v > 0.0; };
+
+        if (model.motion_class != MotionClass::FixedWing) {
+            out.diagnostic = "Adaptive stall-limited turn-speed selection is only defined for fixed-wing aircraft.";
+            return out;
+        }
+        if (model.model_id.empty() || model.model_version.empty() ||
+            model.configuration_id.empty() || model.speed_reference != "TAS" ||
+            model.source_reference.empty()) {
+            out.diagnostic = "Exact aircraft/configuration identity, TAS reference and provenance are required.";
+            return out;
+        }
+        if (!finitePositive(requested_radius_m) ||
+            !finitePositive(stall_speed_clean_mps) ||
+            !finitePositive(stall_margin_factor) || stall_margin_factor <= 1.0 ||
+            !finitePositive(model.minimum_speed_mps) ||
+            !finitePositive(model.maximum_speed_mps) ||
+            model.minimum_speed_mps > model.maximum_speed_mps ||
+            !std::isfinite(model.bank_angle_rad) ||
+            model.bank_angle_rad <= 0.0 || model.bank_angle_rad >= pi / 2.0) {
+            out.diagnostic = "Invalid radius, stall data, safety margin, speed envelope or bank angle.";
+            return out;
+        }
+
+        const double cosBank = std::cos(model.bank_angle_rad);
+        if (!finitePositive(cosBank)) {
+            out.diagnostic = "Bank angle produces an invalid load-factor calculation.";
+            return out;
+        }
+        out.stall_speed_at_bank_mps = stall_speed_clean_mps / std::sqrt(cosBank);
+        out.minimum_safe_turn_speed_mps = std::max(
+            model.minimum_speed_mps,
+            out.stall_speed_at_bank_mps * stall_margin_factor);
+
+        if (out.minimum_safe_turn_speed_mps > model.maximum_speed_mps) {
+            out.diagnostic = "No safe turn speed: stall-margin speed exceeds the validated aircraft speed envelope.";
+            return out;
+        }
+
+        // For a coordinated level turn, radius decreases monotonically with TAS.
+        // Therefore the lowest admissible TAS gives the smallest achievable radius.
+        out.selected_speed_mps = std::max(
+            out.minimum_safe_turn_speed_mps,
+            std::sqrt(requested_radius_m * gravity * std::tan(model.bank_angle_rad)));
+        if (out.selected_speed_mps > model.maximum_speed_mps) {
+            out.diagnostic = "Requested radius cannot be achieved within the safe speed and bank envelope.";
+            return out;
+        }
+
+        out.achieved_ideal_radius_m =
+            (out.selected_speed_mps * out.selected_speed_mps) /
+            (gravity * std::tan(model.bank_angle_rad));
+        out.radius_requirement_met =
+            out.achieved_ideal_radius_m <= requested_radius_m * (1.0 + 1e-9);
+        out.valid = true;
+        out.may_satisfy_motion_hard_gate =
+            model.evidence == MotionEvidence::OfficialValidated ||
+            model.evidence == MotionEvidence::FlightTestValidated;
+        out.diagnostic = out.may_satisfy_motion_hard_gate
+            ? "Minimum admissible TAS selected for the requested radius; wind, trajectory, energy and independent safety validation remain required."
+            : "Advisory scenario only: unvalidated inputs cannot satisfy the vehicle-motion hard gate.";
+        return out;
+    }
+
 };
 
 } // namespace bluesky::planning
