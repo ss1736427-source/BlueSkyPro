@@ -54,6 +54,36 @@ private:
     double score_;
 };
 
+class FlightDynamicsSolver final : public Solver {
+public:
+    FlightDynamicsSolver(double speed, double bank) : speed_(speed), bank_(bank) {}
+    SolverMetadata metadata() const override {
+        return {"flight-dynamics", "test", {"point_to_point"}, false, true};
+    }
+    bool eligible(const MissionProblem& problem) const override {
+        return problem.problem_class == "point_to_point";
+    }
+    RunState run(SolverContext& context) override {
+        CandidateSolution candidate;
+        candidate.candidate_id = context.problem().mission_id + ":flight-dynamics:1";
+        candidate.solver_id = "flight-dynamics";
+        candidate.solver_version = "test";
+        candidate.route_elements = {"A", "B"};
+        candidate.estimated_time_s = 10.0;
+        candidate.estimated_energy_wh = 5.0;
+        candidate.estimated_reserve_wh = 20.0;
+        candidate.objective_score = 1.0;
+        candidate.feasibility = Feasibility::Feasible;
+        candidate.flight_dynamics.push_back({"leg-1", speed_, bank_, std::nullopt});
+        context.publish(std::move(candidate));
+        return RunState::Completed;
+    }
+    void cancel() override {}
+private:
+    double speed_;
+    double bank_;
+};
+
 class InvalidCandidateSolver final : public Solver {
 public:
     SolverMetadata metadata() const override { return {"invalid", "test", {"point_to_point"}, false, true}; }
@@ -391,6 +421,58 @@ int main() {
     AStarSolver unreachable_astar([](const PlanningNode&, const PlanningNode&) { return 0.0; });
     assert(unreachable_astar.run(unreachable_context) == RunState::Failed);
     assert(unreachable_context.candidates().empty());
+
+    // Flight candidates are gated by validated aircraft limits before ranking.
+    FlightSafetyEnvelope validatedEnvelope;
+    validatedEnvelope.vehicle_model_id = "TEST-FW";
+    validatedEnvelope.model_version = "1";
+    validatedEnvelope.configuration_id = "CFG-01";
+    validatedEnvelope.source_reference = "CONTROLLED-TEST-DATA";
+    validatedEnvelope.speed_reference = "TAS";
+    validatedEnvelope.minimum_speed_basis =
+        "CONFIGURATION_SPECIFIC_STALL_SPEED_WITH_BANK_AND_MARGIN";
+    validatedEnvelope.evidence = FlightSafetyEvidence::OfficialValidated;
+    validatedEnvelope.motion_class = MotionClass::FixedWing;
+    validatedEnvelope.minimum_speed_mps = 10.0;
+    validatedEnvelope.maximum_speed_mps = 20.0;
+    validatedEnvelope.maximum_bank_angle_rad = 0.5;
+
+    MissionProblem flightProblem = problem;
+    flightProblem.mission_id = "ORCH-FLIGHT-SAFETY-001";
+    flightProblem.requires_flight_safety_validation = true;
+    flightProblem.flight_safety_envelope = validatedEnvelope;
+    TestContext flightContext(flightProblem, ComputeBudget{1000, 256, 8});
+    std::vector<std::unique_ptr<Solver>> flightSolvers;
+    flightSolvers.push_back(std::make_unique<FlightDynamicsSolver>(20.0, 0.5));
+    AlgorithmOrchestrator flightOrchestrator(std::move(flightSolvers));
+    const auto flightDecision = flightOrchestrator.solve(flightContext);
+    assert(flightDecision.feasibility == Feasibility::Feasible);
+    assert(flightDecision.maximum_regime_warning_required);
+    assert(!flightDecision.selected_maximum_regime_uses.empty());
+    assert(!flightDecision.operator_warning.empty());
+
+    MissionProblem missingEnvelopeProblem = flightProblem;
+    missingEnvelopeProblem.mission_id = "ORCH-FLIGHT-SAFETY-MISSING-002";
+    missingEnvelopeProblem.flight_safety_envelope.reset();
+    TestContext missingEnvelopeContext(missingEnvelopeProblem, ComputeBudget{1000, 256, 8});
+    std::vector<std::unique_ptr<Solver>> missingEnvelopeSolvers;
+    missingEnvelopeSolvers.push_back(std::make_unique<FlightDynamicsSolver>(15.0, 0.2));
+    AlgorithmOrchestrator missingEnvelopeOrchestrator(std::move(missingEnvelopeSolvers));
+    const auto missingEnvelopeDecision = missingEnvelopeOrchestrator.solve(missingEnvelopeContext);
+    assert(missingEnvelopeDecision.feasibility == Feasibility::Infeasible);
+    assert(missingEnvelopeDecision.selected_candidate_id.empty());
+    assert(!missingEnvelopeDecision.rejected_candidates.empty());
+
+    MissionProblem overLimitProblem = flightProblem;
+    overLimitProblem.mission_id = "ORCH-FLIGHT-SAFETY-OVER-003";
+    TestContext overLimitContext(overLimitProblem, ComputeBudget{1000, 256, 8});
+    std::vector<std::unique_ptr<Solver>> overLimitSolvers;
+    overLimitSolvers.push_back(std::make_unique<FlightDynamicsSolver>(15.0, 0.6));
+    AlgorithmOrchestrator overLimitOrchestrator(std::move(overLimitSolvers));
+    const auto overLimitDecision = overLimitOrchestrator.solve(overLimitContext);
+    assert(overLimitDecision.feasibility == Feasibility::Infeasible);
+    assert(overLimitDecision.selected_candidate_id.empty());
+    assert(!overLimitDecision.rejected_candidates.empty());
 
     return 0;
 }
