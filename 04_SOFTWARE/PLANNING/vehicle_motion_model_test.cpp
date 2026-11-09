@@ -73,6 +73,12 @@ int main() {
     assert(slowTurn.radius_requirement_met);
     assert(slowTurn.achieved_ideal_radius_m <= 60.0);
 
+    // Do not slow down when the current speed already fits the requested radius.
+    const auto keepCruiseSpeed = VehicleMotionModelEvaluator::recommendMinimumTurnSpeed(
+        speedModel, 100.0, 10.0, "TAS", 1.30);
+    assert(keepCruiseSpeed.valid);
+    assert(std::abs(keepCruiseSpeed.selected_speed_mps - speedModel.reference_speed_mps) < 1e-9);
+
     // A tighter radius must be rejected if it would require flying below the safe minimum.
     const auto impossibleTightTurn = VehicleMotionModelEvaluator::recommendMinimumTurnSpeed(
         speedModel, 35.0, 10.0, "TAS", 1.30);
