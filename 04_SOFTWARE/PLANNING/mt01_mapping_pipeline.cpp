@@ -34,25 +34,58 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
         addFinding(result, "MT01_TEMPLATE_NOT_SELECTED");
     }
 
-    if (mission.vehicle_assignments.size() != 1)
+    if (mission.vehicle_assignments.size() != 1) {
         addFinding(result, "MT01_REQUIRES_EXACTLY_ONE_ASSIGNED_VEHICLE");
-    else if (mission.vehicle_assignments.front().vehicle_id.empty()
-             || mission.vehicle_assignments.front().configuration_version.empty())
-        addFinding(result, "VEHICLE_CONFIGURATION_BINDING_REQUIRED");
+    } else {
+        const auto& vehicle = mission.vehicle_assignments.front();
+        if (vehicle.vehicle_id.empty() || vehicle.configuration_id.empty()
+            || vehicle.configuration_version.empty()) {
+            addFinding(result, "VEHICLE_CONFIGURATION_BINDING_REQUIRED");
+        }
+        if (vehicle.configuration_type != "STANDARD"
+            && vehicle.configuration_type != "CUSTOM"
+            && vehicle.configuration_type != "DERIVED") {
+            addFinding(result, "VEHICLE_CONFIGURATION_TYPE_INVALID");
+        }
+    }
 
-    if (mission.payload_assignments.size() != 1)
-        addFinding(result, "MT01_REQUIRES_EXACTLY_ONE_ASSIGNED_CAMERA_CONFIGURATION");
-    else if (mission.payload_assignments.front().payload_id.empty()
-             || mission.payload_assignments.front().configuration_version.empty())
-        addFinding(result, "CAMERA_CONFIGURATION_BINDING_REQUIRED");
+    const EquipmentAssignment* camera = nullptr;
+    for (const auto& equipment : mission.equipment_assignments) {
+        if (equipment.equipment_class != "CAMERA")
+            continue;
+        if (camera) {
+            addFinding(result, "MT01_REQUIRES_EXACTLY_ONE_ASSIGNED_CAMERA");
+            break;
+        }
+        camera = &equipment;
+    }
+
+    if (!camera) {
+        addFinding(result, "MT01_CAMERA_EQUIPMENT_ASSIGNMENT_REQUIRED");
+    } else {
+        if (camera->vehicle_id.empty() || camera->equipment_id.empty()
+            || camera->equipment_profile_id.empty()
+            || camera->configuration_version.empty()) {
+            addFinding(result, "CAMERA_EQUIPMENT_BINDING_REQUIRED");
+        }
+        if (mission.vehicle_assignments.size() == 1
+            && camera->vehicle_id != mission.vehicle_assignments.front().vehicle_id) {
+            addFinding(result, "CAMERA_ASSIGNED_TO_DIFFERENT_VEHICLE");
+        }
+        if (camera->compatibility_state != "COMPATIBLE")
+            addFinding(result, "CAMERA_COMPATIBILITY_NOT_CONFIRMED");
+        if (camera->verification_state != "VERIFIED")
+            addFinding(result, "CAMERA_EQUIPMENT_NOT_VERIFIED");
+    }
 
     if (request.camera.camera_configuration_id.empty()
-        || request.camera.calibration_source_reference.empty())
+        || request.camera.calibration_source_reference.empty()) {
         addFinding(result, "CAMERA_CONFIGURATION_AND_SOURCE_PROVENANCE_REQUIRED");
-    if (mission.payload_assignments.size() == 1
-        && !request.camera.camera_configuration_id.empty()
-        && request.camera.camera_configuration_id != mission.payload_assignments.front().payload_id)
+    }
+    if (camera && !request.camera.camera_configuration_id.empty()
+        && request.camera.camera_configuration_id != camera->equipment_id) {
         addFinding(result, "CAMERA_ASSIGNMENT_MISMATCH");
+    }
 
     const MissionGeometryObject* aoi = nullptr;
     for (const auto& geometry : mission.geometry_objects) {
