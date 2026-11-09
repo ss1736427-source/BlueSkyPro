@@ -52,6 +52,8 @@ qt_add_executable(appBlueSkyPRO
     src/main.cpp
     src/PlanningBridge.cpp
     src/PlanningBridge.h
+    src/Mt01MappingBridge.cpp
+    src/Mt01MappingBridge.h
     src/MissionTemplateResolver.cpp
     src/MissionTemplateResolver.h
     src/VirtualFlightAssessmentBridge.cpp
@@ -133,6 +135,20 @@ add_executable(tile_cache_manager_test
 )
 target_link_libraries(tile_cache_manager_test PRIVATE Qt6::Network)
 add_test(NAME tile_cache_manager_contract COMMAND tile_cache_manager_test)
+
+add_executable(mt01_mapping_bridge_test
+    tests/Mt01MappingBridgeTest.cpp
+    src/Mt01MappingBridge.cpp
+    src/Mt01MappingBridge.h
+)
+target_include_directories(mt01_mapping_bridge_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+target_link_libraries(mt01_mapping_bridge_test PRIVATE bluesky_planning Qt6::Core)
+target_compile_features(mt01_mapping_bridge_test PRIVATE cxx_std_20)
+target_compile_options(mt01_mapping_bridge_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME mt01_mapping_bridge_contract COMMAND mt01_mapping_bridge_test)
 
 add_executable(route_controller_test
     tests/RouteControllerTest.cpp
