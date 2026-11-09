@@ -285,3 +285,28 @@ Implementation sequencing:
 5. integrate independent route validation and only then connect it to the MT-01 candidate pipeline.
 
 Until these gates are implemented and tested, MT-01 remains a 2D coverage-leg candidate generator. No transition distance, total mission time, turn feasibility or flight-ready route is claimed.
+
+
+### Adaptive fixed-wing turn speed — stall-margin constraint
+
+The vehicle-motion model now includes a preliminary deterministic speed-selection function for fixed-wing coordinated turns.
+
+Implemented contract:
+- when a requested turn radius cannot be met at the current speed, evaluate the lowest admissible turn speed;
+- calculate bank-adjusted stall speed as Vs_bank = Vs_clean / sqrt(cos(bank)) for the coordinated level-turn approximation;
+- apply an explicit safety-margin factor greater than 1.0;
+- enforce the configured aircraft minimum/maximum speed envelope;
+- select the minimum safe speed only if its resulting idealized turn radius meets the requested radius;
+- reject the transition if the required radius would demand a speed below the calculated safe minimum or if the stall-margin speed exceeds the configured envelope;
+- require exact aircraft/configuration identity, source provenance and an explicit TAS datum for both turn speed and stall-speed input; IAS/CAS values must first be converted using an authoritative atmosphere/configuration model;
+- keep derived/unvalidated aircraft data advisory; only official-validated or flight-test-validated inputs can be eligible for the motion hard gate.
+
+Safety and scope limitations:
+- the margin factor is an explicit aircraft/operator-approved input, not a universal constant; a sample test value does not establish an operational threshold;
+- clean stall speed must correspond to the exact mass, CG, flap/propulsion/airframe configuration and applicable operating condition; use the appropriate configuration-specific stall data;
+- the bank-load approximation does not model gusts, angle-of-attack protection, accelerated stall transients, turbulence, sideslip or control-law behavior;
+- this function is a ground-planning estimate, not a real-time flight-control command or stall-protection system;
+- wind-corrected ground track, turn trajectory integration, altitude/terrain, airspace, obstacle, energy/reserve and independent route-integrity gates remain separate required checks;
+- if validated stall data, speed datum, margin or configuration is missing, the planner must not invent a value or authorize speed reduction.
+
+Regression tests cover safe minimum selection, radius infeasibility, missing stall data, invalid margin, mismatched speed datum and an insufficient maximum-speed envelope. The code-level test still requires successful CI execution; it does not establish flight-test validation.
