@@ -179,7 +179,9 @@
           "vehicleId",
           "configurationId",
           "configurationVersion",
-          "configurationType"
+          "configurationType",
+          "validationState",
+          "approvalState"
         ],
         "properties": {
           "vehicleId": {
@@ -200,6 +202,25 @@
               "STANDARD",
               "CUSTOM",
               "DERIVED"
+            ]
+          },
+          "validationState": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "VALIDATING",
+              "VALIDATED",
+              "APPROVED",
+              "INVALID"
+            ]
+          },
+          "approvalState": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "SUSPENDED",
+              "NOT_REQUIRED"
             ]
           }
         }
