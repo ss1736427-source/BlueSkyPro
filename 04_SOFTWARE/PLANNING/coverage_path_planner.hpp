@@ -8,6 +8,10 @@ struct CoverageCameraModel {
  double focal_length_mm{0.0}; double pixel_pitch_um{0.0};
  unsigned image_width_px{0}; unsigned image_height_px{0};
  double target_gsd_cm_px{0.0}; double forward_overlap_percent{0.0}; double side_overlap_percent{0.0};
+ // Reference optical geometry is not an individual camera calibration.
+ std::string camera_configuration_id;
+ std::string calibration_source_reference;
+ bool intrinsic_calibration_verified{false};
 };
 struct CoverageMissionInput {
  std::string mission_id; std::string mission_version;
@@ -35,6 +39,7 @@ struct CoveragePlanResult {
  bool valid{false}; std::string status; std::vector<GeoPoint> waypoints;
  std::vector<CoverageCapturePoint> capture_points;
  CoverageMetrics metrics; std::vector<std::string> diagnostics;
+ bool intrinsic_calibration_verified{false};
 };
 // 2D candidate generator; emits image trigger positions along straight coverage legs only.
 // Assumes image_height_px is the along-track sensor dimension; no turns, transit, DEM or safety validation.
