@@ -63,14 +63,25 @@ struct EnvironmentSnapshot {
     std::vector<EnvironmentInputReference> inputs;
 };
 
+// One physical airframe and one exact, immutable configuration revision.
 struct VehicleAssignment {
     std::string vehicle_id;
     std::string configuration_version;
+    std::string configuration_id;
+    std::string configuration_type; // STANDARD, CUSTOM or DERIVED
 };
 
-struct PayloadAssignment {
-    std::string payload_id;
+// Canonical BlueSky domain object is Equipment / EquipmentProfile.
+// "Payload" is external terminology and is not a separate canonical entity.
+struct EquipmentAssignment {
+    std::string vehicle_id;
+    std::string equipment_id;
+    std::string equipment_profile_id;
+    std::string equipment_class; // CAMERA, SENSOR, LIDAR, NAVIGATION, etc.
     std::string configuration_version;
+    std::string compatibility_state; // UNKNOWN, COMPATIBLE, NOT_COMPATIBLE, NEEDS_REVIEW
+    std::string verification_state;  // NOT_VERIFIED, VERIFIED, EXPIRED, INVALIDATED
+    std::string calibration_state;   // equipment-specific calibration state
 };
 
 struct RouteCandidateReference {
@@ -112,8 +123,6 @@ struct ExecutionReference {
     std::string c2_session_id;
 };
 
-// Planned launch/origin reference is distinct from the first route waypoint and recovery point.
-// A point-only anchor translates geographic geometry; it does not define local-frame rotation.
 struct MissionOrigin {
     double longitude_deg = 0.0;
     double latitude_deg = 0.0;
@@ -135,7 +144,7 @@ struct Mission {
     ConstraintSet constraints;
     std::vector<EnvironmentSnapshot> environment_snapshots;
     std::vector<VehicleAssignment> vehicle_assignments;
-    std::vector<PayloadAssignment> payload_assignments;
+    std::vector<EquipmentAssignment> equipment_assignments;
     std::vector<RouteCandidateReference> route_candidates;
     SelectedSolutionReference selected_solution;
     std::vector<RegulatoryPlanReference> regulatory_plans;
