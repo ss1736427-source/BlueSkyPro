@@ -32,7 +32,9 @@ static QString validMissionJson()
             {"vehicleId", "DJI-MAVIC-3E"},
             {"configurationId", "MAVIC-3E-STANDARD"},
             {"configurationVersion", "MAVIC-3E-STANDARD-REFERENCE-001"},
-            {"configurationType", "STANDARD"}
+            {"configurationType", "STANDARD"},
+            {"validationState", "APPROVED"},
+            {"approvalState", "APPROVED"}
         }}},
         {"equipmentAssignments", QJsonArray{QJsonObject{
             {"vehicleId", "DJI-MAVIC-3E"},
