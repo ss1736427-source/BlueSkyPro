@@ -30,11 +30,19 @@ static QString validMissionJson()
         {"intent", QJsonObject{{"objective", "Orthomosaic"}, {"taskType", "MAPPING"}}},
         {"vehicleAssignments", QJsonArray{QJsonObject{
             {"vehicleId", "DJI-MAVIC-3E"},
-            {"configurationVersion", "MAVIC-3E-STANDARD-REFERENCE-001"}
+            {"configurationId", "MAVIC-3E-STANDARD"},
+            {"configurationVersion", "MAVIC-3E-STANDARD-REFERENCE-001"},
+            {"configurationType", "STANDARD"}
         }}},
-        {"payloadAssignments", QJsonArray{QJsonObject{
-            {"payloadId", "DJI-MAVIC-3E-WIDE"},
-            {"configurationVersion", "MAVIC-3E-WIDE-REFERENCE-001"}
+        {"equipmentAssignments", QJsonArray{QJsonObject{
+            {"vehicleId", "DJI-MAVIC-3E"},
+            {"equipmentId", "DJI-MAVIC-3E-WIDE"},
+            {"equipmentProfileId", "DJI-MAVIC-3E-WIDE-PROFILE"},
+            {"equipmentClass", "CAMERA"},
+            {"configurationVersion", "MAVIC-3E-WIDE-REFERENCE-001"},
+            {"compatibilityState", "COMPATIBLE"},
+            {"verificationState", "VERIFIED"},
+            {"calibrationState", "NOT_VERIFIED"}
         }}},
         {"geometryObjects", QJsonArray{aoi}}
     };
