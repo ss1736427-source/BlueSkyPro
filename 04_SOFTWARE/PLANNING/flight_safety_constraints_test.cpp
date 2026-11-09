@@ -93,6 +93,21 @@ int main()
     Route route;
     route.segments.push_back({"SEG-1", "A", "B", 100.0, 25.0,
                               *e.maximum_bank_angle_rad, 1.0});
+    route.waypoints = {
+        {"A", {10.0, 20.0}, 100.0, true, AltitudeReference::AGL},
+        {"B", {10.001, 20.0}, 100.0, true, AltitudeReference::AGL}
+    };
+    route.trajectory_geometry_complete = true;
+    const auto candidateDynamics = buildFlightSafetyCandidateDynamics(route);
+    assert(candidateDynamics.complete);
+    assert(candidateDynamics.expected_segment_count == 1);
+    assert(candidateDynamics.segments.size() == 1);
+    assert(candidateDynamics.segments[0].speed_mps == 25.0);
+
+    route.trajectory_geometry_complete = false;
+    assert(!buildFlightSafetyCandidateDynamics(route).complete);
+    route.trajectory_geometry_complete = true;
+
     auto routeMaximum = FlightSafetyConstraintValidator::validateRoute(e, route);
     assert(routeMaximum.status == FlightSafetyStatus::Allowed);
     assert(routeMaximum.maximum_regime_warning_required);
