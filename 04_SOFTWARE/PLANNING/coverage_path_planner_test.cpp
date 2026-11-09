@@ -16,5 +16,12 @@ int main(){
  auto hole=in;hole.exclusion_areas={{{0.0005,0.0005},{0.0005,0.0015},{0.0015,0.0015},{0.0015,0.0005}}};
  auto h=CoveragePathPlanner::generate(hole);assert(h.valid);assert(h.metrics.exclusion_intersection_count>0);assert(h.metrics.coverage_segment_count>r.metrics.coverage_segment_count);
  auto badHole=in;badHole.exclusion_areas={{{0,0},{0.001,0.001},{0,0.001},{0.001,0}}};assert(!CoveragePathPlanner::generate(badHole).valid);
+ auto closed=in;closed.area_of_interest.push_back(closed.area_of_interest.front());assert(CoveragePathPlanner::generate(closed).valid);
+ auto outside=in;outside.exclusion_areas={{{0.0005,0.0005},{0.0005,0.003},{0.0015,0.003},{0.0015,0.0005}}};assert(!CoveragePathPlanner::generate(outside).valid);
+ auto overlapping=in;overlapping.exclusion_areas={
+  {{0.0004,0.0004},{0.0004,0.0012},{0.0012,0.0012},{0.0012,0.0004}},
+  {{0.0008,0.0008},{0.0008,0.0016},{0.0016,0.0016},{0.0016,0.0008}}
+ };assert(!CoveragePathPlanner::generate(overlapping).valid);
+ auto concave=in;concave.area_of_interest={{0,0},{0,0.002},{0.0008,0.002},{0.0008,0.0008},{0.002,0.0008},{0.002,0}};assert(CoveragePathPlanner::generate(concave).valid);
  return 0;
 }
