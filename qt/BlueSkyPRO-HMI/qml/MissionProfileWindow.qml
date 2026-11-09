@@ -22,6 +22,7 @@ Item {
     property var missionTemplateIndices: []
     signal closeRequested()
     signal applyRequested()
+    signal mapRequested()
 
     readonly property color bg: "#07111E"
     readonly property color panel: "#0B1B2B"
@@ -536,6 +537,35 @@ Item {
                         onClicked: root.parameterPanelOpen = true
                     }
                 }
+                Rectangle {
+                    id: openMapButton
+                    anchors.right: parent.right
+                    anchors.rightMargin: 150
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 96
+                    height: 32
+                    radius: 3
+                    color: "#102B3A"
+                    border.color: root.cyan
+                    border.width: 1
+
+                    Text {
+                        anchors.fill: parent
+                        text: "КАРТА"
+                        color: root.cyan
+                        font.pixelSize: 12
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.mapRequested()
+                    }
+                }
+
                 Rectangle {
                     id: closeButton
                     anchors.right: parent.right
