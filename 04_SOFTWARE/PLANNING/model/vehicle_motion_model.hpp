@@ -184,19 +184,16 @@ public:
 
         // For a coordinated level turn, radius decreases monotonically with TAS.
         // Therefore the lowest admissible TAS gives the smallest achievable radius.
-        out.selected_speed_mps = std::max(
-            out.minimum_safe_turn_speed_mps,
-            std::sqrt(requested_radius_m * gravity * std::tan(model.bank_angle_rad)));
-        if (out.selected_speed_mps > model.maximum_speed_mps) {
-            out.diagnostic = "Requested radius cannot be achieved within the safe speed and bank envelope.";
-            return out;
-        }
-
+        out.selected_speed_mps = out.minimum_safe_turn_speed_mps;
         out.achieved_ideal_radius_m =
             (out.selected_speed_mps * out.selected_speed_mps) /
             (gravity * std::tan(model.bank_angle_rad));
         out.radius_requirement_met =
             out.achieved_ideal_radius_m <= requested_radius_m * (1.0 + 1e-9);
+        if (!out.radius_requirement_met) {
+            out.diagnostic = "Requested radius cannot be achieved at or above the minimum safe turn speed.";
+            return out;
+        }
         out.valid = true;
         out.may_satisfy_motion_hard_gate =
             model.evidence == MotionEvidence::OfficialValidated ||
