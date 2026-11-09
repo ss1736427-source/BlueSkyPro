@@ -312,3 +312,26 @@ Safety and scope limitations:
 - if validated stall data, speed datum, margin or configuration is missing, the planner must not invent a value or authorize speed reduction.
 
 Regression tests cover safe minimum selection, radius infeasibility, missing stall data, invalid margin, mismatched speed datum and an insufficient maximum-speed envelope. The code-level test still requires successful CI execution; it does not establish flight-test validation.
+
+
+## 10. Shared flight-safety validator — software baseline
+
+A first reusable dynamic-envelope validator is implemented in:
+- `04_SOFTWARE/PLANNING/model/flight_safety_constraints.hpp`
+- `04_SOFTWARE/PLANNING/flight_safety_constraints.cpp`
+- `04_SOFTWARE/PLANNING/flight_safety_constraints_test.cpp`
+
+The module provides:
+- exact vehicle model/version/configuration and source provenance;
+- validated-evidence admission: official or flight-test validated limits only;
+- explicit speed datum (TAS for fixed-wing; air-relative for multirotor);
+- mandatory minimum-speed basis; fixed-wing minimum must include configuration-specific stall speed, bank/load factor and safety margin;
+- fixed-wing maximum bank and multirotor maximum lateral acceleration as class-specific required limits;
+- per-segment speed/dynamic checks with hard rejection for any limit exceedance;
+- structured maximum-regime usage records and the exact operator warning only when an admissible candidate actually reaches a validated maximum;
+- no warning for parameters merely approaching a limit; no warning for rejected/unknown candidates;
+- a route adapter that evaluates each route segment using the same shared validator.
+
+CMake target/test registration is present in `04_SOFTWARE/PLANNING/CMakeLists.txt`.
+
+**Scope limitation:** this is a first software primitive, not yet a complete aircraft trajectory validator. It does not yet model coupled fixed-wing stall/load-factor physics internally, wind-corrected ground-track curvature, climb/descent, altitude/terrain clearance, swept-volume geometry, energy/reserve, camera stabilization or VTOL transition phases. Fixed-wing minimum safe speed is currently accepted only as an externally validated, configuration-specific input basis. The route adapter is available, but the full candidate/orchestrator/HMI path is not yet wired to it. No claim is made that all 13 templates already execute this validator.
