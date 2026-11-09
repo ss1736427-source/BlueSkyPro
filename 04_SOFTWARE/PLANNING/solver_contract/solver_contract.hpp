@@ -47,6 +47,9 @@ struct CandidateSolution {
     Feasibility feasibility{Feasibility::Uncertain};
     // One state per flown trajectory segment; IDs must be unique and non-empty.
     std::vector<FlightSafetySegmentState> flight_dynamics;
+    // Producer attestation: profile covers every flown segment, including transitions.
+    bool flight_dynamics_complete{false};
+    std::size_t flight_dynamics_expected_segment_count{0};
 };
 
 struct SolverMetadata {
