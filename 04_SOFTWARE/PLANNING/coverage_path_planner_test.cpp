@@ -17,6 +17,15 @@ int main(){
   assert(cp.distance_from_segment_start_m>=0.0);
   assert(cp.distance_from_segment_start_m<=1000.0);
  }
+ for(std::size_t segment=0;segment<r.metrics.coverage_segment_count;++segment){
+  const CoverageCapturePoint* last=nullptr;
+  for(const auto& cp:r.capture_points)if(cp.coverage_segment_index==segment)last=&cp;
+  assert(last!=nullptr);
+  const auto& endpoint=r.waypoints[segment*2+1];
+  const double latDelta=(last->position.latitude_deg-endpoint.latitude_deg)*111195.0;
+  const double lonDelta=(last->position.longitude_deg-endpoint.longitude_deg)*111195.0;
+  assert(std::hypot(latDelta,lonDelta)<0.02);
+ }
  auto repeat=CoveragePathPlanner::generate(in);assert(repeat.valid&&repeat.waypoints.size()==r.waypoints.size());
  for(std::size_t i=0;i<r.waypoints.size();++i){assert(r.waypoints[i].latitude_deg==repeat.waypoints[i].latitude_deg);assert(r.waypoints[i].longitude_deg==repeat.waypoints[i].longitude_deg);}
  auto bad=in;bad.camera.side_overlap_percent=100;assert(!CoveragePathPlanner::generate(bad).valid);
