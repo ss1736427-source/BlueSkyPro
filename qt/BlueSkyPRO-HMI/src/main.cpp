@@ -19,6 +19,7 @@
 #include "CredentialVault.h"
 #include "FaaNmsClient.h"
 #include "WeatherDataService.h"
+#include "gfs_forecast_availability_service.hpp"
 #include <QQmlApplicationEngine>
 #include <QUrl>
 #include <QString>
@@ -114,6 +115,7 @@ int main(int argc, char *argv[])
     writeStartupLog(QStringLiteral("CHECKPOINT: before WeatherDataService constructor"));
     WeatherDataService weatherDataService;
     writeStartupLog(QStringLiteral("CHECKPOINT: after WeatherDataService constructor"));
+    bluesky::weather::GfsForecastAvailabilityService gfsForecastAvailabilityService;
 
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("mt01MappingBridge"), &mt01MappingBridge);
@@ -128,6 +130,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("credentialVault"), &credentialVault);
     engine.rootContext()->setContextProperty(QStringLiteral("faaNmsClient"), &faaNmsClient);
     engine.rootContext()->setContextProperty(QStringLiteral("weatherDataService"), &weatherDataService);
+    engine.rootContext()->setContextProperty(QStringLiteral("gfsForecastAvailabilityService"), &gfsForecastAvailabilityService);
     writeStartupLog(QStringLiteral("CHECKPOINT: C++ context properties configured"));
 
     const QString yandexMapsApiKey = qEnvironmentVariable("BLUESKY_YANDEX_MAPS_API_KEY");

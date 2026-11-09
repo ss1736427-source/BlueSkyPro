@@ -71,6 +71,8 @@ qt_add_executable(appBlueSkyPRO
     src/FaaNmsClient.h
     src/WeatherDataService.cpp
     src/WeatherDataService.h
+    ../../04_SOFTWARE/WEATHER/gfs_forecast_availability_service.cpp
+    ../../04_SOFTWARE/WEATHER/gfs_forecast_availability_service.hpp
     src/NotamGeometryEngine.cpp
     src/NotamGeometryEngine.h
 )

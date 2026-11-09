@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(BlueSkyWeather LANGUAGES CXX)
 
 option(BLUESKY_ENABLE_ECCODES "Build the ecCodes GRIB2 decoder" OFF)
+option(BLUESKY_ENABLE_QT_NETWORK "Build the Qt asynchronous NOAA availability client" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -30,6 +31,24 @@ if(BLUESKY_ENABLE_ECCODES)
 endif()
 
 enable_testing()
+
+if(BLUESKY_ENABLE_QT_NETWORK)
+    find_package(Qt6 REQUIRED COMPONENTS Core Network)
+    add_library(bluesky_weather_qt
+        gfs_forecast_availability_service.cpp
+        gfs_forecast_availability_service.hpp
+    )
+    set_target_properties(bluesky_weather_qt PROPERTIES AUTOMOC ON)
+    target_include_directories(bluesky_weather_qt PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(bluesky_weather_qt PUBLIC bluesky_weather Qt6::Core Qt6::Network)
+    add_executable(gfs_forecast_availability_test tests/gfs_forecast_availability_test.cpp)
+    target_link_libraries(gfs_forecast_availability_test PRIVATE bluesky_weather_qt)
+    target_compile_options(gfs_forecast_availability_test PRIVATE
+        "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+        "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+    )
+    add_test(NAME gfs_forecast_availability_contract COMMAND gfs_forecast_availability_test)
+endif()
 add_executable(weather_engine_test tests/weather_engine_test.cpp)
 target_link_libraries(weather_engine_test PRIVATE bluesky_weather)
 target_compile_options(weather_engine_test PRIVATE
