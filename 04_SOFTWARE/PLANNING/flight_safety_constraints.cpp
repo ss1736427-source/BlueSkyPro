@@ -57,7 +57,7 @@ FlightSafetyValidationResult FlightSafetyConstraintValidator::validate(
     const auto unknown = [&](const std::string& detail) {
         result.status = FlightSafetyStatus::Unknown;
         result.findings.push_back({
-            FlightSafetyParameter::MinimumSpeed, {}, {}, 0.0, 0.0, detail
+            FlightSafetyParameter::ModelEvidence, {}, {}, 0.0, 0.0, detail
         });
     };
 
@@ -80,6 +80,15 @@ FlightSafetyValidationResult FlightSafetyConstraintValidator::validate(
     }
     if (segments.empty()) {
         unknown("At least one trajectory segment is required for dynamic envelope validation.");
+        return result;
+    }
+    if (envelope.motion_class == MotionClass::FixedWing && !envelope.maximum_bank_angle_rad) {
+        unknown("A validated maximum bank angle is mandatory for fixed-wing aircraft.");
+        return result;
+    }
+    if (envelope.motion_class == MotionClass::Multirotor
+        && !envelope.maximum_lateral_acceleration_mps2) {
+        unknown("A validated maximum lateral acceleration is mandatory for multirotor aircraft.");
         return result;
     }
     if (envelope.maximum_bank_angle_rad
@@ -120,7 +129,7 @@ FlightSafetyValidationResult FlightSafetyConstraintValidator::validate(
                           equalityTolerance);
         }
 
-        if (envelope.maximum_bank_angle_rad) {
+        if (envelope.motion_class == MotionClass::FixedWing) {
             if (!segment.bank_angle_rad || !std::isfinite(*segment.bank_angle_rad)
                 || *segment.bank_angle_rad < 0.0) {
                 unknown("A finite non-negative bank angle is required for segment "
@@ -138,7 +147,7 @@ FlightSafetyValidationResult FlightSafetyConstraintValidator::validate(
             }
         }
 
-        if (envelope.maximum_lateral_acceleration_mps2) {
+        if (envelope.motion_class == MotionClass::Multirotor) {
             if (!segment.lateral_acceleration_mps2
                 || !std::isfinite(*segment.lateral_acceleration_mps2)
                 || *segment.lateral_acceleration_mps2 < 0.0) {
@@ -162,7 +171,12 @@ FlightSafetyValidationResult FlightSafetyConstraintValidator::validate(
 
     result.status = result.findings.empty()
         ? FlightSafetyStatus::Allowed : FlightSafetyStatus::Rejected;
-    result.maximum_regime_warning_required = !result.maximum_regime_uses.empty();
+    // A rejected or unknown candidate is never presented as a selected maximum-regime plan.
+    if (result.status != FlightSafetyStatus::Allowed) {
+        result.maximum_regime_uses.clear();
+    }
+    result.maximum_regime_warning_required =
+        result.status == FlightSafetyStatus::Allowed && !result.maximum_regime_uses.empty();
     if (result.maximum_regime_warning_required) {
         result.operator_warning =
             "ВНИМАНИЕ: расчёт выполнен с использованием максимально допустимых режимов БВС.";
