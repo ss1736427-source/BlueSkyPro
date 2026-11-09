@@ -13,6 +13,7 @@ static FlightSafetyEnvelope envelope()
     e.configuration_id = "CFG-01";
     e.source_reference = "validated-flight-test-report";
     e.speed_reference = "TAS";
+    e.minimum_speed_basis = "CONFIGURATION_SPECIFIC_STALL_SPEED_WITH_BANK_AND_MARGIN";
     e.evidence = FlightSafetyEvidence::FlightTestValidated;
     e.motion_class = MotionClass::FixedWing;
     e.minimum_speed_mps = 10.0;
@@ -120,6 +121,8 @@ int main()
 
     auto multi = e;
     multi.motion_class = MotionClass::Multirotor;
+    multi.speed_reference = "AIR_RELATIVE";
+    multi.minimum_speed_basis = "VALIDATED_MULTIROTOR_OPERATING_MINIMUM";
     multi.maximum_bank_angle_rad.reset();
     multi.maximum_lateral_acceleration_mps2 = 4.0;
     auto multiState = segment(18.0, 0.3, 4.0);
@@ -128,6 +131,16 @@ int main()
     assert(multiResult.maximum_regime_warning_required);
     assert(multiResult.maximum_regime_uses.size() == 1);
     assert(multiResult.maximum_regime_uses[0].parameter == FlightSafetyParameter::MaximumLateralAcceleration);
+
+    auto wrongSpeedReference = e;
+    wrongSpeedReference.speed_reference = "IAS";
+    assert(FlightSafetyConstraintValidator::validate(
+        wrongSpeedReference, {segment(18.0, 0.3, 1.0)}).status == FlightSafetyStatus::Unknown);
+
+    auto missingMinimumBasis = e;
+    missingMinimumBasis.minimum_speed_basis.clear();
+    assert(FlightSafetyConstraintValidator::validate(
+        missingMinimumBasis, {segment(18.0, 0.3, 1.0)}).status == FlightSafetyStatus::Unknown);
 
     auto advisory = e;
     advisory.evidence = FlightSafetyEvidence::DerivedScenario;
