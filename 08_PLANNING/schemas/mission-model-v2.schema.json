@@ -219,8 +219,7 @@
             "enum": [
               "PENDING",
               "APPROVED",
-              "SUSPENDED",
-              "NOT_REQUIRED"
+              "SUSPENDED"
             ]
           }
         }
