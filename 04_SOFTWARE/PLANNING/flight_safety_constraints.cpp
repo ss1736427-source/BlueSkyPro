@@ -192,7 +192,11 @@ FlightSafetyValidationResult FlightSafetyConstraintValidator::validate(
             }
         }
 
-        if (envelope.motion_class == MotionClass::Multirotor) {
+        // Lateral acceleration is an independent hard bound whenever the
+        // validated envelope supplies it. For multirotors it is mandatory;
+        // for fixed-wing it supplements the speed/bank/load-factor checks.
+        if (envelope.motion_class == MotionClass::Multirotor ||
+            envelope.maximum_lateral_acceleration_mps2.has_value()) {
             if (!segment.lateral_acceleration_mps2
                 || !std::isfinite(*segment.lateral_acceleration_mps2)
                 || *segment.lateral_acceleration_mps2 < 0.0) {
