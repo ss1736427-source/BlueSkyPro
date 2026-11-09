@@ -94,13 +94,29 @@ CoveragePlanResult CoveragePathPlanner::generate(const CoverageMissionInput&in){
   for(const auto&h:holes){auto cuts=spansAt(h,y);if(!cuts.empty()&&!spans.empty())++gaps;spans=subtract(std::move(spans),cuts);}
   spans.erase(std::remove_if(spans.begin(),spans.end(),[](auto s){return s.hi-s.lo<0.1;}),spans.end());if(spans.empty())continue;
   if(line%2)std::reverse(spans.begin(),spans.end());++lines;
-  for(auto s:spans){if(line%2)std::swap(s.lo,s.hi);XY a=unrot({s.lo,y}),b=unrot({s.hi,y});out.waypoints.push_back(unproject(a,lat,lon));out.waypoints.push_back(unproject(b,lat,lon));length+=std::hypot(b.x-a.x,b.y-a.y);++segments;}
+  for(auto s:spans){
+   if(line%2)std::swap(s.lo,s.hi);
+   XY a=unrot({s.lo,y}),b=unrot({s.hi,y});
+   const double segmentLength=std::hypot(b.x-a.x,b.y-a.y);
+   const double triggerCount=std::floor(segmentLength/trigger)+1.0;
+   if(!finite(triggerCount)||triggerCount<1.0||out.capture_points.size()+triggerCount>2000000.0)
+    return fail("Camera trigger output exceeds the 2,000,000 point safety limit.");
+   out.waypoints.push_back(unproject(a,lat,lon));
+   out.waypoints.push_back(unproject(b,lat,lon));
+   for(std::size_t k=0;k<static_cast<std::size_t>(triggerCount);++k){
+    const double d=std::min(double(k)*trigger,segmentLength);
+    const double ratio=segmentLength>0.0?d/segmentLength:0.0;
+    XY point{a.x+(b.x-a.x)*ratio,a.y+(b.y-a.y)*ratio};
+    out.capture_points.push_back({unproject(point,lat,lon),segments,d});
+   }
+   length+=segmentLength;++segments;
+  }
  }
  if(out.waypoints.size()<2)return fail("No usable coverage strips intersect the AOI after exclusions.");
  out.metrics.target_gsd_cm_px=c.target_gsd_cm_px;out.metrics.calculated_altitude_agl_m=alt;out.metrics.footprint_width_m=fw;out.metrics.footprint_height_m=fh;out.metrics.line_spacing_m=spacing;out.metrics.forward_trigger_spacing_m=trigger;out.metrics.estimated_coverage_leg_length_m=length;out.metrics.estimated_coverage_leg_time_s=length/in.cruise_speed_mps;out.metrics.coverage_line_count=lines;out.metrics.coverage_segment_count=segments;out.metrics.exclusion_intersection_count=gaps;
  out.valid=true;out.status="CANDIDATE_2D_COVERAGE_ONLY";
  out.diagnostics.push_back("Coverage-leg length/time exclude transitions, turns and ferry legs; they are not total mission distance or flight time.");
- out.diagnostics.push_back("Forward trigger spacing is calculated; camera trigger events are not emitted.");
+ out.diagnostics.push_back("Capture points are emitted along straight coverage legs; image_height_px is assumed to be the along-track sensor dimension. Turn/transition capture and camera latency compensation are not modeled.");
  out.diagnostics.push_back("No DEM following, turn kinematics, obstacle routing, wind/energy model, coverage-union proof or regulatory validation.");
  out.diagnostics.push_back("Local equirectangular projection is limited to AOIs no larger than 50 km in either projected dimension.");
  return out;
