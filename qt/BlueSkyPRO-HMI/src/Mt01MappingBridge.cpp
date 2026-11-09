@@ -95,6 +95,8 @@ bool parseMission(const QJsonObject &json, Mission &mission, QStringList &errors
             assignment.configuration_version = item.value(QStringLiteral("configurationVersion")).toString().toStdString();
             assignment.configuration_id = item.value(QStringLiteral("configurationId")).toString().toStdString();
             assignment.configuration_type = item.value(QStringLiteral("configurationType")).toString().toStdString();
+            assignment.validation_state = item.value(QStringLiteral("validationState")).toString().toStdString();
+            assignment.approval_state = item.value(QStringLiteral("approvalState")).toString().toStdString();
             mission.vehicle_assignments.push_back(std::move(assignment));
         }
     }
@@ -215,6 +217,16 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
             && vehicle.configuration_type != "CUSTOM"
             && vehicle.configuration_type != "DERIVED")
             assignmentFindings.push_back(QStringLiteral("VEHICLE_CONFIGURATION_TYPE_INVALID"));
+        if (vehicle.validation_state != "VALIDATED"
+            && vehicle.validation_state != "APPROVED")
+            assignmentFindings.push_back(QStringLiteral("VEHICLE_CONFIGURATION_NOT_VALIDATED"));
+        if (vehicle.configuration_type == "STANDARD"
+            && vehicle.approval_state != "APPROVED")
+            assignmentFindings.push_back(QStringLiteral("STANDARD_CONFIGURATION_NOT_APPROVED"));
+        if (vehicle.configuration_type != "STANDARD"
+            && vehicle.approval_state != "APPROVED"
+            && vehicle.approval_state != "PENDING")
+            assignmentFindings.push_back(QStringLiteral("CUSTOM_CONFIGURATION_APPROVAL_STATE_INVALID"));
     }
 
     const EquipmentAssignment *assignedCamera = nullptr;
