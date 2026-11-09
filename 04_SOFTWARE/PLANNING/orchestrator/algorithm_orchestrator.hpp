@@ -24,6 +24,9 @@ struct OrchestratorDecision {
     std::vector<std::string> considered_solvers;
     std::vector<std::string> rejected_solvers;
     std::vector<CandidateRejection> rejected_candidates;
+    std::vector<MaximumRegimeUse> selected_maximum_regime_uses;
+    bool maximum_regime_warning_required{false};
+    std::string operator_warning;
     std::string explanation;
 };
 
