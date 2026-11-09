@@ -16,8 +16,8 @@ static Mt01MappingRequest makeRequest()
     mission.intent.objective = "Photogrammetric orthomosaic";
     mission.intent.task_type = "MAPPING";
     mission.task.description = "Map the defined area at 3 cm GSD";
-    mission.vehicle_assignments.push_back({"DJI-MAVIC-3E", "MAVIC-3E-STANDARD-REFERENCE-001"});
-    mission.payload_assignments.push_back({"DJI-MAVIC-3E-WIDE", "MAVIC-3E-WIDE-REFERENCE-001"});
+    mission.vehicle_assignments.push_back({"DJI-MAVIC-3E", "MAVIC-3E-STANDARD-REFERENCE-001", "MAVIC-3E-STANDARD", "STANDARD"});
+    mission.equipment_assignments.push_back({"DJI-MAVIC-3E", "DJI-MAVIC-3E-WIDE", "DJI-MAVIC-3E-WIDE-PROFILE", "CAMERA", "MAVIC-3E-WIDE-REFERENCE-001", "COMPATIBLE", "VERIFIED", "NOT_VERIFIED"});
 
     MissionGeometryObject aoi;
     aoi.geometry_id = "AOI-01";
