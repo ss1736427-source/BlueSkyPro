@@ -9,6 +9,14 @@ int main(){
  assert(std::abs(r.metrics.line_spacing_m-r.metrics.footprint_width_m*0.4)<1e-6);
  assert(std::abs(r.metrics.forward_trigger_spacing_m-r.metrics.footprint_height_m*0.3)<1e-6);
  assert(std::abs(r.metrics.estimated_coverage_leg_time_s-r.metrics.estimated_coverage_leg_length_m/10)<1e-6);
+ assert(!r.capture_points.empty());
+ assert(r.capture_points.front().coverage_segment_index==0);
+ assert(std::abs(r.capture_points.front().distance_from_segment_start_m)<1e-9);
+ for(const auto& cp:r.capture_points){
+  assert(cp.coverage_segment_index<r.metrics.coverage_segment_count);
+  assert(cp.distance_from_segment_start_m>=0.0);
+  assert(cp.distance_from_segment_start_m<=1000.0);
+ }
  auto repeat=CoveragePathPlanner::generate(in);assert(repeat.valid&&repeat.waypoints.size()==r.waypoints.size());
  for(std::size_t i=0;i<r.waypoints.size();++i){assert(r.waypoints[i].latitude_deg==repeat.waypoints[i].latitude_deg);assert(r.waypoints[i].longitude_deg==repeat.waypoints[i].longitude_deg);}
  auto bad=in;bad.camera.side_overlap_percent=100;assert(!CoveragePathPlanner::generate(bad).valid);
