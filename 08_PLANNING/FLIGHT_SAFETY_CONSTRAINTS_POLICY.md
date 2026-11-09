@@ -40,7 +40,9 @@ Permitted geometric options may include:
 - using an offset, teardrop or repositioning maneuver;
 - reordering coverage passes when task constraints allow.
 
-Increasing the total heading/course change is a change to path geometry. It is **not** permission to increase bank angle, speed, acceleration or any other aircraft limit.
+Increasing the total heading/course change is a change to path geometry. Where the geometry still cannot be achieved, the planner may use higher speed, bank angle or other maneuver parameters **up to their validated maximum permitted values**, provided all coupled constraints remain satisfied. This is not permission to exceed any limit. For fixed-wing aircraft, for example, a higher bank angle increases load factor and stall speed; the selected speed must preserve the required configuration-specific stall margin. The planner must evaluate speed, bank, load factor, turn radius, acceleration, wind and energy together rather than treating any maximum independently.
+
+The planner should first seek a feasible solution with operating margin. It may select a boundary/maximum regime only when required to achieve the requested transition and when the complete trajectory remains admissible. A maximum parameter must never be used merely because it is available.
 
 The planner must evaluate the complete swept trajectory, not only its endpoints. It must not assume that a maneuver may leave the AOI: the permitted maneuvering domain must be explicitly defined by mission/operator policy and validated against airspace, NOTAM, obstacle, terrain and other spatial constraints.
 
@@ -74,6 +76,8 @@ The required order is:
 3. Validate task quality and required coverage/evidence for remaining candidates.
 4. Optimize time, energy, path length, smoothness and maneuver count only among admissible candidates, according to the mission objective hierarchy.
 5. Return the selected candidate with constraint evidence, provenance and rejected-candidate reasons.
+6. If the selected calculation uses one or more aircraft parameters at their validated maximum permitted values, attach a prominent operator warning: **"ВНИМАНИЕ: расчёт выполнен с использованием максимально допустимых режимов БВС."** The warning must enumerate exactly which parameters reached their limits (for example: maximum speed, maximum bank angle, maximum lateral acceleration), with the planned value, permitted limit, units, affected maneuver/trajectory segment and aircraft configuration/model source. Do not list parameters that were not actually at their maximum.
+7. If a parameter is close to, but does not reach, its maximum, report it separately as "approaching limit" with its value and limit; do not mislabel it as a maximum-regime calculation.
 
 If no candidate satisfies all mandatory constraints, return an explicit infeasible/blocked result and identify the binding constraint(s). Do not silently relax limits, substitute unvalidated data, omit a difficult segment or label an advisory estimate as flight-ready. An operator cannot waive mandatory safety constraints through a preference or scoring override.
 
@@ -112,7 +116,7 @@ The shared layer must consume:
 - task-specific sensor/quality requirements;
 - energy model and reserve/recovery policy.
 
-Every finding must include a stable constraint ID, pass/fail/unknown status, measured value, permitted bound, units, source/provenance, model/configuration version and affected trajectory segment. Unknown mandatory evidence is not a pass.
+Every finding must include a stable constraint ID, pass/fail/unknown status, measured value, permitted bound, units, source/provenance, model/configuration version and affected trajectory segment. The result contract must also expose the maximum-regime usage state and a structured list of the exact parameters that reached or approached their limits, so the HMI can display the required warning without interpreting free-text diagnostics. Unknown mandatory evidence is not a pass.
 
 The safety layer must be called after candidate generation and before ranking/selection, and again at the applicable final mission-package validation boundary. It must be impossible for a template, optimizer or UI preference to convert a failed/unknown mandatory gate into a pass.
 
@@ -122,6 +126,9 @@ Tests must demonstrate, across shared validation and template integration:
 
 - maximum speed and minimum safe speed boundaries;
 - bank-limit enforcement;
+- use of validated maximum speed/bank/acceleration only when required and without violating coupled constraints;
+- warning generation when a selected calculation reaches one or more maximum permitted regimes, including exact parameter names, values, limits, units and affected segments;
+- distinction between a parameter at its maximum and a parameter merely approaching its maximum;
 - fixed-wing stall margin under bank/load factor;
 - multirotor acceleration/translation limits without using yaw rate as a turn-radius proxy;
 - VTOL phase gating and rejection of unsupported transitions;
