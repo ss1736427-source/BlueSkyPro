@@ -187,6 +187,9 @@ add_executable(vehicle_equipment_capability_contract_test
 )
 target_link_libraries(vehicle_equipment_capability_contract_test PRIVATE bluesky_planning)
 
+add_executable(vehicle_motion_model_test vehicle_motion_model_test.cpp)
+target_link_libraries(vehicle_motion_model_test PRIVATE bluesky_planning)
+
 add_executable(universal_adapter_contract_test
     adapter/universal_adapter_contract_test.cpp
 )
@@ -276,6 +279,7 @@ target_link_libraries(capability_execution_integration_test PRIVATE bluesky_plan
     add_test(NAME manual_route_candidate_assessment_test COMMAND manual_route_candidate_assessment_test)
     add_test(NAME mission_model_contract_test COMMAND mission_model_contract_test)
     add_test(NAME vehicle_equipment_capability_contract_test COMMAND vehicle_equipment_capability_contract_test)
+    add_test(NAME vehicle_motion_model_test COMMAND vehicle_motion_model_test)
     add_test(NAME universal_adapter_contract_test COMMAND universal_adapter_contract_test)
     add_test(NAME universal_adapter_registry_test COMMAND universal_adapter_registry_test)
     add_test(NAME adapter_service_resolver_test COMMAND adapter_service_resolver_test)
