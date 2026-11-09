@@ -3,6 +3,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonParseError>
+#include <QVariantList>
 #include <QJsonValue>
 
 #include "04_SOFTWARE/PLANNING/model/mission_model.hpp"
