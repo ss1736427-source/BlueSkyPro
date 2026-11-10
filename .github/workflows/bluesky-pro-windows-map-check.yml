@@ -157,6 +157,7 @@ jobs:
         run: |
           $env:VCPKG_ROOT = Join-Path $env:GITHUB_WORKSPACE "vcpkg"
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DBLUESKY_ENABLE_ECCODES=ON -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_APPLOCAL_DEPS=ON -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build
         working-directory: qt/BlueSkyPRO-HMI
