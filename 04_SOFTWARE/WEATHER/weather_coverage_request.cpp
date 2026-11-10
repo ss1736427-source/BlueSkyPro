@@ -276,7 +276,7 @@ WeatherCoverageRequestBuildResult WeatherCoverageRequestBuilder::build(
     if (request.required_altitudes_agl_m.empty()) {
         errors.emplace_back("REQUIRED_AGL_ALTITUDE_LEVELS_MISSING");
     } else {
-        const std::vector<int> supportedProviderLevels{10, 20, 30, 40, 50, 80, 100, 1000};
+        const std::vector<int> supportedProviderLevels{2, 10, 20, 30, 40, 50, 80, 100, 1000, 4000};
         std::set<int> providerLevels;
         for (double sampleAltitude : request.required_altitudes_agl_m) {
             const auto upper = std::lower_bound(
