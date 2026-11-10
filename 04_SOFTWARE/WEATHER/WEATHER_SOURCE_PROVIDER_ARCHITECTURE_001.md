@@ -270,6 +270,33 @@ These components are not yet a complete provider registry. The GFS services curr
 
 METAR/SPECI/TAF ingestion remains a separate adapter and parser implementation. Do not mark these products operational until live retrieval, parsing, correction/cancellation handling, provenance, cache and tests are complete.
 
+## 12.1 Current NOAA GFS vertical-coverage boundary
+
+The current NOAA GFS 0.25-degree GRIB filter exposes discrete wind levels at 2, 10, 20, 30, 40, 50, 80, 100, 1000 and 4000 metres above ground. The BlueSky request builder and decoder must use only levels confirmed by the live provider inventory.
+
+The current interpolation contract permits vertical interpolation only between bracketing AGL levels separated by no more than 100 m. Therefore:
+- low-level requests such as 5 m AGL can be bracketed by 2 m and 10 m;
+- requests between 100 m and 1000 m are not covered by this GFS AGL-level set and must be blocked unless an alternate source supplies suitable levels;
+- do not widen the 100 m interpolation limit merely to make a request pass;
+- pressure-level wind may be used in a future adapter only after geopotential-height conversion and terrain/DEM-based AGL conversion are implemented and validated.
+
+The provider registry must declare discrete levels and its maximum vertical interpolation gap. A continuous minimum/maximum altitude range is not sufficient evidence of vertical coverage.
+
+## 12.2 Route-weather acquisition and assessment boundary
+
+The HMI weather request is formed only after the canonical route is validated. The initial time window uses the selected, validated and approved UAV performance profile, the route's horizontal travel time and climb/descent rates, plus a configurable operational reserve (currently 30 minutes). This reserve is a BlueSky planning margin, not a METAR/TAF regulatory validity period.
+
+For GFS 0.25-degree subsetting, the acquisition bounds are expanded by one grid interval around the mission's configured spatial buffer. This is required to retain bracketing grid cells for bilinear interpolation near route and area boundaries.
+
+The current weather trajectory engine then:
+1. verifies all forecast files belong to one model run and their manifest identity, byte size and SHA-256;
+2. decodes paired U/V fields;
+3. samples the complete trajectory at no more than 10 km or 5 minutes per subsegment;
+4. interpolates only inside horizontal grid, vertical-level and forecast-time coverage;
+5. iterates wind-dependent segment times and energy until convergence or blocks the assessment.
+
+This path currently assesses the selected validated route after the first optimizer result. It does not yet perform weather-aware re-ranking of all optimizer candidates. Mission task dwell/execution duration is also not represented in the canonical task model and is not included in the current route-time estimate. These are explicit integration gaps, not assumed coverage.
+
 ## 13. Implementation sequence
 
 1. Define canonical product envelope, capability manifest and versioned adapter interface.
