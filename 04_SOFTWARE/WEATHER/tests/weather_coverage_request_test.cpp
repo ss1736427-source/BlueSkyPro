@@ -126,6 +126,22 @@ int main()
     assert(interpolated.request.provider_levels_agl_m[0] == 50);
     assert(interpolated.request.provider_levels_agl_m[1] == 80);
 
+    auto lowAltitudeOptions = options;
+    lowAltitudeOptions.required_area_altitudes_agl_m = {5.0};
+    auto lowAltitudeRoute = route;
+    lowAltitudeRoute.waypoints.front().altitude_m = 5.0;
+    lowAltitudeRoute.waypoints.back().altitude_m = 5.0;
+    const auto lowAltitude = WeatherCoverageRequestBuilder::build(
+        mission, lowAltitudeRoute, lowAltitudeOptions);
+    assert(lowAltitude.valid);
+    assert((lowAltitude.request.provider_levels_agl_m == std::vector<int>{2, 10}));
+
+    auto unsupportedAltitudeOptions = options;
+    unsupportedAltitudeOptions.required_area_altitudes_agl_m = {200.0};
+    const auto unsupportedAltitude = WeatherCoverageRequestBuilder::build(
+        mission, route, unsupportedAltitudeOptions);
+    assert(!unsupportedAltitude.valid);
+
     auto largeGapRoute = route;
     largeGapRoute.waypoints.front().altitude_m = 150.0;
     const auto largeGapFailure = WeatherCoverageRequestBuilder::build(
