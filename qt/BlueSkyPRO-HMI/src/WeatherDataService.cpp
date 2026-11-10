@@ -245,7 +245,8 @@ bool WeatherDataService::requestWindSubset(const QString &dateUtc,
     m_manifestPath = m_finalPath + QStringLiteral(".manifest.json");
 
     QString cachedError;
-    const QString modelRunUtc = date.toString(QStringLiteral("yyyy-MM-dd"))
+    const QDate modelRunDate = QDate::fromString(dateUtc, QStringLiteral("yyyyMMdd"));
+    const QString modelRunUtc = modelRunDate.toString(QStringLiteral("yyyy-MM-dd"))
         + QLatin1Char('T') + cycleUtc + QStringLiteral(":00:00Z");
     if (QFileInfo::exists(m_finalPath) && QFileInfo::exists(m_manifestPath)
         && isReusableCacheEntry(m_finalPath, m_manifestPath, url.toString(),

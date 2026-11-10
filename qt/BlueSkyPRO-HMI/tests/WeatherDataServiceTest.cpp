@@ -74,8 +74,9 @@ int main()
 
     // Same URL and forecast lead are not sufficient if the cached bytes were altered.
     QFile tampered(validPath);
-    assert(tampered.open(QIODevice::Append));
-    tampered.write("x");
+    assert(tampered.open(QIODevice::ReadWrite));
+    assert(tampered.seek(8));
+    tampered.write("X");
     tampered.close();
     assert(!WeatherDataService::isReusableCacheEntry(
         validPath, manifestPath, QStringLiteral("https://example.test/gfs"),
