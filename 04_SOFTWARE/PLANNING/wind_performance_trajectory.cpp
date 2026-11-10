@@ -41,7 +41,22 @@ std::string dependency(const Route&r,const TrajectoryPerformanceInput&i,const st
     std::ostringstream o;
     o<<r.lineage.route_id<<'|'<<r.lineage.route_version<<'|'<<r.lineage.calculation_input_version
      <<'|'<<i.uav_id<<'|'<<i.configuration_version<<'|'<<i.performance_version
-     <<'|'<<i.wind_snapshot_id<<'|'<<i.wind_snapshot_version<<'|'<<i.mission_start_utc<<'|'<<v;
+     <<'|'<<i.wind_snapshot_id<<'|'<<i.wind_snapshot_version<<'|'<<i.mission_start_utc<<'|'<<v
+     <<'|'<<r.trajectory_geometry_complete;
+    for (const auto& point : r.waypoints) {
+        o << "|WP:" << point.waypoint_id << ':' << std::setprecision(17)
+          << point.position.latitude_deg << ',' << point.position.longitude_deg
+          << ',' << point.altitude_m << ','
+          << static_cast<int>(point.altitude_reference);
+        if (point.task_execution_duration_s.has_value())
+            o << ",TASK_TIME:" << *point.task_execution_duration_s;
+        if (point.task_execution_energy_wh.has_value())
+            o << ",TASK_ENERGY:" << *point.task_execution_energy_wh;
+    }
+    for (const auto& segment : r.segments)
+        o << "|SEG:" << segment.segment_id << ':' << segment.from_waypoint_id
+          << '>' << segment.to_waypoint_id << ':' << segment.distance_m
+          << ',' << segment.nominal_speed_mps;
     for(const auto&s:i.wind_samples)
         o<<'|'<<s.segment_id<<':'<<std::setprecision(17)<<s.north_mps<<','<<s.east_mps<<','<<s.up_mps;
     return o.str();
