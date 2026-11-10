@@ -80,6 +80,20 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
         return r;
     }
 
+    for (const auto& waypoint : route.waypoints) {
+        const bool hasDuration = waypoint.task_execution_duration_s.has_value();
+        const bool hasEnergy = waypoint.task_execution_energy_wh.has_value();
+        if (hasDuration != hasEnergy
+            || (hasDuration && (!std::isfinite(*waypoint.task_execution_duration_s)
+                                || *waypoint.task_execution_duration_s < 0.0
+                                || !std::isfinite(*waypoint.task_execution_energy_wh)
+                                || *waypoint.task_execution_energy_wh < 0.0))) {
+            fail(r, TrajectoryFindingCode::InvalidPerformance, waypoint.waypoint_id,
+                 "task execution duration and energy must be supplied together as finite non-negative values");
+            return r;
+        }
+    }
+
     r.points.push_back({route.waypoints.front().waypoint_id,route.waypoints.front().position,
                         route.waypoints.front().altitude_m,0.0,0.0});
 
@@ -93,6 +107,20 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
         if(!from || !to){
             fail(r,TrajectoryFindingCode::InvalidPerformance,seg.segment_id,"segment waypoint reference is missing");
             return r;
+        }
+
+        // Account for the task executed at the departure waypoint before
+        // time-indexing the next flight segment's weather.
+        if (from->task_execution_duration_s.has_value()) {
+            time += *from->task_execution_duration_s;
+            energy += *from->task_execution_energy_wh;
+            r.points.back().elapsed_time_s = time;
+            r.points.back().cumulative_energy_wh = energy;
+            if (energy + input.reserve_requirement_wh > input.usable_energy_wh) {
+                fail(r, TrajectoryFindingCode::InsufficientEnergyReserve, from->waypoint_id,
+                     "task execution exceeds usable energy after reserve");
+                return r;
+            }
         }
 
         const WindSample* wind=find_wind(input.wind_samples,seg.segment_id);
@@ -144,6 +172,21 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
         }
         r.segments.push_back({seg.segment_id,ground_speed,track,duration,segment_energy});
         r.points.push_back({to->waypoint_id,to->position,to->altitude_m,time,energy});
+    }
+
+    // Include execution at the final waypoint as well; there is no following
+    // flight segment whose forecast sample would need a shifted departure time.
+    const auto& finalWaypoint = route.waypoints.back();
+    if (finalWaypoint.task_execution_duration_s.has_value()) {
+        time += *finalWaypoint.task_execution_duration_s;
+        energy += *finalWaypoint.task_execution_energy_wh;
+        r.points.back().elapsed_time_s = time;
+        r.points.back().cumulative_energy_wh = energy;
+        if (energy + input.reserve_requirement_wh > input.usable_energy_wh) {
+            fail(r, TrajectoryFindingCode::InsufficientEnergyReserve, finalWaypoint.waypoint_id,
+                 "final task execution exceeds usable energy after reserve");
+            return r;
+        }
     }
 
     r.total_time_s=time;
