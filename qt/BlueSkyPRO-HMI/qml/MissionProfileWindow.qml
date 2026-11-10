@@ -25,6 +25,7 @@ Item {
         if (weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
                 || weatherAcquisitionStatus === "DOWNLOADING"
                 || weatherAcquisitionStatus === "ASSESSING_WEATHER"
+                || weatherAcquisitionStatus === "DOWNLOADS_READY_UNDECODED"
                 || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
                 || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE")
             invalidateWeatherAcquisition("MISSION_MODEL_CHANGED_WEATHER_REQUEST_INVALIDATED")
@@ -44,7 +45,7 @@ Item {
                             ? "BLOCKED" : "NOT_REQUESTED")
 
     // Uses the same canonical mission JSON and RouteController snapshot shown
-    // by this profile. Time window and area AGL levels must be supplied explicitly.
+    // by this profile. ETD and the primary route define the GFS time window.
     function buildWeatherCoverageRequest(validFromUtc, validToUtc, spatialBufferM, areaAltitudesAglM) {
         if (!root.coverageBridge || !root.routeController || !root.missionModelJson)
             return { valid: false, errors: ["MISSION_ROUTE_OR_WEATHER_BRIDGE_UNAVAILABLE"] }
