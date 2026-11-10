@@ -239,8 +239,14 @@ Item {
             return false
         var window = root.estimateWeatherWindow(etd)
         var altitudes = root.requiredWeatherAltitudesAglM()
-        if (!window.valid || altitudes.length === 0)
+        if (!window.valid) {
+            root.weatherAcquisitionMessage = window.reason || "WEATHER_WINDOW_ESTIMATE_FAILED"
             return false
+        }
+        if (altitudes.length === 0) {
+            root.weatherAcquisitionMessage = "REQUIRED_AGL_ALTITUDE_LEVELS_MISSING"
+            return false
+        }
         return root.requestMissionWeather(window.from, window.to, Number(bufferText), altitudes, etd)
     }
     function requiredWeatherAltitudesAglM() {
