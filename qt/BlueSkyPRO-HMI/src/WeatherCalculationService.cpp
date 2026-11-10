@@ -259,8 +259,10 @@ bool validateForecastProducts(const QVariantList& values,
         const QVariantMap item=value.toMap();
         const QString path=item.value(QStringLiteral("filePath")).toString();
         const QVariantMap manifest=item.value(QStringLiteral("manifest")).toMap();
-        const int forecastHour=item.value(QStringLiteral("forecastHour")).toInt(-1);
-        const int schema=manifest.value(QStringLiteral("cache_schema_version")).toInt(-1);
+        bool forecastHourOk=false,schemaOk=false,manifestHourOk=false;
+        const int forecastHour=item.value(QStringLiteral("forecastHour")).toInt(&forecastHourOk);
+        const int schema=manifest.value(QStringLiteral("cache_schema_version")).toInt(&schemaOk);
+        const int manifestHour=manifest.value(QStringLiteral("forecast_hour")).toInt(&manifestHourOk);
         const QString provider=manifest.value(QStringLiteral("provider")).toString();
         const QString model=manifest.value(QStringLiteral("model")).toString();
         const QString product=manifest.value(QStringLiteral("product")).toString();
@@ -281,7 +283,8 @@ bool validateForecastProducts(const QVariantList& values,
             || model!=QStringLiteral("GFS 0.25 degree")
             || product!=QStringLiteral("GRIB2 regional wind subset")
             || modelRunUtc.isEmpty() || !modelRun.isValid() || !validTime.isValid()
-            || forecastHour<0 || forecastHour!=manifest.value(QStringLiteral("forecast_hour")).toInt(-1)
+            || !forecastHourOk || !schemaOk || !manifestHourOk
+            || forecastHour<0 || forecastHour!=manifestHour
             || validTime!=expectedValid || sha.size()!=64 || !bytesOk || bytes<=0
             || QFileInfo(path).size()!=bytes || fileName!=QFileInfo(path).fileName()
             || decodeStatus!=QStringLiteral("NOT_PERFORMED")
