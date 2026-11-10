@@ -217,14 +217,21 @@ bool buildSamplingRoute(const bluesky::planning::Route& source,
     return sampled.segments.size()==sampled.waypoints.size()-1;
 }
 
-std::vector<double> midpointOffsets(const std::vector<double>& durations)
+std::vector<double> midpointOffsets(
+    const bluesky::planning::Route& route,
+    const std::vector<double>& durations)
 {
     std::vector<double> offsets;
     offsets.reserve(durations.size());
+    if (route.waypoints.size() != durations.size() + 1)
+        return offsets;
     double elapsed=0.0;
-    for (double duration:durations) {
-        offsets.push_back(elapsed+duration*0.5);
-        elapsed+=duration;
+    for (std::size_t i=0;i<durations.size();++i) {
+        const auto& departure=route.waypoints[i];
+        if (departure.task_execution_duration_s.has_value())
+            elapsed+=*departure.task_execution_duration_s;
+        offsets.push_back(elapsed+durations[i]*0.5);
+        elapsed+=durations[i];
     }
     return offsets;
 }
@@ -323,7 +330,7 @@ WeatherTrajectoryEvaluation WeatherTrajectoryCalculator::evaluate(
     for (int iteration=0;iteration<kMaximumIterations;++iteration) {
         auto iterationInput=input;
         if (!buildTimeDependentWindSamples(samplingRoute,fields,missionStart,
-                midpointOffsets(estimatedDurations),maximum_vertical_gap_m,
+                midpointOffsets(samplingRoute,estimatedDurations),maximum_vertical_gap_m,
                 iterationInput,result.weather_error))
             return result;
         iterationInput.wind_snapshot_id=snapshot_id;
