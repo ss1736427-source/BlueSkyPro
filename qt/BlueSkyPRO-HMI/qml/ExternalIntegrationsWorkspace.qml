@@ -320,7 +320,7 @@ Item {
                 Repeater {
                     model: [
                         {title:"NOTAM / AIP",desc:"Аэронавигационные данные и ограничения.",status:root.notamSourceStatus,kind:"notam",state:root.notamSourceConfigured ? 1 : 2},
-                        {title:"Погода (WX)",desc:"Метеоданные, прогнозы, METAR / TAF.",status:"Open-Meteo · тестовый источник",kind:"weather",state:1},
+                        {title:"Погода (WX)",desc:"Несколько источников: авиационные сводки и прогнозные модели.",status:"NOAA GFS · частично подключён; METAR / TAF · не подключены",kind:"weather",state:0},
                         {title:"Карты и GIS",desc:"Картографические сервисы и спутниковые снимки.",status:"MapTiler · ключ настраивается отдельно",kind:"maps",state:1},
                         {title:"Рельеф и препятствия",desc:"Цифровая модель рельефа, высоты и препятствия.",status:"Рельеф: тестовый запрос · препятствия: не настроены",kind:"terrain",state:1},
                         {title:"БПЛА и автопилоты",desc:"MAVLink, телеметрия и управление.",status:"Адаптерный каталог в разработке",kind:"uav",state:0},
@@ -389,7 +389,7 @@ Item {
                 Column { id: note; anchors.fill: parent; anchors.margins: 14; spacing: 7
                     Text { text: "ВАЖНО"; color: root.cyan; font.pixelSize: 10; font.bold: true }
                     Text { width: parent.width; wrapMode: Text.Wrap
-                        text: "Статус соединения не равен готовности данных к планированию. Российский NOTAM-источник пока не подключён; бесплатные тестовые источники не заменяют эксплуатационные данные."
+                        text: "Статус соединения не равен готовности данных к планированию. Российский NOTAM-источник пока не подключён. Погодный контур использует NOAA GFS частично; авиационные METAR / SPECI / TAF ещё не подключены. Архитектура предусматривает несколько бесплатных, коммерческих и локальных метеопровайдеров с отдельными адаптерами, приоритетами, резервированием, контролем качества и расходов."
                         color: root.muted; font.pixelSize: 11
                     }
                 }
