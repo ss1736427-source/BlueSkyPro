@@ -14,6 +14,6 @@ int main(int argc,char** argv)
     if (!service.decoderAvailable())
         assert(service.lastError()==QStringLiteral("GRIB2_DECODER_NOT_AVAILABLE"));
     else
-        assert(service.lastError()==QStringLiteral("VALIDATED_APPROVED_VEHICLE_PERFORMANCE_PROFILE_REQUIRED"));
+        assert(service.lastError()==QStringLiteral("DOWNLOADED_GRIB2_PRODUCTS_REQUIRED"));
     return 0;
 }

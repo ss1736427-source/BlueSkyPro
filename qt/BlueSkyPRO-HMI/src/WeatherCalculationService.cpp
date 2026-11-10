@@ -519,7 +519,10 @@ void WeatherCalculationService::setState(const QString& state)
 
 void WeatherCalculationService::setError(const QString& error)
 {
-    if (m_lastError==error) return;
-    m_lastError=error;
-    emit lastErrorChanged();
+    if (m_lastError!=error) {
+        m_lastError=error;
+        emit lastErrorChanged();
+    }
+    if (!error.isEmpty())
+        setState(QStringLiteral("BLOCKED"));
 }
