@@ -29,6 +29,7 @@ Item {
                 || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
                 || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE")
             invalidateWeatherAcquisition("MISSION_MODEL_CHANGED_WEATHER_REQUEST_INVALIDATED")
+        maybeRequestWeatherAutomatically()
     }
     onMissionIdChanged: {
         if (weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
