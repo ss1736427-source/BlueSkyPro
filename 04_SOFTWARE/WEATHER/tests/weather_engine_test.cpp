@@ -4,6 +4,7 @@
 #include "weather_candidate_assessor.hpp"
 
 #include <cassert>
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <string>
@@ -159,6 +160,53 @@ int main()
         "outside available forecast valid times") != std::string::npos);
     assert(evaluated.trajectory.wind_snapshot_id == "snapshot-20261108-06");
     assert(evaluated.trajectory.wind_snapshot_version == "gfs-0p25-v1");
+
+    // A task dwell at an intermediate waypoint must shift the forecast time
+    // used to sample every subsequent flight segment.
+    Route timedRoute;
+    timedRoute.lineage.route_id = "timed-route";
+    timedRoute.lineage.route_version = "v1";
+    timedRoute.lineage.mission_id = "mission-1";
+    timedRoute.lineage.mission_version = "mission-v1";
+    timedRoute.trajectory_geometry_complete = true;
+    RouteWaypoint ta{"TA", {0.5000, 10.5000}, 65.0, true, AltitudeReference::AGL};
+    RouteWaypoint tb{"TB", {0.5005, 10.5005}, 65.0, true, AltitudeReference::AGL};
+    RouteWaypoint tc{"TC", {0.5010, 10.5010}, 65.0, true, AltitudeReference::AGL};
+    timedRoute.waypoints = {ta, tb, tc};
+    timedRoute.segments = {
+        {"T1", "TA", "TB", 70.0, 15.0},
+        {"T2", "TB", "TC", 70.0, 15.0}
+    };
+    auto timedInput = performanceInput;
+    timedInput.mission_start_utc = "2026-11-08T06:00:00Z";
+    const auto withoutDwell = WeatherTrajectoryCalculator::evaluate(
+        timedRoute, timeFields, "snapshot-time", "gfs-time-v1",
+        timedInput, "weather-trajectory-dwell-test-v1");
+    assert(withoutDwell.weather_ready);
+    timedRoute.waypoints[1].task_execution_duration_s = 1800.0;
+    timedRoute.waypoints[1].task_execution_energy_wh = 5.0;
+    const auto withDwell = WeatherTrajectoryCalculator::evaluate(
+        timedRoute, timeFields, "snapshot-time", "gfs-time-v1",
+        timedInput, "weather-trajectory-dwell-test-v1");
+    assert(withDwell.weather_ready);
+    assert(std::abs(withDwell.trajectory.total_time_s
+                    - withoutDwell.trajectory.total_time_s - 1800.0) < 2.0);
+    assert(std::abs(withDwell.trajectory.total_energy_wh
+                    - withoutDwell.trajectory.total_energy_wh - 5.0) < 1.0);
+    const auto secondSegmentWithoutDwell = std::find_if(
+        withoutDwell.trajectory.segments.begin(), withoutDwell.trajectory.segments.end(),
+        [](const TrajectorySegmentResult& segment) {
+            return segment.segment_id == "T2__WX_SEG__1";
+        });
+    const auto secondSegmentWithDwell = std::find_if(
+        withDwell.trajectory.segments.begin(), withDwell.trajectory.segments.end(),
+        [](const TrajectorySegmentResult& segment) {
+            return segment.segment_id == "T2__WX_SEG__1";
+        });
+    assert(secondSegmentWithoutDwell != withoutDwell.trajectory.segments.end());
+    assert(secondSegmentWithDwell != withDwell.trajectory.segments.end());
+    assert(std::abs(secondSegmentWithDwell->ground_speed_mps
+                    - secondSegmentWithoutDwell->ground_speed_mps) > 0.1);
 
     // The production bridge returns the wind-corrected metrics in the exact
     // contract consumed by AlgorithmOrchestrator before candidate ranking.
