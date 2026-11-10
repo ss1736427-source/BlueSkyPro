@@ -248,3 +248,27 @@ ADMINISTRATOR shall be the controlled entry point for management of users, basic
 For the technical hierarchy, the Administrator assigns the ENGINEER role; ENGINEER has access to the entire fleet and technical data and determines the TECHNICIAN technical authorization. This technical authorization model is maintained separately from personal menu presentation.
 
 The next implementation layer is therefore not another top-level menu item, but the deep functional chain behind each selected domain.
+
+
+## 5. Weather source administration
+
+The WEATHER domain under EXTERNAL CONNECTIONS is a provider-neutral administration area. It is not limited to the currently connected NOAA source or to free APIs.
+
+The detailed baseline is defined in `04_SOFTWARE/WEATHER/WEATHER_SOURCE_PROVIDER_ARCHITECTURE_001.md`.
+
+The Administrator shall manage:
+- provider and provider-instance catalog;
+- built-in and approved extension adapters;
+- endpoint, environment and authentication profiles;
+- credential references in the protected credential vault;
+- supported products, geographic coverage, altitude levels and forecast horizons;
+- per-product and per-region priority / fallback routing;
+- data quality, freshness, provenance and conflict policies;
+- rate limits, quotas, tariffs and spending ceilings;
+- connection tests, health status, diagnostics and exchange journal.
+
+The provider list must support public/free, commercial/paid, national, regional, private and customer-hosted sources. Provider-specific APIs must remain behind a versioned adapter contract. Mission planning, weather assessment and route optimization must consume normalized products rather than provider-specific payloads.
+
+Credentials are never displayed after saving and never included in configuration exports, mission packages or logs. Provider configuration changes are revisioned and audited.
+
+The existing WEATHER card must not claim that Open-Meteo or another source is operational unless an actual adapter, successful connection test, product retrieval and data validation have been verified. Current status is partial NOAA GFS integration; live METAR/SPECI/TAF ingestion is not yet connected.
