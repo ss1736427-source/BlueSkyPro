@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <limits>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace bluesky::weather {
