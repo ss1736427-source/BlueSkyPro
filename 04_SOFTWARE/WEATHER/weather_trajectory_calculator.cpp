@@ -72,7 +72,20 @@ bool initialDurations(const bluesky::planning::Route& route,
         return false;
     }
     std::unordered_map<std::string,const RouteWaypoint*> points;
-    for (const auto& point:route.waypoints) points.emplace(point.waypoint_id,&point);
+    for (const auto& point:route.waypoints) {
+        const bool hasDuration=point.task_execution_duration_s.has_value();
+        const bool hasEnergy=point.task_execution_energy_wh.has_value();
+        if (hasDuration!=hasEnergy
+            || (hasDuration
+                && (!std::isfinite(*point.task_execution_duration_s)
+                    || *point.task_execution_duration_s<0.0
+                    || !std::isfinite(*point.task_execution_energy_wh)
+                    || *point.task_execution_energy_wh<0.0))) {
+            error="task execution duration and energy must be supplied together as finite non-negative values";
+            return false;
+        }
+        points.emplace(point.waypoint_id,&point);
+    }
     durations.clear();
     for (const auto& segment:route.segments) {
         const auto from=points.find(segment.from_waypoint_id);
