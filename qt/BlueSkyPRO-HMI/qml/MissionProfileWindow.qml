@@ -22,14 +22,19 @@ Item {
     property string weatherCoverageEndUtc: ""
     property var lastWeatherCoverageResult: ({})
     onMissionModelJsonChanged: {
-        if (weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
+        var acquisitionWasActive =
+                weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
                 || weatherAcquisitionStatus === "DOWNLOADING"
                 || weatherAcquisitionStatus === "ASSESSING_WEATHER"
-                || weatherAcquisitionStatus === "DOWNLOADS_READY_UNDECODED"
-                || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
-                || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE")
+        if (acquisitionWasActive) {
             invalidateWeatherAcquisition("MISSION_MODEL_CHANGED_WEATHER_REQUEST_INVALIDATED")
-        maybeRequestWeatherAutomatically()
+        } else {
+            if (weatherAcquisitionStatus === "DOWNLOADS_READY_UNDECODED"
+                    || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
+                    || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE")
+                invalidateWeatherAcquisition("MISSION_MODEL_CHANGED_WEATHER_REQUEST_INVALIDATED")
+            maybeRequestWeatherAutomatically()
+        }
     }
     onMissionIdChanged: {
         if (weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
