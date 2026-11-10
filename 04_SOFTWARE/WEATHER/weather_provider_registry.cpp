@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <utility>
 
 namespace bluesky::weather {
@@ -27,6 +28,23 @@ bool contains(const GeographicCoverage &outer, const GeographicCoverage &inner)
         && outer.east >= inner.east && outer.north >= inner.north;
 }
 
+bool supportsAltitude(const WeatherProviderCapability &capability, double altitude)
+{
+    if (!std::isfinite(altitude) || altitude < capability.minimumAltitudeAglM
+        || altitude > capability.maximumAltitudeAglM
+        || capability.altitudeLevelsAglM.empty()
+        || capability.maximumVerticalInterpolationGapM <= 0)
+        return false;
+    const auto &levels = capability.altitudeLevelsAglM;
+    const auto upper = std::lower_bound(levels.begin(), levels.end(), altitude);
+    if (upper != levels.end() && std::abs(*upper - altitude) <= 1e-6)
+        return true;
+    if (upper == levels.begin() || upper == levels.end())
+        return false;
+    const double gap = *upper - *(upper - 1);
+    return gap > 0.0 && gap <= capability.maximumVerticalInterpolationGapM;
+}
+
 bool covers(const WeatherProviderCapability &capability,
             const WeatherProviderRequest &request)
 {
@@ -41,6 +59,17 @@ bool covers(const WeatherProviderCapability &capability,
         || capability.maximumAltitudeAglM < request.maximumAltitudeAglM
         || request.minimumAltitudeAglM > request.maximumAltitudeAglM)
         return false;
+    if ((request.product == WeatherProductType::NumericalWindField
+         || request.product == WeatherProductType::NumericalTemperatureField)) {
+        if (request.requiredAltitudesAglM.empty())
+            return false;
+        for (double altitude : request.requiredAltitudesAglM) {
+            if (altitude < request.minimumAltitudeAglM
+                || altitude > request.maximumAltitudeAglM
+                || !supportsAltitude(capability, altitude))
+                return false;
+        }
+    }
     if (request.referenceTimeUtcSeconds <= 0
         || request.validFromUtcSeconds < request.referenceTimeUtcSeconds
         || request.validToUtcSeconds < request.validFromUtcSeconds
@@ -81,6 +110,13 @@ bool WeatherProviderRegistry::registerAdapter(
             || !std::isfinite(capability.maximumAltitudeAglM)
             || capability.minimumAltitudeAglM > capability.maximumAltitudeAglM
             || capability.maximumForecastHorizonSeconds < 0
+            || capability.maximumVerticalInterpolationGapM <= 0
+            || capability.altitudeLevelsAglM.empty()
+            || !std::is_sorted(capability.altitudeLevelsAglM.begin(), capability.altitudeLevelsAglM.end())
+            || std::adjacent_find(capability.altitudeLevelsAglM.begin(), capability.altitudeLevelsAglM.end())
+                != capability.altitudeLevelsAglM.end()
+            || std::any_of(capability.altitudeLevelsAglM.begin(), capability.altitudeLevelsAglM.end(),
+                [](double level) { return !std::isfinite(level) || level <= 0.0; })
             || ((capability.product == WeatherProductType::NumericalWindField
                  || capability.product == WeatherProductType::NumericalTemperatureField)
                 && (!std::isfinite(capability.minimumGridSpacingDegrees)
