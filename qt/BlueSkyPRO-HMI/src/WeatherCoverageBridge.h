@@ -19,5 +19,5 @@ public:
         const QString &validFromUtc,
         const QString &validToUtc,
         double spatialBufferM,
-        const QVariantList &requiredAreaAltitudesAglM = {}) const;
+        const QVariantList &requiredAreaAltitudesAglM) const;
 };

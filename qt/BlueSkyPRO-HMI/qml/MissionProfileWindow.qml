@@ -114,6 +114,11 @@ Item {
             root.invalidateWeatherAcquisition("ROUTE_LINEAGE_CHANGED_DURING_WEATHER_DOWNLOAD")
             return
         }
+        if (root.weatherForecastLeadHours.length === 0) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = "GFS_FORECAST_LEAD_HOURS_EMPTY"
+            return
+        }
         if (root.weatherForecastLeadIndex >= root.weatherForecastLeadHours.length) {
             root.weatherAcquisitionStatus = "DOWNLOADS_READY_UNDECODED"
             root.weatherAcquisitionMessage =
@@ -135,7 +140,7 @@ Item {
         var forecastHour = Number(root.weatherForecastLeadHours[root.weatherForecastLeadIndex])
         root.weatherAcquisitionStatus = "DOWNLOADING"
         root.weatherAcquisitionMessage =
-                "Загрузка GFS F" + String(forecastHour).padStart(3, "0")
+                "Загрузка GFS F" + ("000" + forecastHour).slice(-3)
         var started = root.weatherDataService.requestWindSubset(
                     dateUtc, cycleHour, forecastHour,
                     bounds.westDeg, bounds.southDeg, bounds.eastDeg, bounds.northDeg,
