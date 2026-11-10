@@ -1,6 +1,7 @@
 #include "weather_field.hpp"
 #include "route_wind_adapter.hpp"
 #include "weather_trajectory_calculator.hpp"
+#include "weather_candidate_assessor.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -158,6 +159,29 @@ int main()
         "outside available forecast valid times") != std::string::npos);
     assert(evaluated.trajectory.wind_snapshot_id == "snapshot-20261108-06");
     assert(evaluated.trajectory.wind_snapshot_version == "gfs-0p25-v1");
+
+    // The production bridge returns the wind-corrected metrics in the exact
+    // contract consumed by AlgorithmOrchestrator before candidate ranking.
+    route.lineage.mission_id = "mission-1";
+    route.lineage.mission_version = "mission-v1";
+    route.environment.wind_snapshot_id = "snapshot-20261108-06";
+    MissionProblem missionProblem;
+    missionProblem.mission_id = "mission-1";
+    missionProblem.mission_version = "mission-v1";
+    missionProblem.vehicle_ids = {"uav-1"};
+    CandidateSolution candidate;
+    candidate.candidate_id = "candidate-1";
+    candidate.trajectory_route = route;
+    const auto assessor = makeCandidateWeatherAssessor(
+        timeFields, performanceInput, "snapshot-20261108-06", "gfs-0p25-v1",
+        "weather-trajectory-test-v1");
+    const auto candidateAssessment = assessor(missionProblem, candidate);
+    assert(candidateAssessment.evaluated);
+    assert(candidateAssessment.snapshot_id == "snapshot-20261108-06");
+    assert(candidateAssessment.snapshot_version == "gfs-0p25-v1");
+    assert(candidateAssessment.corrected_time_s > 0.0);
+    assert(candidateAssessment.corrected_energy_wh >= 0.0);
+    assert(candidateAssessment.remaining_energy_wh >= 0.0);
 
     const auto oldSnapshot = input.wind_snapshot_id;
     route.waypoints[1].altitude_reference = AltitudeReference::Unknown;
