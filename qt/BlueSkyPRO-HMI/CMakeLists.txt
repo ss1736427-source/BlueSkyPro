@@ -257,6 +257,7 @@ add_executable(weather_coverage_bridge_test
 )
 target_include_directories(weather_coverage_bridge_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../..
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/WEATHER
 )
 target_link_libraries(weather_coverage_bridge_test PRIVATE Qt6::Core)
