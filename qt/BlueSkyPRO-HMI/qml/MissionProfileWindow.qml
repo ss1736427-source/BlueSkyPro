@@ -20,6 +20,8 @@ Item {
     property string weatherMissionStartUtc: ""
     property string weatherCoverageStartUtc: ""
     property string weatherCoverageEndUtc: ""
+    // Operational reserve for wind-coupled ETA changes; not a regulatory validity period.
+    property int weatherForecastMarginSeconds: 1800
     property var lastWeatherCoverageResult: ({})
     onMissionModelJsonChanged: {
         var acquisitionWasActive =
@@ -64,9 +66,9 @@ Item {
         root.lastWeatherCoverageResult = result
         return result
     }
-    // Initial GFS window is derived from ETD and the primary optimizer route.
-    // Segment distance / nominal speed is only a coverage estimate; the weather
-    // trajectory calculator subsequently recomputes traversal time with wind.
+    // Initial GFS window mirrors the trajectory calculator's no-wind duration
+    // estimate (horizontal travel vs climb/descent), then adds a configurable
+    // operational reserve for wind-coupled ETA changes.
     function estimateWeatherWindow(etdUtc) {
         var routeVersion = root.routeController ? root.routeController.routeVersion : ""
         var route = root.routeController ? root.routeController.routeSnapshot() : null
@@ -75,23 +77,82 @@ Item {
         if (!pattern.test(String(etdUtc || "")) || !Number.isFinite(startMs)
                 || !route || !route.waypoints || route.waypoints.length < 2)
             return { valid: false, from: "", to: "", durationSeconds: 0, reason: "VALID_ETD_AND_CANONICAL_ROUTE_REQUIRED" }
+        var selected = root.selectedUavIndex >= 0 && root.selectedUavIndex < root.uavModel.length
+                ? root.uavModel[root.selectedUavIndex] : null
+        var profile = selected && selected.performanceProfile ? selected.performanceProfile : ({})
+        var cruise = Number(profile.cruiseAirspeedMps)
+        var climb = Number(profile.climbRateMps)
+        var descent = Number(profile.descentRateMps)
+        if (!profile || profile.validationState !== "VALIDATED"
+                || profile.approvalState !== "APPROVED"
+                || profile.validForMission !== true
+                || !Number.isFinite(cruise) || cruise <= 0
+                || !Number.isFinite(climb) || climb <= 0
+                || !Number.isFinite(descent) || descent <= 0)
+            return { valid: false, from: "", to: "", durationSeconds: 0, reason: "VALIDATED_APPROVED_UAV_PERFORMANCE_PROFILE_REQUIRED_FOR_WEATHER_WINDOW" }
         var segments = route.segments || []
         if (segments.length !== route.waypoints.length - 1)
             return { valid: false, from: "", to: "", durationSeconds: 0, reason: "COMPLETE_PRIMARY_ROUTE_SEGMENTS_REQUIRED" }
         var durationSeconds = 0
+        var earthRadius = 6371000
+        var radians = Math.PI / 180
         for (var i = 0; i < segments.length; ++i) {
-            var distance = Number(segments[i].distanceM)
-            var speed = Number(segments[i].nominalSpeedMps)
-            if (!Number.isFinite(distance) || !Number.isFinite(speed) || distance <= 0 || speed <= 0)
+            var from = route.waypoints[i]
+            var to = route.waypoints[i + 1]
+            var lat1 = Number(from.latitudeDeg) * radians
+            var lat2 = Number(to.latitudeDeg) * radians
+            var lonDelta = (Number(to.longitudeDeg) - Number(from.longitudeDeg)) * radians
+            if (Math.abs(Number(to.longitudeDeg) - Number(from.longitudeDeg)) > 180)
+                return { valid: false, from: "", to: "", durationSeconds: 0, reason: "ANTIMERIDIAN_ROUTE_WEATHER_UNSUPPORTED" }
+            var north = (lat2 - lat1) * earthRadius
+            var east = lonDelta * Math.cos((lat1 + lat2) * 0.5) * earthRadius
+            var horizontal = Math.hypot(north, east)
+            var fromAlt = Number(from.altitudeM)
+            var toAlt = Number(to.altitudeM)
+            var segmentTime = horizontal / cruise
+            var verticalDelta = toAlt - fromAlt
+            if (verticalDelta > 0)
+                segmentTime = Math.max(segmentTime, verticalDelta / climb)
+            else if (verticalDelta < 0)
+                segmentTime = Math.max(segmentTime, -verticalDelta / descent)
+            if (!Number.isFinite(segmentTime) || segmentTime <= 0)
                 return { valid: false, from: "", to: "", durationSeconds: 0, reason: "PRIMARY_ROUTE_SEGMENT_TIME_ESTIMATE_INVALID" }
-            durationSeconds += distance / speed
+            durationSeconds += segmentTime
         }
-        if (!Number.isFinite(durationSeconds) || durationSeconds <= 0)
+        if (!Number.isFinite(durationSeconds) || durationSeconds <= 0
+                || !Number.isFinite(root.weatherForecastMarginSeconds)
+                || root.weatherForecastMarginSeconds < 0)
             return { valid: false, from: "", to: "", durationSeconds: 0, reason: "PRIMARY_ROUTE_DURATION_ESTIMATE_INVALID" }
-        var end = new Date(startMs + Math.ceil(durationSeconds) * 1000)
+        var coveredSeconds = Math.ceil(durationSeconds + root.weatherForecastMarginSeconds)
+        var end = new Date(startMs + coveredSeconds * 1000)
         if (!Number.isFinite(end.getTime()))
             return { valid: false, from: "", to: "", durationSeconds: 0, reason: "MISSION_WEATHER_WINDOW_OVERFLOW" }
-        return { valid: true, from: String(etdUtc), to: end.toISOString().replace(/\.\d{3}Z$/, "Z"), durationSeconds: Math.ceil(durationSeconds), routeVersion: routeVersion }
+        return { valid: true, from: String(etdUtc), to: end.toISOString().replace(/\.\d{3}Z$/, "Z"),
+                 durationSeconds: coveredSeconds, routeDurationSeconds: Math.ceil(durationSeconds),
+                 reserveSeconds: root.weatherForecastMarginSeconds, routeVersion: routeVersion }
+    }
+
+    // GFS is a 0.25-degree grid. One grid interval around the operational
+    // buffer is retained so bilinear interpolation has bracketing cells at
+    // route endpoints and near the mission-area boundary.
+    function gfsGridRequestBounds(bounds) {
+        if (!bounds) return { valid: false, reason: "GFS_BOUNDS_MISSING" }
+        var margin = 0.25
+        var result = {
+            westDeg: Number(bounds.westDeg) - margin,
+            southDeg: Number(bounds.southDeg) - margin,
+            eastDeg: Number(bounds.eastDeg) + margin,
+            northDeg: Number(bounds.northDeg) + margin
+        }
+        if (!Number.isFinite(result.westDeg) || !Number.isFinite(result.southDeg)
+                || !Number.isFinite(result.eastDeg) || !Number.isFinite(result.northDeg)
+                || result.westDeg < -180 || result.eastDeg > 180
+                || result.southDeg < -90 || result.northDeg > 90
+                || result.eastDeg <= result.westDeg || result.northDeg <= result.southDeg
+                || result.eastDeg - result.westDeg > 30
+                || result.northDeg - result.southDeg > 30)
+            return { valid: false, reason: "GFS_GRID_INTERPOLATION_MARGIN_EXCEEDS_SUPPORTED_BOUNDS" }
+        return { valid: true, bounds: result }
     }
     function invalidateWeatherAcquisition(reason) {
         if (root.forecastAvailabilityService
@@ -156,7 +217,7 @@ Item {
         root.weatherCoverageStartUtc = validFromUtc
         root.weatherCoverageEndUtc = validToUtc
         root.weatherAcquisitionStatus = "CHECKING_FORECAST_AVAILABILITY"
-        root.weatherAcquisitionMessage = "Проверка GFS для ETD + расчётной длительности первичного маршрута"
+        root.weatherAcquisitionMessage = "Проверка GFS: профиль БВС + длительность набора/снижения + 30 мин резерва"
         var accepted = root.forecastAvailabilityService.checkMissionForecast(
                     validFromUtc, validToUtc)
         if (!accepted) {
@@ -316,7 +377,13 @@ Item {
         var dateUtc = cycleUtc.substring(0, 10).replace(/-/g, "")
         var cycleHour = cycleUtc.substring(11, 13)
         var request = root.lastWeatherCoverageResult.request
-        var bounds = request.bounds
+        var expanded = root.gfsGridRequestBounds(request.bounds)
+        if (!expanded.valid) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = expanded.reason
+            return
+        }
+        var bounds = expanded.bounds
         var levels = request.providerLevelsAglM.map(function(level) { return String(level) })
         var forecastHour = Number(root.weatherForecastLeadHours[root.weatherForecastLeadIndex])
         root.weatherAcquisitionStatus = "DOWNLOADING"
@@ -1236,7 +1303,7 @@ Item {
                     height: 24
                     text: root.weatherAcquisitionMessage.length > 0
                           ? root.weatherAcquisitionMessage
-                          : "Погода не запрошена · ETD задаётся оператором, окно GFS рассчитывается по первичному маршруту"
+                          : "Погода не запрошена · ETD + профиль БВС + расчётная длительность и временной резерв"
                     color: root.weatherAcquisitionStatus === "BLOCKED"
                            || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE"
                            ? "#FFD36A" : root.muted
