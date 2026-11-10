@@ -255,7 +255,7 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
                 continue;
             }
 
-            if (!have_best || better_candidate(candidate, best, context.problem())) {
+            if (!have_best || better_candidate(rankedCandidate, best, context.problem())) {
                 best = rankedCandidate;
                 bestWeatherAssessment = weatherAssessment;
                 bestWeatherAssessmentApplied = static_cast<bool>(weather_assessor_);
