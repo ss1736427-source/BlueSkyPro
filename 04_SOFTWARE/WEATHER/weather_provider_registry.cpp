@@ -49,6 +49,9 @@ bool covers(const WeatherProviderCapability &capability,
     if (request.validToUtcSeconds - request.referenceTimeUtcSeconds
         > capability.maximumForecastHorizonSeconds)
         return false;
+    if (!std::isfinite(request.maximumGridSpacingDegrees)
+        || request.maximumGridSpacingDegrees < 0.0)
+        return false;
     if (request.maximumGridSpacingDegrees > 0.0
         && (!std::isfinite(capability.minimumGridSpacingDegrees)
             || capability.minimumGridSpacingDegrees <= 0.0
