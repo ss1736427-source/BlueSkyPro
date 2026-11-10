@@ -56,6 +56,35 @@ Item {
         root.lastWeatherCoverageResult = result
         return result
     }
+    // Initial GFS window is derived from ETD and the primary optimizer route.
+    // Segment distance / nominal speed is only a coverage estimate; the weather
+    // trajectory calculator subsequently recomputes traversal time with wind.
+    function estimateWeatherWindow(etdUtc) {
+        var routeVersion = root.routeController ? root.routeController.routeVersion : ""
+        var route = root.routeController ? root.routeController.routeSnapshot() : null
+        var pattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
+        var startMs = Date.parse(String(etdUtc || ""))
+        if (!pattern.test(String(etdUtc || "")) || !Number.isFinite(startMs)
+                || !route || !route.waypoints || route.waypoints.length < 2)
+            return { valid: false, from: "", to: "", durationSeconds: 0, reason: "VALID_ETD_AND_CANONICAL_ROUTE_REQUIRED" }
+        var segments = route.segments || []
+        if (segments.length !== route.waypoints.length - 1)
+            return { valid: false, from: "", to: "", durationSeconds: 0, reason: "COMPLETE_PRIMARY_ROUTE_SEGMENTS_REQUIRED" }
+        var durationSeconds = 0
+        for (var i = 0; i < segments.length; ++i) {
+            var distance = Number(segments[i].distanceM)
+            var speed = Number(segments[i].nominalSpeedMps)
+            if (!Number.isFinite(distance) || !Number.isFinite(speed) || distance <= 0 || speed <= 0)
+                return { valid: false, from: "", to: "", durationSeconds: 0, reason: "PRIMARY_ROUTE_SEGMENT_TIME_ESTIMATE_INVALID" }
+            durationSeconds += distance / speed
+        }
+        if (!Number.isFinite(durationSeconds) || durationSeconds <= 0)
+            return { valid: false, from: "", to: "", durationSeconds: 0, reason: "PRIMARY_ROUTE_DURATION_ESTIMATE_INVALID" }
+        var end = new Date(startMs + Math.ceil(durationSeconds) * 1000)
+        if (!Number.isFinite(end.getTime()))
+            return { valid: false, from: "", to: "", durationSeconds: 0, reason: "MISSION_WEATHER_WINDOW_OVERFLOW" }
+        return { valid: true, from: String(etdUtc), to: end.toISOString().replace(/\.\d{3}Z$/, "Z"), durationSeconds: Math.ceil(durationSeconds), routeVersion: routeVersion }
+    }
     function invalidateWeatherAcquisition(reason) {
         if (root.forecastAvailabilityService
                 && root.forecastAvailabilityService.state === "CHECKING_NOMADS")
@@ -82,9 +111,16 @@ Item {
                 || !Number.isFinite(fromMs) || !Number.isFinite(toMs) || !Number.isFinite(startMs)
                 || toMs < fromMs || startMs < fromMs || startMs > toMs
                 || String(spatialBufferM).trim().length === 0
-                || !Number.isFinite(Number(spatialBufferM)) || Number(spatialBufferM) < 0) {
+                || !Number.isFinite(Number(spatialBufferM)) || Number(spatialBufferM) <= 0) {
             root.weatherAcquisitionStatus = "BLOCKED"
-            root.weatherAcquisitionMessage = "VALID_UTC_WINDOW_MISSION_START_AND_NONNEGATIVE_BUFFER_REQUIRED"
+            root.weatherAcquisitionMessage = "VALID_ETD_ROUTE_WINDOW_AND_POSITIVE_BUFFER_REQUIRED"
+            return false
+        }
+        var estimatedWindow = root.estimateWeatherWindow(missionStartUtc)
+        if (!estimatedWindow.valid || estimatedWindow.from !== validFromUtc
+                || estimatedWindow.to !== validToUtc) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = estimatedWindow.reason || "WEATHER_WINDOW_MUST_MATCH_ETD_AND_PRIMARY_ROUTE"
             return false
         }
         var built = root.buildWeatherCoverageRequest(
@@ -112,7 +148,7 @@ Item {
         root.weatherCoverageStartUtc = validFromUtc
         root.weatherCoverageEndUtc = validToUtc
         root.weatherAcquisitionStatus = "CHECKING_FORECAST_AVAILABILITY"
-        root.weatherAcquisitionMessage = "Проверка полного окна миссии по NOAA NOMADS"
+        root.weatherAcquisitionMessage = "Проверка GFS для ETD + расчётной длительности первичного маршрута"
         var accepted = root.forecastAvailabilityService.checkMissionForecast(
                     validFromUtc, validToUtc)
         if (!accepted) {
@@ -985,7 +1021,7 @@ Item {
                             verticalAlignment: TextInput.AlignVCenter
                             selectByMouse: true
                             inputMethodHints: Qt.ImhDate | Qt.ImhTime
-                            property string placeholder: "MISSION START UTC"
+                            property string placeholder: "ETD / TAKEOFF UTC"
                             Text {
                                 anchors.fill: parent
                                 visible: !weatherMissionStartInput.text
@@ -1011,7 +1047,12 @@ Item {
                             font.pixelSize: 10
                             verticalAlignment: TextInput.AlignVCenter
                             selectByMouse: true
-                            property string placeholder: "FORECAST FROM UTC"
+                            readOnly: true
+                            text: {
+                                var window = root.estimateWeatherWindow(weatherMissionStartInput.text)
+                                return window.valid ? window.from : ""
+                            }
+                            property string placeholder: "AUTO FROM UTC"
                             Text {
                                 anchors.fill: parent
                                 visible: !weatherFromInput.text
@@ -1037,7 +1078,12 @@ Item {
                             font.pixelSize: 10
                             verticalAlignment: TextInput.AlignVCenter
                             selectByMouse: true
-                            property string placeholder: "FORECAST TO UTC"
+                            readOnly: true
+                            text: {
+                                var window = root.estimateWeatherWindow(weatherMissionStartInput.text)
+                                return window.valid ? window.to : ""
+                            }
+                            property string placeholder: "AUTO TO ROUTE ETA"
                             Text {
                                 anchors.fill: parent
                                 visible: !weatherToInput.text
@@ -1144,7 +1190,7 @@ Item {
                     height: 24
                     text: root.weatherAcquisitionMessage.length > 0
                           ? root.weatherAcquisitionMessage
-                          : "Погода не запрошена · UTC время миссии и окно прогноза задаются отдельно"
+                          : "Погода не запрошена · ETD задаётся оператором, окно GFS рассчитывается по первичному маршруту"
                     color: root.weatherAcquisitionStatus === "BLOCKED"
                            || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE"
                            ? "#FFD36A" : root.muted
