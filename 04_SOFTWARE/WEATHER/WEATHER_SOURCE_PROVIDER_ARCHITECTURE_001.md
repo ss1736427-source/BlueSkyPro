@@ -305,7 +305,7 @@ The candidate contract carries an optional canonical `trajectory_route`. Weather
 
 **Current integration boundary:** the generic orchestration hook and its fail-closed contract test are implemented. The current A* and Dijkstra graph solvers still publish node-ID paths only; they do not yet populate complete canonical trajectory geometry. Consequently, enabling the weather assessor against those candidates will reject them until the route-producing stage supplies the full geometry. This is intentional: graph-node polylines must not be represented as complete flown trajectories when turns/transitions are absent.
 
-The production adapter that supplies decoded forecast fields and the assigned UAV performance profile to `WeatherTrajectoryCalculator` remains a separate integration step. The new orchestrator contract does not itself claim that the live HMI/NOAA pipeline is already connected to candidate re-ranking.
+A production bridge, `makeCandidateWeatherAssessor`, now accepts decoded forecast fields, the assigned UAV performance profile and snapshot identity, then invokes `WeatherTrajectoryCalculator` for each candidate. The live HMI/NOAA `WeatherCalculationService` is not yet constructing and injecting this assessor into the production `AlgorithmOrchestrator` path. Together with the current A*/Dijkstra geometry gap, this means end-to-end weather-aware optimization is not yet active in the application.
 
 ## 13. Implementation sequence
 
