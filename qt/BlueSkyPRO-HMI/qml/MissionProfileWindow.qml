@@ -269,6 +269,20 @@ Item {
         return true
     }
 
+    function maybeEvaluateWeatherAutomatically() {
+        if (root.weatherAcquisitionStatus !== "DOWNLOADS_READY_UNDECODED"
+                || !root.weatherCalculationService
+                || !root.weatherCalculationService.decoderAvailable)
+            return false
+        var selected = root.selectedUavIndex >= 0 && root.selectedUavIndex < root.uavModel.length
+                ? root.uavModel[root.selectedUavIndex] : null
+        var profile = selected && selected.performanceProfile ? selected.performanceProfile : ({})
+        if (profile.validationState !== "VALIDATED" || profile.approvalState !== "APPROVED") {
+            root.weatherAcquisitionMessage = "GFS загружен · требуется утверждённый профиль выбранного БПЛА для оценки"
+            return false
+        }
+        return root.evaluateWeatherRoute()
+    }
     function downloadNextWeatherForecast() {
         if (!root.routeLineageStillMatches()) {
             root.invalidateWeatherAcquisition("ROUTE_LINEAGE_CHANGED_DURING_WEATHER_DOWNLOAD")
@@ -282,7 +296,8 @@ Item {
         if (root.weatherForecastLeadIndex >= root.weatherForecastLeadHours.length) {
             root.weatherAcquisitionStatus = "DOWNLOADS_READY_UNDECODED"
             root.weatherAcquisitionMessage =
-                    "Все сроки GFS загружены. Декодирование GRIB2 и QC ещё не выполнены."
+                    "Все сроки GFS загружены · подготовка оценки маршрута"
+            root.maybeEvaluateWeatherAutomatically()
             return
         }
         var plan = root.weatherForecastPlan
@@ -417,6 +432,7 @@ Item {
     // Assignment result supplied by mission planning; the HMI does not infer task allocation.
     property var missionAssignments: []
     property int selectedUavIndex: -1
+    onSelectedUavIndexChanged: root.maybeEvaluateWeatherAutomatically()
     signal uavSelectionRequested(int index)
     // Operational route data belongs to RouteController, not per-window caches.
     property string loadedUavId: ""
