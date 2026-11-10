@@ -12,7 +12,7 @@ int main()
     const QUrl url = WeatherDataService::buildRequestUrl(
         QStringLiteral("20261107"), QStringLiteral("12"), 6,
         96.0, 5.0, 100.0, 10.0,
-        {QStringLiteral("10"), QStringLiteral("50"), QStringLiteral("100")},
+        {QStringLiteral("2"), QStringLiteral("10"), QStringLiteral("50"), QStringLiteral("100")},
         &error);
     assert(url.isValid());
     assert(error.isEmpty());
@@ -21,6 +21,7 @@ int main()
     assert(query.queryItemValue(QStringLiteral("file")) == QStringLiteral("gfs.t12z.pgrb2.0p25.f006"));
     assert(query.queryItemValue(QStringLiteral("var_UGRD")) == QStringLiteral("on"));
     assert(query.queryItemValue(QStringLiteral("var_VGRD")) == QStringLiteral("on"));
+    assert(query.queryItemValue(QStringLiteral("lev_2_m_above_ground")) == QStringLiteral("on"));
     assert(query.queryItemValue(QStringLiteral("lev_10_m_above_ground")) == QStringLiteral("on"));
     assert(query.queryItemValue(QStringLiteral("lev_50_m_above_ground")) == QStringLiteral("on"));
     assert(query.queryItemValue(QStringLiteral("lev_100_m_above_ground")) == QStringLiteral("on"));
@@ -30,11 +31,11 @@ int main()
     const QUrl sameRequestUrl = WeatherDataService::buildRequestUrl(
         QStringLiteral("20261107"), QStringLiteral("12"), 6,
         96.0, 5.0, 100.0, 10.0,
-        {QStringLiteral("100"), QStringLiteral("10"), QStringLiteral("50")});
+        {QStringLiteral("100"), QStringLiteral("10"), QStringLiteral("50"), QStringLiteral("2")});
     assert(WeatherDataService::isSameRequestIdentity(url, sameRequestUrl));
     const QUrl differentRequestUrl = WeatherDataService::buildRequestUrl(
         QStringLiteral("20261107"), QStringLiteral("12"), 6,
-        97.0, 5.0, 100.0, 10.0, {QStringLiteral("10"), QStringLiteral("50"), QStringLiteral("100")});
+        97.0, 5.0, 100.0, 10.0, {QStringLiteral("10"), QStringLiteral("50"), QStringLiteral("100"), QStringLiteral("2")});
     assert(!WeatherDataService::isSameRequestIdentity(url, differentRequestUrl));
     assert(!WeatherDataService::isSameRequestIdentity(QUrl(), url));
 
