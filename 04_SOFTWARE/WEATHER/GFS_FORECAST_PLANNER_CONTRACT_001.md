@@ -70,6 +70,12 @@ A future schedule contract must explicitly define planned movement start, takeof
 - It does not combine forecast runs when one run cannot cover the full interval.
 - It does not modify mission, route, HMI, map, DEM or trajectory physics.
 
-## 8. Verification
+## 8. Relationship to aviation report applicability
+
+The METAR/SPECI/TAF issue schedules, operational observation reuse window, 15-minute departure tolerance and event-driven re-evaluation are specified separately in `WEATHER_REPORT_APPLICABILITY_POLICY_001.md`.
+
+Those aviation-report rules do not change GFS cycle timestamps or GFS forecast lead validity. The GFS planner continues to select the newest confirmed single run that brackets the complete explicit mission interval. In particular, the METAR three-hour observation window must not be applied to GFS runs, and the availability-listing cache TTL must not be treated as forecast validity.
+
+## 9. Verification
 
 The standalone contract test covers newest eligible cycle selection, forecast cadence across F120/F123, exact-time windows, unavailable cycles, invalid cycle times, invalid calendar dates and forecast-horizon rejection.
