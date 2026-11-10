@@ -74,6 +74,8 @@ qt_add_executable(appBlueSkyPRO
     src/FaaNmsClient.h
     src/WeatherDataService.cpp
     src/WeatherDataService.h
+    src/WeatherCalculationService.cpp
+    src/WeatherCalculationService.h
     src/WeatherCoverageBridge.cpp
     src/WeatherCoverageBridge.h
     ../../04_SOFTWARE/WEATHER/weather_coverage_request.cpp
@@ -241,6 +243,23 @@ if(WIN32)
 else()
     add_test(NAME credential_vault_fail_closed COMMAND credential_vault_test)
 endif()
+
+add_executable(weather_calculation_service_test
+    tests/WeatherCalculationServiceTest.cpp
+    src/WeatherCalculationService.cpp
+    src/WeatherCalculationService.h
+)
+target_include_directories(weather_calculation_service_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../..
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/WEATHER
+)
+target_link_libraries(weather_calculation_service_test PRIVATE bluesky_planning Qt6::Core Qt6::Concurrent)
+target_compile_features(weather_calculation_service_test PRIVATE cxx_std_20)
+target_compile_options(weather_calculation_service_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME weather_calculation_service_contract COMMAND weather_calculation_service_test)
 
 add_executable(weather_data_service_test
     tests/WeatherDataServiceTest.cpp

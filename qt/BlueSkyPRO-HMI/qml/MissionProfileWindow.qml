@@ -8,6 +8,8 @@ Item {
     property var coverageBridge: null
     property var forecastAvailabilityService: null
     property var weatherDataService: null
+    property var weatherCalculationService: null
+    property var weatherAssessmentResult: ({})
     property string weatherAcquisitionStatus: "NOT_REQUESTED"
     property string weatherAcquisitionMessage: ""
     property var weatherForecastPlan: ({})
@@ -20,12 +22,18 @@ Item {
     property var lastWeatherCoverageResult: ({})
     onMissionModelJsonChanged: {
         if (weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
-                || weatherAcquisitionStatus === "DOWNLOADING")
+                || weatherAcquisitionStatus === "DOWNLOADING"
+                || weatherAcquisitionStatus === "ASSESSING_WEATHER"
+                || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
+                || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE")
             invalidateWeatherAcquisition("MISSION_MODEL_CHANGED_WEATHER_REQUEST_INVALIDATED")
     }
     onMissionIdChanged: {
         if (weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
-                || weatherAcquisitionStatus === "DOWNLOADING")
+                || weatherAcquisitionStatus === "DOWNLOADING"
+                || weatherAcquisitionStatus === "ASSESSING_WEATHER"
+                || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
+                || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE")
             invalidateWeatherAcquisition("MISSION_ID_CHANGED_WEATHER_REQUEST_INVALIDATED")
     }
 
@@ -58,11 +66,25 @@ Item {
         root.weatherForecastLeadHours = []
         root.weatherForecastLeadIndex = 0
         root.weatherDownloadedFiles = []
+        root.weatherAssessmentResult = ({})
         root.weatherAcquisitionStatus = "STALE"
         root.weatherAcquisitionMessage = reason || "MISSION_OR_ROUTE_CHANGED"
     }
 
-    function requestMissionWeather(validFromUtc, validToUtc, spatialBufferM, areaAltitudesAglM) {
+    function requestMissionWeather(validFromUtc, validToUtc, spatialBufferM, areaAltitudesAglM, missionStartUtc) {
+        var utcPattern = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/
+        var fromMs = Date.parse(validFromUtc)
+        var toMs = Date.parse(validToUtc)
+        var startMs = Date.parse(missionStartUtc)
+        if (!utcPattern.test(String(validFromUtc)) || !utcPattern.test(String(validToUtc))
+                || !utcPattern.test(String(missionStartUtc))
+                || !Number.isFinite(fromMs) || !Number.isFinite(toMs) || !Number.isFinite(startMs)
+                || toMs < fromMs || startMs < fromMs || startMs > toMs
+                || !Number.isFinite(Number(spatialBufferM)) || Number(spatialBufferM) < 0) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = "VALID_UTC_WINDOW_MISSION_START_AND_NONNEGATIVE_BUFFER_REQUIRED"
+            return false
+        }
         var built = root.buildWeatherCoverageRequest(
                     validFromUtc, validToUtc, spatialBufferM, areaAltitudesAglM)
         if (!built || built.valid !== true) {
@@ -84,7 +106,7 @@ Item {
             routeVersion: route.routeVersion,
             calculationInputVersion: route.calculationInputVersion
         }
-        root.weatherMissionStartUtc = validFromUtc
+        root.weatherMissionStartUtc = missionStartUtc
         root.weatherMissionEndUtc = validToUtc
         root.weatherAcquisitionStatus = "CHECKING_FORECAST_AVAILABILITY"
         root.weatherAcquisitionMessage = "Проверка полного окна миссии по NOAA NOMADS"
@@ -98,6 +120,46 @@ Item {
         return true
     }
 
+    function requiredWeatherAltitudesAglM() {
+        var values = []
+        function addAltitude(value) {
+            var altitude = Number(value)
+            if (Number.isFinite(altitude) && altitude >= 0
+                    && values.every(function(existing) { return Math.abs(existing - altitude) > 0.1 }))
+                values.push(altitude)
+        }
+        if (root.routeController) {
+            var snapshot = root.routeController.routeSnapshot()
+            var waypoints = snapshot.waypoints || []
+            for (var i = 0; i < waypoints.length; ++i) {
+                var waypoint = waypoints[i]
+                if (String(waypoint.altitudeReference || "") === "AGL")
+                    addAltitude(waypoint.altitudeM)
+            }
+        }
+        try {
+            var mission = JSON.parse(root.missionModelJson)
+            var geometries = mission.geometryObjects || mission.geometry_objects || []
+            function collectAglCoordinates(node) {
+                if (!Array.isArray(node)) return
+                if (node.length >= 4 && typeof node[0] === "number"
+                        && typeof node[1] === "number" && typeof node[2] === "number"
+                        && String(node[3]).toUpperCase() === "AGL") {
+                    addAltitude(node[2])
+                    return
+                }
+                for (var j = 0; j < node.length; ++j)
+                    collectAglCoordinates(node[j])
+            }
+            for (var g = 0; g < geometries.length; ++g)
+                collectAglCoordinates(geometries[g].coordinates || geometries[g].geometry || [])
+        } catch (error) {
+            // Invalid mission JSON is rejected by the canonical coverage bridge.
+        }
+        values.sort(function(a,b) { return a-b })
+        return values
+    }
+
     function routeLineageStillMatches() {
         if (!root.routeController) return false
         var current = root.routeController.routeSnapshot()
@@ -107,6 +169,46 @@ Item {
                 && current.routeId === expected.routeId
                 && current.routeVersion === expected.routeVersion
                 && current.calculationInputVersion === expected.calculationInputVersion
+    }
+
+    function evaluateWeatherRoute() {
+        if (!root.weatherCalculationService || !root.routeController) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = "WEATHER_CALCULATION_SERVICE_UNAVAILABLE"
+            return false
+        }
+        if (root.weatherAcquisitionStatus !== "DOWNLOADS_READY_UNDECODED") {
+            root.weatherAcquisitionMessage = "ALL_FORECAST_PRODUCTS_MUST_BE_DOWNLOADED_FIRST"
+            return false
+        }
+        if (!root.routeLineageStillMatches()) {
+            root.invalidateWeatherAcquisition("ROUTE_CHANGED_BEFORE_WEATHER_ASSESSMENT")
+            return false
+        }
+        var selected = root.selectedUavIndex >= 0 && root.selectedUavIndex < root.uavModel.length
+                ? root.uavModel[root.selectedUavIndex] : null
+        var performanceProfile = selected && selected.performanceProfile
+                ? selected.performanceProfile : ({})
+        var paths = root.weatherDownloadedFiles.map(function(item) { return String(item.filePath || "") })
+        if (paths.length === 0 || paths.some(function(path) { return path.length === 0 })) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = "DOWNLOADED_GRIB2_PRODUCTS_MISSING"
+            return false
+        }
+        var accepted = root.weatherCalculationService.evaluateRoute(
+                    paths,
+                    root.routeController.routeSnapshot(),
+                    root.missionModelJson,
+                    root.weatherMissionStartUtc,
+                    performanceProfile)
+        if (!accepted) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = root.weatherCalculationService.lastError
+            return false
+        }
+        root.weatherAcquisitionStatus = "ASSESSING_WEATHER"
+        root.weatherAcquisitionMessage = "Декодирование GRIB2, QC и оценка ветра по времени прохождения маршрута"
+        return true
     }
 
     function downloadNextWeatherForecast() {
@@ -209,8 +311,37 @@ Item {
         enabled: target !== null
         function onRouteChanged() {
             if (root.weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
-                    || root.weatherAcquisitionStatus === "DOWNLOADING")
+                    || root.weatherAcquisitionStatus === "DOWNLOADING"
+                    || root.weatherAcquisitionStatus === "ASSESSING_WEATHER"
+                    || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
+                    || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE")
                 root.invalidateWeatherAcquisition("ROUTE_CHANGED_WEATHER_REQUEST_INVALIDATED")
+        }
+    }
+
+    Connections {
+        target: root.weatherCalculationService
+        enabled: target !== null
+        function onEvaluationFinished(result) {
+            if (root.weatherAcquisitionStatus !== "ASSESSING_WEATHER")
+                return
+            if (!root.routeLineageStillMatches()) {
+                root.invalidateWeatherAcquisition("ROUTE_CHANGED_DURING_WEATHER_ASSESSMENT")
+                return
+            }
+            root.weatherAssessmentResult = result
+            if (result.weatherReady === true && result.trajectoryStatus === "FEASIBLE") {
+                root.weatherAcquisitionStatus = "WEATHER_ASSESSMENT_READY"
+                root.weatherAcquisitionMessage = "Погодная оценка завершена · " +
+                        Number(result.totalTimeS).toFixed(0) + " с · " +
+                        Number(result.totalEnergyWh).toFixed(1) + " Wh"
+            } else if (result.weatherReady === true) {
+                root.weatherAcquisitionStatus = "WEATHER_ASSESSMENT_INFEASIBLE"
+                root.weatherAcquisitionMessage = "Погодные данные декодированы, но расчётная траектория недопустима"
+            } else {
+                root.weatherAcquisitionStatus = "BLOCKED"
+                root.weatherAcquisitionMessage = String(result.weatherError || "WEATHER_ASSESSMENT_FAILED")
+            }
         }
     }
 
@@ -809,10 +940,220 @@ Item {
                 }
             }
 
+            Rectangle {
+                id: weatherPanel
+                width: parent.width
+                height: 68
+                color: "#091725"
+                border.color: root.line
+                radius: 3
+
+                Row {
+                    x: 8
+                    y: 5
+                    height: 27
+                    spacing: 6
+
+                    Text {
+                        width: 78
+                        height: 27
+                        text: "GFS / ПОГОДА"
+                        color: root.cyan
+                        font.family: "B612"
+                        font.pixelSize: 10
+                        font.bold: true
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    Rectangle {
+                        width: 172
+                        height: 27
+                        color: "#06111D"
+                        border.color: "#35536A"
+                        TextInput {
+                            id: weatherMissionStartInput
+                            anchors.fill: parent
+                            anchors.margins: 4
+                            color: root.textColor
+                            font.family: "B612 Mono"
+                            font.pixelSize: 10
+                            verticalAlignment: TextInput.AlignVCenter
+                            selectByMouse: true
+                            inputMethodHints: Qt.ImhDate | Qt.ImhTime
+                            property string placeholder: "MISSION START UTC"
+                            Text {
+                                anchors.fill: parent
+                                visible: !weatherMissionStartInput.text
+                                text: weatherMissionStartInput.placeholder
+                                color: "#70879A"
+                                font: weatherMissionStartInput.font
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: 172
+                        height: 27
+                        color: "#06111D"
+                        border.color: "#35536A"
+                        TextInput {
+                            id: weatherFromInput
+                            anchors.fill: parent
+                            anchors.margins: 4
+                            color: root.textColor
+                            font.family: "B612 Mono"
+                            font.pixelSize: 10
+                            verticalAlignment: TextInput.AlignVCenter
+                            selectByMouse: true
+                            property string placeholder: "FORECAST FROM UTC"
+                            Text {
+                                anchors.fill: parent
+                                visible: !weatherFromInput.text
+                                text: weatherFromInput.placeholder
+                                color: "#70879A"
+                                font: weatherFromInput.font
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: 172
+                        height: 27
+                        color: "#06111D"
+                        border.color: "#35536A"
+                        TextInput {
+                            id: weatherToInput
+                            anchors.fill: parent
+                            anchors.margins: 4
+                            color: root.textColor
+                            font.family: "B612 Mono"
+                            font.pixelSize: 10
+                            verticalAlignment: TextInput.AlignVCenter
+                            selectByMouse: true
+                            property string placeholder: "FORECAST TO UTC"
+                            Text {
+                                anchors.fill: parent
+                                visible: !weatherToInput.text
+                                text: weatherToInput.placeholder
+                                color: "#70879A"
+                                font: weatherToInput.font
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: 76
+                        height: 27
+                        color: "#06111D"
+                        border.color: "#35536A"
+                        TextInput {
+                            id: weatherBufferInput
+                            anchors.fill: parent
+                            anchors.margins: 4
+                            color: root.textColor
+                            font.family: "B612 Mono"
+                            font.pixelSize: 10
+                            verticalAlignment: TextInput.AlignVCenter
+                            selectByMouse: true
+                            inputMethodHints: Qt.ImhDigitsOnly
+                            property string placeholder: "BUFFER m"
+                            Text {
+                                anchors.fill: parent
+                                visible: !weatherBufferInput.text
+                                text: weatherBufferInput.placeholder
+                                color: "#70879A"
+                                font: weatherBufferInput.font
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: 112
+                        height: 27
+                        radius: 3
+                        color: "#102B3A"
+                        border.color: root.cyan
+                        Text {
+                            anchors.fill: parent
+                            text: "ЗАГРУЗИТЬ GFS"
+                            color: root.cyan
+                            font.family: "B612"
+                            font.pixelSize: 10
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: root.hasCanonicalRoute
+                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
+                            onClicked: root.requestMissionWeather(
+                                weatherFromInput.text, weatherToInput.text,
+                                Number(weatherBufferInput.text),
+                                root.requiredWeatherAltitudesAglM(),
+                                weatherMissionStartInput.text)
+                        }
+                    }
+
+                    Rectangle {
+                        width: 112
+                        height: 27
+                        radius: 3
+                        color: root.weatherCalculationService
+                               && root.weatherCalculationService.decoderAvailable ? "#123B2C" : "#202B35"
+                        border.color: root.weatherCalculationService
+                                      && root.weatherCalculationService.decoderAvailable ? "#45C98B" : "#52616D"
+                        opacity: root.weatherAcquisitionStatus === "DOWNLOADS_READY_UNDECODED" ? 1.0 : 0.55
+                        Text {
+                            anchors.fill: parent
+                            text: root.weatherCalculationService
+                                  && root.weatherCalculationService.decoderAvailable
+                                  ? "ОЦЕНИТЬ МАРШРУТ" : "НЕТ ДЕКОДЕРА"
+                            color: root.weatherCalculationService
+                                   && root.weatherCalculationService.decoderAvailable ? "#75E6B0" : "#AAB6C0"
+                            font.family: "B612"
+                            font.pixelSize: 9
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: root.weatherAcquisitionStatus === "DOWNLOADS_READY_UNDECODED"
+                                     && root.weatherCalculationService
+                                     && root.weatherCalculationService.decoderAvailable
+                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
+                            onClicked: root.evaluateWeatherRoute()
+                        }
+                    }
+                }
+
+                Text {
+                    x: 10
+                    y: 38
+                    width: parent.width - 20
+                    height: 24
+                    text: root.weatherAcquisitionMessage.length > 0
+                          ? root.weatherAcquisitionMessage
+                          : "Погода не запрошена · UTC время миссии и окно прогноза задаются отдельно"
+                    color: root.weatherAcquisitionStatus === "BLOCKED"
+                           || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE"
+                           ? "#FFD36A" : root.muted
+                    font.family: "B612"
+                    font.pixelSize: 10
+                    elide: Text.ElideRight
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
             Row {
                 id: contentRow
                 width: parent.width
-                height: parent.height - titleBar.height - 7
+                height: parent.height - titleBar.height - weatherPanel.height - 14
                 spacing: 8
 
                 Column {
