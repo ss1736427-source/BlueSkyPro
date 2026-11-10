@@ -82,11 +82,14 @@ int main()
         assert(!selected);
     }
 
-    assert(WeatherApplicabilityPolicy::departureAction(etd, etd + 900, false)
+    assert(WeatherApplicabilityPolicy::departureAction(etd, etd + 900, false, true)
            == DepartureWeatherAction::ReuseSelectedWeather);
-    assert(WeatherApplicabilityPolicy::departureAction(etd, etd + 901, false)
+    assert(WeatherApplicabilityPolicy::departureAction(etd, etd + 901, false, true)
            == DepartureWeatherAction::ReevaluateWeather);
-    assert(WeatherApplicabilityPolicy::departureAction(etd, etd + 60, true)
+    assert(WeatherApplicabilityPolicy::departureAction(etd, etd + 60, true, true)
+           == DepartureWeatherAction::ReevaluateWeather);
+
+    assert(WeatherApplicabilityPolicy::departureAction(etd, etd + 900, false, false)
            == DepartureWeatherAction::ReevaluateWeather);
 
     std::cout << "Weather applicability policy tests passed\n";
