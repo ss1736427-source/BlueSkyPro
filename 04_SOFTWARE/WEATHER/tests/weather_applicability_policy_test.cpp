@@ -20,6 +20,16 @@ int main()
         };
         const auto selected = WeatherApplicabilityPolicy::selectLatestObservation(
             reports, "AAA", etd, now);
+        assert(selected && *selected == 2);
+    }
+
+    {
+        const std::vector<AviationObservation> reports{
+            {"AAA", "metar-before", AviationObservationType::Metar, etd - 300, etd - 290},
+            {"AAA", "metar-after", AviationObservationType::Metar, etd + 300, etd + 310}
+        };
+        const auto selected = WeatherApplicabilityPolicy::selectLatestObservation(
+            reports, "AAA", etd, etd + 320);
         assert(selected && *selected == 1);
     }
 
@@ -42,6 +52,16 @@ int main()
         const auto selected = WeatherApplicabilityPolicy::selectCoveringTaf(
             reports, "AAA", etd, etd + 5400, now);
         assert(selected && *selected == 1);
+    }
+
+    {
+        const std::vector<TafReport> reports{
+            {"AAA", "taf-current", etd - 3600, etd - 3500, etd - 1800, etd + 7200, false},
+            {"AAA", "taf-cancel", etd - 300, etd - 290, etd - 1800, etd + 7200, true}
+        };
+        const auto selected = WeatherApplicabilityPolicy::selectCoveringTaf(
+            reports, "AAA", etd, etd + 5400, now);
+        assert(!selected);
     }
 
     {
