@@ -57,9 +57,13 @@ int main()
     request.maximumAltitudeAglM = 1200.0;
     assert(registry.selectEligible(request).empty());
 
-    request.maximumAltitudeAglM = 100.0;
+    request.maximumAltitudeAglM = 1000.0;
     request.requiredAltitudesAglM = {200.0};
-    assert(registry.selectEligible(request).empty()); // min/max alone must not fake 200 m coverage
+    assert(registry.selectEligible(request).empty()); // 100-1000 m gap exceeds the 100 m limit
+    request.requiredAltitudesAglM = {65.0};
+    selected = registry.selectEligible(request);
+    assert(selected.size() == 1); // bounded interpolation between 50 and 80 m
+    request.maximumAltitudeAglM = 100.0;
     request.requiredAltitudesAglM = {50.0, 80.0};
     request.validToUtcSeconds = request.referenceTimeUtcSeconds + 385LL * 3600LL;
     assert(registry.selectEligible(request).empty());
