@@ -8,9 +8,11 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
+#include <QStringList>
 
 #include <cmath>
 #include <string>
+#include <utility>
 
 using bluesky::planning::AltitudeReference;
 using bluesky::planning::Mission;
