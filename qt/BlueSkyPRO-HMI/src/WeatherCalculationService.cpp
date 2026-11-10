@@ -53,6 +53,10 @@ bool buildRoute(const QVariantMap& snapshot,Route& route,QString& error)
         error=QStringLiteral("CANONICAL_ROUTE_LINEAGE_INCOMPLETE");
         return false;
     }
+    if (snapshot.value(QStringLiteral("validationState")).toString()!=QStringLiteral("VALIDATED")) {
+        error=QStringLiteral("VALIDATED_CANONICAL_ROUTE_REQUIRED_FOR_WEATHER_ASSESSMENT");
+        return false;
+    }
     if (!snapshot.value(QStringLiteral("trajectoryGeometryComplete")).toBool()) {
         error=QStringLiteral("COMPLETE_TRAJECTORY_GEOMETRY_REQUIRED");
         return false;
