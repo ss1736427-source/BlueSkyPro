@@ -139,6 +139,8 @@ bool buildSamplingRoute(const bluesky::planning::Route& source,
                         bluesky::planning::Route& sampled,std::string& error)
 {
     using namespace bluesky::planning;
+    // Bound samples to 10 km and 5 minutes so a long leg is evaluated along-track,
+    // not represented by one midpoint against a 0.25-degree GFS grid.
     constexpr double kMaximumSampleDistanceM=10000.0;
     constexpr double kMaximumSampleDurationS=300.0;
     constexpr std::size_t kMaximumPiecesPerSegment=200;

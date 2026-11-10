@@ -42,8 +42,13 @@ int main()
     const WindField nextMid=fieldAt(80,11.0,9.0,700);
     const WindField nextHigh=fieldAt(100,13.0,11.0,700);
     const WindField nextTop=fieldAt(1000,24.0,22.0,700);
+    const WindField laterLow=fieldAt(50,12.0,10.0,800);
+    const WindField laterMid=fieldAt(80,15.0,13.0,800);
+    const WindField laterHigh=fieldAt(100,17.0,15.0,800);
+    const WindField laterTop=fieldAt(1000,28.0,26.0,800);
     const std::vector<WindField> timeFields{
-        low,mid,high,top,nextLow,nextMid,nextHigh,nextTop
+        low,mid,high,top,nextLow,nextMid,nextHigh,nextTop,
+        laterLow,laterMid,laterHigh,laterTop
     };
     const auto timeInterpolated=WindInterpolator::atTimeAndAltitude(
         timeFields,0.5,10.5,65.0,1794119400LL);
