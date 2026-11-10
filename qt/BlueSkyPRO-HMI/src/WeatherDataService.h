@@ -30,7 +30,7 @@ public:
 
     // Downloads a bounded NOAA GFS 0.25-degree GRIB2 wind subset asynchronously.
     // Supported direct AGL levels are confirmed by the current NOMADS filter:
-    // 10, 20, 30, 40, 50, 80, 100 and 1000 metres.
+    // 2, 10, 20, 30, 40, 50, 80, 100, 1000 and 4000 metres.
     Q_INVOKABLE bool requestWindSubset(const QString &dateUtc,
                                        const QString &cycleUtc,
                                        int forecastHour,
