@@ -40,6 +40,30 @@ int main(){
     assert(r.remaining_energy_wh<100.0);
     assert(!r.dependency_identity.empty());
 
+    Route withTaskDwell=route;
+    withTaskDwell.waypoints.back().task_execution_duration_s=60.0;
+    withTaskDwell.waypoints.back().task_execution_energy_wh=2.5;
+    const auto dwellResult=WindPerformanceTrajectory::calculate(withTaskDwell,in,"CALC1");
+    assert(dwellResult.status==TrajectoryStatus::Feasible);
+    assert(std::abs(dwellResult.total_time_s-(r.total_time_s+60.0))<1e-9);
+    assert(std::abs(dwellResult.total_energy_wh-(r.total_energy_wh+2.5))<1e-9);
+    assert(std::abs(dwellResult.points.back().elapsed_time_s-dwellResult.total_time_s)<1e-9);
+
+    Route withIntermediateTask=route;
+    withIntermediateTask.waypoints.front().task_execution_duration_s=30.0;
+    withIntermediateTask.waypoints.front().task_execution_energy_wh=1.0;
+    const auto intermediateDwellResult=WindPerformanceTrajectory::calculate(
+        withIntermediateTask,in,"CALC1");
+    assert(intermediateDwellResult.status==TrajectoryStatus::Feasible);
+    assert(std::abs(intermediateDwellResult.total_time_s-(r.total_time_s+30.0))<1e-9);
+    assert(std::abs(intermediateDwellResult.total_energy_wh-(r.total_energy_wh+1.0))<1e-9);
+
+    Route invalidTask=route;
+    invalidTask.waypoints.front().task_execution_duration_s=30.0;
+    const auto invalidTaskResult=WindPerformanceTrajectory::calculate(invalidTask,in,"CALC1");
+    assert(invalidTaskResult.status==TrajectoryStatus::Infeasible);
+    assert(!invalidTaskResult.findings.empty());
+
     auto missing=in; missing.wind_samples.clear();
     assert(WindPerformanceTrajectory::calculate(route,missing,"CALC1").status==TrajectoryStatus::Infeasible);
 
