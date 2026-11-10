@@ -42,6 +42,7 @@ add_library(bluesky_planning
     ../WEATHER/route_wind_adapter.cpp
     ../WEATHER/weather_trajectory_calculator.cpp
     ../WEATHER/gfs_forecast_planner.cpp
+    ../WEATHER/weather_applicability_policy.cpp
 )
 
 target_include_directories(bluesky_planning PUBLIC
@@ -302,6 +303,16 @@ target_link_libraries(capability_execution_integration_test PRIVATE bluesky_plan
     add_test(NAME mission_transfer_runtime_test COMMAND mission_transfer_runtime_test)
     add_test(NAME parameter_configuration_runtime_test COMMAND parameter_configuration_runtime_test)
     add_test(NAME capability_execution_integration_test COMMAND capability_execution_integration_test)
+
+add_executable(weather_applicability_policy_test
+    ../WEATHER/tests/weather_applicability_policy_test.cpp
+)
+target_link_libraries(weather_applicability_policy_test PRIVATE bluesky_planning)
+target_compile_options(weather_applicability_policy_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME weather_applicability_policy_contract COMMAND weather_applicability_policy_test)
 
 add_executable(gfs_forecast_planner_test
     ../WEATHER/tests/gfs_forecast_planner_test.cpp
