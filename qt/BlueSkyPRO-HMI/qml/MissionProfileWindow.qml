@@ -18,6 +18,17 @@ Item {
     property string weatherMissionStartUtc: ""
     property string weatherMissionEndUtc: ""
     property var lastWeatherCoverageResult: ({})
+    onMissionModelJsonChanged: {
+        if (weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
+                || weatherAcquisitionStatus === "DOWNLOADING")
+            invalidateWeatherAcquisition("MISSION_MODEL_CHANGED_WEATHER_REQUEST_INVALIDATED")
+    }
+    onMissionIdChanged: {
+        if (weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
+                || weatherAcquisitionStatus === "DOWNLOADING")
+            invalidateWeatherAcquisition("MISSION_ID_CHANGED_WEATHER_REQUEST_INVALIDATED")
+    }
+
     readonly property string weatherCoverageStatus:
         lastWeatherCoverageResult && lastWeatherCoverageResult.valid === true
         ? "REQUEST_READY" : (lastWeatherCoverageResult && lastWeatherCoverageResult.errors
