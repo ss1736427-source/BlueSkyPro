@@ -52,6 +52,9 @@ public:
                                 const QStringList &levelsAglM,
                                 QString *error = nullptr);
     static bool isValidGrib2File(const QString &path, QString *error = nullptr);
+    // Exact canonical URL identity lets concurrent callers join one in-flight transfer.
+    static bool isSameRequestIdentity(const QUrl &activeRequestUrl,
+                                      const QUrl &requestedUrl);
     // A cached forecast is reusable only when its exact request identity, valid time,
     // file size and SHA-256 all match the manifest. Forecast products are immutable;
     // freshness of the selected model cycle is checked by GFS availability planning.
@@ -82,6 +85,7 @@ private:
 
     QNetworkAccessManager m_network;
     QPointer<QNetworkReply> m_reply;
+    QUrl m_activeRequestUrl;
     QFile *m_partialFile{nullptr};
     QCryptographicHash m_hash{QCryptographicHash::Sha256};
     QString m_state{QStringLiteral("IDLE")};
