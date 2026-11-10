@@ -22,9 +22,9 @@ namespace
 {
 const QString kEndpoint = QStringLiteral("https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl");
 const QStringList kSupportedAglLevels{
-    QStringLiteral("10"), QStringLiteral("20"), QStringLiteral("30"),
+    QStringLiteral("2"), QStringLiteral("10"), QStringLiteral("20"), QStringLiteral("30"),
     QStringLiteral("40"), QStringLiteral("50"), QStringLiteral("80"),
-    QStringLiteral("100"), QStringLiteral("1000")
+    QStringLiteral("100"), QStringLiteral("1000"), QStringLiteral("4000")
 };
 
 void assignError(QString *target, const QString &message)
