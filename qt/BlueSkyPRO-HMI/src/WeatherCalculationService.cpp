@@ -92,6 +92,24 @@ bool buildRoute(const QVariantMap& snapshot,Route& route,QString& error)
         waypoint.altitude_m=altitude;
         waypoint.altitude_reference=AltitudeReference::AGL;
         waypoint.mandatory=item.value(QStringLiteral("mandatory")).toBool();
+        const bool hasTaskDuration=item.contains(QStringLiteral("taskExecutionDurationS"));
+        const bool hasTaskEnergy=item.contains(QStringLiteral("taskExecutionEnergyWh"));
+        if (hasTaskDuration!=hasTaskEnergy) {
+            error=QStringLiteral("TASK_EXECUTION_DURATION_AND_ENERGY_MUST_BE_SUPPLIED_TOGETHER");
+            return false;
+        }
+        if (hasTaskDuration) {
+            bool durationOk=false,energyOk=false;
+            const double duration=item.value(QStringLiteral("taskExecutionDurationS")).toDouble(&durationOk);
+            const double energy=item.value(QStringLiteral("taskExecutionEnergyWh")).toDouble(&energyOk);
+            if (!durationOk || !energyOk || !std::isfinite(duration) || !std::isfinite(energy)
+                || duration<0.0 || energy<0.0) {
+                error=QStringLiteral("TASK_EXECUTION_DURATION_AND_ENERGY_MUST_BE_FINITE_NON_NEGATIVE");
+                return false;
+            }
+            waypoint.task_execution_duration_s=duration;
+            waypoint.task_execution_energy_wh=energy;
+        }
         route.waypoints.push_back(std::move(waypoint));
     }
     std::set<std::string> segmentIds;
