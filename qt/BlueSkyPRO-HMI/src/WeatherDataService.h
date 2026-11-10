@@ -52,6 +52,15 @@ public:
                                 const QStringList &levelsAglM,
                                 QString *error = nullptr);
     static bool isValidGrib2File(const QString &path, QString *error = nullptr);
+    // A cached forecast is reusable only when its exact request identity, valid time,
+    // file size and SHA-256 all match the manifest. Forecast products are immutable;
+    // freshness of the selected model cycle is checked by GFS availability planning.
+    static bool isReusableCacheEntry(const QString &filePath,
+                                     const QString &manifestPath,
+                                     const QString &expectedRequestUrl,
+                                     const QString &expectedModelRunUtc,
+                                     int expectedForecastHour,
+                                     QString *error = nullptr);
 
 signals:
     void stateChanged();

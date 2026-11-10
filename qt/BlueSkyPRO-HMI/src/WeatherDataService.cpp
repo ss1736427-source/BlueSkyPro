@@ -150,6 +150,70 @@ bool WeatherDataService::isValidGrib2File(const QString &path, QString *error)
     return true;
 }
 
+bool WeatherDataService::isReusableCacheEntry(const QString &filePath,
+                                                     const QString &manifestPath,
+                                                     const QString &expectedRequestUrl,
+                                                     const QString &expectedModelRunUtc,
+                                                     int expectedForecastHour,
+                                                     QString *error)
+{
+    QString gribError;
+    if (!isValidGrib2File(filePath, &gribError)) {
+        assignError(error, QStringLiteral("cached GRIB2 file is invalid: %1").arg(gribError));
+        return false;
+    }
+
+    QFile manifestFile(manifestPath);
+    if (!manifestFile.open(QIODevice::ReadOnly)) {
+        assignError(error, QStringLiteral("cached forecast manifest is missing or unreadable"));
+        return false;
+    }
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(manifestFile.readAll(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        assignError(error, QStringLiteral("cached forecast manifest is malformed"));
+        return false;
+    }
+    const QJsonObject manifest = document.object();
+    const QDateTime modelRun = QDateTime::fromString(expectedModelRunUtc, Qt::ISODate).toUTC();
+    if (!modelRun.isValid() || expectedForecastHour < 0 || expectedForecastHour > 384) {
+        assignError(error, QStringLiteral("expected forecast identity is invalid"));
+        return false;
+    }
+    const QString expectedValidTime = modelRun.addSecs(qint64(expectedForecastHour) * 3600)
+        .toString(QStringLiteral("yyyy-MM-dd'T'HH:mm:ss'Z'"));
+    QFile cachedFile(filePath);
+    if (!cachedFile.open(QIODevice::ReadOnly)) {
+        assignError(error, QStringLiteral("cached forecast file cannot be read"));
+        return false;
+    }
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    while (!cachedFile.atEnd()) {
+        const QByteArray chunk = cachedFile.read(1024 * 1024);
+        if (chunk.isEmpty() && cachedFile.error() != QFile::NoError) {
+            assignError(error, QStringLiteral("cached forecast file read failed"));
+            return false;
+        }
+        hash.addData(chunk);
+    }
+    const QString actualHash = QString::fromLatin1(hash.result().toHex());
+    const bool matches =
+        manifest.value(QStringLiteral("cache_schema_version")).toInt() == 1
+        && manifest.value(QStringLiteral("request_url")).toString() == expectedRequestUrl
+        && manifest.value(QStringLiteral("model_run_utc")).toString() == expectedModelRunUtc
+        && manifest.value(QStringLiteral("forecast_hour")).toInt(-1) == expectedForecastHour
+        && manifest.value(QStringLiteral("forecast_valid_time_utc")).toString() == expectedValidTime
+        && manifest.value(QStringLiteral("bytes")).toVariant().toLongLong() == cachedFile.size()
+        && manifest.value(QStringLiteral("sha256")).toString() == actualHash
+        && manifest.value(QStringLiteral("file")).toString() == QFileInfo(filePath).fileName();
+    if (!matches) {
+        assignError(error, QStringLiteral("cached forecast identity, valid time, size or SHA-256 does not match its manifest"));
+        return false;
+    }
+    assignError(error, QString());
+    return true;
+}
+
 bool WeatherDataService::requestWindSubset(const QString &dateUtc,
                                            const QString &cycleUtc,
                                            int forecastHour,
@@ -181,23 +245,29 @@ bool WeatherDataService::requestWindSubset(const QString &dateUtc,
     m_manifestPath = m_finalPath + QStringLiteral(".manifest.json");
 
     QString cachedError;
-    if (QFileInfo::exists(m_finalPath) && isValidGrib2File(m_finalPath, &cachedError)
-        && QFileInfo::exists(m_manifestPath)) {
+    const QString modelRunUtc = date.toString(QStringLiteral("yyyy-MM-dd"))
+        + QLatin1Char('T') + cycleUtc + QStringLiteral(":00:00Z");
+    if (QFileInfo::exists(m_finalPath) && QFileInfo::exists(m_manifestPath)
+        && isReusableCacheEntry(m_finalPath, m_manifestPath, url.toString(),
+                                modelRunUtc, forecastHour, &cachedError)) {
         QFile manifestFile(m_manifestPath);
         if (manifestFile.open(QIODevice::ReadOnly)) {
-            const QJsonObject manifest = QJsonDocument::fromJson(manifestFile.readAll()).object();
-            if (manifest.value(QStringLiteral("request_url")).toString() == url.toString()) {
-                m_lastDownloadedFile = m_finalPath;
-                emit lastDownloadedFileChanged();
-                setError(QString());
-                setState(QStringLiteral("CACHE_HIT"));
-                emit forecastReady(m_finalPath, manifest.toVariantMap());
-                return true;
-            }
+            QJsonObject manifest = QJsonDocument::fromJson(manifestFile.readAll()).object();
+            manifest.insert(QStringLiteral("cache_reuse_status"),
+                            QStringLiteral("VERIFIED_CONTENT_AND_FORECAST_VALID_TIME"));
+            m_lastDownloadedFile = m_finalPath;
+            emit lastDownloadedFileChanged();
+            setError(QString());
+            setState(QStringLiteral("CACHE_HIT"));
+            emit forecastReady(m_finalPath, manifest.toVariantMap());
+            return true;
         }
     }
+    // A corrupt, incomplete or mismatched cache entry must never be reused.
     if (QFileInfo::exists(m_finalPath))
         QFile::remove(m_finalPath);
+    if (QFileInfo::exists(m_manifestPath))
+        QFile::remove(m_manifestPath);
 
     m_partialPath = m_finalPath + QStringLiteral(".part");
     m_partialFile = new QFile(m_partialPath, this);
@@ -210,7 +280,14 @@ bool WeatherDataService::requestWindSubset(const QString &dateUtc,
 
     m_receivedBytes = 0;
     m_hash.reset();
+    const QDateTime modelRun = QDateTime::fromString(modelRunUtc, Qt::ISODate).toUTC();
+    const QString forecastValidTimeUtc = modelRun.addSecs(qint64(forecastHour) * 3600)
+        .toString(QStringLiteral("yyyy-MM-dd'T'HH:mm:ss'Z'"));
     m_manifest = {
+        {QStringLiteral("cache_schema_version"), 1},
+        {QStringLiteral("cache_reuse_policy"), QStringLiteral("IMMUTABLE_PRODUCT_WITH_EXACT_VALID_TIME_AND_SHA256")},
+        {QStringLiteral("forecast_time_semantics"), QStringLiteral("VALID_TIME_INSTANT")},
+        {QStringLiteral("forecast_valid_time_utc"), forecastValidTimeUtc},
         {QStringLiteral("classification"), QStringLiteral("LIVE_MODEL_DATA_UNDECODED")},
         {QStringLiteral("provider"), QStringLiteral("NOAA/NCEP NOMADS")},
         {QStringLiteral("model"), QStringLiteral("GFS 0.25 degree")},

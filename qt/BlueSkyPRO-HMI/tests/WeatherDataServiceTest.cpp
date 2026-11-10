@@ -44,9 +44,42 @@ int main()
     QFile valid(validPath);
     assert(valid.open(QIODevice::WriteOnly));
     valid.write(QByteArrayLiteral("GRIB") + QByteArray(3, char(0)) + QByteArray(1, char(2))
-                + QByteArrayLiteral("payload") + QByteArrayLiteral("7777"));
+                + QByteArrayLiteral("payload0") + QByteArrayLiteral("7777"));
     valid.close();
     assert(WeatherDataService::isValidGrib2File(validPath));
+
+    const QString manifestPath = temp.filePath(QStringLiteral("valid.manifest.json"));
+    QFile manifestFile(manifestPath);
+    assert(manifestFile.open(QIODevice::WriteOnly));
+    const QByteArray validBytes = [&]() {
+        QFile input(validPath);
+        assert(input.open(QIODevice::ReadOnly));
+        return input.readAll();
+    }();
+    const QString validHash = QString::fromLatin1(
+        QCryptographicHash::hash(validBytes, QCryptographicHash::Sha256).toHex());
+    const QByteArray manifest = QStringLiteral(
+        R"({"cache_schema_version":1,"request_url":"https://example.test/gfs","model_run_utc":"2026-11-07T12:00:00Z","forecast_hour":6,"forecast_valid_time_utc":"2026-11-07T18:00:00Z","bytes":%1,"sha256":"%2","file":"valid.grib2"})")
+        .arg(validBytes.size()).arg(validHash).toUtf8();
+    manifestFile.write(manifest);
+    manifestFile.close();
+    assert(WeatherDataService::isReusableCacheEntry(
+        validPath, manifestPath, QStringLiteral("https://example.test/gfs"),
+        QStringLiteral("2026-11-07T12:00:00Z"), 6, &error));
+    assert(error.isEmpty());
+    assert(!WeatherDataService::isReusableCacheEntry(
+        validPath, manifestPath, QStringLiteral("https://example.test/gfs"),
+        QStringLiteral("2026-11-07T12:00:00Z"), 9, &error));
+    assert(!error.isEmpty());
+
+    // Same URL and forecast lead are not sufficient if the cached bytes were altered.
+    QFile tampered(validPath);
+    assert(tampered.open(QIODevice::Append));
+    tampered.write("x");
+    tampered.close();
+    assert(!WeatherDataService::isReusableCacheEntry(
+        validPath, manifestPath, QStringLiteral("https://example.test/gfs"),
+        QStringLiteral("2026-11-07T12:00:00Z"), 6, &error));
 
     const QString invalidPath = temp.filePath(QStringLiteral("invalid.grib2"));
     QFile invalid(invalidPath);
