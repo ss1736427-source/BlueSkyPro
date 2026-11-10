@@ -4,6 +4,27 @@ import QtCore
 Item {
     id: root
     property string missionId: ""
+    property string missionModelJson: ""
+    property var coverageBridge: null
+    property var lastWeatherCoverageResult: ({})
+    readonly property string weatherCoverageStatus:
+        lastWeatherCoverageResult && lastWeatherCoverageResult.valid === true
+        ? "REQUEST_READY" : (lastWeatherCoverageResult && lastWeatherCoverageResult.errors
+                            ? "BLOCKED" : "NOT_REQUESTED")
+
+    // Uses the same canonical mission JSON and RouteController snapshot shown
+    // by this profile. Time window and area AGL levels must be supplied explicitly.
+    function buildWeatherCoverageRequest(validFromUtc, validToUtc, spatialBufferM, areaAltitudesAglM) {
+        if (!root.coverageBridge || !root.routeController || !root.missionModelJson)
+            return { valid: false, errors: ["MISSION_ROUTE_OR_WEATHER_BRIDGE_UNAVAILABLE"] }
+        var result = root.coverageBridge.buildCoverageRequest(
+                    root.missionModelJson,
+                    root.routeController.routeSnapshot(),
+                    validFromUtc, validToUtc, spatialBufferM,
+                    areaAltitudesAglM || [])
+        root.lastWeatherCoverageResult = result
+        return result
+    }
     // Shared authoritative route model; local profile data is presentation-only.
     property var routeController: null
     readonly property bool hasCanonicalRoute: routeController !== null && routeController !== undefined

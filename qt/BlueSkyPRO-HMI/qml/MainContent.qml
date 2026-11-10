@@ -30,6 +30,9 @@ Item {
     property string manualMissionModelJson: ""
     property string missionTaskDescription: ""
     property string autoMissionModelJson: ""
+    readonly property string activeMissionModelJson:
+        (missionState === "MANUAL" || missionState === "VALIDATING")
+        ? manualMissionModelJson : autoMissionModelJson
     property string autoMissionModelStatus: "NOT_BUILT"
     property int autoMissionVersion: 1
     // These assignments are populated only by the approved configuration selector.
@@ -276,6 +279,8 @@ Item {
             visible: root.missionProfileOpen && root.activeTool !== "ADMIN"
             routeController: canonicalRouteController
             missionId: root.missionId
+            missionModelJson: root.activeMissionModelJson
+            coverageBridge: typeof weatherCoverageBridge !== "undefined" ? weatherCoverageBridge : null
             missionSummary: root.missionSummary
             missionReviewState: root.missionReviewState
             missionTemplateIndices: root.missionTemplateIndices

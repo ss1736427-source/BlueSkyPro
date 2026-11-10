@@ -71,6 +71,10 @@ qt_add_executable(appBlueSkyPRO
     src/FaaNmsClient.h
     src/WeatherDataService.cpp
     src/WeatherDataService.h
+    src/WeatherCoverageBridge.cpp
+    src/WeatherCoverageBridge.h
+    ../../04_SOFTWARE/WEATHER/weather_coverage_request.cpp
+    ../../04_SOFTWARE/WEATHER/weather_coverage_request.hpp
     ../../04_SOFTWARE/WEATHER/gfs_forecast_availability_service.cpp
     ../../04_SOFTWARE/WEATHER/gfs_forecast_availability_service.hpp
     src/NotamGeometryEngine.cpp
@@ -243,3 +247,22 @@ add_executable(weather_data_service_test
 target_include_directories(weather_data_service_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(weather_data_service_test PRIVATE Qt6::Core Qt6::Network)
 add_test(NAME weather_data_service_contract COMMAND weather_data_service_test)
+
+add_executable(weather_coverage_bridge_test
+    tests/WeatherCoverageBridgeTest.cpp
+    src/WeatherCoverageBridge.cpp
+    src/WeatherCoverageBridge.h
+    ../../04_SOFTWARE/WEATHER/weather_coverage_request.cpp
+    ../../04_SOFTWARE/WEATHER/weather_coverage_request.hpp
+)
+target_include_directories(weather_coverage_bridge_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../..
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/WEATHER
+)
+target_link_libraries(weather_coverage_bridge_test PRIVATE Qt6::Core)
+target_compile_features(weather_coverage_bridge_test PRIVATE cxx_std_20)
+target_compile_options(weather_coverage_bridge_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME weather_coverage_bridge_contract COMMAND weather_coverage_bridge_test)

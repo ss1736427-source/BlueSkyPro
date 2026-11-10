@@ -19,6 +19,7 @@
 #include "CredentialVault.h"
 #include "FaaNmsClient.h"
 #include "WeatherDataService.h"
+#include "WeatherCoverageBridge.h"
 #include "gfs_forecast_availability_service.hpp"
 #include <QQmlApplicationEngine>
 #include <QUrl>
@@ -115,6 +116,7 @@ int main(int argc, char *argv[])
     writeStartupLog(QStringLiteral("CHECKPOINT: before WeatherDataService constructor"));
     WeatherDataService weatherDataService;
     writeStartupLog(QStringLiteral("CHECKPOINT: after WeatherDataService constructor"));
+    WeatherCoverageBridge weatherCoverageBridge;
     bluesky::weather::GfsForecastAvailabilityService gfsForecastAvailabilityService;
 
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
@@ -130,6 +132,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("credentialVault"), &credentialVault);
     engine.rootContext()->setContextProperty(QStringLiteral("faaNmsClient"), &faaNmsClient);
     engine.rootContext()->setContextProperty(QStringLiteral("weatherDataService"), &weatherDataService);
+    engine.rootContext()->setContextProperty(QStringLiteral("weatherCoverageBridge"), &weatherCoverageBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("gfsForecastAvailabilityService"), &gfsForecastAvailabilityService);
     writeStartupLog(QStringLiteral("CHECKPOINT: C++ context properties configured"));
 
