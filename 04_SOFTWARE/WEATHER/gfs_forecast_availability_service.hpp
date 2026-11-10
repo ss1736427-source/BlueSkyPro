@@ -1,6 +1,7 @@
 #pragma once
 #include <QByteArray>
 #include <QDateTime>
+#include <QHash>
 #include <QNetworkAccessManager>
 #include <QObject>
 #include <QPointer>
@@ -31,6 +32,11 @@ public:
     static QStringList recentCandidateCyclesUtc(const QDateTime &nowUtc,
                                                 int lookbackDays,
                                                 QString *error = nullptr);
+    // Availability metadata expires independently of immutable forecast products.
+    static constexpr int availabilityCacheTtlSeconds() noexcept { return 600; }
+    static bool isAvailabilityCacheFresh(const QDateTime &checkedAtUtc,
+                                         const QDateTime &nowUtc,
+                                         int ttlSeconds = availabilityCacheTtlSeconds());
 signals:
     void stateChanged();
     void lastErrorChanged();
@@ -39,8 +45,16 @@ signals:
     void checkFailed(const QString &reason, const QVariantList &candidateDiagnostics);
 private:
     struct Candidate { QString cycleTimeUtc; GfsForecastPlan plan; };
+    struct CachedAvailabilityListing {
+        QSet<int> forecastHours;
+        QDateTime checkedAtUtc;
+    };
     void checkNextCandidate();
     void finishCurrentCandidate();
+    void evaluateCurrentCandidate(const QString &cycleTimeUtc,
+                                  const QSet<int> &availableHours,
+                                  const QDateTime &checkedAtUtc,
+                                  bool cacheHit);
     void failCheck(const QString &reason);
     void setState(const QString &value);
     void setError(const QString &value);
@@ -49,6 +63,7 @@ private:
     QPointer<QNetworkReply> m_reply;
     QVector<Candidate> m_candidates;
     QVariantList m_candidateDiagnostics;
+    QHash<QString, CachedAvailabilityListing> m_availabilityCache;
     int m_candidateIndex{0};
     QString m_missionStartUtc, m_missionEndUtc;
     QString m_state{QStringLiteral("IDLE")};
