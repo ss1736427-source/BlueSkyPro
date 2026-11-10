@@ -40,9 +40,6 @@ struct CandidateSolution {
     std::string solver_id;
     std::string solver_version;
     std::vector<std::string> route_elements;
-    // Full flown geometry is required for weather-aware candidate assessment.
-    // Structural graph paths without transitions/turns must not set the completeness flag.
-    std::optional<Route> trajectory_route;
     std::vector<std::string> constraint_violations;
     double estimated_time_s{0.0};
     double estimated_energy_wh{0.0};
@@ -54,6 +51,10 @@ struct CandidateSolution {
     // Producer attestation: profile covers every flown segment, including transitions.
     bool flight_dynamics_complete{false};
     std::size_t flight_dynamics_expected_segment_count{0};
+    // Full flown geometry is required for weather-aware candidate assessment.
+    // Appended to preserve the positional order of existing aggregate initializers.
+    // Structural graph paths without transitions/turns must not set the completeness flag.
+    std::optional<Route> trajectory_route;
 };
 
 // Standard handoff for route-producing solvers. Incomplete structural routes
