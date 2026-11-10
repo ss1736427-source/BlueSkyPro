@@ -4,7 +4,10 @@ project(BlueSkyPRO_HMI VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Quick Location Positioning Network WebEngineQuick WebEngineCore WebChannel)
+find_package(Qt6 REQUIRED COMPONENTS Core Quick Location Positioning Network Concurrent WebEngineQuick WebEngineCore WebChannel)
+
+# GRIB2 decoding is optional for developer builds, but CI packages enable it explicitly.
+option(BLUESKY_ENABLE_ECCODES "Build the ecCodes GRIB2 weather decoder" OFF)
 
 # Bundle the pinned MapLibre GL JS runtime into the Qt resource system.
 # This removes the application's runtime dependency on a third-party CDN.
@@ -128,7 +131,7 @@ qt_add_resources(appBlueSkyPRO maplibre_vendor
 
 target_compile_features(appBlueSkyPRO PRIVATE cxx_std_20)
 target_include_directories(appBlueSkyPRO PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.. ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/WEATHER)
-target_link_libraries(appBlueSkyPRO PRIVATE bluesky_planning Qt6::Core Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::WebEngineQuick Qt6::WebEngineCore Qt6::WebChannel)
+target_link_libraries(appBlueSkyPRO PRIVATE bluesky_planning Qt6::Core Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::Concurrent Qt6::WebEngineQuick Qt6::WebEngineCore Qt6::WebChannel)
 if(WIN32)
     target_link_libraries(appBlueSkyPRO PRIVATE Advapi32)
 endif()

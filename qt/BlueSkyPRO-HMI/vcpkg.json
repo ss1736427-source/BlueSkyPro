@@ -1,0 +1,8 @@
+{
+  "name": "blueskypro-hmi",
+  "version-string": "0.1.0",
+  "builtin-baseline": "8469b01206bff843500592f18dcab88b13331da6",
+  "dependencies": [
+    "eccodes"
+  ]
+}
