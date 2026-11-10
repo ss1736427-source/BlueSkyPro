@@ -367,7 +367,7 @@ QVariantMap evaluateOnWorker(const std::vector<ForecastProduct>& products,const 
             return result;
         }
         snapshotHash.addData(actualSha.toLatin1());
-        snapshotHash.addData(QByteArray(1,'\\0'));
+        snapshotHash.addData(QByteArray(1,'\0'));
         paths.push_back(QFile::encodeName(product.path).toStdString());
     }
     const QString snapshotId=QStringLiteral("GFS-WIND-")+QString::fromLatin1(snapshotHash.result().toHex());
@@ -482,12 +482,6 @@ bool WeatherCalculationService::evaluateRoute(
     if (!buildPerformanceInput(validatedPerformanceProfile,missionStartUtc,input,error)) {
         setError(error);
         return false;
-    }
-    for (const QString& path:forecastFiles) {
-        if (!QFileInfo::exists(path) || !QFileInfo(path).isFile()) {
-            setError(QStringLiteral("FORECAST_PRODUCT_NOT_FOUND: ")+path);
-            return false;
-        }
     }
     const QDateTime missionStart=QDateTime::fromString(missionStartUtc,Qt::ISODate).toUTC();
     if (!missionStart.isValid()) {
