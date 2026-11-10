@@ -13,6 +13,7 @@ add_library(bluesky_weather
     route_wind_adapter.cpp
     weather_trajectory_calculator.cpp
     gfs_forecast_planner.cpp
+    weather_coverage_request.cpp
     ../PLANNING/wind_performance_trajectory.cpp
 )
 target_include_directories(bluesky_weather PUBLIC
@@ -64,6 +65,14 @@ target_compile_options(gfs_forecast_planner_test PRIVATE
     "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
 )
 add_test(NAME gfs_forecast_planner_contract COMMAND gfs_forecast_planner_test)
+
+add_executable(weather_coverage_request_test tests/weather_coverage_request_test.cpp)
+target_link_libraries(weather_coverage_request_test PRIVATE bluesky_weather)
+target_compile_options(weather_coverage_request_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME weather_coverage_request_contract COMMAND weather_coverage_request_test)
 
 if(BLUESKY_ENABLE_ECCODES)
     add_executable(grib2_decoder_contract_test tests/grib2_decoder_contract_test.cpp)
