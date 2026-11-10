@@ -338,7 +338,7 @@ Item {
             return false
         }
         root.weatherAcquisitionStatus = "ASSESSING_WEATHER"
-        root.weatherAcquisitionMessage = "Декодирование GRIB2, QC и оценка ветра по времени прохождения маршрута"
+        root.weatherAcquisitionMessage = "Декодирование GFS U/V, QC и оценка ветра по времени прохождения маршрута"
         return true
     }
 
@@ -488,12 +488,12 @@ Item {
             root.weatherAssessmentResult = result
             if (result.weatherReady === true && result.trajectoryStatus === "FEASIBLE") {
                 root.weatherAcquisitionStatus = "WEATHER_ASSESSMENT_READY"
-                root.weatherAcquisitionMessage = "Погодная оценка завершена · " +
+                root.weatherAcquisitionMessage = "Оценка ветрового влияния завершена · " +
                         Number(result.totalTimeS).toFixed(0) + " с · " +
                         Number(result.totalEnergyWh).toFixed(1) + " Wh"
             } else if (result.weatherReady === true) {
                 root.weatherAcquisitionStatus = "WEATHER_ASSESSMENT_INFEASIBLE"
-                root.weatherAcquisitionMessage = "Погодные данные декодированы, но расчётная траектория недопустима"
+                root.weatherAcquisitionMessage = "Ветровые данные декодированы, но расчётная траектория недопустима"
             } else {
                 root.weatherAcquisitionStatus = "BLOCKED"
                 root.weatherAcquisitionMessage = String(result.weatherError || "WEATHER_ASSESSMENT_FAILED")
