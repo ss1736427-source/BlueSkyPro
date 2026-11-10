@@ -10,16 +10,17 @@ std::optional<std::size_t> WeatherApplicabilityPolicy::selectLatestObservation(
     std::int64_t etdUtc,
     std::int64_t nowUtc)
 {
-    if (stationId.empty() || nowUtc > etdUtc)
+    if (stationId.empty())
         return std::nullopt;
 
     const std::int64_t earliest = etdUtc - kObservationWindowSeconds;
+    const std::int64_t latest = etdUtc + kObservationWindowSeconds;
     std::optional<std::size_t> selected;
     for (std::size_t i = 0; i < reports.size(); ++i) {
         const auto& report = reports[i];
         if (report.station_id != stationId || report.report_id.empty()
             || report.observation_time_utc < earliest
-            || report.observation_time_utc > etdUtc
+            || report.observation_time_utc > latest
             || report.observation_time_utc > nowUtc
             || report.received_time_utc > nowUtc
             || report.received_time_utc < report.observation_time_utc) {
@@ -59,7 +60,7 @@ std::optional<std::size_t> WeatherApplicabilityPolicy::selectCoveringTaf(
     for (std::size_t i = 0; i < reports.size(); ++i) {
         const auto& report = reports[i];
         if (report.station_id != stationId || report.report_id.empty()
-            || report.cancelled || report.issue_time_utc > nowUtc
+            || report.issue_time_utc > nowUtc
             || report.received_time_utc > nowUtc
             || report.received_time_utc < report.issue_time_utc
             || report.valid_to_utc < report.valid_from_utc
@@ -74,6 +75,8 @@ std::optional<std::size_t> WeatherApplicabilityPolicy::selectCoveringTaf(
             selected = i;
         }
     }
+    if (selected && reports[*selected].cancelled)
+        return std::nullopt;
     return selected;
 }
 
