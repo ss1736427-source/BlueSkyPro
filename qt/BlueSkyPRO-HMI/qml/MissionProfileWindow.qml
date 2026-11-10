@@ -192,14 +192,16 @@ Item {
                 ? root.uavModel[root.selectedUavIndex] : null
         var performanceProfile = selected && selected.performanceProfile
                 ? selected.performanceProfile : ({})
-        var paths = root.weatherDownloadedFiles.map(function(item) { return String(item.filePath || "") })
-        if (paths.length === 0 || paths.some(function(path) { return path.length === 0 })) {
+        var products = root.weatherDownloadedFiles
+        if (products.length === 0 || products.some(function(item) {
+            return !item.filePath || !item.manifest
+        })) {
             root.weatherAcquisitionStatus = "BLOCKED"
-            root.weatherAcquisitionMessage = "DOWNLOADED_GRIB2_PRODUCTS_MISSING"
+            root.weatherAcquisitionMessage = "DOWNLOADED_GRIB2_PRODUCTS_OR_MANIFESTS_MISSING"
             return false
         }
         var accepted = root.weatherCalculationService.evaluateRoute(
-                    paths,
+                    products,
                     root.routeController.routeSnapshot(),
                     root.missionModelJson,
                     root.weatherMissionStartUtc,

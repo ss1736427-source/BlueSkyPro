@@ -5,6 +5,8 @@
 #include "04_SOFTWARE/WEATHER/grib2_weather_pipeline.hpp"
 
 #include <QCryptographicHash>
+#include <QDateTime>
+#include <QSet>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -234,12 +236,91 @@ bool buildPerformanceInput(const QVariantMap& profile,const QString& missionStar
     return true;
 }
 
-QVariantMap evaluateOnWorker(const QStringList& files,const Route& route,
+struct ForecastProduct {
+    QString path;
+    QString sha256;
+    qint64 bytes{0};
+    int forecastHour{-1};
+    QString modelRunUtc;
+};
+
+bool validateForecastProducts(const QVariantList& values,
+                              std::vector<ForecastProduct>& products,
+                              QString& error)
+{
+    if (values.isEmpty()) {
+        error=QStringLiteral("DOWNLOADED_GRIB2_PRODUCTS_REQUIRED");
+        return false;
+    }
+    QSet<int> forecastHours;
+    QString commonModelRun;
+    for (const QVariant& value:values) {
+        const QVariantMap item=value.toMap();
+        const QString path=item.value(QStringLiteral("filePath")).toString();
+        const QVariantMap manifest=item.value(QStringLiteral("manifest")).toMap();
+        const int forecastHour=item.value(QStringLiteral("forecastHour")).toInt(-1);
+        const int schema=manifest.value(QStringLiteral("cache_schema_version")).toInt(-1);
+        const QString provider=manifest.value(QStringLiteral("provider")).toString();
+        const QString model=manifest.value(QStringLiteral("model")).toString();
+        const QString product=manifest.value(QStringLiteral("product")).toString();
+        const QString modelRunUtc=manifest.value(QStringLiteral("model_run_utc")).toString();
+        const QString validUtc=manifest.value(QStringLiteral("forecast_valid_time_utc")).toString();
+        const QString sha=manifest.value(QStringLiteral("sha256")).toString().toLower();
+        const QString fileName=manifest.value(QStringLiteral("file")).toString();
+        const QString decodeStatus=manifest.value(QStringLiteral("decode_status")).toString();
+        const QString optimizerStatus=manifest.value(QStringLiteral("optimizer_use_status")).toString();
+        bool bytesOk=false;
+        const qint64 bytes=manifest.value(QStringLiteral("bytes")).toLongLong(&bytesOk);
+        const QDateTime modelRun=QDateTime::fromString(modelRunUtc,Qt::ISODate).toUTC();
+        const QDateTime validTime=QDateTime::fromString(validUtc,Qt::ISODate).toUTC();
+        const QDateTime expectedValid=modelRun.addSecs(qint64(forecastHour)*3600);
+        const QVariantList variables=manifest.value(QStringLiteral("variables")).toList();
+        if (path.isEmpty() || !QFileInfo(path).isFile() || schema!=1
+            || provider!=QStringLiteral("NOAA/NCEP NOMADS")
+            || model!=QStringLiteral("GFS 0.25 degree")
+            || product!=QStringLiteral("GRIB2 regional wind subset")
+            || modelRunUtc.isEmpty() || !modelRun.isValid() || !validTime.isValid()
+            || forecastHour<0 || forecastHour!=manifest.value(QStringLiteral("forecast_hour")).toInt(-1)
+            || validTime!=expectedValid || sha.size()!=64 || !bytesOk || bytes<=0
+            || QFileInfo(path).size()!=bytes || fileName!=QFileInfo(path).fileName()
+            || decodeStatus!=QStringLiteral("NOT_PERFORMED")
+            || optimizerStatus!=QStringLiteral("BLOCKED_UNTIL_DECODED_AND_QC_PASSED")
+            || manifest.value(QStringLiteral("forecast_time_semantics")).toString()
+                !=QStringLiteral("VALID_TIME_INSTANT")
+            || manifest.value(QStringLiteral("classification")).toString()
+                !=QStringLiteral("LIVE_MODEL_DATA_UNDECODED")
+            || manifest.value(QStringLiteral("request_url")).toString().isEmpty()
+            || manifest.value(QStringLiteral("levels_m_agl")).toList().isEmpty()
+            || !variables.contains(QStringLiteral("UGRD"))
+            || !variables.contains(QStringLiteral("VGRD"))) {
+            error=QStringLiteral("GRIB2_PRODUCT_MANIFEST_OR_FILE_IDENTITY_INVALID: ")+path;
+            return false;
+        }
+        if (!commonModelRun.isEmpty() && commonModelRun!=modelRunUtc) {
+            error=QStringLiteral("GRIB2_PRODUCTS_MUST_USE_ONE_GFS_MODEL_RUN");
+            return false;
+        }
+        if (forecastHours.contains(forecastHour)) {
+            error=QStringLiteral("DUPLICATE_GFS_FORECAST_LEAD_HOUR");
+            return false;
+        }
+        commonModelRun=modelRunUtc;
+        forecastHours.insert(forecastHour);
+        products.push_back({path,sha,bytes,forecastHour,modelRunUtc});
+    }
+    std::sort(products.begin(),products.end(),
+        [](const ForecastProduct& a,const ForecastProduct& b) {
+            return a.forecastHour<b.forecastHour;
+        });
+    return true;
+}
+
+QVariantMap evaluateOnWorker(const std::vector<ForecastProduct>& products,const Route& route,
                              const TrajectoryPerformanceInput& input)
 {
     QVariantMap result;
 #ifndef BLUESKY_HAVE_ECCODES
-    Q_UNUSED(files);
+    Q_UNUSED(products);
     Q_UNUSED(route);
     Q_UNUSED(input);
     result.insert(QStringLiteral("weatherReady"),false);
@@ -249,29 +330,41 @@ QVariantMap evaluateOnWorker(const QStringList& files,const Route& route,
 #else
     QCryptographicHash snapshotHash(QCryptographicHash::Sha256);
     std::vector<std::string> paths;
-    paths.reserve(static_cast<std::size_t>(files.size()));
-    for (const QString& path:files) {
-        QFile file(path);
+    paths.reserve(products.size());
+    for (const auto& product:products) {
+        QFile file(product.path);
         if (!file.open(QIODevice::ReadOnly)) {
             result.insert(QStringLiteral("weatherReady"),false);
             result.insert(QStringLiteral("decodeSucceeded"),false);
             result.insert(QStringLiteral("weatherError"),
-                          QStringLiteral("FORECAST_PRODUCT_UNREADABLE: ")+path);
+                          QStringLiteral("FORECAST_PRODUCT_UNREADABLE: ")+product.path);
             return result;
         }
+        QCryptographicHash fileHash(QCryptographicHash::Sha256);
+        qint64 actualBytes=0;
         while (!file.atEnd()) {
             const QByteArray chunk=file.read(1024*1024);
             if (chunk.isEmpty() && file.error()!=QFileDevice::NoError) {
                 result.insert(QStringLiteral("weatherReady"),false);
                 result.insert(QStringLiteral("decodeSucceeded"),false);
                 result.insert(QStringLiteral("weatherError"),
-                              QStringLiteral("FORECAST_PRODUCT_READ_FAILED: ")+path);
+                              QStringLiteral("FORECAST_PRODUCT_READ_FAILED: ")+product.path);
                 return result;
             }
-            snapshotHash.addData(chunk);
+            actualBytes+=chunk.size();
+            fileHash.addData(chunk);
         }
-        snapshotHash.addData(QByteArray(1,'\0'));
-        paths.push_back(QFile::encodeName(path).toStdString());
+        const QString actualSha=QString::fromLatin1(fileHash.result().toHex());
+        if (actualBytes!=product.bytes || actualSha!=product.sha256) {
+            result.insert(QStringLiteral("weatherReady"),false);
+            result.insert(QStringLiteral("decodeSucceeded"),false);
+            result.insert(QStringLiteral("weatherError"),
+                          QStringLiteral("GRIB2_PRODUCT_SHA256_OR_SIZE_MISMATCH: ")+product.path);
+            return result;
+        }
+        snapshotHash.addData(actualSha.toLatin1());
+        snapshotHash.addData(QByteArray(1,'\\0'));
+        paths.push_back(QFile::encodeName(product.path).toStdString());
     }
     const QString snapshotId=QStringLiteral("GFS-WIND-")+QString::fromLatin1(snapshotHash.result().toHex());
     const auto evaluation=bluesky::weather::Grib2WeatherPipeline::evaluateFiles(
@@ -281,6 +374,8 @@ QVariantMap evaluateOnWorker(const QStringList& files,const Route& route,
     result.insert(QStringLiteral("weatherReady"),evaluation.evaluation.weather_ready);
     result.insert(QStringLiteral("weatherError"),QString::fromStdString(evaluation.evaluation.weather_error));
     result.insert(QStringLiteral("snapshotId"),snapshotId);
+    result.insert(QStringLiteral("modelRunUtc"),products.front().modelRunUtc);
+    result.insert(QStringLiteral("forecastProductCount"),static_cast<int>(products.size()));
     if (!evaluation.evaluation.weather_ready) return result;
 
     const auto& trajectory=evaluation.evaluation.trajectory;
@@ -346,7 +441,7 @@ bool WeatherCalculationService::decoderAvailable() const
 }
 
 bool WeatherCalculationService::evaluateRoute(
-    const QStringList& forecastFiles,const QVariantMap& routeSnapshot,
+    const QVariantList& forecastProducts,const QVariantMap& routeSnapshot,
     const QString& missionModelJson,const QString& missionStartUtc,
     const QVariantMap& validatedPerformanceProfile)
 {
@@ -358,8 +453,10 @@ bool WeatherCalculationService::evaluateRoute(
         setError(QStringLiteral("GRIB2_DECODER_NOT_AVAILABLE"));
         return false;
     }
-    if (forecastFiles.isEmpty()) {
-        setError(QStringLiteral("DOWNLOADED_GRIB2_PRODUCTS_REQUIRED"));
+    std::vector<ForecastProduct> products;
+    QString productError;
+    if (!validateForecastProducts(forecastProducts,products,productError)) {
+        setError(productError);
         return false;
     }
     QString vehicleId,configurationVersion,missionId,error;
@@ -388,11 +485,26 @@ bool WeatherCalculationService::evaluateRoute(
             return false;
         }
     }
+    const QDateTime missionStart=QDateTime::fromString(missionStartUtc,Qt::ISODate).toUTC();
+    if (!missionStart.isValid()) {
+        setError(QStringLiteral("VALID_MISSION_START_UTC_REQUIRED"));
+        return false;
+    }
+    const QDateTime firstValid=QDateTime::fromString(
+        products.front().modelRunUtc,Qt::ISODate).toUTC().addSecs(qint64(products.front().forecastHour)*3600);
+    const auto lastProduct=std::max_element(products.begin(),products.end(),
+        [](const ForecastProduct& a,const ForecastProduct& b){ return a.forecastHour<b.forecastHour; });
+    const QDateTime lastValid=QDateTime::fromString(
+        lastProduct->modelRunUtc,Qt::ISODate).toUTC().addSecs(qint64(lastProduct->forecastHour)*3600);
+    if (missionStart<firstValid || missionStart>lastValid) {
+        setError(QStringLiteral("MISSION_START_OUTSIDE_DOWNLOADED_FORECAST_VALID_TIME_WINDOW"));
+        return false;
+    }
     setError(QString());
     setState(QStringLiteral("ASSESSING"));
     m_watcher.setFuture(QtConcurrent::run(
-        [forecastFiles,route,input]() {
-            return evaluateOnWorker(forecastFiles,route,input);
+        [products,route,input]() {
+            return evaluateOnWorker(products,route,input);
         }));
     return true;
 }

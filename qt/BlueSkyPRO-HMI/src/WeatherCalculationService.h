@@ -5,6 +5,7 @@
 #include <QString>
 #include <QStringList>
 #include <QVariantMap>
+#include <QVariantList>
 
 class WeatherCalculationService final : public QObject
 {
@@ -23,7 +24,7 @@ public:
     bool decoderAvailable() const;
 
     Q_INVOKABLE bool evaluateRoute(
-        const QStringList& forecastFiles,
+        const QVariantList& forecastProducts,
         const QVariantMap& routeSnapshot,
         const QString& missionModelJson,
         const QString& missionStartUtc,
