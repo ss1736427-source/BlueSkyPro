@@ -46,10 +46,10 @@ A received SPECI is a new observation event and invalidates the assumption that 
 
 Under Russian FAP No. 49:
 - regular TAF is issued every three hours;
-- the validity period starts at 00, 03, 06, 09, 12, 15, 18 or 21 UTC;
+- issue lead time is less than one hour and not less than 30 minutes before the start of its validity period;
 - regular TAF validity is 6, 9, 24 or 30 hours;
-- issue lead time is less than one hour and not less than 30 minutes before the start of the validity period;
-- no more than one TAF for the same aerodrome and validity period is to remain current.
+- the exact validity start and end are encoded in the TAF validity group; the system must not infer a fixed start hour merely from the three-hour issue cadence;
+- a newly issued TAF cancels an earlier TAF for the same aerodrome and the same validity period.
 
 TAF selection is based on its encoded validity interval, not on a generic age limit. A newer AMD/COR product supersedes the applicable prior forecast; CNL cancels the forecast it identifies.
 
@@ -128,7 +128,7 @@ Weather retrieval must be scoped to the mission area, route, execution interval 
 
 The repository currently implements the NOAA GFS acquisition, availability, cache, GRIB2 decoding and route-wind calculation path.
 
-The reviewed weather implementation does not yet provide an end-to-end METAR/SPECI/TAF acquisition and parsing path. Therefore:
+The reviewed weather implementation does not yet provide an end-to-end METAR/SPECI/TAF acquisition and parsing path. The FAP also identifies GAMET/AIRMET, SIGMET, SIGWX and upper-wind/temperature products for relevant UAV operations; those products are not yet implemented in the reviewed weather engine. GFS wind data does not replace those regulated aviation products. Therefore:
 - Sections 2–5 define the required aviation-report policy but are not evidence that METAR/SPECI/TAF integration is already operational.
 - GFS cycle selection is implemented separately by GFS Forecast Planner.
 - Automatic orchestration from the primary optimizer through weather assessment and weather-corrected optimization must be verified independently; this policy does not claim that the full sequence is already wired.
@@ -139,6 +139,7 @@ The GFS planner continues to accept an explicit mission execution interval. Deri
 
 1. Ministry of Transport of the Russian Federation, Order No. 49 dated 05 February 2026, Federal Aviation Rules "Rules for Providing Meteorological Information for Aircraft Operations", registered 07 April 2026, No. 85933. Official publication: https://publication.pravo.gov.ru/document/0001202604080030
 2. Roshydromet, Order No. 244 dated 20 August 2026, Instruction on METAR, SPECI and TAF codes.
-3. NOAA/NCEP, GFS product inventory: https://www.nco.ncep.noaa.gov/pmb/products/gfs/nomads/
+3. FAP No. 49, paragraph 145, explicitly lists METAR/SPECI, TAF, GAMET/AIRMET, SIGMET, SIGWX and upper-wind/temperature information to be provided to UAS owners/operators and external pilots.
+4. NOAA/NCEP, GFS product inventory: https://www.nco.ncep.noaa.gov/pmb/products/gfs/nomads/
 
 The applicability of Russian civil-aviation rules to a specific UAV operation must be confirmed against the aircraft category, airspace regime and applicable operating approvals.
