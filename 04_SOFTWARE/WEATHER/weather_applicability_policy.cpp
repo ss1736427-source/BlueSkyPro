@@ -83,9 +83,10 @@ std::optional<std::size_t> WeatherApplicabilityPolicy::selectCoveringTaf(
 DepartureWeatherAction WeatherApplicabilityPolicy::departureAction(
     std::int64_t etdUtc,
     std::int64_t actualTakeoffUtc,
-    bool speciReceived)
+    bool speciReceived,
+    bool selectedWeatherStillCoversMission)
 {
-    if (speciReceived)
+    if (speciReceived || !selectedWeatherStillCoversMission)
         return DepartureWeatherAction::ReevaluateWeather;
 
     const std::int64_t delay = actualTakeoffUtc > etdUtc
