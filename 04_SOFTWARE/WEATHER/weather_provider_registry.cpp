@@ -80,7 +80,11 @@ bool WeatherProviderRegistry::registerAdapter(
             || !std::isfinite(capability.minimumAltitudeAglM)
             || !std::isfinite(capability.maximumAltitudeAglM)
             || capability.minimumAltitudeAglM > capability.maximumAltitudeAglM
-            || capability.maximumForecastHorizonSeconds < 0) {
+            || capability.maximumForecastHorizonSeconds < 0
+            || ((capability.product == WeatherProductType::NumericalWindField
+                 || capability.product == WeatherProductType::NumericalTemperatureField)
+                && (!std::isfinite(capability.minimumGridSpacingDegrees)
+                    || capability.minimumGridSpacingDegrees <= 0.0))) {
             setError(error, "adapter contains an invalid capability declaration");
             return false;
         }
