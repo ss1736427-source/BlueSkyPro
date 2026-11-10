@@ -54,6 +54,24 @@ public:
                                         QString::fromStdString(m_route.environment.wind_snapshot_id));
         snapshot.insert(QStringLiteral("environmentSnapshotRefs"), environmentSnapshotRefs);
         snapshot.insert(QStringLiteral("waypoints"), m_waypoints);
+        QVariantList segmentSnapshot;
+        for (const auto &segment : m_route.segments) {
+            QVariantMap item{
+                {QStringLiteral("segmentId"), QString::fromStdString(segment.segment_id)},
+                {QStringLiteral("fromWaypointId"), QString::fromStdString(segment.from_waypoint_id)},
+                {QStringLiteral("toWaypointId"), QString::fromStdString(segment.to_waypoint_id)},
+                {QStringLiteral("distanceM"), segment.distance_m},
+                {QStringLiteral("nominalSpeedMps"), segment.nominal_speed_mps}
+            };
+            if (segment.bank_angle_rad)
+                item.insert(QStringLiteral("bankAngleRad"), *segment.bank_angle_rad);
+            if (segment.lateral_acceleration_mps2)
+                item.insert(QStringLiteral("lateralAccelerationMps2"), *segment.lateral_acceleration_mps2);
+            segmentSnapshot.push_back(item);
+        }
+        snapshot.insert(QStringLiteral("segments"), segmentSnapshot);
+        snapshot.insert(QStringLiteral("trajectoryGeometryComplete"),
+                        m_route.trajectory_geometry_complete);
         snapshot.insert(QStringLiteral("validationState"), m_validationState);
         snapshot.insert(QStringLiteral("validationReason"), m_validationReason);
         return snapshot;
@@ -77,6 +95,15 @@ public:
         const QString weatherSnapshotId = environment.value(QStringLiteral("weatherSnapshotId")).toString().trimmed();
         const QString windSnapshotId = environment.value(QStringLiteral("windSnapshotId")).toString().trimmed();
         const QVariantList points = candidate.value(QStringLiteral("waypoints")).toList();
+        const QVariant completeValue =
+            candidate.value(QStringLiteral("trajectoryGeometryComplete"));
+        bool trajectoryGeometryComplete = false;
+        if (completeValue.isValid()) {
+            if (completeValue.metaType().id() != QMetaType::Bool)
+                return rejectCandidate(QStringLiteral("TRAJECTORY_GEOMETRY_COMPLETENESS_FLAG_INVALID"));
+            trajectoryGeometryComplete = completeValue.toBool();
+        }
+        const QVariantList segmentValues = candidate.value(QStringLiteral("segments")).toList();
 
         if (routeId.isEmpty() || routeVersion.isEmpty() || missionId.isEmpty()
             || missionVersion.isEmpty() || generatorId.isEmpty()
@@ -91,6 +118,10 @@ public:
             return rejectCandidate(QStringLiteral("AT_LEAST_TWO_WAYPOINTS_REQUIRED"));
         if (crs != QLatin1String("EPSG:4326"))
             return rejectCandidate(QStringLiteral("UNSUPPORTED_COORDINATE_REFERENCE_SYSTEM"));
+        if (trajectoryGeometryComplete && segmentValues.size() != points.size() - 1)
+            return rejectCandidate(QStringLiteral("COMPLETE_ROUTE_GEOMETRY_SEGMENTS_REQUIRED"));
+        if (!segmentValues.isEmpty() && segmentValues.size() != points.size() - 1)
+            return rejectCandidate(QStringLiteral("ROUTE_SEGMENT_COUNT_MISMATCH"));
 
         std::set<std::string> ids;
         QVariantList normalized;
@@ -138,6 +169,52 @@ public:
         m_route.environment.airspace_snapshot_id = airspaceSnapshotId.toStdString();
         m_route.environment.weather_snapshot_id = weatherSnapshotId.toStdString();
         m_route.environment.wind_snapshot_id = windSnapshotId.toStdString();
+        std::set<std::string> segmentIds;
+        for (qsizetype i = 0; i < segmentValues.size(); ++i) {
+            const QVariantMap item = segmentValues.at(i).toMap();
+            const QString segmentId = item.value(QStringLiteral("segmentId")).toString().trimmed();
+            const QString fromId = item.value(QStringLiteral("fromWaypointId")).toString().trimmed();
+            const QString toId = item.value(QStringLiteral("toWaypointId")).toString().trimmed();
+            bool distanceOk = false;
+            bool speedOk = false;
+            const double distance = item.value(QStringLiteral("distanceM")).toDouble(&distanceOk);
+            const double speed = item.value(QStringLiteral("nominalSpeedMps")).toDouble(&speedOk);
+            const QVariantMap fromPoint = normalized.at(i).toMap();
+            const QVariantMap toPoint = normalized.at(i + 1).toMap();
+            if (segmentId.isEmpty() || !segmentIds.insert(segmentId.toStdString()).second)
+                return rejectCandidate(QStringLiteral("ROUTE_SEGMENT_ID_MISSING_OR_DUPLICATE"));
+            if (fromId != fromPoint.value(QStringLiteral("waypointId")).toString()
+                || toId != toPoint.value(QStringLiteral("waypointId")).toString())
+                return rejectCandidate(QStringLiteral("ROUTE_SEGMENT_CHAIN_DISCONTINUITY"));
+            if (!distanceOk || !std::isfinite(distance) || distance <= 0.0
+                || !speedOk || !std::isfinite(speed) || speed <= 0.0)
+                return rejectCandidate(QStringLiteral("ROUTE_SEGMENT_PERFORMANCE_GEOMETRY_INVALID"));
+
+            bluesky::planning::RouteSegment segment;
+            segment.segment_id = segmentId.toStdString();
+            segment.from_waypoint_id = fromId.toStdString();
+            segment.to_waypoint_id = toId.toStdString();
+            segment.distance_m = distance;
+            segment.nominal_speed_mps = speed;
+
+            const auto optionalFinite = [&item](const QString &key,
+                                                 std::optional<double> &target) {
+                if (!item.contains(key))
+                    return true;
+                bool ok = false;
+                const double value = item.value(key).toDouble(&ok);
+                if (!ok || !std::isfinite(value))
+                    return false;
+                target = value;
+                return true;
+            };
+            if (!optionalFinite(QStringLiteral("bankAngleRad"), segment.bank_angle_rad)
+                || !optionalFinite(QStringLiteral("lateralAccelerationMps2"),
+                                   segment.lateral_acceleration_mps2))
+                return rejectCandidate(QStringLiteral("ROUTE_SEGMENT_DYNAMIC_LIMIT_INVALID"));
+            m_route.segments.push_back(std::move(segment));
+        }
+        m_route.trajectory_geometry_complete = trajectoryGeometryComplete;
         for (const QVariant &value : normalized) {
             const QVariantMap point = value.toMap();
             bluesky::planning::RouteWaypoint waypoint;
@@ -174,6 +251,9 @@ public:
             if (waypoint.waypoint_id != waypointId.toStdString())
                 continue;
             waypoint.altitude_m = altitudeM;
+            // An altitude edit invalidates the previous flown-path/transition geometry.
+            m_route.segments.clear();
+            m_route.trajectory_geometry_complete = false;
             QVariantMap point = m_waypoints[i].toMap();
             point.insert(QStringLiteral("altitudeM"), altitudeM);
             m_waypoints[i] = point;

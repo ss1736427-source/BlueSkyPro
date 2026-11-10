@@ -65,7 +65,33 @@ int main(int argc, char *argv[])
     assert(snapshotWaypoint.value(QStringLiteral("waypointId")).toString() == QStringLiteral("WP-1"));
     assert(snapshotWaypoint.value(QStringLiteral("latitudeDeg")).toDouble() == 60.0);
     assert(snapshotWaypoint.value(QStringLiteral("longitudeDeg")).toDouble() == 24.0);
+    assert(!snapshot.value(QStringLiteral("trajectoryGeometryComplete")).toBool());
+    assert(snapshot.value(QStringLiteral("segments")).toList().isEmpty());
     assert(controller.validationState() == QStringLiteral("CANDIDATE_UNVALIDATED"));
+
+    // A weather-capable route must carry explicit, ordered segment geometry.
+    QVariantMap completeCandidate = candidate();
+    completeCandidate.insert(QStringLiteral("trajectoryGeometryComplete"), true);
+    completeCandidate.insert(QStringLiteral("segments"), QVariantList{
+        QVariantMap{
+            {QStringLiteral("segmentId"), QStringLiteral("SEG-1")},
+            {QStringLiteral("fromWaypointId"), QStringLiteral("WP-1")},
+            {QStringLiteral("toWaypointId"), QStringLiteral("WP-2")},
+            {QStringLiteral("distanceM"), 12400.0},
+            {QStringLiteral("nominalSpeedMps"), 15.0}
+        }
+    });
+    assert(controller.loadCandidate(completeCandidate));
+    const QVariantMap completeSnapshot = controller.routeSnapshot();
+    assert(completeSnapshot.value(QStringLiteral("trajectoryGeometryComplete")).toBool());
+    assert(completeSnapshot.value(QStringLiteral("segments")).toList().size() == 1);
+
+    QVariantMap malformedComplete = completeCandidate;
+    malformedComplete.remove(QStringLiteral("segments"));
+    assert(!controller.loadCandidate(malformedComplete));
+    assert(controller.validationReason()
+           == QStringLiteral("COMPLETE_ROUTE_GEOMETRY_SEGMENTS_REQUIRED"));
+    assert(controller.waypoints().isEmpty());
 
     // Mandatory status is route data and must survive normalization unchanged.
     QVariantMap mandatoryCandidate = candidate();
@@ -88,6 +114,8 @@ int main(int argc, char *argv[])
     assert(controller.validationState() == QStringLiteral("RECALCULATION_REQUIRED"));
     assert(controller.waypoints()[0].toMap() == untouchedWaypoint);
     assert(controller.waypoints()[1].toMap().value(QStringLiteral("altitudeM")).toDouble() == 125.0);
+    assert(!controller.routeSnapshot().value(QStringLiteral("trajectoryGeometryComplete")).toBool());
+    assert(controller.routeSnapshot().value(QStringLiteral("segments")).toList().isEmpty());
 
     // Neither an older route version nor a mismatched calculation-input version may validate edits.
     assert(!controller.publishValidation(originalVersion, QStringLiteral("input-1"),
@@ -134,6 +162,16 @@ int main(int argc, char *argv[])
     assert(!controller.loadCandidate(invalid));
     assert(controller.validationState() == QStringLiteral("BLOCKED"));
     assert(controller.validationReason() == QStringLiteral("INVALID_WAYPOINT_POSITION"));
+    assert(controller.waypoints().isEmpty());
+
+    malformedComplete = completeCandidate;
+    QVariantList brokenSegments = malformedComplete.value(QStringLiteral("segments")).toList();
+    QVariantMap brokenSegment = brokenSegments[0].toMap();
+    brokenSegment.insert(QStringLiteral("fromWaypointId"), QStringLiteral("WP-2"));
+    brokenSegments[0] = brokenSegment;
+    malformedComplete.insert(QStringLiteral("segments"), brokenSegments);
+    assert(!controller.loadCandidate(malformedComplete));
+    assert(controller.validationReason() == QStringLiteral("ROUTE_SEGMENT_CHAIN_DISCONTINUITY"));
     assert(controller.waypoints().isEmpty());
 
     invalid = candidate();
