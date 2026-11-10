@@ -46,8 +46,17 @@ int main()
     {
         const std::vector<TafReport> reports{
             {"AAA", "taf-short", etd - 7200, etd - 7100, etd - 3600, etd + 3600, false},
-            {"AAA", "taf-cover", etd - 3600, etd - 3500, etd - 1800, etd + 7200, false},
-            {"AAA", "taf-cancelled", etd - 100, etd - 90, etd - 3600, etd + 7200, true}
+            {"AAA", "taf-cover", etd - 3600, etd - 3500, etd - 1800, etd + 7200, false}
+        };
+        const auto selected = WeatherApplicabilityPolicy::selectCoveringTaf(
+            reports, "AAA", etd, etd + 5400, now);
+        assert(selected && *selected == 1);
+    }
+
+    {
+        const std::vector<TafReport> reports{
+            {"AAA", "taf-old", etd - 7200, etd - 7100, etd - 1800, etd + 7200, false},
+            {"AAA", "taf-new", etd - 3600, etd - 3500, etd - 1800, etd + 7200, false}
         };
         const auto selected = WeatherApplicabilityPolicy::selectCoveringTaf(
             reports, "AAA", etd, etd + 5400, now);
