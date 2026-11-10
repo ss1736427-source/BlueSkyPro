@@ -12,6 +12,7 @@ add_library(bluesky_weather
     wind_interpolator.cpp
     route_wind_adapter.cpp
     weather_trajectory_calculator.cpp
+    weather_candidate_assessor.cpp
     gfs_forecast_planner.cpp
     weather_applicability_policy.cpp
     weather_coverage_request.cpp
