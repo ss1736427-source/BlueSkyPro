@@ -26,6 +26,18 @@ int main()
     assert(query.queryItemValue(QStringLiteral("lev_100_m_above_ground")) == QStringLiteral("on"));
     assert(query.queryItemValue(QStringLiteral("dir")) == QStringLiteral("/gfs.20261107/12/atmos"));
 
+    // Parameter order must not create duplicate downloads for the same forecast subset.
+    const QUrl sameRequestUrl = WeatherDataService::buildRequestUrl(
+        QStringLiteral("20261107"), QStringLiteral("12"), 6,
+        96.0, 5.0, 100.0, 10.0,
+        {QStringLiteral("100"), QStringLiteral("10"), QStringLiteral("50")});
+    assert(WeatherDataService::isSameRequestIdentity(url, sameRequestUrl));
+    const QUrl differentRequestUrl = WeatherDataService::buildRequestUrl(
+        QStringLiteral("20261107"), QStringLiteral("12"), 6,
+        97.0, 5.0, 100.0, 10.0, {QStringLiteral("10"), QStringLiteral("50"), QStringLiteral("100")});
+    assert(!WeatherDataService::isSameRequestIdentity(url, differentRequestUrl));
+    assert(!WeatherDataService::isSameRequestIdentity(QUrl(), url));
+
     error.clear();
     assert(WeatherDataService::buildRequestUrl(
         QStringLiteral("20261107"), QStringLiteral("12"), 121,
