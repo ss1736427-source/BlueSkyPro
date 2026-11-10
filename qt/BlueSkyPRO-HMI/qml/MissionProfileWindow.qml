@@ -277,8 +277,8 @@ Item {
         var selected = root.selectedUavIndex >= 0 && root.selectedUavIndex < root.uavModel.length
                 ? root.uavModel[root.selectedUavIndex] : null
         var profile = selected && selected.performanceProfile ? selected.performanceProfile : ({})
-        if (profile.validationState !== "VALIDATED" || profile.approvalState !== "APPROVED") {
-            root.weatherAcquisitionMessage = "GFS загружен · требуется утверждённый профиль выбранного БПЛА для оценки"
+        if (!String(profile.vehicleId || "") || !String(profile.performanceVersion || "")) {
+            root.weatherAcquisitionMessage = "GFS загружен · требуется профиль характеристик выбранного БПЛА"
             return false
         }
         return root.evaluateWeatherRoute()
@@ -433,6 +433,7 @@ Item {
     property var missionAssignments: []
     property int selectedUavIndex: -1
     onSelectedUavIndexChanged: root.maybeEvaluateWeatherAutomatically()
+    onUavModelChanged: root.maybeEvaluateWeatherAutomatically()
     signal uavSelectionRequested(int index)
     // Operational route data belongs to RouteController, not per-window caches.
     property string loadedUavId: ""
