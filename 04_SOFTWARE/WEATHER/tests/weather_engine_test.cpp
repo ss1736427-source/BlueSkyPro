@@ -143,6 +143,14 @@ int main()
     assert(evaluated.weather_ready);
     assert(evaluated.weather_error.empty());
     assert(evaluated.trajectory.status == TrajectoryStatus::Feasible);
+    assert(evaluated.trajectory.segments.size() > route.segments.size());
+
+    const auto missingTemporalCoverage = WeatherTrajectoryCalculator::evaluate(
+        route, {low, mid, high, top}, "snapshot-20261108-06", "gfs-0p25-v1",
+        performanceInput, "weather-trajectory-test-v1");
+    assert(!missingTemporalCoverage.weather_ready);
+    assert(missingTemporalCoverage.weather_error.find(
+        "outside available forecast valid times") != std::string::npos);
     assert(evaluated.trajectory.wind_snapshot_id == "snapshot-20261108-06");
     assert(evaluated.trajectory.wind_snapshot_version == "gfs-0p25-v1");
 
