@@ -17,5 +17,19 @@ int main(){
  assert(cycles[0]=="2026-11-09T12:00:00Z"&&cycles[1]=="2026-11-09T06:00:00Z"&&cycles[2]=="2026-11-09T00:00:00Z");
  assert(cycles[3]=="2026-11-08T18:00:00Z"&&cycles.last()=="2026-11-08T00:00:00Z");
  error.clear();assert(GfsForecastAvailabilityService::recentCandidateCyclesUtc(now,0,&error).isEmpty()&&!error.isEmpty());
+
+ // Availability-listing metadata has its own bounded TTL; GRIB products do not.
+ const auto checked=QDateTime(QDate(2026,11,9),QTime(14,0),Qt::UTC);
+ assert(GfsForecastAvailabilityService::availabilityCacheTtlSeconds()==600);
+ assert(GfsForecastAvailabilityService::isAvailabilityCacheFresh(
+     checked,checked.addSecs(599)));
+ assert(!GfsForecastAvailabilityService::isAvailabilityCacheFresh(
+     checked,checked.addSecs(600)));
+ assert(!GfsForecastAvailabilityService::isAvailabilityCacheFresh(
+     checked,checked.addSecs(-1)));
+ assert(!GfsForecastAvailabilityService::isAvailabilityCacheFresh(
+     checked,checked.addSecs(1),0));
+ assert(!GfsForecastAvailabilityService::isAvailabilityCacheFresh(
+     QDateTime{},checked));
  return 0;
 }
