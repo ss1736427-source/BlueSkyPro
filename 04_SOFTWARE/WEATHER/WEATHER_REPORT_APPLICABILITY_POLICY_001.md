@@ -133,6 +133,12 @@ The reviewed weather implementation does not yet provide an end-to-end METAR/SPE
 - GFS cycle selection is implemented separately by GFS Forecast Planner.
 - Automatic orchestration from the primary optimizer through weather assessment and weather-corrected optimization must be verified independently; this policy does not claim that the full sequence is already wired.
 
+The HMI now derives a preliminary GFS interval from operator-entered ETD and the primary optimizer route's segment distance/nominal-speed values. This is only an acquisition coverage estimate; the weather trajectory engine recalculates segment traversal times using decoded wind. If the wind-corrected traversal exceeds the downloaded forecast coverage, the evaluation must remain blocked rather than extrapolate.
+
+The 15-minute departure rule is implemented as a deterministic policy function, but the reviewed telemetry boundary still does not expose a confirmed actual-liftoff event. Until an adapter-specific liftoff event is mapped and verified, the HMI must not infer actual TOT from START/command acknowledgement and cannot automatically invoke the delay decision at runtime.
+
+The current weather assessment returns feasibility and performance results, but an end-to-end command that submits the weather-corrected inputs back to AlgorithmOrchestrator and replaces the route candidate has not yet been verified. The automatic GFS acquisition is therefore integrated after validated primary-route publication; weather-driven re-optimization remains an integration gap.
+
 The GFS planner continues to accept an explicit mission execution interval. Deriving that interval from ETD and route duration requires a finalized mission schedule contract and must not be guessed from route distance or nominal speed.
 
 ## 9. Regulatory references
