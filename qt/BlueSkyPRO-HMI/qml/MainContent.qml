@@ -281,6 +281,8 @@ Item {
             missionId: root.missionId
             missionModelJson: root.activeMissionModelJson
             coverageBridge: typeof weatherCoverageBridge !== "undefined" ? weatherCoverageBridge : null
+            forecastAvailabilityService: typeof gfsForecastAvailabilityService !== "undefined" ? gfsForecastAvailabilityService : null
+            weatherDataService: typeof weatherDataService !== "undefined" ? weatherDataService : null
             missionSummary: root.missionSummary
             missionReviewState: root.missionReviewState
             missionTemplateIndices: root.missionTemplateIndices

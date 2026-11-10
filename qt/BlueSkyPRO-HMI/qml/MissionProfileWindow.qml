@@ -6,6 +6,17 @@ Item {
     property string missionId: ""
     property string missionModelJson: ""
     property var coverageBridge: null
+    property var forecastAvailabilityService: null
+    property var weatherDataService: null
+    property string weatherAcquisitionStatus: "NOT_REQUESTED"
+    property string weatherAcquisitionMessage: ""
+    property var weatherForecastPlan: ({})
+    property var weatherForecastLeadHours: []
+    property int weatherForecastLeadIndex: 0
+    property var weatherDownloadedFiles: []
+    property var weatherRequestRouteLineage: ({})
+    property string weatherMissionStartUtc: ""
+    property string weatherMissionEndUtc: ""
     property var lastWeatherCoverageResult: ({})
     readonly property string weatherCoverageStatus:
         lastWeatherCoverageResult && lastWeatherCoverageResult.valid === true
@@ -25,6 +36,168 @@ Item {
         root.lastWeatherCoverageResult = result
         return result
     }
+    function invalidateWeatherAcquisition(reason) {
+        if (root.forecastAvailabilityService
+                && root.forecastAvailabilityService.state === "CHECKING_NOMADS")
+            root.forecastAvailabilityService.cancel()
+        if (root.weatherDataService
+                && root.weatherDataService.state !== "IDLE"
+                && root.weatherDataService.state !== "READY_UNDECODED")
+            root.weatherDataService.cancelPending()
+        root.weatherForecastLeadHours = []
+        root.weatherForecastLeadIndex = 0
+        root.weatherDownloadedFiles = []
+        root.weatherAcquisitionStatus = "STALE"
+        root.weatherAcquisitionMessage = reason || "MISSION_OR_ROUTE_CHANGED"
+    }
+
+    function requestMissionWeather(validFromUtc, validToUtc, spatialBufferM, areaAltitudesAglM) {
+        var built = root.buildWeatherCoverageRequest(
+                    validFromUtc, validToUtc, spatialBufferM, areaAltitudesAglM)
+        if (!built || built.valid !== true) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = built && built.errors
+                    ? built.errors.join(", ") : "WEATHER_COVERAGE_REQUEST_INVALID"
+            return false
+        }
+        if (!root.forecastAvailabilityService || !root.weatherDataService) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = "WEATHER_SERVICES_UNAVAILABLE"
+            return false
+        }
+        var route = root.routeController.routeSnapshot()
+        root.weatherRequestRouteLineage = {
+            missionId: route.missionId,
+            missionVersion: route.missionVersion,
+            routeId: route.routeId,
+            routeVersion: route.routeVersion,
+            calculationInputVersion: route.calculationInputVersion
+        }
+        root.weatherMissionStartUtc = validFromUtc
+        root.weatherMissionEndUtc = validToUtc
+        root.weatherAcquisitionStatus = "CHECKING_FORECAST_AVAILABILITY"
+        root.weatherAcquisitionMessage = "Проверка полного окна миссии по NOAA NOMADS"
+        var accepted = root.forecastAvailabilityService.checkMissionForecast(
+                    validFromUtc, validToUtc)
+        if (!accepted) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = root.forecastAvailabilityService.lastError
+            return false
+        }
+        return true
+    }
+
+    function routeLineageStillMatches() {
+        if (!root.routeController) return false
+        var current = root.routeController.routeSnapshot()
+        var expected = root.weatherRequestRouteLineage
+        return current.missionId === expected.missionId
+                && current.missionVersion === expected.missionVersion
+                && current.routeId === expected.routeId
+                && current.routeVersion === expected.routeVersion
+                && current.calculationInputVersion === expected.calculationInputVersion
+    }
+
+    function downloadNextWeatherForecast() {
+        if (!root.routeLineageStillMatches()) {
+            root.invalidateWeatherAcquisition("ROUTE_LINEAGE_CHANGED_DURING_WEATHER_DOWNLOAD")
+            return
+        }
+        if (root.weatherForecastLeadIndex >= root.weatherForecastLeadHours.length) {
+            root.weatherAcquisitionStatus = "DOWNLOADS_READY_UNDECODED"
+            root.weatherAcquisitionMessage =
+                    "Все сроки GFS загружены. Декодирование GRIB2 и QC ещё не выполнены."
+            return
+        }
+        var plan = root.weatherForecastPlan
+        var cycleUtc = String(plan.selected_cycle_utc || "")
+        if (cycleUtc.length !== 20) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = "GFS_SELECTED_CYCLE_INVALID"
+            return
+        }
+        var dateUtc = cycleUtc.substring(0, 10).replace(/-/g, "")
+        var cycleHour = cycleUtc.substring(11, 13)
+        var request = root.lastWeatherCoverageResult.request
+        var bounds = request.bounds
+        var levels = request.providerLevelsAglM.map(function(level) { return String(level) })
+        var forecastHour = Number(root.weatherForecastLeadHours[root.weatherForecastLeadIndex])
+        root.weatherAcquisitionStatus = "DOWNLOADING"
+        root.weatherAcquisitionMessage =
+                "Загрузка GFS F" + String(forecastHour).padStart(3, "0")
+        var started = root.weatherDataService.requestWindSubset(
+                    dateUtc, cycleHour, forecastHour,
+                    bounds.westDeg, bounds.southDeg, bounds.eastDeg, bounds.northDeg,
+                    levels)
+        if (!started) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = root.weatherDataService.lastError
+        }
+    }
+
+
+    Connections {
+        target: root.forecastAvailabilityService
+        enabled: target !== null
+        function onPlanReady(plan) {
+            if (root.weatherAcquisitionStatus !== "CHECKING_FORECAST_AVAILABILITY")
+                return
+            if (String(plan.mission_start_utc || "") !== root.weatherMissionStartUtc
+                    || String(plan.mission_end_utc || "") !== root.weatherMissionEndUtc
+                    || !root.routeLineageStillMatches()) {
+                root.invalidateWeatherAcquisition("STALE_GFS_AVAILABILITY_RESULT")
+                return
+            }
+            root.weatherForecastPlan = plan
+            root.weatherForecastLeadHours = plan.forecast_lead_hours || []
+            root.weatherForecastLeadIndex = 0
+            root.weatherDownloadedFiles = []
+            root.downloadNextWeatherForecast()
+        }
+        function onCheckFailed(reason, diagnostics) {
+            if (root.weatherAcquisitionStatus !== "CHECKING_FORECAST_AVAILABILITY")
+                return
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = String(reason)
+        }
+    }
+
+    Connections {
+        target: root.weatherDataService
+        enabled: target !== null
+        function onForecastReady(filePath, manifest) {
+            if (root.weatherAcquisitionStatus !== "DOWNLOADING")
+                return
+            if (!root.routeLineageStillMatches()) {
+                root.invalidateWeatherAcquisition("ROUTE_LINEAGE_CHANGED_DURING_WEATHER_DOWNLOAD")
+                return
+            }
+            root.weatherDownloadedFiles = root.weatherDownloadedFiles.concat([{
+                forecastHour: root.weatherForecastLeadHours[root.weatherForecastLeadIndex],
+                filePath: filePath,
+                manifest: manifest
+            }])
+            root.weatherForecastLeadIndex += 1
+            root.downloadNextWeatherForecast()
+        }
+        function onDownloadFailed(reason) {
+            if (root.weatherAcquisitionStatus === "DOWNLOADING") {
+                root.weatherAcquisitionStatus = "BLOCKED"
+                root.weatherAcquisitionMessage = String(reason)
+            }
+        }
+    }
+
+    Connections {
+        target: root.routeController
+        enabled: target !== null
+        function onRouteChanged() {
+            if (root.weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
+                    || root.weatherAcquisitionStatus === "DOWNLOADING")
+                root.invalidateWeatherAcquisition("ROUTE_CHANGED_WEATHER_REQUEST_INVALIDATED")
+        }
+    }
+
     // Shared authoritative route model; local profile data is presentation-only.
     property var routeController: null
     readonly property bool hasCanonicalRoute: routeController !== null && routeController !== undefined
