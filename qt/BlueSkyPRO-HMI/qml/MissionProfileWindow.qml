@@ -81,6 +81,7 @@ Item {
                 || !utcPattern.test(String(missionStartUtc))
                 || !Number.isFinite(fromMs) || !Number.isFinite(toMs) || !Number.isFinite(startMs)
                 || toMs < fromMs || startMs < fromMs || startMs > toMs
+                || String(spatialBufferM).trim().length === 0
                 || !Number.isFinite(Number(spatialBufferM)) || Number(spatialBufferM) < 0) {
             root.weatherAcquisitionStatus = "BLOCKED"
             root.weatherAcquisitionMessage = "VALID_UTC_WINDOW_MISSION_START_AND_NONNEGATIVE_BUFFER_REQUIRED"
