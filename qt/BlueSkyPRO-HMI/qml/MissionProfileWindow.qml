@@ -511,8 +511,10 @@ Item {
     // Assignment result supplied by mission planning; the HMI does not infer task allocation.
     property var missionAssignments: []
     property int selectedUavIndex: -1
-    onSelectedUavIndexChanged: root.maybeEvaluateWeatherAutomatically()
-    onUavModelChanged: root.maybeEvaluateWeatherAutomatically()
+    onUavModelChanged: {
+        root.maybeRequestWeatherAutomatically()
+        root.maybeEvaluateWeatherAutomatically()
+    }
     signal uavSelectionRequested(int index)
     // Operational route data belongs to RouteController, not per-window caches.
     property string loadedUavId: ""
@@ -860,7 +862,11 @@ Item {
         root.uavSelectionRequested(index)
     }
 
-    onSelectedUavIndexChanged: root.loadAircraftData(root.selectedUavIndex)
+    onSelectedUavIndexChanged: {
+        root.loadAircraftData(root.selectedUavIndex)
+        root.maybeRequestWeatherAutomatically()
+        root.maybeEvaluateWeatherAutomatically()
+    }
 
     Component.onCompleted: {
         root.recalculateColumnLayout()
