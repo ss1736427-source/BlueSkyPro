@@ -92,8 +92,21 @@ Item {
         var candidate = result && result.result ? result.result.routeCandidate : null
         if (candidate !== null && candidate !== undefined
                 && String(candidate.missionId) === String(root.missionId)) {
-            if (typeof routeController !== "undefined" && routeController !== null)
-                routeController.loadCandidate(candidate)
+            if (typeof routeController !== "undefined" && routeController !== null) {
+                var loaded = routeController.loadCandidate(candidate)
+                if (loaded) {
+                    var verification = result.verification || ({})
+                    var accepted = verification.finalGateStatus === "PASS"
+                            && verification.releaseStatus === "RELEASE_ELIGIBLE"
+                            && verification.verified === true
+                    routeController.publishValidation(
+                                String(candidate.routeVersion || ""),
+                                String(candidate.calculationInputVersion || ""),
+                                accepted,
+                                accepted ? "PLANNING_RESULT_FINAL_GATE_PASS"
+                                         : "PLANNING_RESULT_NOT_RELEASE_ELIGIBLE")
+                }
+            }
         } else {
             // Never leave a route from the previous mission visible when the
             // active mission changes or the bridge no longer has its candidate.
