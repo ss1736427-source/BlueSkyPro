@@ -295,7 +295,7 @@ The current weather trajectory engine then:
 4. interpolates only inside horizontal grid, vertical-level and forecast-time coverage;
 5. iterates wind-dependent segment times and energy until convergence or blocks the assessment.
 
-This path currently assesses the selected validated route after the first optimizer result. It does not yet perform weather-aware re-ranking of all optimizer candidates. Mission task dwell/execution duration is also not represented in the canonical task model and is not included in the current route-time estimate. These are explicit integration gaps, not assumed coverage.
+This first GFS path currently decodes U/V wind only. It assesses wind impact on route segment speed, time and energy; it is not a complete meteorological hazard assessment and does not yet cover visibility, cloud base, precipitation, icing, turbulence, temperature limits or aviation hazard products. The HMI therefore labels the result as a wind assessment, not a full weather clearance.\n\nThis path currently assesses the selected validated route after the first optimizer result. It does not yet perform weather-aware re-ranking of all optimizer candidates or automatically launch a second AlgorithmOrchestrator optimization pass using the wind-corrected result. Mission task dwell/execution duration is also not represented in the canonical task model and is not included in the current route-time estimate. These are explicit integration gaps, not assumed coverage.
 
 ## 13. Implementation sequence
 
