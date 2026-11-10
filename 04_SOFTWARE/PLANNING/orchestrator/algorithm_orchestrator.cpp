@@ -107,9 +107,11 @@ bool better_candidate(const CandidateSolution& candidate,
 
 AlgorithmOrchestrator::AlgorithmOrchestrator(
     std::vector<std::unique_ptr<Solver>> solvers,
-    CandidateConstraintValidator constraint_validator)
+    CandidateConstraintValidator constraint_validator,
+    CandidateWeatherAssessor weather_assessor)
     : solvers_(std::move(solvers)),
-      constraint_validator_(std::move(constraint_validator)) {}
+      constraint_validator_(std::move(constraint_validator)),
+      weather_assessor_(std::move(weather_assessor)) {}
 
 OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
     OrchestratorDecision decision;
@@ -117,6 +119,8 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
     std::vector<MaximumRegimeUse> bestMaximumRegimeUses;
     bool bestMaximumRegimeWarning = false;
     std::string bestOperatorWarning;
+    CandidateWeatherAssessment bestWeatherAssessment;
+    bool bestWeatherAssessmentApplied = false;
     bool have_best = false;
 
     if (!objective_priorities_are_supported(context.problem())) {
@@ -206,6 +210,44 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
                 continue;
             }
 
+            CandidateSolution rankedCandidate = candidate;
+            CandidateWeatherAssessment weatherAssessment;
+            if (violations.empty() && weather_assessor_) {
+                if (!candidate.trajectory_route.has_value()
+                    || !candidate.trajectory_route->trajectory_geometry_complete
+                    || candidate.trajectory_route->waypoints.size() < 2
+                    || candidate.trajectory_route->segments.size() + 1
+                        != candidate.trajectory_route->waypoints.size()) {
+                    violations.push_back(
+                        "WEATHER_ASSESSMENT_UNKNOWN: кандидат не содержит полной канонической геометрии траектории, включая переходы и развороты.");
+                } else {
+                    weatherAssessment = weather_assessor_(context.problem(), candidate);
+                    const bool validWeatherResult =
+                        weatherAssessment.evaluated
+                        && !weatherAssessment.snapshot_id.empty()
+                        && !weatherAssessment.snapshot_version.empty()
+                        && std::isfinite(weatherAssessment.corrected_time_s)
+                        && weatherAssessment.corrected_time_s > 0.0
+                        && std::isfinite(weatherAssessment.corrected_energy_wh)
+                        && weatherAssessment.corrected_energy_wh >= 0.0
+                        && std::isfinite(weatherAssessment.remaining_energy_wh)
+                        && weatherAssessment.remaining_energy_wh >= 0.0;
+                    if (!validWeatherResult) {
+                        std::string reason =
+                            "WEATHER_ASSESSMENT_UNKNOWN: погодная оценка кандидата не подтверждена.";
+                        if (!weatherAssessment.error.empty())
+                            reason += " " + weatherAssessment.error;
+                        violations.push_back(std::move(reason));
+                    } else {
+                        // Weather-corrected values replace nominal solver estimates
+                        // before the declared objective priorities are evaluated.
+                        rankedCandidate.estimated_time_s = weatherAssessment.corrected_time_s;
+                        rankedCandidate.estimated_energy_wh = weatherAssessment.corrected_energy_wh;
+                        rankedCandidate.estimated_reserve_wh = weatherAssessment.remaining_energy_wh;
+                    }
+                }
+            }
+
             // Mandatory constraints are evaluated before any objective ranking.
             if (!violations.empty()) {
                 decision.rejected_candidates.push_back(
@@ -214,7 +256,9 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
             }
 
             if (!have_best || better_candidate(candidate, best, context.problem())) {
-                best = candidate;
+                best = rankedCandidate;
+                bestWeatherAssessment = weatherAssessment;
+                bestWeatherAssessmentApplied = static_cast<bool>(weather_assessor_);
                 bestMaximumRegimeUses = flightSafety.maximum_regime_uses;
                 bestMaximumRegimeWarning = flightSafety.maximum_regime_warning_required;
                 bestOperatorWarning = flightSafety.operator_warning;
@@ -237,11 +281,23 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
     decision.selected_maximum_regime_uses = std::move(bestMaximumRegimeUses);
     decision.maximum_regime_warning_required = bestMaximumRegimeWarning;
     decision.operator_warning = std::move(bestOperatorWarning);
+    decision.weather_assessment_applied = bestWeatherAssessmentApplied;
+    if (bestWeatherAssessmentApplied) {
+        decision.weather_snapshot_id = bestWeatherAssessment.snapshot_id;
+        decision.weather_snapshot_version = bestWeatherAssessment.snapshot_version;
+        decision.weather_corrected_time_s = bestWeatherAssessment.corrected_time_s;
+        decision.weather_corrected_energy_wh = bestWeatherAssessment.corrected_energy_wh;
+        decision.weather_remaining_energy_wh = bestWeatherAssessment.remaining_energy_wh;
+    }
 
     std::ostringstream explanation;
     explanation << "Выбран маршрут, рассчитанный алгоритмом " << best.solver_id
                 << ", как лучший допустимый кандидат с учётом приоритетов текущей задачи."
                 << " Обязательные ограничения проверены до ранжирования.";
+    if (bestWeatherAssessmentApplied)
+        explanation << " Ранжирование выполнено по времени и энергии после погодной коррекции"
+                    << " (снимок " << bestWeatherAssessment.snapshot_id
+                    << ", версия " << bestWeatherAssessment.snapshot_version << ").";
     decision.explanation = explanation.str();
     return decision;
 }
