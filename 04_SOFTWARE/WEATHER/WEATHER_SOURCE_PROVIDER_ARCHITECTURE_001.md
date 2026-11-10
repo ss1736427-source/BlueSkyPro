@@ -297,6 +297,16 @@ The current weather trajectory engine then:
 
 This first GFS path currently decodes U/V wind only. It assesses wind impact on route segment speed, time and energy; it is not a complete meteorological hazard assessment and does not yet cover visibility, cloud base, precipitation, icing, turbulence, temperature limits or aviation hazard products. The HMI therefore labels the result as a wind assessment, not a full weather clearance.\n\nThis path currently assesses the selected validated route after the first optimizer result. It does not yet perform weather-aware re-ranking of all optimizer candidates or automatically launch a second AlgorithmOrchestrator optimization pass using the wind-corrected result. Mission task dwell/execution duration is also not represented in the canonical task model and is not included in the current route-time estimate. These are explicit integration gaps, not assumed coverage.
 
+## 12.3 Weather-aware optimizer candidate contract
+
+The planning orchestrator now exposes an optional candidate weather assessor. When configured, it evaluates each structurally valid candidate before objective ranking and replaces nominal time, energy and remaining-energy values with the assessor's verified weather-corrected metrics. A missing, invalid or non-converged assessment blocks that candidate; the optimizer must not rank it using nominal estimates as a fallback.
+
+The candidate contract carries an optional canonical `trajectory_route`. Weather assessment is permitted only when this route is marked `trajectory_geometry_complete` and contains a consistent waypoint/segment chain. The route must represent the complete flown trajectory, including transitions and turns, with explicit AGL heights and a traceable forecast snapshot. The assessor result must include the snapshot identity/version and finite corrected time, energy and remaining-energy values.
+
+**Current integration boundary:** the generic orchestration hook and its fail-closed contract test are implemented. The current A* and Dijkstra graph solvers still publish node-ID paths only; they do not yet populate complete canonical trajectory geometry. Consequently, enabling the weather assessor against those candidates will reject them until the route-producing stage supplies the full geometry. This is intentional: graph-node polylines must not be represented as complete flown trajectories when turns/transitions are absent.
+
+The production adapter that supplies decoded forecast fields and the assigned UAV performance profile to `WeatherTrajectoryCalculator` remains a separate integration step. The new orchestrator contract does not itself claim that the live HMI/NOAA pipeline is already connected to candidate re-ranking.
+
 ## 13. Implementation sequence
 
 1. Define canonical product envelope, capability manifest and versioned adapter interface.
