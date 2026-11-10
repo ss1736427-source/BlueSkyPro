@@ -15,6 +15,8 @@ public:
         wind.coverage = {90.0, -10.0, 160.0, 30.0};
         wind.minimumAltitudeAglM = 10.0;
         wind.maximumAltitudeAglM = 1000.0;
+        wind.altitudeLevelsAglM = {10.0, 20.0, 30.0, 40.0, 50.0, 80.0, 100.0, 1000.0};
+        wind.maximumVerticalInterpolationGapM = 100;
         wind.maximumForecastHorizonSeconds = 384LL * 3600LL;
         wind.minimumGridSpacingDegrees = 0.25;
         return {"noaa.gfs.025", "NOAA GFS 0.25 degree", 1, {wind}};
@@ -42,6 +44,7 @@ int main()
     request.validFromUtcSeconds = request.referenceTimeUtcSeconds;
     request.validToUtcSeconds = request.referenceTimeUtcSeconds + 48LL * 3600LL;
     request.maximumGridSpacingDegrees = 0.5;
+    request.requiredAltitudesAglM = {50.0, 80.0};
 
     auto selected = registry.selectEligible(request);
     assert(selected.size() == 1);
@@ -55,6 +58,9 @@ int main()
     assert(registry.selectEligible(request).empty());
 
     request.maximumAltitudeAglM = 100.0;
+    request.requiredAltitudesAglM = {200.0};
+    assert(registry.selectEligible(request).empty()); // min/max alone must not fake 200 m coverage
+    request.requiredAltitudesAglM = {50.0, 80.0};
     request.validToUtcSeconds = request.referenceTimeUtcSeconds + 385LL * 3600LL;
     assert(registry.selectEligible(request).empty());
 
