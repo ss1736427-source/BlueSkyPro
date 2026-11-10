@@ -135,24 +135,8 @@ target_compile_features(appBlueSkyPRO PRIVATE cxx_std_20)
 target_include_directories(appBlueSkyPRO PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.. ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/WEATHER)
 target_link_libraries(appBlueSkyPRO PRIVATE bluesky_planning Qt6::Core Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::Concurrent Qt6::WebEngineQuick Qt6::WebEngineCore Qt6::WebChannel)
 
-# The weather UI already downloads mission-scoped NOAA GFS GRIB2 products and
-# invokes WeatherCalculationService. The decoder must be compiled into the
-# application (not only installed on the CI runner), otherwise that service
-# correctly reports GRIB2_DECODER_NOT_AVAILABLE forever.
-if(BLUESKY_ENABLE_ECCODES)
-    find_path(ECCODES_INCLUDE_DIR eccodes.h REQUIRED)
-    find_library(ECCODES_LIBRARY NAMES eccodes REQUIRED)
-    set(BLUESKY_GRIB2_SOURCES
-        ../../04_SOFTWARE/WEATHER/grib2_decoder.cpp
-        ../../04_SOFTWARE/WEATHER/grib2_decoder.hpp
-        ../../04_SOFTWARE/WEATHER/grib2_weather_pipeline.cpp
-        ../../04_SOFTWARE/WEATHER/grib2_weather_pipeline.hpp
-    )
-    target_sources(appBlueSkyPRO PRIVATE ${BLUESKY_GRIB2_SOURCES})
-    target_include_directories(appBlueSkyPRO PRIVATE ${ECCODES_INCLUDE_DIR})
-    target_link_libraries(appBlueSkyPRO PRIVATE ${ECCODES_LIBRARY})
-    target_compile_definitions(appBlueSkyPRO PRIVATE BLUESKY_HAVE_ECCODES=1)
-endif()
+# BLUESKY_ENABLE_ECCODES is consumed by bluesky_planning above. Its public
+# compile definition and ecCodes link dependency propagate to the HMI runtime.
 
 if(WIN32)
     target_link_libraries(appBlueSkyPRO PRIVATE Advapi32)
@@ -276,23 +260,15 @@ target_include_directories(weather_calculation_service_test PRIVATE
 )
 target_link_libraries(weather_calculation_service_test PRIVATE bluesky_planning Qt6::Core Qt6::Concurrent)
 if(BLUESKY_ENABLE_ECCODES)
-    target_sources(weather_calculation_service_test PRIVATE ${BLUESKY_GRIB2_SOURCES})
-    target_include_directories(weather_calculation_service_test PRIVATE ${ECCODES_INCLUDE_DIR})
-    target_link_libraries(weather_calculation_service_test PRIVATE ${ECCODES_LIBRARY})
-    target_compile_definitions(weather_calculation_service_test PRIVATE BLUESKY_HAVE_ECCODES=1)
-
+    # The decoder and trajectory pipeline are compiled once into bluesky_planning.
+    # This contract test links that implementation and verifies real GRIB2 U/V
+    # decoding plus route-level weather evaluation using generated fixture files.
+    find_path(ECCODES_INCLUDE_DIR eccodes.h REQUIRED)
     add_executable(grib2_decoder_contract_test
         ../../04_SOFTWARE/WEATHER/tests/grib2_decoder_contract_test.cpp
-        ${BLUESKY_GRIB2_SOURCES}
     )
-    target_include_directories(grib2_decoder_contract_test PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/../..
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/WEATHER
-        ${ECCODES_INCLUDE_DIR}
-    )
-    target_link_libraries(grib2_decoder_contract_test PRIVATE
-        bluesky_planning ${ECCODES_LIBRARY}
-    )
+    target_include_directories(grib2_decoder_contract_test PRIVATE ${ECCODES_INCLUDE_DIR})
+    target_link_libraries(grib2_decoder_contract_test PRIVATE bluesky_planning)
     target_compile_features(grib2_decoder_contract_test PRIVATE cxx_std_20)
     target_compile_options(grib2_decoder_contract_test PRIVATE
         "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
