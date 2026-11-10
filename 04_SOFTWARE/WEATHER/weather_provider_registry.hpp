@@ -29,6 +29,10 @@ struct WeatherProviderCapability {
     GeographicCoverage coverage;
     double minimumAltitudeAglM{0.0};
     double maximumAltitudeAglM{0.0};
+    // Discrete levels actually supplied by the model; a min/max range alone
+    // must never imply unsupported vertical interpolation.
+    std::vector<double> altitudeLevelsAglM;
+    int maximumVerticalInterpolationGapM{0};
     std::int64_t maximumForecastHorizonSeconds{0};
     double minimumGridSpacingDegrees{0.0};
 };
@@ -53,6 +57,8 @@ struct WeatherProviderRequest {
     GeographicCoverage area;
     double minimumAltitudeAglM{0.0};
     double maximumAltitudeAglM{0.0};
+    // Every route/task altitude that must be supported by this provider.
+    std::vector<double> requiredAltitudesAglM;
     std::int64_t referenceTimeUtcSeconds{0};
     std::int64_t validFromUtcSeconds{0};
     std::int64_t validToUtcSeconds{0};
