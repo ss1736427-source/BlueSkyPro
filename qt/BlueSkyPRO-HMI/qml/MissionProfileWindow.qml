@@ -34,6 +34,7 @@ Item {
         if (weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
                 || weatherAcquisitionStatus === "DOWNLOADING"
                 || weatherAcquisitionStatus === "ASSESSING_WEATHER"
+                || weatherAcquisitionStatus === "DOWNLOADS_READY_UNDECODED"
                 || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
                 || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE")
             invalidateWeatherAcquisition("MISSION_ID_CHANGED_WEATHER_REQUEST_INVALIDATED")
