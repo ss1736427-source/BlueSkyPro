@@ -18,7 +18,8 @@ Item {
     property var weatherDownloadedFiles: []
     property var weatherRequestRouteLineage: ({})
     property string weatherMissionStartUtc: ""
-    property string weatherMissionEndUtc: ""
+    property string weatherCoverageStartUtc: ""
+    property string weatherCoverageEndUtc: ""
     property var lastWeatherCoverageResult: ({})
     onMissionModelJsonChanged: {
         if (weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
@@ -107,7 +108,8 @@ Item {
             calculationInputVersion: route.calculationInputVersion
         }
         root.weatherMissionStartUtc = missionStartUtc
-        root.weatherMissionEndUtc = validToUtc
+        root.weatherCoverageStartUtc = validFromUtc
+        root.weatherCoverageEndUtc = validToUtc
         root.weatherAcquisitionStatus = "CHECKING_FORECAST_AVAILABILITY"
         root.weatherAcquisitionMessage = "Проверка полного окна миссии по NOAA NOMADS"
         var accepted = root.forecastAvailabilityService.checkMissionForecast(
@@ -260,8 +262,8 @@ Item {
         function onPlanReady(plan) {
             if (root.weatherAcquisitionStatus !== "CHECKING_FORECAST_AVAILABILITY")
                 return
-            if (String(plan.mission_start_utc || "") !== root.weatherMissionStartUtc
-                    || String(plan.mission_end_utc || "") !== root.weatherMissionEndUtc
+            if (String(plan.mission_start_utc || "") !== root.weatherCoverageStartUtc
+                    || String(plan.mission_end_utc || "") !== root.weatherCoverageEndUtc
                     || !root.routeLineageStillMatches()) {
                 root.invalidateWeatherAcquisition("STALE_GFS_AVAILABILITY_RESULT")
                 return

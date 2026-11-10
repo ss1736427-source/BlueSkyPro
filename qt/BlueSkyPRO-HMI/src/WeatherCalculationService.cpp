@@ -48,7 +48,7 @@ bool buildRoute(const QVariantMap& snapshot,Route& route,QString& error)
     route.lineage.route_version=snapshot.value(QStringLiteral("routeVersion")).toString().toStdString();
     route.lineage.calculation_input_version=
         snapshot.value(QStringLiteral("calculationInputVersion")).toString().toStdString();
-    if (route.lineage.mission_id.empty() || route.lineage.route_id.empty()
+    if (route.lineage.mission_id.empty() || route.lineage.mission_version.empty() || route.lineage.route_id.empty()
         || route.lineage.route_version.empty() || route.lineage.calculation_input_version.empty()) {
         error=QStringLiteral("CANONICAL_ROUTE_LINEAGE_INCOMPLETE");
         return false;
@@ -84,7 +84,7 @@ bool buildRoute(const QVariantMap& snapshot,Route& route,QString& error)
         waypoint.position={lat,lon};
         waypoint.altitude_m=altitude;
         waypoint.altitude_reference=AltitudeReference::AGL;
-        waypoint.mandatory=item.value(QStringLiteral("mandatory")).toBool(true);
+        waypoint.mandatory=item.value(QStringLiteral("mandatory")).toBool();
         route.waypoints.push_back(std::move(waypoint));
     }
     std::set<std::string> segmentIds;
@@ -130,7 +130,8 @@ bool buildRoute(const QVariantMap& snapshot,Route& route,QString& error)
 }
 
 bool validateVehicleAssignment(const QString& missionJson,const QVariantMap& profile,
-                               QString& vehicleId,QString& configurationVersion,QString& error)
+                               QString& vehicleId,QString& configurationVersion,
+                               QString& missionId,QString& error)
 {
     vehicleId=profile.value(QStringLiteral("vehicleId")).toString().trimmed();
     configurationVersion=profile.value(QStringLiteral("configurationVersion")).toString().trimmed();
@@ -149,6 +150,15 @@ bool validateVehicleAssignment(const QString& missionJson,const QVariantMap& pro
         return false;
     }
     const QJsonObject mission=document.object();
+    missionId=jsonString(mission,"missionId","mission_id");
+    if (missionId.isEmpty()) {
+        const QJsonObject identity=mission.value(QStringLiteral("identity")).toObject();
+        missionId=jsonString(identity,"missionId","mission_id");
+    }
+    if (missionId.isEmpty()) {
+        error=QStringLiteral("CANONICAL_MISSION_ID_REQUIRED_FOR_WEATHER_ASSESSMENT");
+        return false;
+    }
     QJsonArray assignments=mission.value(QStringLiteral("vehicleAssignments")).toArray();
     if (assignments.isEmpty())
         assignments=mission.value(QStringLiteral("vehicle_assignments")).toArray();
@@ -348,9 +358,9 @@ bool WeatherCalculationService::evaluateRoute(
         setError(QStringLiteral("DOWNLOADED_GRIB2_PRODUCTS_REQUIRED"));
         return false;
     }
-    QString vehicleId,configurationVersion,error;
+    QString vehicleId,configurationVersion,missionId,error;
     if (!validateVehicleAssignment(missionModelJson,validatedPerformanceProfile,
-                                   vehicleId,configurationVersion,error)) {
+                                   vehicleId,configurationVersion,missionId,error)) {
         setError(error);
         return false;
     }
@@ -359,8 +369,7 @@ bool WeatherCalculationService::evaluateRoute(
         setError(error);
         return false;
     }
-    if (route.lineage.mission_id!=vehicleId.toStdString()
-        && routeSnapshot.value(QStringLiteral("missionId")).toString().isEmpty()) {
+    if (route.lineage.mission_id!=missionId.toStdString()) {
         setError(QStringLiteral("MISSION_ROUTE_LINEAGE_MISMATCH"));
         return false;
     }
