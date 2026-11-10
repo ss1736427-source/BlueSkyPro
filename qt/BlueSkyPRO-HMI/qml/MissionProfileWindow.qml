@@ -102,7 +102,7 @@ Item {
     }
 
     function requestMissionWeather(validFromUtc, validToUtc, spatialBufferM, areaAltitudesAglM, missionStartUtc) {
-        var utcPattern = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/
+        var utcPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
         var fromMs = Date.parse(validFromUtc)
         var toMs = Date.parse(validToUtc)
         var startMs = Date.parse(missionStartUtc)
@@ -159,6 +159,21 @@ Item {
         return true
     }
 
+    function maybeRequestWeatherAutomatically() {
+        if (root.routeValidationState !== "VALIDATED"
+                || (root.weatherAcquisitionStatus !== "NOT_REQUESTED"
+                    && root.weatherAcquisitionStatus !== "STALE"))
+            return false
+        var etd = weatherMissionStartInput.text.trim()
+        var bufferText = weatherBufferInput.text.trim()
+        if (!etd || !bufferText || !Number.isFinite(Number(bufferText)) || Number(bufferText) <= 0)
+            return false
+        var window = root.estimateWeatherWindow(etd)
+        var altitudes = root.requiredWeatherAltitudesAglM()
+        if (!window.valid || altitudes.length === 0)
+            return false
+        return root.requestMissionWeather(window.from, window.to, Number(bufferText), altitudes, etd)
+    }
     function requiredWeatherAltitudesAglM() {
         var values = []
         function addAltitude(value) {
@@ -354,9 +369,13 @@ Item {
             if (root.weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
                     || root.weatherAcquisitionStatus === "DOWNLOADING"
                     || root.weatherAcquisitionStatus === "ASSESSING_WEATHER"
+                    || root.weatherAcquisitionStatus === "DOWNLOADS_READY_UNDECODED"
                     || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
                     || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE")
                 root.invalidateWeatherAcquisition("ROUTE_CHANGED_WEATHER_REQUEST_INVALIDATED")
+        }
+        function onValidationChanged() {
+            root.maybeRequestWeatherAutomatically()
         }
     }
 
@@ -1021,6 +1040,7 @@ Item {
                             verticalAlignment: TextInput.AlignVCenter
                             selectByMouse: true
                             inputMethodHints: Qt.ImhDate | Qt.ImhTime
+                            onEditingFinished: root.maybeRequestWeatherAutomatically()
                             property string placeholder: "ETD / TAKEOFF UTC"
                             Text {
                                 anchors.fill: parent
@@ -1110,6 +1130,7 @@ Item {
                             verticalAlignment: TextInput.AlignVCenter
                             selectByMouse: true
                             inputMethodHints: Qt.ImhDigitsOnly
+                            onEditingFinished: root.maybeRequestWeatherAutomatically()
                             property string placeholder: "BUFFER m"
                             Text {
                                 anchors.fill: parent
