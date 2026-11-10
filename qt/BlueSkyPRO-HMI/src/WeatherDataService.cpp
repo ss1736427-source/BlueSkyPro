@@ -150,6 +150,14 @@ bool WeatherDataService::isValidGrib2File(const QString &path, QString *error)
     return true;
 }
 
+bool WeatherDataService::isSameRequestIdentity(const QUrl &activeRequestUrl,
+                                                        const QUrl &requestedUrl)
+{
+    return activeRequestUrl.isValid() && requestedUrl.isValid()
+        && activeRequestUrl.toString(QUrl::FullyEncoded)
+            == requestedUrl.toString(QUrl::FullyEncoded);
+}
+
 bool WeatherDataService::isReusableCacheEntry(const QString &filePath,
                                                      const QString &manifestPath,
                                                      const QString &expectedRequestUrl,
@@ -223,16 +231,21 @@ bool WeatherDataService::requestWindSubset(const QString &dateUtc,
                                            double north,
                                            const QStringList &levelsAglM)
 {
-    if (m_reply) {
-        setError(QStringLiteral("another weather download is already active"));
-        return false;
-    }
-
     QString validationError;
     const QUrl url = buildRequestUrl(dateUtc, cycleUtc, forecastHour, west, south,
                                      east, north, levelsAglM, &validationError);
     if (!url.isValid() || url.isEmpty()) {
         setError(validationError);
+        return false;
+    }
+
+    if (m_reply) {
+        if (isSameRequestIdentity(m_activeRequestUrl, url)) {
+            // All identical callers share this transfer and its single forecastReady result.
+            setError(QString());
+            return true;
+        }
+        setError(QStringLiteral("another different weather download is already active"));
         return false;
     }
 
@@ -309,6 +322,7 @@ bool WeatherDataService::requestWindSubset(const QString &dateUtc,
     request.setRawHeader("Accept", "application/octet-stream");
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
+    m_activeRequestUrl = url;
     m_reply = m_network.get(request);
     connect(m_reply, &QIODevice::readyRead, this, &WeatherDataService::consumeReplyData);
     connect(m_reply, &QNetworkReply::downloadProgress, this,
@@ -355,6 +369,7 @@ void WeatherDataService::finishReply()
     const QString networkErrorText = m_reply->errorString();
     m_reply->deleteLater();
     m_reply = nullptr;
+    m_activeRequestUrl = QUrl();
     if (networkError != QNetworkReply::NoError) {
         failDownload(QStringLiteral("NOAA request failed: %1").arg(networkErrorText));
         return;
@@ -415,6 +430,7 @@ bool WeatherDataService::writeManifest(const QJsonObject &manifest, QString *err
 
 void WeatherDataService::failDownload(const QString &reason)
 {
+    m_activeRequestUrl = QUrl();
     if (m_reply) {
         m_reply->deleteLater();
         m_reply = nullptr;
