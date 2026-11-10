@@ -283,6 +283,21 @@ target_compile_options(weather_calculation_service_test PRIVATE
 )
 add_test(NAME weather_calculation_service_contract COMMAND weather_calculation_service_test)
 
+# Verify the agreed planning order: generate candidates without weather,
+# assess each candidate, then re-rank using corrected time/energy. This test
+# was previously present in PLANNING but excluded from the HMI CI test graph.
+add_executable(orchestrator_weather_integration_test
+    ../../04_SOFTWARE/PLANNING/orchestrator/algorithm_orchestrator_weather_test.cpp
+)
+target_link_libraries(orchestrator_weather_integration_test PRIVATE bluesky_planning)
+target_compile_features(orchestrator_weather_integration_test PRIVATE cxx_std_20)
+target_compile_options(orchestrator_weather_integration_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME orchestrator_weather_candidate_rerank_contract
+         COMMAND orchestrator_weather_integration_test)
+
 add_executable(weather_data_service_test
     tests/WeatherDataServiceTest.cpp
     src/WeatherDataService.cpp
