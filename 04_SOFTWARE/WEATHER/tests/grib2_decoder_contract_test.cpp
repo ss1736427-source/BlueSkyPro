@@ -70,7 +70,7 @@ int main()
         const std::size_t y = (grid.rows / 2 < grid.rows - 1) ? grid.rows / 2 : grid.rows - 2;
         const std::size_t x = grid.columns / 2;
         const double lat0 = grid.latitudes_deg[y];
-        const double lat1 = grid.latitudes_deg[y + 1];
+        const double lat1 = lat0 + 0.00001;
         const double lon = grid.longitudes_deg[x];
 
         bluesky::planning::Route route;
@@ -85,6 +85,7 @@ int main()
 
         bluesky::planning::TrajectoryPerformanceInput input;
         input.uav_id = "fixture-uav";
+        input.mission_start_utc = "2026-11-08T06:00:00Z";
         input.configuration_version = "cfg-1";
         input.performance_version = "perf-1";
         input.cruise_airspeed_mps = 15.0;

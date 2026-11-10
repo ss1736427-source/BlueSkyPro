@@ -33,6 +33,8 @@ struct TrajectoryPerformanceInput {
     std::string performance_version;
     std::string wind_snapshot_id;
     std::string wind_snapshot_version;
+    // Explicit planned UTC start used to time-index weather along the route.
+    std::string mission_start_utc;
     double cruise_airspeed_mps{0.0};
     double climb_rate_mps{0.0};
     double descent_rate_mps{0.0};

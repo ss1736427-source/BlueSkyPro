@@ -41,7 +41,7 @@ std::string dependency(const Route&r,const TrajectoryPerformanceInput&i,const st
     std::ostringstream o;
     o<<r.lineage.route_id<<'|'<<r.lineage.route_version<<'|'<<r.lineage.calculation_input_version
      <<'|'<<i.uav_id<<'|'<<i.configuration_version<<'|'<<i.performance_version
-     <<'|'<<i.wind_snapshot_id<<'|'<<i.wind_snapshot_version<<'|'<<v;
+     <<'|'<<i.wind_snapshot_id<<'|'<<i.wind_snapshot_version<<'|'<<i.mission_start_utc<<'|'<<v;
     for(const auto&s:i.wind_samples)
         o<<'|'<<s.segment_id<<':'<<std::setprecision(17)<<s.north_mps<<','<<s.east_mps<<','<<s.up_mps;
     return o.str();

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -27,7 +28,9 @@ enum class WindQuality {
     InvalidGrid,
     MissingVerticalCoverage,
     VerticalGapTooLarge,
-    InconsistentValidTime
+    InconsistentValidTime,
+    MissingTemporalCoverage,
+    TemporalGapTooLarge
 };
 
 struct WindQuery {
@@ -48,6 +51,15 @@ public:
 
     // Exact model levels are preferred. Vertical interpolation is allowed only
     // between bracketing AGL levels whose separation does not exceed max_gap_m.
+    static WindQuery atTimeAndAltitude(
+        const std::vector<WindField>& fields,
+        double latitude_deg,
+        double longitude_deg,
+        double altitude_agl_m,
+        std::int64_t valid_time_utc_seconds,
+        int maximum_vertical_gap_m = 100,
+        std::int64_t maximum_temporal_gap_seconds = 10800);
+
     static WindQuery atAltitude(const std::vector<WindField>& fields,
                                 double latitude_deg,
                                 double longitude_deg,

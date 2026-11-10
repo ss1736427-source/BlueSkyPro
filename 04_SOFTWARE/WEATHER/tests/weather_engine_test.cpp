@@ -11,12 +11,12 @@
 using namespace bluesky::weather;
 using namespace bluesky::planning;
 
-static WindField field(int level, double u, double v)
+static WindField fieldAt(int level, double u, double v, int validTime)
 {
     WindField f;
     f.level_agl_m = level;
     f.valid_date_utc = 20261108;
-    f.valid_time_utc = 600;
+    f.valid_time_utc = validTime;
     f.rows = 2;
     f.columns = 2;
     f.latitudes_deg = {0.0, 1.0};
@@ -26,12 +26,41 @@ static WindField field(int level, double u, double v)
     return f;
 }
 
+static WindField field(int level,double u,double v)
+{
+    return fieldAt(level,u,v,600);
+}
+
 int main()
 {
     const WindField low = field(50, 4.0, 2.0);
     const WindField mid = field(80, 7.0, 5.0);
     const WindField high = field(100, 9.0, 7.0);
     const WindField top = field(1000, 20.0, 18.0);
+
+    const WindField nextLow=fieldAt(50,8.0,6.0,700);
+    const WindField nextMid=fieldAt(80,11.0,9.0,700);
+    const WindField nextHigh=fieldAt(100,13.0,11.0,700);
+    const WindField nextTop=fieldAt(1000,24.0,22.0,700);
+    const std::vector<WindField> timeFields{
+        low,mid,high,top,nextLow,nextMid,nextHigh,nextTop
+    };
+    const auto timeInterpolated=WindInterpolator::atTimeAndAltitude(
+        timeFields,0.5,10.5,65.0,1794119400LL);
+    assert(timeInterpolated.valid);
+    assert(std::abs(timeInterpolated.eastward_mps-7.5)<1e-9);
+    assert(std::abs(timeInterpolated.northward_mps-5.5)<1e-9);
+    const auto noTemporalExtrapolation=WindInterpolator::atTimeAndAltitude(
+        timeFields,0.5,10.5,65.0,1794114000LL);
+    assert(!noTemporalExtrapolation.valid);
+    assert(noTemporalExtrapolation.quality==WindQuality::MissingTemporalCoverage);
+    const auto excessiveTemporalGap=WindInterpolator::atTimeAndAltitude(
+        {low,mid,high,top,fieldAt(50,8.0,6.0,1200),
+         fieldAt(80,11.0,9.0,1200),fieldAt(100,13.0,11.0,1200),
+         fieldAt(1000,24.0,22.0,1200)},
+        0.5,10.5,65.0,1794119400LL,100,3600);
+    assert(!excessiveTemporalGap.valid);
+    assert(excessiveTemporalGap.quality==WindQuality::TemporalGapTooLarge);
 
     const auto horizontal = WindInterpolator::horizontal(low, 0.5, 10.5);
     assert(horizontal.valid);
@@ -87,6 +116,7 @@ int main()
 
     TrajectoryPerformanceInput performanceInput;
     performanceInput.uav_id = "uav-1";
+    performanceInput.mission_start_utc = "2026-11-08T06:00:00Z";
     performanceInput.configuration_version = "cfg-1";
     performanceInput.performance_version = "perf-1";
     performanceInput.cruise_airspeed_mps = 15.0;
@@ -100,7 +130,7 @@ int main()
     performanceInput.reserve_requirement_wh = 10.0;
 
     const auto incompleteEvaluation = WeatherTrajectoryCalculator::evaluate(
-        route, {low, mid, high, top}, "snapshot-20261108-06", "gfs-0p25-v1",
+        route, timeFields, "snapshot-20261108-06", "gfs-0p25-v1",
         performanceInput, "weather-trajectory-test-v1");
     assert(!incompleteEvaluation.weather_ready);
     assert(incompleteEvaluation.weather_error.find("trajectory geometry is incomplete")
@@ -108,7 +138,7 @@ int main()
 
     route.trajectory_geometry_complete = true;
     const auto evaluated = WeatherTrajectoryCalculator::evaluate(
-        route, {low, mid, high, top}, "snapshot-20261108-06", "gfs-0p25-v1",
+        route, timeFields, "snapshot-20261108-06", "gfs-0p25-v1",
         performanceInput, "weather-trajectory-test-v1");
     assert(evaluated.weather_ready);
     assert(evaluated.weather_error.empty());
