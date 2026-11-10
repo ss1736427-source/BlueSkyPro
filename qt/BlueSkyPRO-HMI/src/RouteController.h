@@ -287,7 +287,7 @@ public:
     }
 
     // Planner validation is accepted only for the exact route and input versions.
-    bool publishValidation(const QString &validatedRouteVersion,
+    Q_INVOKABLE bool publishValidation(const QString &validatedRouteVersion,
                                        const QString &validatedInputVersion,
                                        bool accepted,
                                        const QString &reason)
