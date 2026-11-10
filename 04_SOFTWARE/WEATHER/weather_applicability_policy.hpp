@@ -42,8 +42,8 @@ public:
 
     // Selects the newest observation for the requested station in the
     // inclusive ETD +/- 3h planning window, excluding future/unreceived data.
-    // For pre-flight use, pass nowUtc <= ETD; reports received after ETD are
-    // handled as new events during execution, not as pre-flight inputs.
+    // The observation window is inclusive on both sides of ETD. Only reports
+    // already observed and received by nowUtc can be selected.
     static std::optional<std::size_t> selectLatestObservation(
         const std::vector<AviationObservation>& reports,
         const std::string& stationId,
