@@ -13,6 +13,11 @@ WeatherTrajectoryEvaluation WeatherTrajectoryCalculator::evaluate(
     int maximum_vertical_gap_m)
 {
     WeatherTrajectoryEvaluation result;
+    if (!route.trajectory_geometry_complete) {
+        result.weather_error =
+            "route trajectory geometry is incomplete; weather correction requires all flown legs and transition/turn segments";
+        return result;
+    }
     if (!RouteWindAdapter::apply(route, fields, snapshot_id, snapshot_version,
                                  input, &result.weather_error,
                                  maximum_vertical_gap_m)) {

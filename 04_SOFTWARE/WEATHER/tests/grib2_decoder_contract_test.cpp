@@ -81,6 +81,7 @@ int main()
             {"B", {lat1, lon}, 50.0, true, bluesky::planning::AltitudeReference::AGL}
         };
         route.segments = {{"SEG-1", "A", "B", 0.0, 0.0}};
+        route.trajectory_geometry_complete = true;
 
         bluesky::planning::TrajectoryPerformanceInput input;
         input.uav_id = "fixture-uav";
