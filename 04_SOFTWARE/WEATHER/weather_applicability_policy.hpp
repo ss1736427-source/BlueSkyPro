@@ -61,11 +61,14 @@ public:
         std::int64_t nowUtc);
 
     // A SPECI event always causes an immediate weather re-evaluation.
-    // A departure delay <= 15 min alone does not. A later delay does.
+    // A departure delay <= 15 min permits reuse only while the selected data
+    // still covers actual takeoff and the planned mission interval. SPECI or
+    // lost coverage always forces re-evaluation.
     static DepartureWeatherAction departureAction(
         std::int64_t etdUtc,
         std::int64_t actualTakeoffUtc,
-        bool speciReceived);
+        bool speciReceived,
+        bool selectedWeatherStillCoversMission);
 };
 
 } // namespace bluesky::weather
