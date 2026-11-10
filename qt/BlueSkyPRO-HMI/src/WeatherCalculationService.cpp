@@ -14,6 +14,7 @@
 #include <QJsonObject>
 #include <QtConcurrent/QtConcurrentRun>
 
+#include <algorithm>
 #include <cmath>
 #include <optional>
 #include <set>

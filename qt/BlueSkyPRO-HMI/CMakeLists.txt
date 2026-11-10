@@ -250,6 +250,7 @@ add_executable(weather_calculation_service_test
     src/WeatherCalculationService.h
 )
 target_include_directories(weather_calculation_service_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/../..
     ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/WEATHER
 )
