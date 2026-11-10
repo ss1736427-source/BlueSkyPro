@@ -7,6 +7,7 @@ namespace bluesky::weather {
 namespace {
 const QString kRoot=QStringLiteral("https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/");
 constexpr int kMaxListingBytes=4*1024*1024;
+constexpr int kMaxAvailabilityCacheEntries=64;
 void setErrorText(QString *out,const QString &s){if(out)*out=s;}
 bool validCycle(const QString &s,QDateTime *out=nullptr){
  if(s.size()!=20||!s.endsWith(QLatin1Char('Z')))return false;
@@ -43,6 +44,13 @@ QStringList GfsForecastAvailabilityService::recentCandidateCyclesUtc(const QDate
  for(int d=0;d<days;++d){const QDate date=now.date().addDays(-d);for(int h:{18,12,6,0}){const QDateTime t(date,QTime(h,0),Qt::UTC);if(t<=now)out<<t.toString(QStringLiteral("yyyy-MM-dd'T'HH:mm:ss'Z'"));}}
  return out;
 }
+bool GfsForecastAvailabilityService::isAvailabilityCacheFresh(
+    const QDateTime &checkedAtUtc,const QDateTime &nowUtc,int ttlSeconds)
+{
+ if(!checkedAtUtc.isValid()||!nowUtc.isValid()||ttlSeconds<=0)return false;
+ const qint64 ageSeconds=checkedAtUtc.toUTC().secsTo(nowUtc.toUTC());
+ return ageSeconds>=0&&ageSeconds<ttlSeconds;
+}
 bool GfsForecastAvailabilityService::checkMissionForecast(const QString&start,const QString&end,int days){
  if(m_reply){setError(QStringLiteral("A GFS availability check is already running."));return false;}
  GfsForecastPlanRequest validation;validation.mission_start_utc=start.toStdString();validation.mission_end_utc=end.toStdString();
@@ -50,6 +58,10 @@ bool GfsForecastAvailabilityService::checkMissionForecast(const QString&start,co
  if(valid.status==GfsForecastPlanStatus::InvalidRequest){setError(QString::fromStdString(valid.reason));setState("INVALID_REQUEST");emit checkFailed(m_lastError,{});return false;}
  QString err;const auto cycles=recentCandidateCyclesUtc(QDateTime::currentDateTimeUtc(),days,&err);
  if(!err.isEmpty()){setError(err);setState("INVALID_REQUEST");emit checkFailed(err,{});return false;}
+ const auto now=QDateTime::currentDateTimeUtc();
+ for(auto it=m_availabilityCache.begin();it!=m_availabilityCache.end();){
+  if(!isAvailabilityCacheFresh(it->checkedAtUtc,now))it=m_availabilityCache.erase(it);else ++it;
+ }
  m_candidates.clear();m_candidateDiagnostics.clear();m_candidateIndex=0;m_missionStartUtc=start;m_missionEndUtc=end;
  for(const auto&cycle:cycles){
   GfsForecastPlanRequest req;req.mission_start_utc=start.toStdString();req.mission_end_utc=end.toStdString();req.candidates.push_back({cycle.toStdString(),true});
@@ -63,7 +75,16 @@ bool GfsForecastAvailabilityService::checkMissionForecast(const QString&start,co
 void GfsForecastAvailabilityService::checkNextCandidate(){
  if(m_reply)return;
  if(m_candidateIndex>=m_candidates.size()){const QString why="No single published GFS run contains every forecast file required by the mission window.";setError(why);setState("NO_COMPLETE_RUN");emit checkFailed(why,diagnostics());return;}
- const auto&c=m_candidates.at(m_candidateIndex);QString err;const QUrl url=buildAtmosDirectoryUrl(c.cycleTimeUtc,&err);
+ const auto&c=m_candidates.at(m_candidateIndex);
+ const auto cached=m_availabilityCache.constFind(c.cycleTimeUtc);
+ const auto now=QDateTime::currentDateTimeUtc();
+ if(cached!=m_availabilityCache.cend()
+    &&isAvailabilityCacheFresh(cached->checkedAtUtc,now)){
+  emit progressChanged(m_candidateIndex,m_candidates.size(),c.cycleTimeUtc);
+  evaluateCurrentCandidate(c.cycleTimeUtc,cached->forecastHours,cached->checkedAtUtc,true);
+  return;
+ }
+ QString err;const QUrl url=buildAtmosDirectoryUrl(c.cycleTimeUtc,&err);
  if(!url.isValid()||url.isEmpty()){failCheck(err.isEmpty()?"Unable to build NOMADS directory URL.":err);return;}
  QNetworkRequest req(url);req.setHeader(QNetworkRequest::UserAgentHeader,"BlueSkyPRO-GFSAvailability/0.1");req.setRawHeader("Accept","text/html");
  req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::NoLessSafeRedirectPolicy);req.setTransferTimeout(20000);
@@ -83,19 +104,37 @@ void GfsForecastAvailabilityService::finishCurrentCandidate(){
  if(body.isEmpty()||body.size()>kMaxListingBytes){failCheck(QStringLiteral("NOMADS returned an empty or oversized directory listing for %1.").arg(cycle));return;}
  bool recognized=false;const auto available=parseAvailableForecastHours(body,cycle.mid(11,2),&recognized);
  if(!recognized){failCheck(QStringLiteral("NOMADS response for %1 did not contain recognized GFS 0.25-degree files.").arg(cycle));return;}
+ const auto checkedAt=QDateTime::currentDateTimeUtc();
+ if(m_availabilityCache.size()>=kMaxAvailabilityCacheEntries){
+  auto oldest=m_availabilityCache.begin();
+  for(auto it=m_availabilityCache.begin();it!=m_availabilityCache.end();++it)
+   if(it->checkedAtUtc<oldest->checkedAtUtc)oldest=it;
+  m_availabilityCache.erase(oldest);
+ }
+ m_availabilityCache.insert(cycle,CachedAvailabilityListing{available,checkedAt});
+ evaluateCurrentCandidate(cycle,available,checkedAt,false);
+}
+void GfsForecastAvailabilityService::evaluateCurrentCandidate(
+    const QString&cycle,const QSet<int>&available,const QDateTime&checkedAt,bool cacheHit)
+{
  const auto&candidate=m_candidates.at(m_candidateIndex);QList<int> missing;
  for(int h:candidate.plan.forecast_lead_hours)if(!available.contains(h))missing.push_back(h);
+ const QString cacheStatus=cacheHit?QStringLiteral("HIT"):QStringLiteral("MISS");
  if(missing.isEmpty()){
-  m_candidateDiagnostics.push_back(QVariantMap{{"cycle_time_utc",cycle},{"status","COMPLETE"},{"required_file_count",static_cast<int>(candidate.plan.forecast_lead_hours.size())}});
+  m_candidateDiagnostics.push_back(QVariantMap{{"cycle_time_utc",cycle},{"status","COMPLETE"},
+   {"required_file_count",static_cast<int>(candidate.plan.forecast_lead_hours.size())},
+   {"availability_cache_status",cacheStatus}});
   QVariantMap result{{"status","READY"},{"selected_cycle_utc",cycle},{"forecast_lead_hours",variants(candidate.plan.forecast_lead_hours)},
    {"mission_start_utc",m_missionStartUtc},{"mission_end_utc",m_missionEndUtc},{"source_directory_url",buildAtmosDirectoryUrl(cycle).toString()},
-   {"availability_checked_at_utc",QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
+   {"availability_checked_at_utc",checkedAt.toUTC().toString(Qt::ISODateWithMs)},
+   {"availability_cache_status",cacheStatus},{"availability_cache_ttl_seconds",availabilityCacheTtlSeconds()},
    {"verification_level","NOMADS_DIRECTORY_LISTING_FILE_PRESENCE"},{"download_validation","PENDING_GRIB2_DOWNLOAD_AND_DECODE"},
    {"candidate_diagnostics",diagnostics()}};
   setError({});setState("READY");emit planReady(result);return;
  }
  m_candidateDiagnostics.push_back(QVariantMap{{"cycle_time_utc",cycle},{"status","INCOMPLETE"},
-  {"required_file_count",static_cast<int>(candidate.plan.forecast_lead_hours.size())},{"missing_forecast_lead_hours",variants(missing)}});
+  {"required_file_count",static_cast<int>(candidate.plan.forecast_lead_hours.size())},
+  {"missing_forecast_lead_hours",variants(missing)},{"availability_cache_status",cacheStatus}});
  ++m_candidateIndex;checkNextCandidate();
 }
 void GfsForecastAvailabilityService::cancel(){
