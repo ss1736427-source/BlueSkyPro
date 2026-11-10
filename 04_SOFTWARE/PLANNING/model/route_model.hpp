@@ -23,6 +23,11 @@ struct RouteWaypoint {
     bool mandatory{false};
     // The current route validator accepts only explicit AGL; other datums need conversion.
     AltitudeReference altitude_reference{AltitudeReference::Unknown};
+    // Optional validated task execution at this waypoint. Both values must be
+    // supplied together; energy is sourced from the assigned UAV/payload model,
+    // never inferred from a generic hover assumption.
+    std::optional<double> task_execution_duration_s;
+    std::optional<double> task_execution_energy_wh;
 };
 
 struct RouteSegment {
