@@ -110,16 +110,16 @@ bool WeatherProviderRegistry::registerAdapter(
             || !std::isfinite(capability.maximumAltitudeAglM)
             || capability.minimumAltitudeAglM > capability.maximumAltitudeAglM
             || capability.maximumForecastHorizonSeconds < 0
-            || capability.maximumVerticalInterpolationGapM <= 0
-            || capability.altitudeLevelsAglM.empty()
-            || !std::is_sorted(capability.altitudeLevelsAglM.begin(), capability.altitudeLevelsAglM.end())
-            || std::adjacent_find(capability.altitudeLevelsAglM.begin(), capability.altitudeLevelsAglM.end())
-                != capability.altitudeLevelsAglM.end()
-            || std::any_of(capability.altitudeLevelsAglM.begin(), capability.altitudeLevelsAglM.end(),
-                [](double level) { return !std::isfinite(level) || level <= 0.0; })
             || ((capability.product == WeatherProductType::NumericalWindField
                  || capability.product == WeatherProductType::NumericalTemperatureField)
-                && (!std::isfinite(capability.minimumGridSpacingDegrees)
+                && (capability.maximumVerticalInterpolationGapM <= 0
+                    || capability.altitudeLevelsAglM.empty()
+                    || !std::is_sorted(capability.altitudeLevelsAglM.begin(), capability.altitudeLevelsAglM.end())
+                    || std::adjacent_find(capability.altitudeLevelsAglM.begin(), capability.altitudeLevelsAglM.end())
+                        != capability.altitudeLevelsAglM.end()
+                    || std::any_of(capability.altitudeLevelsAglM.begin(), capability.altitudeLevelsAglM.end(),
+                        [](double level) { return !std::isfinite(level) || level <= 0.0; })
+                    || !std::isfinite(capability.minimumGridSpacingDegrees)
                     || capability.minimumGridSpacingDegrees <= 0.0))) {
             setError(error, "adapter contains an invalid capability declaration");
             return false;
