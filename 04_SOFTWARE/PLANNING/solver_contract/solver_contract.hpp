@@ -40,6 +40,9 @@ struct CandidateSolution {
     std::string solver_id;
     std::string solver_version;
     std::vector<std::string> route_elements;
+    // Full flown geometry is required for weather-aware candidate assessment.
+    // Structural graph paths without transitions/turns must not set the completeness flag.
+    std::optional<Route> trajectory_route;
     std::vector<std::string> constraint_violations;
     double estimated_time_s{0.0};
     double estimated_energy_wh{0.0};
