@@ -40,6 +40,10 @@ struct OrchestratorDecision {
     std::vector<std::string> considered_solvers;
     std::vector<std::string> rejected_solvers;
     std::vector<CandidateRejection> rejected_candidates;
+    // Every candidate that passed all active hard gates, retained with the
+    // metrics used for this decision. This enables a weather-independent
+    // planning pass to hand the complete admissible set to the weather stage.
+    std::vector<CandidateSolution> admissible_candidates;
     std::vector<MaximumRegimeUse> selected_maximum_regime_uses;
     bool maximum_regime_warning_required{false};
     std::string operator_warning;
