@@ -93,11 +93,22 @@ int main()
     assert(!missingDatum.valid);
     assert(hasError(missingDatum, "EXPLICIT_TARGET_ALTITUDE_REFERENCE_AGL_REQUIRED:0"));
 
-    auto missingEnvironment = requirements;
-    missingEnvironment.wind_snapshot_id.clear();
-    const auto noWind = buildManualRouteCandidate(mission, geometry, missingEnvironment);
-    assert(!noWind.valid);
-    assert(hasError(noWind, "WIND_SNAPSHOT_REQUIRED"));
+    auto preWeatherRequirements = requirements;
+    preWeatherRequirements.weather_snapshot_id.clear();
+    preWeatherRequirements.wind_snapshot_id.clear();
+    const auto preWeather = buildManualRouteCandidate(
+        mission, geometry, preWeatherRequirements);
+    assert(preWeather.valid);
+    assert(preWeather.route.environment.weather_snapshot_id.empty());
+    assert(preWeather.route.environment.wind_snapshot_id.empty());
+
+    auto mismatchedWeatherLineage = requirements;
+    mismatchedWeatherLineage.wind_snapshot_id.clear();
+    const auto mismatchedWeather = buildManualRouteCandidate(
+        mission, geometry, mismatchedWeatherLineage);
+    assert(!mismatchedWeather.valid);
+    assert(hasError(mismatchedWeather,
+                    "WEATHER_AND_WIND_SNAPSHOT_REFS_MUST_BE_PAIRED"));
 
     auto areaGeometry = geometry;
     areaGeometry.geometry_type = "POLYGON_AOI";
