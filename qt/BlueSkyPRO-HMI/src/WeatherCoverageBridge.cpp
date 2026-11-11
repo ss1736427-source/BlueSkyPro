@@ -9,7 +9,9 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QStringList>
+#include <QSet>
 
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <utility>
@@ -266,5 +268,131 @@ QVariantMap WeatherCoverageBridge::buildCoverageRequest(
         {QStringLiteral("valid"), true},
         {QStringLiteral("errors"), QVariantList{}},
         {QStringLiteral("request"), requestMap}
+    };
+}
+
+
+QVariantMap WeatherCoverageBridge::buildCoverageRequestForCandidates(
+    const QString &missionModelJson,
+    const QVariantList &routeSnapshots,
+    const QString &validFromUtc,
+    const QString &validToUtc,
+    double spatialBufferM,
+    const QVariantList &requiredAreaAltitudesAglM) const
+{
+    if (routeSnapshots.isEmpty())
+        return failure(QStringLiteral("WEATHER_COVERAGE_REQUIRES_AT_LEAST_ONE_CANDIDATE_ROUTE"));
+
+    QVariantMap mergedRequest;
+    QVariantList mergedComponents;
+    QVariantList candidateRoutes;
+    QSet<QString> componentKeys;
+    QSet<QString> routeKeys;
+    QSet<double> altitudeSet;
+    QSet<int> providerLevelSet;
+    QVariantMap mergedBounds;
+    QString commonInputVersion;
+    bool first = true;
+
+    for (const QVariant &routeValue : routeSnapshots) {
+        const QVariantMap route = routeValue.toMap();
+        const QVariantMap built = buildCoverageRequest(
+            missionModelJson, route, validFromUtc, validToUtc,
+            spatialBufferM, requiredAreaAltitudesAglM);
+        if (!built.value(QStringLiteral("valid")).toBool()) {
+            QVariantList errors = built.value(QStringLiteral("errors")).toList();
+            for (QVariant &error : errors)
+                error = QStringLiteral("CANDIDATE_ROUTE_%1:%2")
+                    .arg(route.value(QStringLiteral("routeId")).toString(), error.toString());
+            return {
+                {QStringLiteral("valid"), false},
+                {QStringLiteral("errors"), errors},
+                {QStringLiteral("request"), QVariantMap{}}
+            };
+        }
+
+        const QVariantMap request = built.value(QStringLiteral("request")).toMap();
+        const QString routeId = request.value(QStringLiteral("routeId")).toString();
+        const QString routeVersion = request.value(QStringLiteral("routeVersion")).toString();
+        const QString routeKey = routeId + QLatin1Char('|') + routeVersion;
+        if (routeKeys.contains(routeKey)) {
+            return failure(QStringLiteral("DUPLICATE_CANDIDATE_ROUTE_IDENTITY:%1").arg(routeId));
+        }
+        routeKeys.insert(routeKey);
+        candidateRoutes.push_back(QVariantMap{
+            {QStringLiteral("routeId"), routeId},
+            {QStringLiteral("routeVersion"), routeVersion}
+        });
+
+        const QString inputVersion =
+            request.value(QStringLiteral("calculationInputVersion")).toString();
+        if (first) {
+            mergedRequest = request;
+            mergedRequest.insert(QStringLiteral("components"), QVariantList{});
+            mergedBounds = request.value(QStringLiteral("bounds")).toMap();
+            commonInputVersion = inputVersion;
+            first = false;
+        } else {
+            if (inputVersion != commonInputVersion)
+                return failure(QStringLiteral(
+                    "CANDIDATE_ROUTES_USE_DIFFERENT_CALCULATION_INPUT_VERSIONS"));
+            const QVariantMap bounds = request.value(QStringLiteral("bounds")).toMap();
+            mergedBounds.insert(QStringLiteral("southDeg"),
+                std::min(mergedBounds.value(QStringLiteral("southDeg")).toDouble(),
+                         bounds.value(QStringLiteral("southDeg")).toDouble()));
+            mergedBounds.insert(QStringLiteral("westDeg"),
+                std::min(mergedBounds.value(QStringLiteral("westDeg")).toDouble(),
+                         bounds.value(QStringLiteral("westDeg")).toDouble()));
+            mergedBounds.insert(QStringLiteral("northDeg"),
+                std::max(mergedBounds.value(QStringLiteral("northDeg")).toDouble(),
+                         bounds.value(QStringLiteral("northDeg")).toDouble()));
+            mergedBounds.insert(QStringLiteral("eastDeg"),
+                std::max(mergedBounds.value(QStringLiteral("eastDeg")).toDouble(),
+                         bounds.value(QStringLiteral("eastDeg")).toDouble()));
+        }
+
+        for (const QVariant &componentValue :
+             request.value(QStringLiteral("components")).toList()) {
+            const QVariantMap component = componentValue.toMap();
+            const QString key = QStringLiteral("%1|%2|%3|%4")
+                .arg(component.value(QStringLiteral("kind")).toInt())
+                .arg(component.value(QStringLiteral("sourceId")).toString())
+                .arg(component.value(QStringLiteral("sourceVersion")).toString())
+                .arg(component.value(QStringLiteral("geometryType")).toString());
+            if (!componentKeys.contains(key)) {
+                componentKeys.insert(key);
+                mergedComponents.push_back(component);
+            }
+        }
+        for (const QVariant &altitude : request.value(QStringLiteral("requiredAltitudesAglM")).toList())
+            altitudeSet.insert(altitude.toDouble());
+        for (const QVariant &level : request.value(QStringLiteral("providerLevelsAglM")).toStringList())
+            providerLevelSet.insert(level.toInt());
+    }
+
+    QVariantList altitudes;
+    QList<double> orderedAltitudes = altitudeSet.values();
+    std::sort(orderedAltitudes.begin(), orderedAltitudes.end());
+    for (double altitude : orderedAltitudes)
+        altitudes.push_back(altitude);
+
+    QStringList providerLevels;
+    QList<int> orderedProviderLevels = providerLevelSet.values();
+    std::sort(orderedProviderLevels.begin(), orderedProviderLevels.end());
+    for (int level : orderedProviderLevels)
+        providerLevels.push_back(QString::number(level));
+
+    mergedRequest.insert(QStringLiteral("routeId"), QStringLiteral("MULTI_CANDIDATE"));
+    mergedRequest.insert(QStringLiteral("routeVersion"), QStringLiteral("MULTI_CANDIDATE"));
+    mergedRequest.insert(QStringLiteral("candidateRoutes"), candidateRoutes);
+    mergedRequest.insert(QStringLiteral("components"), mergedComponents);
+    mergedRequest.insert(QStringLiteral("bounds"), mergedBounds);
+    mergedRequest.insert(QStringLiteral("requiredAltitudesAglM"), altitudes);
+    mergedRequest.insert(QStringLiteral("providerLevelsAglM"), providerLevels);
+
+    return {
+        {QStringLiteral("valid"), true},
+        {QStringLiteral("errors"), QVariantList{}},
+        {QStringLiteral("request"), mergedRequest}
     };
 }
