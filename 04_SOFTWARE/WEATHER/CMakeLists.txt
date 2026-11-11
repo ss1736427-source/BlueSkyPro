@@ -94,7 +94,14 @@ target_compile_options(weather_provider_registry_test PRIVATE
 add_test(NAME weather_provider_registry_contract COMMAND weather_provider_registry_test)
 
 if(BLUESKY_ENABLE_ECCODES)
-    add_executable(grib2_decoder_contract_test tests/grib2_decoder_contract_test.cpp)
+    # The GRIB2 contract also executes the real planning orchestrator.
+    # Standalone WEATHER builds do not link bluesky_planning, so compile the
+    # orchestrator and its flight-safety validator into this test only.
+    add_executable(grib2_decoder_contract_test
+        tests/grib2_decoder_contract_test.cpp
+        ../PLANNING/orchestrator/algorithm_orchestrator.cpp
+        ../PLANNING/flight_safety_constraints.cpp
+    )
     target_link_libraries(grib2_decoder_contract_test PRIVATE bluesky_weather)
     target_compile_options(grib2_decoder_contract_test PRIVATE
         "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
