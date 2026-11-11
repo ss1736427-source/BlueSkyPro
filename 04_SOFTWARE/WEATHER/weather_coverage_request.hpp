@@ -40,12 +40,21 @@ struct WeatherCoverageWindow {
     std::string valid_to_utc;
 };
 
+struct WeatherCandidateRouteIdentity {
+    std::string route_id;
+    std::string route_version;
+};
+
 struct WeatherCoverageRequest {
     std::string request_schema_version{"1"};
     std::string mission_id;
     std::string mission_version;
     std::string route_id;
     std::string route_version;
+    // All candidate routes covered by one shared spatial/temporal/vertical request.
+    // route_id/route_version remain populated for a single-route request and are
+    // set to MULTI_CANDIDATE when more than one route is included.
+    std::vector<WeatherCandidateRouteIdentity> candidate_routes;
     std::string calculation_input_version;
     std::vector<CoverageComponent> components;
     GeographicCoverageBounds bounds;
@@ -72,13 +81,20 @@ struct WeatherCoverageRequestBuildResult {
 
 class WeatherCoverageRequestBuilder final {
 public:
-    // Builds a mission-specific spatial-temporal request from the existing
-    // canonical Mission and selected Route. This creates a conservative
-    // provider bounding box; it does not claim polygon-cell coverage or
-    // validate forecast data.
+    // Builds a mission-specific request for one canonical candidate route.
+    // This creates a conservative provider bounding box; it does not claim
+    // polygon-cell coverage or validate forecast data.
     static WeatherCoverageRequestBuildResult build(
         const bluesky::planning::Mission& mission,
         const bluesky::planning::Route& route,
+        const WeatherCoverageRequestOptions& options);
+
+    // Builds one shared request covering every route candidate. The supplied
+    // time window must span the complete execution interval of the longest
+    // candidate; the request unions route geography and all flown AGL levels.
+    static WeatherCoverageRequestBuildResult build(
+        const bluesky::planning::Mission& mission,
+        const std::vector<bluesky::planning::Route>& candidate_routes,
         const WeatherCoverageRequestOptions& options);
 };
 
