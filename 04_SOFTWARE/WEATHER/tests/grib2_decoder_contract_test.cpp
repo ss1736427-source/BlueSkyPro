@@ -1,13 +1,16 @@
 #include "grib2_decoder.hpp"
 #include "grib2_weather_pipeline.hpp"
 #include "weather_candidate_assessor.hpp"
+#include "../PLANNING/orchestrator/algorithm_orchestrator.hpp"
 
 #include <eccodes.h>
 
 #include <cassert>
 #include <cmath>
 #include <cstdio>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -33,6 +36,61 @@ bool writeWindMessage(const char* path,const char* shortName,
     const bool writeOk=valuesOk && codes_write_message(handle,path,mode)==CODES_SUCCESS;
     codes_handle_delete(handle);
     return writeOk;
+}
+
+class FixtureContext final : public bluesky::planning::SolverContext {
+public:
+    explicit FixtureContext(const bluesky::planning::MissionProblem& problem)
+        : problem_(problem) {}
+    const bluesky::planning::MissionProblem& problem() const override { return problem_; }
+    const bluesky::planning::ComputeBudget& budget() const override { return budget_; }
+    bool cancelled() const override { return false; }
+    void publish(bluesky::planning::CandidateSolution candidate) override {
+        candidates_.push_back(std::move(candidate));
+    }
+    const std::vector<bluesky::planning::CandidateSolution>& candidates() const override {
+        return candidates_;
+    }
+private:
+    const bluesky::planning::MissionProblem& problem_;
+    bluesky::planning::ComputeBudget budget_{2000,256,8};
+    std::vector<bluesky::planning::CandidateSolution> candidates_;
+};
+
+class FixtureSolver final : public bluesky::planning::Solver {
+public:
+    explicit FixtureSolver(std::vector<bluesky::planning::CandidateSolution> candidates)
+        : candidates_(std::move(candidates)) {}
+    bluesky::planning::SolverMetadata metadata() const override {
+        return {"grib2-fixture-solver","1",{"point_to_point"},false,true};
+    }
+    bool eligible(const bluesky::planning::MissionProblem& problem) const override {
+        return problem.problem_class=="point_to_point";
+    }
+    bluesky::planning::RunState run(bluesky::planning::SolverContext& context) override {
+        for (const auto& candidate:candidates_) context.publish(candidate);
+        return bluesky::planning::RunState::Completed;
+    }
+    void cancel() override {}
+private:
+    std::vector<bluesky::planning::CandidateSolution> candidates_;
+};
+
+bluesky::planning::CandidateSolution makeCandidate(
+    const std::string& id,const bluesky::planning::Route& route,double nominalTime)
+{
+    bluesky::planning::CandidateSolution candidate;
+    candidate.candidate_id=id;
+    candidate.solver_id="grib2-fixture-solver";
+    candidate.solver_version="1";
+    candidate.route_elements={"START","FINISH"};
+    candidate.estimated_time_s=nominalTime;
+    candidate.estimated_energy_wh=nominalTime;
+    candidate.estimated_reserve_wh=1000.0-nominalTime;
+    candidate.objective_score=nominalTime;
+    candidate.feasibility=bluesky::planning::Feasibility::Feasible;
+    candidate.trajectory_route=route;
+    return candidate;
 }
 }
 
@@ -73,7 +131,7 @@ int main()
         bluesky::planning::Route route;
         route.lineage.mission_id="fixture-mission";
         route.lineage.mission_version="1";
-        route.lineage.route_id="fixture-route";
+        route.lineage.route_id="fixture-route-north";
         route.lineage.route_version="1";
         route.waypoints={
             {"A",{lat0,lon},50.0,true,bluesky::planning::AltitudeReference::AGL},
@@ -81,6 +139,11 @@ int main()
         };
         route.segments={{"SEG-1","A","B",0.0,0.0}};
         route.trajectory_geometry_complete=true;
+
+        auto southboundRoute=route;
+        southboundRoute.lineage.route_id="fixture-route-south";
+        std::swap(southboundRoute.waypoints[0],southboundRoute.waypoints[1]);
+        southboundRoute.segments={{"SEG-2","B","A",0.0,0.0}};
 
         bluesky::planning::TrajectoryPerformanceInput input;
         input.uav_id="fixture-uav";
@@ -108,22 +171,42 @@ int main()
         bluesky::planning::MissionProblem problem;
         problem.mission_id="fixture-mission";
         problem.mission_version="1";
+        problem.problem_class="point_to_point";
         problem.vehicle_ids={"fixture-uav"};
-        bluesky::planning::CandidateSolution candidate;
-        candidate.candidate_id="real-grib-candidate";
-        candidate.solver_id="fixture-solver";
-        candidate.solver_version="1";
-        candidate.trajectory_route=route;
-        const auto assessor=bluesky::weather::makeCandidateWeatherAssessor(
+        problem.objective_priorities={"time"};
+
+        auto assessor=bluesky::weather::makeCandidateWeatherAssessor(
             snapshot.fields,input,snapshot.snapshot_id,snapshot.snapshot_version,
             "fixture-calc-v1");
-        const auto candidateAssessment=assessor(problem,candidate);
-        assert(candidateAssessment.evaluated);
-        assert(candidateAssessment.error.empty());
-        assert(candidateAssessment.snapshot_id=="fixture-snapshot");
-        assert(candidateAssessment.snapshot_version=="fixture-v1");
-        assert(candidateAssessment.corrected_time_s>0.0);
-        assert(candidateAssessment.corrected_energy_wh>=0.0);
+        auto northCandidate=makeCandidate("northbound",route,110.0);
+        auto southCandidate=makeCandidate("southbound",southboundRoute,100.0);
+        const auto northAssessment=assessor(problem,northCandidate);
+        const auto southAssessment=assessor(problem,southCandidate);
+        assert(northAssessment.evaluated && northAssessment.error.empty());
+        assert(southAssessment.evaluated && southAssessment.error.empty());
+        assert(northAssessment.corrected_time_s>0.0);
+        assert(southAssessment.corrected_time_s>0.0);
+        // A northerly tailwind makes the northbound route faster than the
+        // southbound headwind route. This proves decoded GRIB values affect
+        // candidate ranking rather than merely producing a display result.
+        assert(northAssessment.corrected_time_s<southAssessment.corrected_time_s);
+
+        FixtureContext context(problem);
+        std::vector<std::unique_ptr<bluesky::planning::Solver>> solvers;
+        solvers.push_back(std::make_unique<FixtureSolver>(
+            std::vector<bluesky::planning::CandidateSolution>{
+                southCandidate,northCandidate}));
+        bluesky::planning::AlgorithmOrchestrator orchestrator(
+            std::move(solvers),{},assessor);
+        const auto decision=orchestrator.solve(context);
+        assert(decision.feasibility==bluesky::planning::Feasibility::Feasible);
+        assert(decision.weather_assessment_applied);
+        assert(decision.weather_snapshot_id=="fixture-snapshot");
+        assert(decision.weather_snapshot_version=="fixture-v1");
+        // Without weather the nominal 100 s southbound candidate wins;
+        // after real GRIB2 decode and assessment the northbound candidate wins.
+        assert(decision.selected_candidate_id=="northbound");
+        assert(decision.weather_corrected_time_s==northAssessment.corrected_time_s);
 
         const auto pipeline=bluesky::weather::Grib2WeatherPipeline::evaluateFiles(
             {pathF000,pathF001},route,"fixture-snapshot","fixture-v1",input,"fixture-calc-v1");
