@@ -101,6 +101,11 @@ def main() -> int:
         "estimatedEnergyWh": 40.0,
         "objectiveScore": 650.0,
     }
+    candidate_a["environmentSnapshotRefs"] = {
+        **candidate_a["environmentSnapshotRefs"],
+        "weatherSnapshotId": "",
+        "windSnapshotId": "",
+    }
     candidate_set_message = build_result_message(
         mission_id="MISSION-001", result_id="PLAN-004",
         pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")),
@@ -111,6 +116,32 @@ def main() -> int:
     assert [x["candidateId"] for x in candidate_set_message["result"]["routeCandidates"]] == ["CAND-A", "CAND-B"]
     assert candidate_set_message["result"]["selectedCandidateId"] == "CAND-A"
     assert candidate_set_message["result"]["objectivePriorities"] == ["time", "energy"]
+
+    broken_geometry = {**candidate_a, "segments": []}
+    try:
+        build_result_message(
+            mission_id="MISSION-001", result_id="PLAN-008",
+            pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")),
+            route_candidates=[broken_geometry],
+            objective_priorities=["time"],
+        )
+    except PlanningBridgeContractError as exc:
+        assert str(exc) == "ROUTE_CANDIDATE_COMPLETE_SEGMENT_CHAIN_REQUIRED"
+    else:
+        raise AssertionError("incomplete trajectory geometry must be rejected")
+
+    non_finite_metrics = {**candidate_a, "estimatedEnergyWh": float("nan")}
+    try:
+        build_result_message(
+            mission_id="MISSION-001", result_id="PLAN-009",
+            pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")),
+            route_candidates=[non_finite_metrics],
+            objective_priorities=["energy"],
+        )
+    except PlanningBridgeContractError as exc:
+        assert str(exc) == "WEATHER_CANDIDATE_METRIC_INVALID:estimatedEnergyWh"
+    else:
+        raise AssertionError("non-finite weather ranking metrics must be rejected")
 
     invalid_candidate_set = [candidate_a, {**candidate_b, "flightSafetyVehicleId": "UAV-2"}]
     try:
