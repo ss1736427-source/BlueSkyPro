@@ -257,6 +257,10 @@ bool WeatherDataService::requestWindSubset(const QString &dateUtc,
                                            double north,
                                            const QStringList &levelsAglM)
 {
+    if (m_batchActive && !m_batchStartingProduct) {
+        setError(QStringLiteral("a forecast batch owns the weather download service"));
+        return false;
+    }
     QString validationError;
     const QUrl url = buildRequestUrl(dateUtc, cycleUtc, forecastHour, west, south,
                                      east, north, levelsAglM, &validationError);
@@ -418,9 +422,13 @@ void WeatherDataService::startNextBatchProduct()
         return;
 
     const int forecastHour = m_batchForecastHours.at(m_batchNextIndex++);
-    if (!requestWindSubset(m_batchDateUtc, m_batchCycleUtc, forecastHour,
-                           m_batchWest, m_batchSouth, m_batchEast, m_batchNorth,
-                           m_batchLevelsAglM)) {
+    m_batchStartingProduct = true;
+    const bool started = requestWindSubset(
+        m_batchDateUtc, m_batchCycleUtc, forecastHour,
+        m_batchWest, m_batchSouth, m_batchEast, m_batchNorth,
+        m_batchLevelsAglM);
+    m_batchStartingProduct = false;
+    if (!started) {
         const QString reason = m_lastError.isEmpty()
             ? QStringLiteral("unable to start the next GFS forecast product")
             : m_lastError;
@@ -433,6 +441,7 @@ void WeatherDataService::startNextBatchProduct()
 void WeatherDataService::clearBatch()
 {
     m_batchActive = false;
+    m_batchStartingProduct = false;
     m_batchDateUtc.clear();
     m_batchCycleUtc.clear();
     m_batchLevelsAglM.clear();
