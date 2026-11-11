@@ -154,6 +154,20 @@ public:
                 return rejectCandidate(QStringLiteral("INVALID_WAYPOINT_ALTITUDE"));
             if (datum != QLatin1String("AGL"))
                 return rejectCandidate(QStringLiteral("UNSUPPORTED_ALTITUDE_REFERENCE"));
+            const bool hasTaskDuration = point.contains(QStringLiteral("taskExecutionDurationS"));
+            const bool hasTaskEnergy = point.contains(QStringLiteral("taskExecutionEnergyWh"));
+            if (hasTaskDuration != hasTaskEnergy)
+                return rejectCandidate(QStringLiteral("TASK_EXECUTION_DURATION_AND_ENERGY_MUST_BE_SUPPLIED_TOGETHER"));
+            double taskDuration = 0.0;
+            double taskEnergy = 0.0;
+            if (hasTaskDuration) {
+                bool durationOk = false, energyOk = false;
+                taskDuration = point.value(QStringLiteral("taskExecutionDurationS")).toDouble(&durationOk);
+                taskEnergy = point.value(QStringLiteral("taskExecutionEnergyWh")).toDouble(&energyOk);
+                if (!durationOk || !energyOk || !std::isfinite(taskDuration)
+                    || !std::isfinite(taskEnergy) || taskDuration < 0.0 || taskEnergy < 0.0)
+                    return rejectCandidate(QStringLiteral("TASK_EXECUTION_DURATION_AND_ENERGY_MUST_BE_FINITE_NON_NEGATIVE"));
+            }
 
             QVariantMap normalizedPoint;
             normalizedPoint.insert(QStringLiteral("waypointId"), id);
@@ -163,6 +177,10 @@ public:
             normalizedPoint.insert(QStringLiteral("mandatory"),
                                    point.value(QStringLiteral("mandatory")).toBool());
             normalizedPoint.insert(QStringLiteral("altitudeReference"), datum);
+            if (hasTaskDuration) {
+                normalizedPoint.insert(QStringLiteral("taskExecutionDurationS"), taskDuration);
+                normalizedPoint.insert(QStringLiteral("taskExecutionEnergyWh"), taskEnergy);
+            }
             normalized.append(normalizedPoint);
         }
 
@@ -233,6 +251,12 @@ public:
             waypoint.altitude_m = point.value(QStringLiteral("altitudeM")).toDouble();
             waypoint.mandatory = point.value(QStringLiteral("mandatory")).toBool();
             waypoint.altitude_reference = bluesky::planning::AltitudeReference::AGL;
+            if (point.contains(QStringLiteral("taskExecutionDurationS"))) {
+                waypoint.task_execution_duration_s =
+                    point.value(QStringLiteral("taskExecutionDurationS")).toDouble();
+                waypoint.task_execution_energy_wh =
+                    point.value(QStringLiteral("taskExecutionEnergyWh")).toDouble();
+            }
             m_route.waypoints.push_back(waypoint);
         }
 
