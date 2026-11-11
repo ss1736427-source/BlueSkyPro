@@ -513,64 +513,6 @@ private:
     std::vector<bluesky::planning::CandidateSolution> m_candidates;
 };
 
-class CandidateSetSolver final : public bluesky::planning::Solver
-{
-public:
-    explicit CandidateSetSolver(std::vector<bluesky::planning::CandidateSolution> candidates)
-        : m_candidates(std::move(candidates)) {}
-
-    bluesky::planning::SolverMetadata metadata() const override
-    {
-        return {"hmi-weather-candidate-set", "1", {"point_to_point"}, false, true};
-    }
-
-    bool eligible(const bluesky::planning::MissionProblem& problem) const override
-    {
-        return problem.problem_class == "point_to_point";
-    }
-
-    bluesky::planning::RunState run(bluesky::planning::SolverContext& context) override
-    {
-        for (const auto& candidate : m_candidates) {
-            if (context.cancelled())
-                return bluesky::planning::RunState::Cancelled;
-            context.publish(candidate);
-        }
-        return bluesky::planning::RunState::Completed;
-    }
-
-    void cancel() override {}
-
-private:
-    std::vector<bluesky::planning::CandidateSolution> m_candidates;
-};
-
-class CandidateSetContext final : public bluesky::planning::SolverContext
-{
-public:
-    explicit CandidateSetContext(const bluesky::planning::MissionProblem& problem)
-        : m_problem(problem) {}
-
-    const bluesky::planning::MissionProblem& problem() const override { return m_problem; }
-    const bluesky::planning::ComputeBudget& budget() const override { return m_budget; }
-    bool cancelled() const override { return false; }
-
-    void publish(bluesky::planning::CandidateSolution candidate) override
-    {
-        m_candidates.push_back(std::move(candidate));
-    }
-
-    const std::vector<bluesky::planning::CandidateSolution>& candidates() const override
-    {
-        return m_candidates;
-    }
-
-private:
-    const bluesky::planning::MissionProblem& m_problem;
-    bluesky::planning::ComputeBudget m_budget{5000, 512, 64};
-    std::vector<bluesky::planning::CandidateSolution> m_candidates;
-};
-
 QVariantMap evaluateCandidateSetOnWorker(
     const std::vector<ForecastProduct>& products,
     const std::vector<bluesky::planning::CandidateSolution>& candidates,
