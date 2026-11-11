@@ -38,6 +38,7 @@ add_library(bluesky_planning
     final_planning_integrity.cpp
     multi_uav_zonal_planning.cpp
     zonal_route_graph.cpp
+    dubins_turn_connector.cpp
     ../WEATHER/wind_interpolator.cpp
     ../WEATHER/route_wind_adapter.cpp
     ../WEATHER/weather_trajectory_calculator.cpp
@@ -68,6 +69,9 @@ target_compile_features(bluesky_planning PUBLIC cxx_std_20)
 option(BLUESKY_BUILD_PLANNING_TESTS "Build standalone planning test executables" ON)
 if(BLUESKY_BUILD_PLANNING_TESTS)
     enable_testing()
+
+add_executable(dubins_turn_connector_test dubins_turn_connector_test.cpp)
+target_link_libraries(dubins_turn_connector_test PRIVATE bluesky_planning)
 
 add_executable(coverage_path_planner_test coverage_path_planner_test.cpp)
 target_link_libraries(coverage_path_planner_test PRIVATE bluesky_planning)
@@ -267,6 +271,7 @@ add_executable(capability_execution_integration_test
 )
 target_link_libraries(capability_execution_integration_test PRIVATE bluesky_planning)
 
+    add_test(NAME dubins_turn_connector_test COMMAND dubins_turn_connector_test)
     add_test(NAME coverage_path_planner_test COMMAND coverage_path_planner_test)
     add_test(NAME mt01_mapping_pipeline_test COMMAND mt01_mapping_pipeline_test)
     add_test(NAME astar_dijkstra_benchmark COMMAND astar_dijkstra_benchmark)
