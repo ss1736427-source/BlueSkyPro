@@ -8,6 +8,7 @@
 #include <QUrl>
 #include <QVariantMap>
 #include <QStringList>
+#include <QVariantList>
 
 class QFile;
 class QNetworkReply;
@@ -39,6 +40,17 @@ public:
                                        double east,
                                        double north,
                                        const QStringList &levelsAglM);
+
+    // Downloads an ordered set of forecast leads sequentially for one common
+    // region and vertical level set. Existing SHA-256 cache entries are reused.
+    Q_INVOKABLE bool requestWindSubsetBatch(const QString &dateUtc,
+                                            const QString &cycleUtc,
+                                            const QVariantList &forecastHours,
+                                            double west,
+                                            double south,
+                                            double east,
+                                            double north,
+                                            const QStringList &levelsAglM);
 
     Q_INVOKABLE void cancelPending();
 
@@ -72,11 +84,15 @@ signals:
     void progressChanged(qint64 receivedBytes, qint64 maximumBytes);
     void forecastReady(const QString &filePath, const QVariantMap &manifest);
     void downloadFailed(const QString &reason);
+    void forecastBatchReady(const QStringList &filePaths, const QVariantList &manifests);
+    void forecastBatchFailed(const QString &reason, const QStringList &completedFilePaths);
 
 private:
     void setState(const QString &value);
     void setError(const QString &value);
     void consumeReplyData();
+    void startNextBatchProduct();
+    void clearBatch();
     void finishReply();
     void failDownload(const QString &reason);
     bool writeManifest(const QJsonObject &manifest, QString *error = nullptr);
@@ -97,4 +113,13 @@ private:
     QString m_manifestPath;
     QJsonObject m_manifest;
     qint64 m_receivedBytes{0};
+    bool m_batchActive{false};
+    QString m_batchDateUtc;
+    QString m_batchCycleUtc;
+    double m_batchWest{0.0}, m_batchSouth{0.0}, m_batchEast{0.0}, m_batchNorth{0.0};
+    QStringList m_batchLevelsAglM;
+    QList<int> m_batchForecastHours;
+    int m_batchNextIndex{0};
+    QStringList m_batchFilePaths;
+    QVariantList m_batchManifests;
 };
