@@ -104,6 +104,22 @@ int main()
         mission, std::vector<Route>{route, route}, options);
     assert(!duplicateCandidate.valid);
 
+    auto westernCandidate = route;
+    westernCandidate.lineage.route_id = "ROUTE-WEST";
+    westernCandidate.waypoints = {
+        {"WP-W1", {55.70, 10.0}, 50.0, true, AltitudeReference::AGL},
+        {"WP-W2", {55.72, 10.1}, 80.0, true, AltitudeReference::AGL}
+    };
+    auto easternCandidate = route;
+    easternCandidate.lineage.route_id = "ROUTE-EAST";
+    easternCandidate.waypoints = {
+        {"WP-E1", {55.70, 66.0}, 50.0, true, AltitudeReference::AGL},
+        {"WP-E2", {55.72, 66.1}, 80.0, true, AltitudeReference::AGL}
+    };
+    const auto oversizedUnion = WeatherCoverageRequestBuilder::build(
+        mission, std::vector<Route>{westernCandidate, easternCandidate}, options);
+    assert(!oversizedUnion.valid);
+
     auto mismatchedRoute = route;
     mismatchedRoute.lineage.mission_version = "2";
     const auto mismatch = WeatherCoverageRequestBuilder::build(
