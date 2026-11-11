@@ -255,6 +255,11 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
                 continue;
             }
 
+            // Preserve the entire admissible set, not only the winning route.
+            // With no weather assessor this is the nominal pre-weather candidate
+            // set; with an assessor these entries contain corrected metrics.
+            decision.admissible_candidates.push_back(rankedCandidate);
+
             if (!have_best || better_candidate(rankedCandidate, best, context.problem())) {
                 best = rankedCandidate;
                 bestWeatherAssessment = weatherAssessment;
