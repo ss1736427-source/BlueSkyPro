@@ -20,4 +20,14 @@ public:
         const QString &validToUtc,
         double spatialBufferM,
         const QVariantList &requiredAreaAltitudesAglM) const;
+
+    // Builds one union coverage request for every route candidate before the
+    // shared forecast batch is downloaded.
+    Q_INVOKABLE QVariantMap buildCoverageRequestForCandidates(
+        const QString &missionModelJson,
+        const QVariantList &routeSnapshots,
+        const QString &validFromUtc,
+        const QString &validToUtc,
+        double spatialBufferM,
+        const QVariantList &requiredAreaAltitudesAglM) const;
 };
