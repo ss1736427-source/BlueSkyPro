@@ -280,6 +280,8 @@ def process_request(request: dict[str, Any]) -> dict[str, Any]:
             (item["missionVersion"], item["calculationInputVersion"],
              item["environmentSnapshotRefs"]["terrainSnapshotId"],
              item["environmentSnapshotRefs"]["airspaceSnapshotId"],
+             item["environmentSnapshotRefs"]["weatherSnapshotId"],
+             item["environmentSnapshotRefs"]["windSnapshotId"],
              item["flightSafetyEnvelopeId"], item["flightSafetyVehicleId"])
             for item in route_candidates
         }
