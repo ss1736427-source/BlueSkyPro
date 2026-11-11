@@ -10,6 +10,8 @@ Item {
     property var weatherDataService: null
     property var weatherCalculationService: null
     property var weatherAssessmentResult: ({})
+    property var routeObjectivePriorities: []
+    property bool applyingWeatherSelection: false
     property string weatherAcquisitionStatus: "NOT_REQUESTED"
     property string weatherAcquisitionMessage: ""
     property var weatherForecastPlan: ({})
@@ -17,7 +19,7 @@ Item {
     property int weatherForecastLeadIndex: 0
     property bool weatherBatchDownloadActive: false
     property var weatherDownloadedFiles: []
-    property var weatherRequestRouteLineage: ({})
+    property var weatherRequestRouteLineage: ({ candidates: [], selectedRouteId: "", selectedRouteVersion: "" })
     property string weatherMissionStartUtc: ""
     property string weatherCoverageStartUtc: ""
     property string weatherCoverageEndUtc: ""
@@ -54,30 +56,42 @@ Item {
         ? "REQUEST_READY" : (lastWeatherCoverageResult && lastWeatherCoverageResult.errors
                             ? "BLOCKED" : "NOT_REQUESTED")
 
-    // Uses the same canonical mission JSON and RouteController snapshot shown
-    // by this profile. ETD and the primary route define the GFS time window.
+    function currentWeatherCandidateRoutes() {
+        if (!root.routeController) return []
+        var candidates = root.routeController.candidateSnapshots || []
+        if (candidates.length > 0) return candidates
+        var current = root.routeController.routeSnapshot()
+        return current && current.routeId ? [current] : []
+    }
+
+    // The coverage envelope is the union of every candidate route, not only
+    // the currently highlighted route.
     function buildWeatherCoverageRequest(validFromUtc, validToUtc, spatialBufferM, areaAltitudesAglM) {
         if (!root.coverageBridge || !root.routeController || !root.missionModelJson)
             return { valid: false, errors: ["MISSION_ROUTE_OR_WEATHER_BRIDGE_UNAVAILABLE"] }
-        var result = root.coverageBridge.buildCoverageRequest(
-                    root.missionModelJson,
-                    root.routeController.routeSnapshot(),
-                    validFromUtc, validToUtc, spatialBufferM,
-                    areaAltitudesAglM || [])
+        var routes = root.currentWeatherCandidateRoutes()
+        if (routes.length === 0)
+            return { valid: false, errors: ["VALIDATED_ROUTE_CANDIDATES_REQUIRED"] }
+        var result = routes.length > 1 || (root.routeController.candidateSnapshots || []).length > 0
+                ? root.coverageBridge.buildCoverageRequestForCandidates(
+                      root.missionModelJson, routes, validFromUtc, validToUtc,
+                      spatialBufferM, areaAltitudesAglM || [])
+                : root.coverageBridge.buildCoverageRequest(
+                      root.missionModelJson, routes[0], validFromUtc, validToUtc,
+                      spatialBufferM, areaAltitudesAglM || [])
         root.lastWeatherCoverageResult = result
         return result
     }
-    // Initial GFS window mirrors the trajectory calculator's no-wind duration
-    // estimate (horizontal travel vs climb/descent), then adds a configurable
-    // operational reserve for wind-coupled ETA changes.
+
+    // Forecast coverage spans the longest candidate flight plus the operational
+    // reserve. Every candidate is estimated from its own complete segment chain.
     function estimateWeatherWindow(etdUtc) {
-        var routeVersion = root.routeController ? root.routeController.routeVersion : ""
-        var route = root.routeController ? root.routeController.routeSnapshot() : null
-        var pattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
+        var routes = root.currentWeatherCandidateRoutes()
         var startMs = Date.parse(String(etdUtc || ""))
-        if (!pattern.test(String(etdUtc || "")) || !Number.isFinite(startMs)
-                || !route || !route.waypoints || route.waypoints.length < 2)
-            return { valid: false, from: "", to: "", durationSeconds: 0, reason: "VALID_ETD_AND_CANONICAL_ROUTE_REQUIRED" }
+        var pattern = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/
+        if (!pattern.test(String(etdUtc || "")) || !Number.isFinite(startMs) || routes.length === 0)
+            return { valid: false, from: "", to: "", durationSeconds: 0, reason: "VALID_ETD_AND_CANONICAL_ROUTE_CANDIDATES_REQUIRED" }
+
         var selected = root.selectedUavIndex >= 0 && root.selectedUavIndex < root.uavModel.length
                 ? root.uavModel[root.selectedUavIndex] : null
         var profile = selected && selected.performanceProfile ? selected.performanceProfile : ({})
@@ -91,46 +105,54 @@ Item {
                 || !Number.isFinite(climb) || climb <= 0
                 || !Number.isFinite(descent) || descent <= 0)
             return { valid: false, from: "", to: "", durationSeconds: 0, reason: "VALIDATED_APPROVED_UAV_PERFORMANCE_PROFILE_REQUIRED_FOR_WEATHER_WINDOW" }
-        var segments = route.segments || []
-        if (segments.length !== route.waypoints.length - 1)
-            return { valid: false, from: "", to: "", durationSeconds: 0, reason: "COMPLETE_PRIMARY_ROUTE_SEGMENTS_REQUIRED" }
-        var durationSeconds = 0
+
+        var longestDuration = 0
+        var routeVersions = []
         var earthRadius = 6371000
         var radians = Math.PI / 180
-        for (var i = 0; i < segments.length; ++i) {
-            var from = route.waypoints[i]
-            var to = route.waypoints[i + 1]
-            var lat1 = Number(from.latitudeDeg) * radians
-            var lat2 = Number(to.latitudeDeg) * radians
-            var lonDelta = (Number(to.longitudeDeg) - Number(from.longitudeDeg)) * radians
-            if (Math.abs(Number(to.longitudeDeg) - Number(from.longitudeDeg)) > 180)
-                return { valid: false, from: "", to: "", durationSeconds: 0, reason: "ANTIMERIDIAN_ROUTE_WEATHER_UNSUPPORTED" }
-            var north = (lat2 - lat1) * earthRadius
-            var east = lonDelta * Math.cos((lat1 + lat2) * 0.5) * earthRadius
-            var horizontal = Math.hypot(north, east)
-            var fromAlt = Number(from.altitudeM)
-            var toAlt = Number(to.altitudeM)
-            var segmentTime = horizontal / cruise
-            var verticalDelta = toAlt - fromAlt
-            if (verticalDelta > 0)
-                segmentTime = Math.max(segmentTime, verticalDelta / climb)
-            else if (verticalDelta < 0)
-                segmentTime = Math.max(segmentTime, -verticalDelta / descent)
-            if (!Number.isFinite(segmentTime) || segmentTime <= 0)
-                return { valid: false, from: "", to: "", durationSeconds: 0, reason: "PRIMARY_ROUTE_SEGMENT_TIME_ESTIMATE_INVALID" }
-            durationSeconds += segmentTime
+        for (var r = 0; r < routes.length; ++r) {
+            var route = routes[r]
+            var waypoints = route.waypoints || []
+            var segments = route.segments || []
+            if (waypoints.length < 2 || segments.length !== waypoints.length - 1)
+                return { valid: false, from: "", to: "", durationSeconds: 0, reason: "COMPLETE_SEGMENTS_REQUIRED_FOR_EVERY_WEATHER_CANDIDATE" }
+            var routeDuration = 0
+            for (var i = 0; i < segments.length; ++i) {
+                var from = waypoints[i]
+                var to = waypoints[i + 1]
+                var lonDifference = Number(to.longitudeDeg) - Number(from.longitudeDeg)
+                if (Math.abs(lonDifference) > 180)
+                    return { valid: false, from: "", to: "", durationSeconds: 0, reason: "ANTIMERIDIAN_ROUTE_WEATHER_UNSUPPORTED" }
+                var lat1 = Number(from.latitudeDeg) * radians
+                var lat2 = Number(to.latitudeDeg) * radians
+                var lonDelta = lonDifference * radians
+                var north = (lat2 - lat1) * earthRadius
+                var east = lonDelta * Math.cos((lat1 + lat2) * 0.5) * earthRadius
+                var horizontal = Math.hypot(north, east)
+                var verticalDelta = Number(to.altitudeM) - Number(from.altitudeM)
+                var segmentTime = horizontal / cruise
+                if (verticalDelta > 0) segmentTime = Math.max(segmentTime, verticalDelta / climb)
+                else if (verticalDelta < 0) segmentTime = Math.max(segmentTime, -verticalDelta / descent)
+                if (!Number.isFinite(segmentTime) || segmentTime <= 0)
+                    return { valid: false, from: "", to: "", durationSeconds: 0, reason: "CANDIDATE_SEGMENT_TIME_ESTIMATE_INVALID" }
+                routeDuration += segmentTime
+            }
+            if (!Number.isFinite(routeDuration) || routeDuration <= 0)
+                return { valid: false, from: "", to: "", durationSeconds: 0, reason: "CANDIDATE_ROUTE_DURATION_ESTIMATE_INVALID" }
+            longestDuration = Math.max(longestDuration, routeDuration)
+            routeVersions.push(String(route.routeId) + ":" + String(route.routeVersion))
         }
-        if (!Number.isFinite(durationSeconds) || durationSeconds <= 0
-                || !Number.isFinite(root.weatherForecastMarginSeconds)
+
+        if (!Number.isFinite(root.weatherForecastMarginSeconds)
                 || root.weatherForecastMarginSeconds < 0)
-            return { valid: false, from: "", to: "", durationSeconds: 0, reason: "PRIMARY_ROUTE_DURATION_ESTIMATE_INVALID" }
-        var coveredSeconds = Math.ceil(durationSeconds + root.weatherForecastMarginSeconds)
+            return { valid: false, from: "", to: "", durationSeconds: 0, reason: "WEATHER_FORECAST_MARGIN_INVALID" }
+        var coveredSeconds = Math.ceil(longestDuration + root.weatherForecastMarginSeconds)
         var end = new Date(startMs + coveredSeconds * 1000)
         if (!Number.isFinite(end.getTime()))
             return { valid: false, from: "", to: "", durationSeconds: 0, reason: "MISSION_WEATHER_WINDOW_OVERFLOW" }
-        return { valid: true, from: String(etdUtc), to: end.toISOString().replace(/\.\d{3}Z$/, "Z"),
-                 durationSeconds: coveredSeconds, routeDurationSeconds: Math.ceil(durationSeconds),
-                 reserveSeconds: root.weatherForecastMarginSeconds, routeVersion: routeVersion }
+        return { valid: true, from: String(etdUtc), to: end.toISOString().replace(/\\.\\d{3}Z$/, "Z"),
+                 durationSeconds: coveredSeconds, routeDurationSeconds: Math.ceil(longestDuration),
+                 reserveSeconds: root.weatherForecastMarginSeconds, routeVersion: routeVersions.join("|") }
     }
 
     // GFS is a 0.25-degree grid. One grid interval around the operational
@@ -207,13 +229,23 @@ Item {
             root.weatherAcquisitionMessage = "WEATHER_SERVICES_UNAVAILABLE"
             return false
         }
-        var route = root.routeController.routeSnapshot()
+        var routes = root.currentWeatherCandidateRoutes()
+        var selectedRoute = root.routeController.routeSnapshot()
+        var candidateLineage = []
+        for (var i = 0; i < routes.length; ++i) {
+            var route = routes[i]
+            candidateLineage.push({
+                missionId: route.missionId,
+                missionVersion: route.missionVersion,
+                routeId: route.routeId,
+                routeVersion: route.routeVersion,
+                calculationInputVersion: route.calculationInputVersion
+            })
+        }
         root.weatherRequestRouteLineage = {
-            missionId: route.missionId,
-            missionVersion: route.missionVersion,
-            routeId: route.routeId,
-            routeVersion: route.routeVersion,
-            calculationInputVersion: route.calculationInputVersion
+            candidates: candidateLineage,
+            selectedRouteId: selectedRoute.routeId,
+            selectedRouteVersion: selectedRoute.routeVersion
         }
         root.weatherMissionStartUtc = missionStartUtc
         root.weatherCoverageStartUtc = validFromUtc
@@ -259,9 +291,9 @@ Item {
                     && values.every(function(existing) { return Math.abs(existing - altitude) > 0.1 }))
                 values.push(altitude)
         }
-        if (root.routeController) {
-            var snapshot = root.routeController.routeSnapshot()
-            var waypoints = snapshot.waypoints || []
+        var routes = root.currentWeatherCandidateRoutes()
+        for (var r = 0; r < routes.length; ++r) {
+            var waypoints = routes[r].waypoints || []
             for (var i = 0; i < waypoints.length; ++i) {
                 var waypoint = waypoints[i]
                 if (String(waypoint.altitudeReference || "") === "AGL")
@@ -293,13 +325,23 @@ Item {
 
     function routeLineageStillMatches() {
         if (!root.routeController) return false
-        var current = root.routeController.routeSnapshot()
+        var currentRoutes = root.currentWeatherCandidateRoutes()
         var expected = root.weatherRequestRouteLineage
-        return current.missionId === expected.missionId
-                && current.missionVersion === expected.missionVersion
-                && current.routeId === expected.routeId
-                && current.routeVersion === expected.routeVersion
-                && current.calculationInputVersion === expected.calculationInputVersion
+        var expectedRoutes = expected && expected.candidates ? expected.candidates : []
+        if (currentRoutes.length !== expectedRoutes.length) return false
+        for (var i = 0; i < currentRoutes.length; ++i) {
+            var current = currentRoutes[i]
+            var prior = expectedRoutes[i]
+            if (current.missionId !== prior.missionId
+                    || current.missionVersion !== prior.missionVersion
+                    || current.routeId !== prior.routeId
+                    || current.routeVersion !== prior.routeVersion
+                    || current.calculationInputVersion !== prior.calculationInputVersion)
+                return false
+        }
+        var selected = root.routeController.routeSnapshot()
+        return selected.routeId === expected.selectedRouteId
+                && selected.routeVersion === expected.selectedRouteVersion
     }
 
     function evaluateWeatherRoute() {
@@ -328,12 +370,24 @@ Item {
             root.weatherAcquisitionMessage = "DOWNLOADED_GRIB2_PRODUCTS_OR_MANIFESTS_MISSING"
             return false
         }
-        var accepted = root.weatherCalculationService.evaluateRoute(
-                    products,
-                    root.routeController.routeSnapshot(),
-                    root.missionModelJson,
-                    root.weatherMissionStartUtc,
-                    performanceProfile)
+        var candidateSet = root.routeController.candidateSnapshots || []
+        var accepted = false
+        if (candidateSet.length > 0) {
+            var priorities = root.routeObjectivePriorities || []
+            if (!Array.isArray(priorities) || priorities.length === 0) {
+                root.weatherAcquisitionStatus = "BLOCKED"
+                root.weatherAcquisitionMessage = "EXPLICIT_ROUTE_OBJECTIVE_PRIORITIES_REQUIRED_FOR_CANDIDATE_RERANKING"
+                return false
+            }
+            accepted = root.weatherCalculationService.evaluateCandidates(
+                        products, candidateSet, root.missionModelJson,
+                        root.weatherMissionStartUtc, performanceProfile, priorities)
+        } else {
+            accepted = root.weatherCalculationService.evaluateRoute(
+                        products, root.routeController.routeSnapshot(),
+                        root.missionModelJson, root.weatherMissionStartUtc,
+                        performanceProfile)
+        }
         if (!accepted) {
             root.weatherAcquisitionStatus = "BLOCKED"
             root.weatherAcquisitionMessage = root.weatherCalculationService.lastError
@@ -506,13 +560,24 @@ Item {
         target: root.routeController
         enabled: target !== null
         function onRouteChanged() {
-            if (root.weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
+            if (!root.applyingWeatherSelection
+                    && (root.weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
                     || root.weatherAcquisitionStatus === "DOWNLOADING"
                     || root.weatherAcquisitionStatus === "ASSESSING_WEATHER"
                     || root.weatherAcquisitionStatus === "DOWNLOADS_READY_UNDECODED"
                     || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
-                    || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE")
+                    || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE"))
                 root.invalidateWeatherAcquisition("ROUTE_CHANGED_WEATHER_REQUEST_INVALIDATED")
+        }
+        function onCandidateSetChanged() {
+            if (!root.applyingWeatherSelection
+                    && (root.weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
+                        || root.weatherAcquisitionStatus === "DOWNLOADING"
+                        || root.weatherAcquisitionStatus === "ASSESSING_WEATHER"
+                        || root.weatherAcquisitionStatus === "DOWNLOADS_READY_UNDECODED"
+                        || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
+                        || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE"))
+                root.invalidateWeatherAcquisition("CANDIDATE_SET_CHANGED_WEATHER_REQUEST_INVALIDATED")
         }
         function onValidationChanged() {
             root.maybeRequestWeatherAutomatically()
