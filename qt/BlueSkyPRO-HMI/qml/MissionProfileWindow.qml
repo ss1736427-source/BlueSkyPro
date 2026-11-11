@@ -108,8 +108,8 @@ Item {
 
         if ((root.routeController.candidateSnapshots || []).length > 0) {
             var priorities = root.routeObjectivePriorities || []
-            var supportedPriorities = ["completion_time", "time", "fast", "minimum_cost",
-                                       "route_efficiency", "energy", "endurance", "reserve"]
+            var supportedPriorities = ["completion_time", "time", "fast",
+                                       "energy", "endurance", "reserve"]
             if (!Array.isArray(priorities) || priorities.length === 0
                     || priorities.some(function(value) {
                         return supportedPriorities.indexOf(String(value)) < 0
