@@ -1,0 +1,42 @@
+name: BlueSky Operational Orchestrator Contracts
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'arch-ops-004-*'
+      - 'arch-ops-005-*'
+      - 'arch-ops-006-*'
+      - 'arch-ops-007-*'
+      - 'arch-ops-008-*'
+      - 'arch-ops-009-*'
+      - 'arch-ops-010-*'
+      - 'arch-ops-011-*'
+    paths:
+      - '04_SOFTWARE/OPERATIONS/**'
+      - '04_SOFTWARE/PLANNING/**'
+      - '04_SOFTWARE/AUTOPILOT_ADAPTER/**'
+      - '.github/workflows/operational-orchestrator-*.yml'
+  pull_request:
+    paths:
+      - '04_SOFTWARE/OPERATIONS/**'
+      - '04_SOFTWARE/PLANNING/**'
+      - '04_SOFTWARE/AUTOPILOT_ADAPTER/**'
+      - '.github/workflows/operational-orchestrator-*.yml'
+
+jobs:
+  contract-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S 04_SOFTWARE/OPERATIONS -B build/operations -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build/operations --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build/operations --output-on-failure
