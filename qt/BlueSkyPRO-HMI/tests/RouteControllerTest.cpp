@@ -238,6 +238,29 @@ int main(int argc, char *argv[])
     assert(!controller.loadCandidate(invalid));
     assert(controller.validationReason() == QStringLiteral("MANDATORY_FLAG_INVALID"));
 
+    QVariantMap taskExecutionCandidate = completeCandidate;
+    QVariantList taskWaypoints = taskExecutionCandidate.value(QStringLiteral("waypoints")).toList();
+    QVariantMap taskWaypoint = taskWaypoints[1].toMap();
+    taskWaypoint.insert(QStringLiteral("taskExecutionDurationS"), 45.0);
+    taskWaypoint.insert(QStringLiteral("taskExecutionEnergyWh"), 8.5);
+    taskWaypoints[1] = taskWaypoint;
+    taskExecutionCandidate.insert(QStringLiteral("waypoints"), taskWaypoints);
+    assert(controller.loadCandidate(taskExecutionCandidate));
+    const QVariantMap taskSnapshotWaypoint =
+        controller.routeSnapshot().value(QStringLiteral("waypoints")).toList()[1].toMap();
+    assert(taskSnapshotWaypoint.value(QStringLiteral("taskExecutionDurationS")).toDouble() == 45.0);
+    assert(taskSnapshotWaypoint.value(QStringLiteral("taskExecutionEnergyWh")).toDouble() == 8.5);
+
+    QVariantMap incompleteTaskExecution = taskExecutionCandidate;
+    taskWaypoints = incompleteTaskExecution.value(QStringLiteral("waypoints")).toList();
+    taskWaypoint = taskWaypoints[1].toMap();
+    taskWaypoint.remove(QStringLiteral("taskExecutionEnergyWh"));
+    taskWaypoints[1] = taskWaypoint;
+    incompleteTaskExecution.insert(QStringLiteral("waypoints"), taskWaypoints);
+    assert(!controller.loadCandidate(incompleteTaskExecution));
+    assert(controller.validationReason()
+           == QStringLiteral("TASK_EXECUTION_DURATION_AND_ENERGY_MUST_BE_SUPPLIED_TOGETHER"));
+
     QVariantMap weatherIndependentRoute = completeCandidate;
     QVariantMap preWeatherEnvironment =
         weatherIndependentRoute.value(QStringLiteral("environmentSnapshotRefs")).toMap();
