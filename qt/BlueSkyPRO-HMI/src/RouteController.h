@@ -380,6 +380,13 @@ public:
             const QVariantMap snapshot = value.toMap();
             if (snapshot.value(QStringLiteral("candidateId")).toString() != requested)
                 continue;
+            if (snapshot.value(QStringLiteral("validationState")).toString()
+                    != QStringLiteral("VALIDATED")
+                || snapshot.value(QStringLiteral("flightSafetyValidationState")).toString()
+                    != QStringLiteral("ALLOWED")
+                || snapshot.value(QStringLiteral("flightSafetyEnvelopeId")).toString().trimmed().isEmpty()
+                || snapshot.value(QStringLiteral("flightSafetyVehicleId")).toString().trimmed().isEmpty())
+                return reject(QStringLiteral("CANDIDATE_NO_LONGER_HAS_VALID_ROUTE_AND_SAFETY_ATTESTATION"));
             const QVariantList preservedSet = m_candidateSnapshots;
             if (!loadCandidate(snapshot))
                 return false;
