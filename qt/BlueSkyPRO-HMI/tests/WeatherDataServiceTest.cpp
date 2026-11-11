@@ -1,13 +1,17 @@
 #include "WeatherDataService.h"
 
+#include <QCoreApplication>
 #include <QFile>
 #include <QTemporaryDir>
 #include <QUrlQuery>
 
 #include <cassert>
 
-int main()
+int main(int argc, char *argv[])
 {
+    QCoreApplication app(argc, argv);
+    QCoreApplication::setOrganizationName(QStringLiteral("BlueSky PRO Test"));
+    QCoreApplication::setApplicationName(QStringLiteral("WeatherDataServiceTest"));
     WeatherDataService batchService;
     assert(!batchService.requestWindSubsetBatch(
         QStringLiteral("20261107"), QStringLiteral("12"), QVariantList{},
