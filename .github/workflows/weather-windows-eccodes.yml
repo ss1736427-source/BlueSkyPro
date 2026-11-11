@@ -1,0 +1,55 @@
+name: BlueSky PRO Weather Windows ecCodes
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "04_SOFTWARE/WEATHER/**"
+      - ".github/workflows/weather-windows-eccodes.yml"
+  pull_request:
+    paths:
+      - "04_SOFTWARE/WEATHER/**"
+      - ".github/workflows/weather-windows-eccodes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  weather-engine-windows-msvc:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up conda-forge environment
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          channels: conda-forge
+          channel-priority: strict
+          activate-environment: bluesky-weather
+          auto-activate-base: false
+
+      - name: Install ecCodes
+        run: conda install --yes --channel conda-forge eccodes
+
+      - name: Configure MSVC x64 build
+        run: >-
+          cmake -S 04_SOFTWARE/WEATHER
+          -B build-weather-windows
+          -G "Visual Studio 17 2022"
+          -A x64
+          -DBLUESKY_ENABLE_ECCODES=ON
+          -DCMAKE_PREFIX_PATH="$env:CONDA\envs\bluesky-weather\Library;$env:CONDA\envs\bluesky-weather"
+          -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build weather engine and ecCodes decoder
+        run: conda run --name bluesky-weather --no-capture-output cmake --build build-weather-windows --config Release --parallel 2
+
+      - name: Run Windows weather tests
+        run: conda run --name bluesky-weather --no-capture-output ctest --test-dir build-weather-windows -C Release --output-on-failure
