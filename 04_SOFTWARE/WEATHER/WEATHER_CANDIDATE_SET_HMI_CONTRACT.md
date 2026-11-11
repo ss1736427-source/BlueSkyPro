@@ -4,6 +4,8 @@
 
 The optimizer generates and validates route candidates **without wind correction**. The HMI requests one union weather-coverage region for the candidate set, downloads one coherent GFS forecast run, decodes it once, and invokes the weather assessor for every candidate. The planning orchestrator then ranks the weather-corrected metrics using the mission's declared objective priorities.
 
+`AlgorithmOrchestrator` now exposes `OrchestratorDecision.admissible_candidates`: all candidates that passed the active hard gates, retaining their canonical route and the metrics used for the decision. A nominal planning pass without a weather assessor can serialize this collection as `result.routeCandidates`; the weather stage can then assess and rerank the complete set. The producer must serialize per-candidate flight-safety evidence from the same validator/envelope that admitted the candidate.
+
 This interface is a weather re-ranking contract. It is not a flight-release authorization.
 
 ## Planning result payload
