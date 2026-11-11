@@ -446,6 +446,8 @@ public:
     {
         m_route = {};
         m_waypoints.clear();
+        m_candidateSnapshots.clear();
+        emit candidateSetChanged();
         m_routeId.clear();
         m_routeVersion.clear();
         m_calculationInputVersion.clear();
