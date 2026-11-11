@@ -351,6 +351,7 @@ WeatherCoverageRequestBuildResult WeatherCoverageRequestBuilder::build(
         }
         if (first) {
             result.request = candidate.request;
+            result.request.components.clear();
             commonCalculationInputVersion = candidate.request.calculation_input_version;
             first = false;
         } else {
