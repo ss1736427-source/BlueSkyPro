@@ -106,6 +106,7 @@ def main() -> int:
         "weatherSnapshotId": "",
         "windSnapshotId": "",
     }
+    candidate_b["environmentSnapshotRefs"] = dict(candidate_a["environmentSnapshotRefs"])
     candidate_set_message = build_result_message(
         mission_id="MISSION-001", result_id="PLAN-004",
         pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")),
