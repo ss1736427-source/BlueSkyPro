@@ -1,7 +1,7 @@
 #include "grib2_decoder.hpp"
 #include "grib2_weather_pipeline.hpp"
 #include "weather_candidate_assessor.hpp"
-#include "../PLANNING/orchestrator/algorithm_orchestrator.hpp"
+#include "../../PLANNING/orchestrator/algorithm_orchestrator.hpp"
 
 #include <eccodes.h>
 
