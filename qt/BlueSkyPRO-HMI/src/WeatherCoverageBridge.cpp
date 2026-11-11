@@ -374,6 +374,16 @@ QVariantMap WeatherCoverageBridge::buildCoverageRequestForCandidates(
             providerLevelSet.insert(level.toInt());
     }
 
+    if (mergedBounds.value(QStringLiteral("southDeg")).toDouble() < -90.0
+        || mergedBounds.value(QStringLiteral("northDeg")).toDouble() > 90.0
+        || mergedBounds.value(QStringLiteral("westDeg")).toDouble() < -180.0
+        || mergedBounds.value(QStringLiteral("eastDeg")).toDouble() > 180.0
+        || mergedBounds.value(QStringLiteral("eastDeg")).toDouble()
+            - mergedBounds.value(QStringLiteral("westDeg")).toDouble() > 30.0
+        || mergedBounds.value(QStringLiteral("northDeg")).toDouble()
+            - mergedBounds.value(QStringLiteral("southDeg")).toDouble() > 30.0)
+        return failure(QStringLiteral("UNION_CANDIDATE_COVERAGE_EXCEEDS_NOAA_SUPPORTED_REGION"));
+
     QVariantList altitudes;
     QList<double> orderedAltitudes = altitudeValues;
     std::sort(orderedAltitudes.begin(), orderedAltitudes.end());
