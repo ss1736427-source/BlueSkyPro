@@ -60,6 +60,25 @@ bool buildRoute(const QVariantMap& snapshot,Route& route,QString& error)
         error=QStringLiteral("CANONICAL_ROUTE_LINEAGE_INCOMPLETE");
         return false;
     }
+    const QVariantMap environment = snapshot.value(QStringLiteral("environmentSnapshotRefs")).toMap();
+    route.environment.terrain_snapshot_id =
+        environment.value(QStringLiteral("terrainSnapshotId")).toString().trimmed().toStdString();
+    route.environment.airspace_snapshot_id =
+        environment.value(QStringLiteral("airspaceSnapshotId")).toString().trimmed().toStdString();
+    route.environment.weather_snapshot_id =
+        environment.value(QStringLiteral("weatherSnapshotId")).toString().trimmed().toStdString();
+    route.environment.wind_snapshot_id =
+        environment.value(QStringLiteral("windSnapshotId")).toString().trimmed().toStdString();
+    if (route.environment.terrain_snapshot_id.empty()
+        || route.environment.airspace_snapshot_id.empty()) {
+        error=QStringLiteral("TERRAIN_AND_AIRSPACE_SNAPSHOT_LINEAGE_REQUIRED");
+        return false;
+    }
+    if (route.environment.weather_snapshot_id.empty()
+        != route.environment.wind_snapshot_id.empty()) {
+        error=QStringLiteral("WEATHER_AND_WIND_SNAPSHOT_LINEAGE_MUST_BE_PAIRED");
+        return false;
+    }
     if (snapshot.value(QStringLiteral("validationState")).toString()!=QStringLiteral("VALIDATED")) {
         error=QStringLiteral("VALIDATED_CANONICAL_ROUTE_REQUIRED_FOR_WEATHER_ASSESSMENT");
         return false;
