@@ -22,6 +22,9 @@ int main(int argc, char *argv[])
     assert(!batchService.requestWindSubsetBatch(
         QStringLiteral("20261107"), QStringLiteral("12"), QVariantList{6, 121},
         96.0, 5.0, 100.0, 10.0, {QStringLiteral("50")}));
+    assert(!batchService.requestWindSubsetBatch(
+        QStringLiteral("20261107"), QStringLiteral("12"), QVariantList{6.5},
+        96.0, 5.0, 100.0, 10.0, {QStringLiteral("50")}));
 
     QString error;
     const QUrl url = WeatherDataService::buildRequestUrl(
