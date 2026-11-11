@@ -211,7 +211,7 @@ def main() -> int:
             route_candidate=incomplete_candidate,
         )
     except PlanningBridgeContractError as exc:
-        assert str(exc) == "ROUTE_CANDIDATE_ENVIRONMENT_SNAPSHOT_REFS_REQUIRED"
+        assert str(exc) == "ROUTE_CANDIDATE_FIELD_REQUIRED:environmentSnapshotRefs"
     else:
         raise AssertionError("route candidate without environment lineage must be rejected")
 
