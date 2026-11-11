@@ -81,8 +81,12 @@
             "generatorId",
             "generatorVersion",
             "calculationInputVersion",
+            "environmentSnapshotRefs",
             "coordinateReferenceSystem",
-            "waypoints"
+            "waypoints",
+            "segments",
+            "trajectoryGeometryComplete",
+            "validationState"
           ],
           "properties": {
             "routeId": {
@@ -112,6 +116,32 @@
             "calculationInputVersion": {
               "type": "string",
               "minLength": 1
+            },
+            "environmentSnapshotRefs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "terrainSnapshotId",
+                "airspaceSnapshotId",
+                "weatherSnapshotId",
+                "windSnapshotId"
+              ],
+              "properties": {
+                "terrainSnapshotId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "airspaceSnapshotId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "weatherSnapshotId": {
+                  "type": "string"
+                },
+                "windSnapshotId": {
+                  "type": "string"
+                }
+              }
             },
             "coordinateReferenceSystem": {
               "const": "EPSG:4326"
@@ -158,7 +188,291 @@
                   }
                 }
               }
+            },
+            "segments": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "segmentId",
+                  "fromWaypointId",
+                  "toWaypointId",
+                  "distanceM",
+                  "nominalSpeedMps"
+                ],
+                "properties": {
+                  "segmentId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "fromWaypointId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "toWaypointId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "distanceM": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "nominalSpeedMps": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "bankAngleRad": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "lateralAccelerationMps2": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              }
+            },
+            "trajectoryGeometryComplete": {
+              "const": true
+            },
+            "validationState": {
+              "const": "VALIDATED"
             }
+          }
+        },
+        "routeCandidates": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "routeId",
+              "routeVersion",
+              "missionId",
+              "missionVersion",
+              "generatorId",
+              "generatorVersion",
+              "calculationInputVersion",
+              "environmentSnapshotRefs",
+              "coordinateReferenceSystem",
+              "waypoints",
+              "segments",
+              "trajectoryGeometryComplete",
+              "validationState",
+              "candidateId",
+              "estimatedTimeS",
+              "estimatedEnergyWh",
+              "estimatedReserveWh",
+              "objectiveScore",
+              "flightSafetyValidationState",
+              "flightSafetyEnvelopeId",
+              "flightSafetyVehicleId"
+            ],
+            "properties": {
+              "routeId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "routeVersion": {
+                "type": "string",
+                "minLength": 1
+              },
+              "missionId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "missionVersion": {
+                "type": "string",
+                "minLength": 1
+              },
+              "generatorId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "generatorVersion": {
+                "type": "string",
+                "minLength": 1
+              },
+              "calculationInputVersion": {
+                "type": "string",
+                "minLength": 1
+              },
+              "environmentSnapshotRefs": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "terrainSnapshotId",
+                  "airspaceSnapshotId",
+                  "weatherSnapshotId",
+                  "windSnapshotId"
+                ],
+                "properties": {
+                  "terrainSnapshotId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "airspaceSnapshotId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "weatherSnapshotId": {
+                    "type": "string"
+                  },
+                  "windSnapshotId": {
+                    "type": "string"
+                  }
+                }
+              },
+              "coordinateReferenceSystem": {
+                "const": "EPSG:4326"
+              },
+              "waypoints": {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "waypointId",
+                    "latitudeDeg",
+                    "longitudeDeg",
+                    "altitudeM",
+                    "mandatory",
+                    "altitudeReference"
+                  ],
+                  "properties": {
+                    "waypointId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "latitudeDeg": {
+                      "type": "number",
+                      "minimum": -90,
+                      "maximum": 90
+                    },
+                    "longitudeDeg": {
+                      "type": "number",
+                      "minimum": -180,
+                      "maximum": 180
+                    },
+                    "altitudeM": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 5000
+                    },
+                    "mandatory": {
+                      "type": "boolean"
+                    },
+                    "altitudeReference": {
+                      "const": "AGL"
+                    }
+                  }
+                }
+              },
+              "segments": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "segmentId",
+                    "fromWaypointId",
+                    "toWaypointId",
+                    "distanceM",
+                    "nominalSpeedMps"
+                  ],
+                  "properties": {
+                    "segmentId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "fromWaypointId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "toWaypointId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "distanceM": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "nominalSpeedMps": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "bankAngleRad": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "lateralAccelerationMps2": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  }
+                }
+              },
+              "trajectoryGeometryComplete": {
+                "const": true
+              },
+              "validationState": {
+                "const": "VALIDATED"
+              },
+              "candidateId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "estimatedTimeS": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "estimatedEnergyWh": {
+                "type": "number",
+                "minimum": 0
+              },
+              "estimatedReserveWh": {
+                "type": "number",
+                "minimum": 0
+              },
+              "objectiveScore": {
+                "type": "number"
+              },
+              "flightSafetyValidationState": {
+                "const": "ALLOWED"
+              },
+              "flightSafetyEnvelopeId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "flightSafetyVehicleId": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "selectedCandidateId": {
+          "type": "string"
+        },
+        "objectivePriorities": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "completion_time",
+              "time",
+              "fast",
+              "energy",
+              "endurance",
+              "reserve"
+            ]
           }
         }
       },
