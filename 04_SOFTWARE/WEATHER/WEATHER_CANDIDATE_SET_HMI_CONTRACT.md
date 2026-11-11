@@ -14,7 +14,7 @@ The existing `planning.result` envelope remains unchanged. Its `result` object m
 - `selectedCandidateId`: candidate to display before weather re-ranking.
 - `objectivePriorities`: ordered objective keys consumed by `AlgorithmOrchestrator`.
 
-Supported objective keys: `completion_time`, `time`, `fast`, `minimum_cost`, `route_efficiency`, `energy`, `endurance`, `reserve`.
+Weather re-ranking currently accepts only objectives whose values are recalculated from the wind-corrected trajectory: `completion_time`, `time`, `fast`, `energy`, `endurance`, `reserve`. `minimum_cost` and `route_efficiency` are not accepted in this path until their weather-corrected objective-score model is defined.
 
 Each route candidate must contain:
 
