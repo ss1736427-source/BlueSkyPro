@@ -58,10 +58,10 @@ Item {
 
     function currentWeatherCandidateRoutes() {
         if (!root.routeController) return []
+        // Weather optimization compares the optimizer's complete validated
+        // candidate set. A highlighted/manual route is not a substitute.
         var candidates = root.routeController.candidateSnapshots || []
-        if (candidates.length > 0) return candidates
-        var current = root.routeController.routeSnapshot()
-        return current && current.routeId ? [current] : []
+        return candidates
     }
 
     // The coverage envelope is the union of every candidate route, not only
@@ -409,23 +409,20 @@ Item {
             return false
         }
         var candidateSet = root.routeController.candidateSnapshots || []
-        var accepted = false
-        if (candidateSet.length > 0) {
-            var priorities = root.routeObjectivePriorities || []
-            if (!Array.isArray(priorities) || priorities.length === 0) {
-                root.weatherAcquisitionStatus = "BLOCKED"
-                root.weatherAcquisitionMessage = "EXPLICIT_ROUTE_OBJECTIVE_PRIORITIES_REQUIRED_FOR_CANDIDATE_RERANKING"
-                return false
-            }
-            accepted = root.weatherCalculationService.evaluateCandidates(
-                        products, candidateSet, root.missionModelJson,
-                        root.weatherMissionStartUtc, performanceProfile, priorities)
-        } else {
-            accepted = root.weatherCalculationService.evaluateRoute(
-                        products, root.routeController.routeSnapshot(),
-                        root.missionModelJson, root.weatherMissionStartUtc,
-                        performanceProfile)
+        if (candidateSet.length === 0) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = "OPTIMIZER_CANDIDATE_SET_REQUIRED_FOR_WEATHER_RERANKING"
+            return false
         }
+        var priorities = root.routeObjectivePriorities || []
+        if (!Array.isArray(priorities) || priorities.length === 0) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = "EXPLICIT_ROUTE_OBJECTIVE_PRIORITIES_REQUIRED_FOR_CANDIDATE_RERANKING"
+            return false
+        }
+        var accepted = root.weatherCalculationService.evaluateCandidates(
+                    products, candidateSet, root.missionModelJson,
+                    root.weatherMissionStartUtc, performanceProfile, priorities)
         if (!accepted) {
             root.weatherAcquisitionStatus = "BLOCKED"
             root.weatherAcquisitionMessage = root.weatherCalculationService.lastError
