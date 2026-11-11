@@ -51,6 +51,41 @@ int main()
     assert(bounds.value(QStringLiteral("northDeg")).toDouble() > 55.72);
     assert(request.value(QStringLiteral("providerLevelsAglM")).toStringList().size() == 3);
 
+    QVariantMap secondRoute = route;
+    secondRoute.insert(QStringLiteral("routeId"), QStringLiteral("ROUTE-02"));
+    secondRoute.insert(QStringLiteral("routeVersion"), QStringLiteral("1"));
+    secondRoute.insert(QStringLiteral("waypoints"), QVariantList{
+        QVariantMap{{"waypointId","WP-A"},{"latitudeDeg",55.75},{"longitudeDeg",37.65},
+                    {"altitudeM",50.0},{"altitudeReference","AGL"},{"mandatory",true}},
+        QVariantMap{{"waypointId","WP-B"},{"latitudeDeg",55.80},{"longitudeDeg",37.70},
+                    {"altitudeM",100.0},{"altitudeReference","AGL"},{"mandatory",true}}
+    });
+    const QVariantMap multi = bridge.buildCoverageRequestForCandidates(
+        missionJson, QVariantList{route, secondRoute},
+        QStringLiteral("2026-11-08T06:00:00Z"),
+        QStringLiteral("2026-11-08T09:00:00Z"),
+        1000.0, QVariantList{30.0, 50.0});
+    assert(multi.value(QStringLiteral("valid")).toBool());
+    const QVariantMap multiRequest = multi.value(QStringLiteral("request")).toMap();
+    assert(multiRequest.value(QStringLiteral("routeId")).toString()
+           == QLatin1String("MULTI_CANDIDATE"));
+    assert(multiRequest.value(QStringLiteral("candidateRoutes")).toList().size() == 2);
+    assert(multiRequest.value(QStringLiteral("components")).toList().size() == 4);
+    const QVariantMap multiBounds = multiRequest.value(QStringLiteral("bounds")).toMap();
+    assert(multiBounds.value(QStringLiteral("northDeg")).toDouble() > 55.80);
+    assert(multiBounds.value(QStringLiteral("eastDeg")).toDouble() > 37.70);
+    assert(multiRequest.value(QStringLiteral("requiredAltitudesAglM")).toList().size() == 4);
+    assert(multiRequest.value(QStringLiteral("providerLevelsAglM")).toStringList()
+           == QStringList({QStringLiteral("30"), QStringLiteral("50"),
+                           QStringLiteral("80"), QStringLiteral("100")}));
+
+    const QVariantMap duplicateMulti = bridge.buildCoverageRequestForCandidates(
+        missionJson, QVariantList{route, route},
+        QStringLiteral("2026-11-08T06:00:00Z"),
+        QStringLiteral("2026-11-08T09:00:00Z"),
+        1000.0, QVariantList{30.0, 50.0});
+    assert(!duplicateMulti.value(QStringLiteral("valid")).toBool());
+
     QVariantMap mismatchedRoute = route;
     mismatchedRoute.insert(QStringLiteral("missionVersion"), QStringLiteral("2"));
     const QVariantMap mismatch = bridge.buildCoverageRequest(
