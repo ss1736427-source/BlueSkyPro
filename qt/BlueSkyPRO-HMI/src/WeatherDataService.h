@@ -114,6 +114,7 @@ private:
     QJsonObject m_manifest;
     qint64 m_receivedBytes{0};
     bool m_batchActive{false};
+    bool m_batchStartingProduct{false};
     QString m_batchDateUtc;
     QString m_batchCycleUtc;
     double m_batchWest{0.0}, m_batchSouth{0.0}, m_batchEast{0.0}, m_batchNorth{0.0};
