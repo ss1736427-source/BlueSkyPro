@@ -11,6 +11,7 @@
 #include <QNetworkRequest>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <QTimer>
 #include <QUrl>
 #include <QUrlQuery>
 #include <QVariantMap>
@@ -41,6 +42,31 @@ WeatherDataService::WeatherDataService(QObject *parent)
     const QString base = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     m_cacheDirectory = QDir(base).filePath(QStringLiteral("weather/noaa_gfs"));
     QDir().mkpath(m_cacheDirectory);
+    connect(this, &WeatherDataService::forecastReady, this,
+            [this](const QString &filePath, const QVariantMap &manifest) {
+        if (!m_batchActive)
+            return;
+        m_batchFilePaths.push_back(filePath);
+        m_batchManifests.push_back(manifest);
+        if (m_batchNextIndex >= m_batchForecastHours.size()) {
+            const QStringList files = m_batchFilePaths;
+            const QVariantList manifests = m_batchManifests;
+            clearBatch();
+            setError(QString());
+            setState(QStringLiteral("BATCH_READY"));
+            emit forecastBatchReady(files, manifests);
+            return;
+        }
+        QTimer::singleShot(0, this, &WeatherDataService::startNextBatchProduct);
+    });
+    connect(this, &WeatherDataService::downloadFailed, this,
+            [this](const QString &reason) {
+        if (!m_batchActive)
+            return;
+        const QStringList completed = m_batchFilePaths;
+        clearBatch();
+        emit forecastBatchFailed(reason, completed);
+    });
 }
 
 QString WeatherDataService::state() const { return m_state; }
@@ -333,6 +359,89 @@ bool WeatherDataService::requestWindSubset(const QString &dateUtc,
     return true;
 }
 
+bool WeatherDataService::requestWindSubsetBatch(
+    const QString &dateUtc,
+    const QString &cycleUtc,
+    const QVariantList &forecastHours,
+    double west,
+    double south,
+    double east,
+    double north,
+    const QStringList &levelsAglM)
+{
+    if (m_batchActive || m_reply) {
+        setError(QStringLiteral("another weather download or forecast batch is already active"));
+        return false;
+    }
+    if (forecastHours.isEmpty()) {
+        setError(QStringLiteral("at least one GFS forecast lead is required"));
+        return false;
+    }
+
+    QList<int> normalizedHours;
+    for (const QVariant &value : forecastHours) {
+        bool ok = false;
+        const int hour = value.toInt(&ok);
+        if (!ok || normalizedHours.contains(hour)
+            || buildRequestUrl(dateUtc, cycleUtc, hour, west, south, east, north,
+                               levelsAglM).isEmpty()) {
+            setError(QStringLiteral("forecast leads must be unique supported GFS hours and the common subset request must be valid"));
+            return false;
+        }
+        normalizedHours.push_back(hour);
+    }
+    std::sort(normalizedHours.begin(), normalizedHours.end());
+
+    m_batchDateUtc = dateUtc;
+    m_batchCycleUtc = cycleUtc;
+    m_batchWest = west;
+    m_batchSouth = south;
+    m_batchEast = east;
+    m_batchNorth = north;
+    m_batchLevelsAglM = levelsAglM;
+    m_batchForecastHours = normalizedHours;
+    m_batchNextIndex = 0;
+    m_batchFilePaths.clear();
+    m_batchManifests.clear();
+    m_batchActive = true;
+    setError(QString());
+    setState(QStringLiteral("BATCH_DOWNLOADING"));
+    startNextBatchProduct();
+    return m_batchActive || m_state == QLatin1String("BATCH_READY");
+}
+
+void WeatherDataService::startNextBatchProduct()
+{
+    if (!m_batchActive || m_reply)
+        return;
+    if (m_batchNextIndex >= m_batchForecastHours.size())
+        return;
+
+    const int forecastHour = m_batchForecastHours.at(m_batchNextIndex++);
+    if (!requestWindSubset(m_batchDateUtc, m_batchCycleUtc, forecastHour,
+                           m_batchWest, m_batchSouth, m_batchEast, m_batchNorth,
+                           m_batchLevelsAglM)) {
+        const QString reason = m_lastError.isEmpty()
+            ? QStringLiteral("unable to start the next GFS forecast product")
+            : m_lastError;
+        const QStringList completed = m_batchFilePaths;
+        clearBatch();
+        emit forecastBatchFailed(reason, completed);
+    }
+}
+
+void WeatherDataService::clearBatch()
+{
+    m_batchActive = false;
+    m_batchDateUtc.clear();
+    m_batchCycleUtc.clear();
+    m_batchLevelsAglM.clear();
+    m_batchForecastHours.clear();
+    m_batchNextIndex = 0;
+    m_batchFilePaths.clear();
+    m_batchManifests.clear();
+}
+
 void WeatherDataService::consumeReplyData()
 {
     if (!m_reply || !m_partialFile)
@@ -449,6 +558,19 @@ void WeatherDataService::failDownload(const QString &reason)
 
 void WeatherDataService::cancelPending()
 {
+    if (m_batchActive) {
+        const QStringList completed = m_batchFilePaths;
+        const bool hasReply = !m_reply.isNull();
+        QPointer<QNetworkReply> reply = m_reply;
+        clearBatch();
+        if (hasReply) {
+            failDownload(QStringLiteral("weather forecast batch cancelled"));
+            if (reply)
+                reply->abort();
+        }
+        emit forecastBatchFailed(QStringLiteral("weather forecast batch cancelled"), completed);
+        return;
+    }
     if (!m_reply)
         return;
     QPointer<QNetworkReply> reply = m_reply;
