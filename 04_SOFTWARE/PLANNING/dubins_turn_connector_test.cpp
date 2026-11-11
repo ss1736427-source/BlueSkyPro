@@ -21,7 +21,7 @@ int main() {
 
     auto blocked=straight;
     TurnPolygon2D obstacle;
-    obstacle.vertices={{40.0,-5.0,0.0},{60.0,-5.0,0.0},{60.0,5.0,0.0},{40.0,5.0,0.0}};
+    obstacle.vertices={{-1000.0,-1000.0,0.0},{1000.0,-1000.0,0.0},{1000.0,1000.0,0.0},{-1000.0,1000.0,0.0}};
     blocked.prohibited_areas.push_back(obstacle);
     const auto rejected=DubinsTurnConnector::build(blocked);
     assert(!rejected.feasible);
