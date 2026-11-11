@@ -197,6 +197,7 @@ def build_result_message(
             lineage = (
                 candidate["missionVersion"], candidate["calculationInputVersion"],
                 environment["terrainSnapshotId"], environment["airspaceSnapshotId"],
+                environment["weatherSnapshotId"], environment["windSnapshotId"],
                 candidate["flightSafetyEnvelopeId"], candidate["flightSafetyVehicleId"],
             )
             if common_lineage is None:
