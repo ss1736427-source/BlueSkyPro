@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
 import json
+import math
 from typing import Any
 
 SCHEMA_VERSION = "1.0"
@@ -50,6 +51,44 @@ def _validate_route_candidate(candidate: dict[str, Any], mission_id: str, *, wea
         raise PlanningBridgeContractError("ROUTE_CANDIDATE_AT_LEAST_TWO_WAYPOINTS_REQUIRED")
     if not isinstance(segments, list) or len(segments) != len(waypoints) - 1:
         raise PlanningBridgeContractError("ROUTE_CANDIDATE_COMPLETE_SEGMENT_CHAIN_REQUIRED")
+    waypoint_ids: list[str] = []
+    for point in waypoints:
+        if not isinstance(point, dict):
+            raise PlanningBridgeContractError("ROUTE_CANDIDATE_WAYPOINT_MUST_BE_OBJECT")
+        waypoint_id = point.get("waypointId")
+        if not isinstance(waypoint_id, str) or not waypoint_id.strip():
+            raise PlanningBridgeContractError("ROUTE_CANDIDATE_WAYPOINT_ID_REQUIRED")
+        if point.get("altitudeReference") != "AGL" or not isinstance(point.get("mandatory"), bool):
+            raise PlanningBridgeContractError("ROUTE_CANDIDATE_WAYPOINT_REFERENCE_OR_MANDATORY_INVALID")
+        try:
+            latitude, longitude, altitude = (
+                float(point[key]) for key in ("latitudeDeg", "longitudeDeg", "altitudeM")
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise PlanningBridgeContractError("ROUTE_CANDIDATE_WAYPOINT_NUMERIC_FIELD_INVALID") from exc
+        if (not all(math.isfinite(v) for v in (latitude, longitude, altitude))
+                or not -90 <= latitude <= 90 or not -180 <= longitude <= 180
+                or not 0 <= altitude <= 5000):
+            raise PlanningBridgeContractError("ROUTE_CANDIDATE_WAYPOINT_NUMERIC_FIELD_INVALID")
+        waypoint_ids.append(waypoint_id)
+    if len(set(waypoint_ids)) != len(waypoint_ids):
+        raise PlanningBridgeContractError("ROUTE_CANDIDATE_WAYPOINT_ID_INVALID_OR_DUPLICATE")
+
+    segment_ids: set[str] = set()
+    for index, segment in enumerate(segments):
+        if not isinstance(segment, dict):
+            raise PlanningBridgeContractError("ROUTE_CANDIDATE_SEGMENT_MUST_BE_OBJECT")
+        segment_id = segment.get("segmentId")
+        if not isinstance(segment_id, str) or not segment_id.strip() or segment_id in segment_ids:
+            raise PlanningBridgeContractError("ROUTE_CANDIDATE_SEGMENT_ID_INVALID_OR_DUPLICATE")
+        segment_ids.add(segment_id)
+        if (segment.get("fromWaypointId") != waypoint_ids[index]
+                or segment.get("toWaypointId") != waypoint_ids[index + 1]):
+            raise PlanningBridgeContractError("ROUTE_CANDIDATE_SEGMENT_WAYPOINT_CHAIN_MISMATCH")
+        for key in ("distanceM", "nominalSpeedMps"):
+            value = segment.get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+                raise PlanningBridgeContractError(f"ROUTE_CANDIDATE_SEGMENT_METRIC_INVALID:{key}")
 
     environment = candidate["environmentSnapshotRefs"]
     if not isinstance(environment, dict):
@@ -84,10 +123,10 @@ def _validate_route_candidate(candidate: dict[str, Any], mission_id: str, *, wea
             ("estimatedReserveWh", 0.0, False),
         ):
             value = candidate[key]
-            if isinstance(value, bool) or not isinstance(value, (int, float)) or value < minimum or (exclusive and value == minimum):
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < minimum or (exclusive and value == minimum):
                 raise PlanningBridgeContractError(f"WEATHER_CANDIDATE_METRIC_INVALID:{key}")
         score = candidate["objectiveScore"]
-        if isinstance(score, bool) or not isinstance(score, (int, float)):
+        if isinstance(score, bool) or not isinstance(score, (int, float)) or not math.isfinite(score):
             raise PlanningBridgeContractError("WEATHER_CANDIDATE_METRIC_INVALID:objectiveScore")
 
 
