@@ -261,7 +261,8 @@ public:
         QVariantList validatedSnapshots;
         std::set<std::string> routeIds;
         std::set<std::string> candidateIds;
-        QString commonMissionId, commonMissionVersion, commonInputVersion, commonSafetyEnvelopeId;
+        QString commonMissionId, commonMissionVersion, commonInputVersion;
+        QString commonSafetyEnvelopeId, commonSafetyVehicleId;
         QVariantMap selectedSnapshot;
 
         for (const QVariant &value : candidates) {
@@ -269,9 +270,11 @@ public:
             const QString candidateId = source.value(QStringLiteral("candidateId")).toString().trimmed();
             const QString safetyState = source.value(QStringLiteral("flightSafetyValidationState")).toString();
             const QString safetyEnvelopeId = source.value(QStringLiteral("flightSafetyEnvelopeId")).toString().trimmed();
+            const QString safetyVehicleId = source.value(QStringLiteral("flightSafetyVehicleId")).toString().trimmed();
             if (source.value(QStringLiteral("validationState")).toString() != QLatin1String("VALIDATED"))
                 return rejectCandidate(QStringLiteral("CANDIDATE_ROUTE_VALIDATION_NOT_CONFIRMED"));
-            if (safetyState != QLatin1String("ALLOWED") || safetyEnvelopeId.isEmpty())
+            if (safetyState != QLatin1String("ALLOWED")
+                || safetyEnvelopeId.isEmpty() || safetyVehicleId.isEmpty())
                 return rejectCandidate(QStringLiteral("CANDIDATE_FLIGHT_SAFETY_VALIDATION_NOT_CONFIRMED"));
             if (candidateId.isEmpty() || !candidateIds.insert(candidateId.toStdString()).second)
                 return rejectCandidate(QStringLiteral("CANDIDATE_ID_MISSING_OR_DUPLICATE"));
@@ -309,8 +312,10 @@ public:
                 commonMissionVersion = missionVersion;
                 commonInputVersion = inputVersion;
                 commonSafetyEnvelopeId = safetyEnvelopeId;
+                commonSafetyVehicleId = safetyVehicleId;
             } else if (commonMissionId != missionId || commonMissionVersion != missionVersion
-                       || commonInputVersion != inputVersion || commonSafetyEnvelopeId != safetyEnvelopeId) {
+                       || commonInputVersion != inputVersion || commonSafetyEnvelopeId != safetyEnvelopeId
+                       || commonSafetyVehicleId != safetyVehicleId) {
                 return rejectCandidate(QStringLiteral("CANDIDATE_SET_MISSION_INPUT_OR_SAFETY_ENVELOPE_MISMATCH"));
             }
 
@@ -321,6 +326,7 @@ public:
             snapshot.insert(QStringLiteral("objectiveScore"), objectiveScore);
             snapshot.insert(QStringLiteral("flightSafetyValidationState"), safetyState);
             snapshot.insert(QStringLiteral("flightSafetyEnvelopeId"), safetyEnvelopeId);
+            snapshot.insert(QStringLiteral("flightSafetyVehicleId"), safetyVehicleId);
             validatedSnapshots.push_back(snapshot);
             if (candidateId == selectedCandidateId || selectedSnapshot.isEmpty())
                 selectedSnapshot = snapshot;
