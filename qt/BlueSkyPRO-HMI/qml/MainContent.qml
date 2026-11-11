@@ -94,10 +94,16 @@ Item {
                 ? resultPayload.routeCandidates : []
         if (candidates.length > 0) {
             if (typeof routeController !== "undefined" && routeController !== null) {
+                var candidateSetMatchesMission = candidates.every(function(item) {
+                    return String(item.missionId || "") === String(root.missionId)
+                })
                 var selectedId = String(resultPayload.selectedCandidateId || "")
                 // loadCandidateSet rejects incomplete geometry, mixed calculation
                 // inputs, and any candidate lacking its own route/safety validation.
-                routeController.loadCandidateSet(candidates, selectedId)
+                if (candidateSetMatchesMission)
+                    routeController.loadCandidateSet(candidates, selectedId)
+                else
+                    routeController.clear()
             }
             return
         }
