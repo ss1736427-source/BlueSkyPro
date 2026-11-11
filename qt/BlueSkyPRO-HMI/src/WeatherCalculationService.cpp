@@ -863,6 +863,11 @@ bool WeatherCalculationService::evaluateCandidates(
             setError(QStringLiteral("CANDIDATE_REQUIRES_MATCHED_FLIGHT_SAFETY_VALIDATION"));
             return false;
         }
+        if (snapshot.value(QStringLiteral("flightSafetyVehicleId")).toString().trimmed()
+            != vehicleId) {
+            setError(QStringLiteral("CANDIDATE_FLIGHT_SAFETY_VEHICLE_MISMATCH"));
+            return false;
+        }
 
         QString candidateId = snapshot.value(QStringLiteral("candidateId")).toString().trimmed();
         if (candidateId.isEmpty())
