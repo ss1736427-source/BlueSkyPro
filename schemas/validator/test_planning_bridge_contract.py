@@ -156,6 +156,25 @@ def main() -> int:
     else:
         raise AssertionError("mixed UAV safety lineage must be rejected")
 
+    mismatched_environment = {
+        **candidate_b,
+        "environmentSnapshotRefs": {
+            **candidate_b["environmentSnapshotRefs"],
+            "airspaceSnapshotId": "airspace-snapshot-other",
+        },
+    }
+    try:
+        build_result_message(
+            mission_id="MISSION-001", result_id="PLAN-010",
+            pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")),
+            route_candidates=[candidate_a, mismatched_environment],
+            objective_priorities=["time"],
+        )
+    except PlanningBridgeContractError as exc:
+        assert str(exc) == "WEATHER_CANDIDATE_SET_LINEAGE_OR_SAFETY_MISMATCH"
+    else:
+        raise AssertionError("candidate routes must use the same airspace snapshot")
+
     try:
         build_result_message(
             mission_id="MISSION-001", result_id="PLAN-006",
