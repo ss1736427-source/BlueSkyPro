@@ -124,6 +124,18 @@ int main()
     assert(decision.weather_corrected_time_s == 40.0);
     assert(decision.weather_corrected_energy_wh == 25.0);
     assert(decision.weather_remaining_energy_wh == 75.0);
+    assert(decision.admissible_candidates.size() == 2);
+    bool retainedWeatherCorrectedWinner = false;
+    for (const auto& admissible : decision.admissible_candidates) {
+        if (admissible.candidate_id == "raw-slow") {
+            retainedWeatherCorrectedWinner = true;
+            assert(admissible.estimated_time_s == 40.0);
+            assert(admissible.estimated_energy_wh == 25.0);
+            assert(admissible.estimated_reserve_wh == 75.0);
+        }
+        assert(admissible.candidate_id != "missing-geometry");
+    }
+    assert(retainedWeatherCorrectedWinner);
 
     bool missingGeometryRejected = false;
     for (const auto& rejected : decision.rejected_candidates) {
