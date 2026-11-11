@@ -91,6 +91,12 @@ def _request() -> dict:
                     {"waypointId": "WP-2", "latitudeDeg": 60.1, "longitudeDeg": 24.1,
                      "altitudeM": 110.0, "mandatory": True, "altitudeReference": "AGL"},
                 ],
+                "segments": [{
+                    "segmentId": "SEG-1", "fromWaypointId": "WP-1", "toWaypointId": "WP-2",
+                    "distanceM": 12000.0, "nominalSpeedMps": 20.0,
+                }],
+                "trajectoryGeometryComplete": True,
+                "validationState": "VALIDATED",
             },
             "resolutionPolicy": {"maxDelayS": 5.0},
         },
@@ -114,6 +120,67 @@ def test_stdio_adapter_emits_planning_result() -> None:
     assert message["result"]["routeCandidate"]["routeId"] == "ROUTE-001"
     assert message["result"]["routeCandidate"]["waypoints"][1]["mandatory"] is True
     assert message["result"]["routeCandidate"]["environmentSnapshotRefs"]["windSnapshotId"] == "wind-snapshot-001"
+
+
+def test_stdio_adapter_passes_validated_weather_candidate_set() -> None:
+    request = _request()
+    base = request["inputs"].pop("routeCandidate")
+    candidate_a = {
+        **base, "candidateId": "CAND-A",
+        "estimatedTimeS": 600.0, "estimatedEnergyWh": 45.0,
+        "estimatedReserveWh": 25.0, "objectiveScore": 600.0,
+        "flightSafetyValidationState": "ALLOWED",
+        "flightSafetyEnvelopeId": "SAFE-ENV-1",
+        "flightSafetyVehicleId": "UAV-1",
+    }
+    candidate_b = {
+        **candidate_a, "candidateId": "CAND-B",
+        "routeId": "ROUTE-002", "routeVersion": "v2",
+        "estimatedTimeS": 650.0, "estimatedEnergyWh": 40.0,
+        "objectiveScore": 650.0,
+    }
+    request["inputs"]["routeCandidates"] = [candidate_a, candidate_b]
+    request["inputs"]["selectedCandidateId"] = "CAND-A"
+    request["inputs"]["objectivePriorities"] = ["time", "energy"]
+    proc = subprocess.run(
+        [sys.executable, str(ADAPTER)],
+        input=json.dumps(request) + "\n",
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert not proc.stderr
+    message = json.loads(proc.stdout.strip())
+    assert [item["candidateId"] for item in message["result"]["routeCandidates"]] == ["CAND-A", "CAND-B"]
+    assert message["result"]["selectedCandidateId"] == "CAND-A"
+    assert message["result"]["objectivePriorities"] == ["time", "energy"]
+
+
+def test_stdio_adapter_rejects_mixed_candidate_safety_lineage() -> None:
+    request = _request()
+    base = request["inputs"].pop("routeCandidate")
+    candidate = {
+        **base, "candidateId": "CAND-A",
+        "estimatedTimeS": 600.0, "estimatedEnergyWh": 45.0,
+        "estimatedReserveWh": 25.0, "objectiveScore": 600.0,
+        "flightSafetyValidationState": "ALLOWED",
+        "flightSafetyEnvelopeId": "SAFE-ENV-1",
+        "flightSafetyVehicleId": "UAV-1",
+    }
+    request["inputs"]["routeCandidates"] = [
+        candidate, {**candidate, "candidateId": "CAND-B", "routeId": "ROUTE-002",
+                    "flightSafetyVehicleId": "UAV-2"}
+    ]
+    request["inputs"]["objectivePriorities"] = ["time"]
+    proc = subprocess.run(
+        [sys.executable, str(ADAPTER)],
+        input=json.dumps(request) + "\n",
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert "WEATHER_CANDIDATE_SET_LINEAGE_OR_SAFETY_MISMATCH" in proc.stderr
+    assert not proc.stdout
 
 
 def test_stdio_adapter_does_not_promote_planar_routes() -> None:
