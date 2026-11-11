@@ -288,7 +288,7 @@ QVariantMap WeatherCoverageBridge::buildCoverageRequestForCandidates(
     QVariantList candidateRoutes;
     QSet<QString> componentKeys;
     QSet<QString> routeKeys;
-    QSet<double> altitudeSet;
+    QList<double> altitudeValues;
     QSet<int> providerLevelSet;
     QVariantMap mergedBounds;
     QString commonInputVersion;
@@ -364,14 +364,18 @@ QVariantMap WeatherCoverageBridge::buildCoverageRequestForCandidates(
                 mergedComponents.push_back(component);
             }
         }
-        for (const QVariant &altitude : request.value(QStringLiteral("requiredAltitudesAglM")).toList())
-            altitudeSet.insert(altitude.toDouble());
+        for (const QVariant &altitude : request.value(QStringLiteral("requiredAltitudesAglM")).toList()) {
+            const double value = altitude.toDouble();
+            if (std::find(altitudeValues.begin(), altitudeValues.end(), value)
+                == altitudeValues.end())
+                altitudeValues.push_back(value);
+        }
         for (const QVariant &level : request.value(QStringLiteral("providerLevelsAglM")).toStringList())
             providerLevelSet.insert(level.toInt());
     }
 
     QVariantList altitudes;
-    QList<double> orderedAltitudes = altitudeSet.values();
+    QList<double> orderedAltitudes = altitudeValues;
     std::sort(orderedAltitudes.begin(), orderedAltitudes.end());
     for (double altitude : orderedAltitudes)
         altitudes.push_back(altitude);
