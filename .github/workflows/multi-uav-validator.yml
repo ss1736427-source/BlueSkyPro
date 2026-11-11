@@ -5,6 +5,9 @@ on:
     branches: [main, integration/architecture-2026-10-04]
   push:
     branches: [main, integration/architecture-2026-10-04]
+    paths:
+      - 'schemas/**'
+      - '.github/workflows/multi-uav-validator.yml'
 
 jobs:
   validator:

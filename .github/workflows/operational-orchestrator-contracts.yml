@@ -13,6 +13,7 @@ on:
       - 'arch-ops-009-*'
       - 'arch-ops-010-*'
       - 'arch-ops-011-*'
+      - 'arch-ops-017-*'
     paths:
       - '04_SOFTWARE/OPERATIONS/**'
       - '04_SOFTWARE/PLANNING/**'
