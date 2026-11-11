@@ -385,8 +385,13 @@ bool WeatherDataService::requestWindSubsetBatch(
     QList<int> normalizedHours;
     for (const QVariant &value : forecastHours) {
         bool ok = false;
-        const int hour = value.toInt(&ok);
-        if (!ok || normalizedHours.contains(hour)
+        const double numericHour = value.toDouble(&ok);
+        if (!ok || !std::isfinite(numericHour) || std::floor(numericHour) != numericHour) {
+            setError(QStringLiteral("forecast leads must be integer GFS hours"));
+            return false;
+        }
+        const int hour = static_cast<int>(numericHour);
+        if (normalizedHours.contains(hour)
             || buildRequestUrl(dateUtc, cycleUtc, hour, west, south, east, north,
                                levelsAglM).isEmpty()) {
             setError(QStringLiteral("forecast leads must be unique supported GFS hours and the common subset request must be valid"));
