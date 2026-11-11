@@ -65,6 +65,12 @@ def main() -> int:
             {"waypointId": "WP-2", "latitudeDeg": 60.1, "longitudeDeg": 24.1,
              "altitudeM": 110.0, "mandatory": True, "altitudeReference": "AGL"},
         ],
+        "segments": [
+            {"segmentId": "SEG-1", "fromWaypointId": "WP-1", "toWaypointId": "WP-2",
+             "distanceM": 12000.0, "nominalSpeedMps": 20.0}
+        ],
+        "trajectoryGeometryComplete": True,
+        "validationState": "VALIDATED",
     }
     candidate_message = build_result_message(
         mission_id="MISSION-001", result_id="PLAN-002",
@@ -74,6 +80,75 @@ def main() -> int:
     assert candidate_message["result"]["routeCandidate"]["coordinateReferenceSystem"] == "EPSG:4326"
     assert candidate_message["result"]["routeCandidate"]["environmentSnapshotRefs"]["terrainSnapshotId"] == "terrain-snapshot-001"
     assert candidate_message["result"]["routeCandidate"]["waypoints"][1]["mandatory"] is True
+
+    candidate_a = {
+        **route_candidate,
+        "candidateId": "CAND-A",
+        "flightSafetyValidationState": "ALLOWED",
+        "flightSafetyEnvelopeId": "SAFE-ENV-1",
+        "flightSafetyVehicleId": "UAV-1",
+        "estimatedTimeS": 600.0,
+        "estimatedEnergyWh": 45.0,
+        "estimatedReserveWh": 25.0,
+        "objectiveScore": 600.0,
+    }
+    candidate_b = {
+        **candidate_a,
+        "candidateId": "CAND-B",
+        "routeId": "ROUTE-002",
+        "routeVersion": "v2",
+        "estimatedTimeS": 650.0,
+        "estimatedEnergyWh": 40.0,
+        "objectiveScore": 650.0,
+    }
+    candidate_set_message = build_result_message(
+        mission_id="MISSION-001", result_id="PLAN-004",
+        pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")),
+        route_candidates=[candidate_a, candidate_b],
+        selected_candidate_id="CAND-A",
+        objective_priorities=["time", "energy"],
+    )
+    assert [x["candidateId"] for x in candidate_set_message["result"]["routeCandidates"]] == ["CAND-A", "CAND-B"]
+    assert candidate_set_message["result"]["selectedCandidateId"] == "CAND-A"
+    assert candidate_set_message["result"]["objectivePriorities"] == ["time", "energy"]
+
+    invalid_candidate_set = [candidate_a, {**candidate_b, "flightSafetyVehicleId": "UAV-2"}]
+    try:
+        build_result_message(
+            mission_id="MISSION-001", result_id="PLAN-005",
+            pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")),
+            route_candidates=invalid_candidate_set,
+            objective_priorities=["time"],
+        )
+    except PlanningBridgeContractError as exc:
+        assert str(exc) == "WEATHER_CANDIDATE_SET_LINEAGE_OR_SAFETY_MISMATCH"
+    else:
+        raise AssertionError("mixed UAV safety lineage must be rejected")
+
+    try:
+        build_result_message(
+            mission_id="MISSION-001", result_id="PLAN-006",
+            pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")),
+            route_candidates=[candidate_a],
+            selected_candidate_id="CAND-MISSING",
+            objective_priorities=["time"],
+        )
+    except PlanningBridgeContractError as exc:
+        assert str(exc) == "SELECTED_WEATHER_CANDIDATE_NOT_IN_SET"
+    else:
+        raise AssertionError("selected candidate outside the set must be rejected")
+
+    try:
+        build_result_message(
+            mission_id="MISSION-001", result_id="PLAN-007",
+            pipeline_result=Pipeline(Gate("PASS", "RELEASE_ELIGIBLE")),
+            route_candidates=[candidate_a],
+            objective_priorities=["minimum_cost"],
+        )
+    except PlanningBridgeContractError as exc:
+        assert str(exc) == "WEATHER_CANDIDATE_OBJECTIVE_PRIORITIES_REQUIRED_OR_UNSUPPORTED"
+    else:
+        raise AssertionError("weather reranking must reject objectives without corrected metrics")
     assert '"missionId":"MISSION-001"' in dumps_result_message(message)
 
     incomplete_candidate = dict(route_candidate)
