@@ -313,4 +313,100 @@ WeatherCoverageRequestBuildResult WeatherCoverageRequestBuilder::build(
     return result;
 }
 
+
+WeatherCoverageRequestBuildResult WeatherCoverageRequestBuilder::build(
+    const bluesky::planning::Mission& mission,
+    const std::vector<bluesky::planning::Route>& candidateRoutes,
+    const WeatherCoverageRequestOptions& options)
+{
+    WeatherCoverageRequestBuildResult result;
+    if (candidateRoutes.empty()) {
+        result.errors.emplace_back("WEATHER_COVERAGE_REQUIRES_AT_LEAST_ONE_CANDIDATE_ROUTE");
+        return result;
+    }
+
+    std::set<std::tuple<int, std::string, std::string, std::string>> componentIdentities;
+    std::set<double> requiredAltitudes;
+    std::set<int> providerLevels;
+    std::set<std::pair<std::string, std::string>> routeIdentities;
+    bool first = true;
+    std::string commonCalculationInputVersion;
+
+    for (const auto& route : candidateRoutes) {
+        const auto candidate = build(mission, route, options);
+        if (!candidate.valid) {
+            for (const auto& error : candidate.errors) {
+                result.errors.emplace_back(
+                    "CANDIDATE_ROUTE_" + route.lineage.route_id + ":" + error);
+            }
+            continue;
+        }
+
+        const auto identity = std::make_pair(
+            route.lineage.route_id, route.lineage.route_version);
+        if (!routeIdentities.insert(identity).second) {
+            result.errors.emplace_back("DUPLICATE_CANDIDATE_ROUTE_IDENTITY:"
+                                       + route.lineage.route_id);
+            continue;
+        }
+        if (first) {
+            result.request = candidate.request;
+            commonCalculationInputVersion = candidate.request.calculation_input_version;
+            first = false;
+        } else {
+            if (candidate.request.calculation_input_version
+                != commonCalculationInputVersion) {
+                result.errors.emplace_back(
+                    "CANDIDATE_ROUTES_USE_DIFFERENT_CALCULATION_INPUT_VERSIONS");
+            }
+            result.request.bounds.south_deg = std::min(
+                result.request.bounds.south_deg, candidate.request.bounds.south_deg);
+            result.request.bounds.west_deg = std::min(
+                result.request.bounds.west_deg, candidate.request.bounds.west_deg);
+            result.request.bounds.north_deg = std::max(
+                result.request.bounds.north_deg, candidate.request.bounds.north_deg);
+            result.request.bounds.east_deg = std::max(
+                result.request.bounds.east_deg, candidate.request.bounds.east_deg);
+        }
+
+        result.request.candidate_routes.push_back({
+            route.lineage.route_id, route.lineage.route_version});
+
+        for (const auto& component : candidate.request.components) {
+            const auto key = std::make_tuple(
+                static_cast<int>(component.kind), component.source_id,
+                component.source_version, component.geometry_type);
+            if (componentIdentities.insert(key).second)
+                result.request.components.push_back(component);
+        }
+        requiredAltitudes.insert(
+            candidate.request.required_altitudes_agl_m.begin(),
+            candidate.request.required_altitudes_agl_m.end());
+        providerLevels.insert(
+            candidate.request.provider_levels_agl_m.begin(),
+            candidate.request.provider_levels_agl_m.end());
+    }
+
+    if (!result.errors.empty() || first) {
+        if (first && result.errors.empty())
+            result.errors.emplace_back("NO_VALID_CANDIDATE_ROUTE_COVERAGE");
+        return result;
+    }
+
+    result.request.calculation_input_version = commonCalculationInputVersion;
+    result.request.required_altitudes_agl_m.assign(
+        requiredAltitudes.begin(), requiredAltitudes.end());
+    result.request.provider_levels_agl_m.assign(
+        providerLevels.begin(), providerLevels.end());
+    if (result.request.candidate_routes.size() == 1) {
+        result.request.route_id = result.request.candidate_routes.front().route_id;
+        result.request.route_version = result.request.candidate_routes.front().route_version;
+    } else {
+        result.request.route_id = "MULTI_CANDIDATE";
+        result.request.route_version = "MULTI_CANDIDATE";
+    }
+    result.valid = true;
+    return result;
+}
+
 } // namespace bluesky::weather
