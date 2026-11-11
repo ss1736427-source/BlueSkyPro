@@ -278,6 +278,8 @@ def process_request(request: dict[str, Any]) -> dict[str, Any]:
             raise RequestError("WEATHER_CANDIDATE_OR_ROUTE_ID_DUPLICATE")
         lineage = {
             (item["missionVersion"], item["calculationInputVersion"],
+             item["environmentSnapshotRefs"]["terrainSnapshotId"],
+             item["environmentSnapshotRefs"]["airspaceSnapshotId"],
              item["flightSafetyEnvelopeId"], item["flightSafetyVehicleId"])
             for item in route_candidates
         }
