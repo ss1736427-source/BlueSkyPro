@@ -783,6 +783,10 @@ bool WeatherCalculationService::evaluateCandidates(
         setError(QStringLiteral("WEATHER_CANDIDATE_SET_REQUIRED"));
         return false;
     }
+    if (candidateSnapshots.size() > 64) {
+        setError(QStringLiteral("WEATHER_CANDIDATE_SET_EXCEEDS_64_ROUTES"));
+        return false;
+    }
     if (objectivePriorities.isEmpty()) {
         setError(QStringLiteral("EXPLICIT_ROUTE_OBJECTIVE_PRIORITIES_REQUIRED"));
         return false;
@@ -832,6 +836,7 @@ bool WeatherCalculationService::evaluateCandidates(
     std::set<std::string> candidateIds;
     QString missionVersion;
     QString calculationInputVersion;
+    QString commonSafetyEnvelopeId;
     for (const QVariant& value : candidateSnapshots) {
         const QVariantMap snapshot = value.toMap();
         Route route;
@@ -866,6 +871,14 @@ bool WeatherCalculationService::evaluateCandidates(
         if (snapshot.value(QStringLiteral("flightSafetyVehicleId")).toString().trimmed()
             != vehicleId) {
             setError(QStringLiteral("CANDIDATE_FLIGHT_SAFETY_VEHICLE_MISMATCH"));
+            return false;
+        }
+        const QString currentSafetyEnvelopeId =
+            snapshot.value(QStringLiteral("flightSafetyEnvelopeId")).toString().trimmed();
+        if (commonSafetyEnvelopeId.isEmpty())
+            commonSafetyEnvelopeId = currentSafetyEnvelopeId;
+        else if (commonSafetyEnvelopeId != currentSafetyEnvelopeId) {
+            setError(QStringLiteral("WEATHER_CANDIDATES_USE_DIFFERENT_FLIGHT_SAFETY_ENVELOPES"));
             return false;
         }
 
