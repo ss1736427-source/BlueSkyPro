@@ -84,6 +84,8 @@ public:
     // ListModel. Unknown/missing lineage and invalid waypoint data are rejected.
     Q_INVOKABLE bool loadCandidate(const QVariantMap &candidate)
     {
+        m_candidateSnapshots.clear();
+        emit candidateSetChanged();
         const QString routeId = candidate.value(QStringLiteral("routeId")).toString().trimmed();
         const QString routeVersion = candidate.value(QStringLiteral("routeVersion")).toString().trimmed();
         const QString missionId = candidate.value(QStringLiteral("missionId")).toString().trimmed();
@@ -379,6 +381,8 @@ public:
             m_route.lineage.route_version = m_routeVersion.toStdString();
             m_validationState = QStringLiteral("RECALCULATION_REQUIRED");
             m_validationReason = QStringLiteral("ROUTE_EDIT_INVALIDATED_PREVIOUS_VALIDATION");
+            m_candidateSnapshots.clear();
+            emit candidateSetChanged();
             emit routeChanged();
             emit validationChanged();
             return true;
@@ -391,6 +395,8 @@ public:
     {
         m_route = {};
         m_waypoints.clear();
+        m_candidateSnapshots.clear();
+        emit candidateSetChanged();
         m_routeId.clear();
         m_routeVersion.clear();
         m_calculationInputVersion.clear();
@@ -422,6 +428,16 @@ public:
             ? (accepted ? QStringLiteral("PLANNER_VALIDATION_MATCHED")
                         : QStringLiteral("PLANNER_REJECTED_ROUTE"))
             : reason.trimmed();
+        for (QVariant &value : m_candidateSnapshots) {
+            QVariantMap item = value.toMap();
+            if (item.value(QStringLiteral("routeId")).toString() == m_routeId) {
+                item.insert(QStringLiteral("validationState"), m_validationState);
+                item.insert(QStringLiteral("validationReason"), m_validationReason);
+                value = item;
+                emit candidateSetChanged();
+                break;
+            }
+        }
         emit validationChanged();
         return true;
     }
@@ -443,6 +459,7 @@ public:
 signals:
     void routeChanged();
     void validationChanged();
+    void candidateSetChanged();
 
 private:
     bool reject(const QString &reason)
@@ -455,6 +472,7 @@ private:
 
     bluesky::planning::Route m_route;
     QVariantList m_waypoints;
+    QVariantList m_candidateSnapshots;
     QString m_routeId;
     QString m_routeVersion;
     QString m_calculationInputVersion;
