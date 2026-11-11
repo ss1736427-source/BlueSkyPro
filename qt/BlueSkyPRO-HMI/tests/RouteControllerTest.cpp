@@ -58,6 +58,7 @@ static QVariantMap weatherCandidate(const QString &routeId,
     value.insert(QStringLiteral("validationState"), QStringLiteral("VALIDATED"));
     value.insert(QStringLiteral("flightSafetyValidationState"), QStringLiteral("ALLOWED"));
     value.insert(QStringLiteral("flightSafetyEnvelopeId"), QStringLiteral("UAV-ENVELOPE-01"));
+    value.insert(QStringLiteral("flightSafetyVehicleId"), QStringLiteral("UAV-TEST-01"));
     value.insert(QStringLiteral("candidateId"), candidateId);
     value.insert(QStringLiteral("estimatedTimeS"), estimatedTime);
     value.insert(QStringLiteral("estimatedEnergyWh"), estimatedTime * 0.5);
