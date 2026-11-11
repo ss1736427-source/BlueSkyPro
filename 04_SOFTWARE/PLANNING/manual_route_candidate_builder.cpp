@@ -93,8 +93,8 @@ ManualRouteBuildResult buildManualRouteCandidate(
                     "CALCULATION_INPUT_VERSION_REQUIRED");
     requireNonEmpty(result.errors, requirements.terrain_snapshot_id, "TERRAIN_SNAPSHOT_REQUIRED");
     requireNonEmpty(result.errors, requirements.airspace_snapshot_id, "AIRSPACE_SNAPSHOT_REQUIRED");
-    requireNonEmpty(result.errors, requirements.weather_snapshot_id, "WEATHER_SNAPSHOT_REQUIRED");
-    requireNonEmpty(result.errors, requirements.wind_snapshot_id, "WIND_SNAPSHOT_REQUIRED");
+    if (requirements.weather_snapshot_id.empty() != requirements.wind_snapshot_id.empty())
+        result.errors.emplace_back("WEATHER_AND_WIND_SNAPSHOT_REFS_MUST_BE_PAIRED");
 
     if (!finite(requirements.minimum_target_agl_m)
         || !finite(requirements.maximum_target_agl_m)
