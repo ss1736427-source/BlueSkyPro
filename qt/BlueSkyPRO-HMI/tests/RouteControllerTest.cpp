@@ -43,6 +43,36 @@ static QVariantMap candidate()
     };
 }
 
+static QVariantMap weatherCandidate(const QString &routeId,
+                                         const QString &candidateId,
+                                         double estimatedTime)
+{
+    QVariantMap value = candidate();
+    value.insert(QStringLiteral("routeId"), routeId);
+    value.insert(QStringLiteral("routeVersion"), QStringLiteral("v1"));
+    value.insert(QStringLiteral("trajectoryGeometryComplete"), true);
+    value.insert(QStringLiteral("validationState"), QStringLiteral("VALIDATED"));
+    value.insert(QStringLiteral("flightSafetyValidationState"), QStringLiteral("ALLOWED"));
+    value.insert(QStringLiteral("flightSafetyEnvelopeId"), QStringLiteral("UAV-ENVELOPE-01"));
+    value.insert(QStringLiteral("candidateId"), candidateId);
+    value.insert(QStringLiteral("estimatedTimeS"), estimatedTime);
+    value.insert(QStringLiteral("estimatedEnergyWh"), estimatedTime * 0.5);
+    value.insert(QStringLiteral("estimatedReserveWh"), 100.0 - estimatedTime * 0.5);
+    value.insert(QStringLiteral("objectiveScore"), estimatedTime);
+    value.insert(QStringLiteral("segments"), QVariantList{
+        QVariantMap{
+            {QStringLiteral("segmentId"), routeId + QStringLiteral("-SEG-1")},
+            {QStringLiteral("fromWaypointId"), QStringLiteral("WP-1")},
+            {QStringLiteral("toWaypointId"), QStringLiteral("WP-2")},
+            {QStringLiteral("distanceM"), 12400.0},
+            {QStringLiteral("nominalSpeedMps"), 15.0},
+            {QStringLiteral("bankAngleRad"), 0.2},
+            {QStringLiteral("lateralAccelerationMps2"), 1.0}
+        }
+    });
+    return value;
+}
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -202,6 +232,30 @@ int main(int argc, char *argv[])
     });
     assert(!controller.loadCandidate(invalid));
     assert(controller.validationReason() == QStringLiteral("MANDATORY_FLAG_INVALID"));
+
+    const QVariantMap candidateA = weatherCandidate(
+        QStringLiteral("ROUTE-CAND-A"), QStringLiteral("CAND-A"), 120.0);
+    const QVariantMap candidateB = weatherCandidate(
+        QStringLiteral("ROUTE-CAND-B"), QStringLiteral("CAND-B"), 100.0);
+    assert(controller.loadCandidateSet(
+        QVariantList{candidateA, candidateB}, QStringLiteral("CAND-B")));
+    assert(controller.candidateSnapshots().size() == 2);
+    assert(controller.routeId() == QStringLiteral("ROUTE-CAND-B"));
+    assert(controller.validationState() == QStringLiteral("VALIDATED"));
+    assert(controller.candidateSnapshots().at(0).toMap()
+               .value(QStringLiteral("validationState")).toString() == QStringLiteral("VALIDATED"));
+    assert(controller.selectCandidate(QStringLiteral("CAND-A")));
+    assert(controller.routeId() == QStringLiteral("ROUTE-CAND-A"));
+    assert(controller.candidateSnapshots().size() == 2);
+
+    QVariantMap mismatchedCandidate = candidateB;
+    mismatchedCandidate.insert(QStringLiteral("calculationInputVersion"), QStringLiteral("input-2"));
+    assert(!controller.loadCandidateSet(
+        QVariantList{candidateA, mismatchedCandidate}, QStringLiteral("CAND-A")));
+    assert(controller.candidateSnapshots().isEmpty());
+    assert(controller.validationState() == QStringLiteral("BLOCKED"));
+    assert(controller.validationReason()
+           == QStringLiteral("CANDIDATE_SET_MISSION_INPUT_OR_SAFETY_ENVELOPE_MISMATCH"));
 
     controller.clear();
     assert(controller.validationState() == QStringLiteral("EMPTY"));
