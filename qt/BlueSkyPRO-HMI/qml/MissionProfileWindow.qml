@@ -156,6 +156,25 @@ Item {
                     return { valid: false, from: "", to: "", durationSeconds: 0, reason: "CANDIDATE_SEGMENT_TIME_ESTIMATE_INVALID" }
                 routeDuration += segmentTime
             }
+            for (var taskIndex = 0; taskIndex < waypoints.length; ++taskIndex) {
+                var taskPoint = waypoints[taskIndex]
+                var hasTaskDuration = taskPoint.taskExecutionDurationS !== undefined
+                        && taskPoint.taskExecutionDurationS !== null
+                var hasTaskEnergy = taskPoint.taskExecutionEnergyWh !== undefined
+                        && taskPoint.taskExecutionEnergyWh !== null
+                if (hasTaskDuration !== hasTaskEnergy)
+                    return { valid: false, from: "", to: "", durationSeconds: 0,
+                             reason: "TASK_EXECUTION_DURATION_AND_ENERGY_MUST_BE_PAIRED" }
+                if (hasTaskDuration) {
+                    var taskDuration = Number(taskPoint.taskExecutionDurationS)
+                    var taskEnergy = Number(taskPoint.taskExecutionEnergyWh)
+                    if (!Number.isFinite(taskDuration) || taskDuration < 0
+                            || !Number.isFinite(taskEnergy) || taskEnergy < 0)
+                        return { valid: false, from: "", to: "", durationSeconds: 0,
+                                 reason: "TASK_EXECUTION_METRICS_INVALID_FOR_WEATHER_WINDOW" }
+                    routeDuration += taskDuration
+                }
+            }
             if (!Number.isFinite(routeDuration) || routeDuration <= 0)
                 return { valid: false, from: "", to: "", durationSeconds: 0, reason: "CANDIDATE_ROUTE_DURATION_ESTIMATE_INVALID" }
             longestDuration = Math.max(longestDuration, routeDuration)
