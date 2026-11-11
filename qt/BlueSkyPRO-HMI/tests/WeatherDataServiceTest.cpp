@@ -8,6 +8,17 @@
 
 int main()
 {
+    WeatherDataService batchService;
+    assert(!batchService.requestWindSubsetBatch(
+        QStringLiteral("20261107"), QStringLiteral("12"), QVariantList{},
+        96.0, 5.0, 100.0, 10.0, {QStringLiteral("50")}));
+    assert(!batchService.requestWindSubsetBatch(
+        QStringLiteral("20261107"), QStringLiteral("12"), QVariantList{6, 6},
+        96.0, 5.0, 100.0, 10.0, {QStringLiteral("50")}));
+    assert(!batchService.requestWindSubsetBatch(
+        QStringLiteral("20261107"), QStringLiteral("12"), QVariantList{6, 121},
+        96.0, 5.0, 100.0, 10.0, {QStringLiteral("50")}));
+
     QString error;
     const QUrl url = WeatherDataService::buildRequestUrl(
         QStringLiteral("20261107"), QStringLiteral("12"), 6,
