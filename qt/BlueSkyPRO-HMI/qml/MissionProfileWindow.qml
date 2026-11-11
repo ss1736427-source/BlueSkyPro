@@ -15,6 +15,7 @@ Item {
     property var weatherForecastPlan: ({})
     property var weatherForecastLeadHours: []
     property int weatherForecastLeadIndex: 0
+    property bool weatherBatchDownloadActive: false
     property var weatherDownloadedFiles: []
     property var weatherRequestRouteLineage: ({})
     property string weatherMissionStartUtc: ""
@@ -155,6 +156,7 @@ Item {
         return { valid: true, bounds: result }
     }
     function invalidateWeatherAcquisition(reason) {
+        root.weatherBatchDownloadActive = false
         if (root.forecastAvailabilityService
                 && root.forecastAvailabilityService.state === "CHECKING_NOMADS")
             root.forecastAvailabilityService.cancel()
@@ -358,7 +360,7 @@ Item {
     }
     function downloadNextWeatherForecast() {
         if (!root.routeLineageStillMatches()) {
-            root.invalidateWeatherAcquisition("ROUTE_LINEAGE_CHANGED_DURING_WEATHER_DOWNLOAD")
+            root.invalidateWeatherAcquisition("ROUTE_LINEAGE_CHANGED_BEFORE_WEATHER_DOWNLOAD")
             return
         }
         if (root.weatherForecastLeadHours.length === 0) {
@@ -366,13 +368,9 @@ Item {
             root.weatherAcquisitionMessage = "GFS_FORECAST_LEAD_HOURS_EMPTY"
             return
         }
-        if (root.weatherForecastLeadIndex >= root.weatherForecastLeadHours.length) {
-            root.weatherAcquisitionStatus = "DOWNLOADS_READY_UNDECODED"
-            root.weatherAcquisitionMessage =
-                    "Все сроки GFS загружены · подготовка оценки маршрута"
-            root.maybeEvaluateWeatherAutomatically()
+        if (root.weatherBatchDownloadActive)
             return
-        }
+
         var plan = root.weatherForecastPlan
         var cycleUtc = String(plan.selected_cycle_utc || "")
         if (cycleUtc.length !== 20) {
@@ -391,20 +389,21 @@ Item {
         }
         var bounds = expanded.bounds
         var levels = request.providerLevelsAglM.map(function(level) { return String(level) })
-        var forecastHour = Number(root.weatherForecastLeadHours[root.weatherForecastLeadIndex])
+        root.weatherForecastLeadIndex = 0
+        root.weatherBatchDownloadActive = true
         root.weatherAcquisitionStatus = "DOWNLOADING"
         root.weatherAcquisitionMessage =
-                "Загрузка GFS F" + ("000" + forecastHour).slice(-3)
-        var started = root.weatherDataService.requestWindSubset(
-                    dateUtc, cycleHour, forecastHour,
+                "Загрузка общего набора GFS · " + root.weatherForecastLeadHours.length + " сроков"
+        var started = root.weatherDataService.requestWindSubsetBatch(
+                    dateUtc, cycleHour, root.weatherForecastLeadHours,
                     bounds.westDeg, bounds.southDeg, bounds.eastDeg, bounds.northDeg,
                     levels)
-        if (!started) {
+        if (!started && root.weatherBatchDownloadActive) {
+            root.weatherBatchDownloadActive = false
             root.weatherAcquisitionStatus = "BLOCKED"
             root.weatherAcquisitionMessage = root.weatherDataService.lastError
         }
     }
-
 
     Connections {
         target: root.forecastAvailabilityService
@@ -435,7 +434,52 @@ Item {
     Connections {
         target: root.weatherDataService
         enabled: target !== null
+        function onForecastBatchReady(filePaths, manifests) {
+            if (!root.weatherBatchDownloadActive
+                    || root.weatherAcquisitionStatus !== "DOWNLOADING")
+                return
+            root.weatherBatchDownloadActive = false
+            if (!root.routeLineageStillMatches()) {
+                root.invalidateWeatherAcquisition("ROUTE_LINEAGE_CHANGED_DURING_WEATHER_BATCH_DOWNLOAD")
+                return
+            }
+            if (!filePaths || !manifests
+                    || filePaths.length !== root.weatherForecastLeadHours.length
+                    || manifests.length !== root.weatherForecastLeadHours.length) {
+                root.weatherAcquisitionStatus = "BLOCKED"
+                root.weatherAcquisitionMessage = "GFS_BATCH_RESULT_COUNT_MISMATCH"
+                return
+            }
+            var products = []
+            for (var i = 0; i < filePaths.length; ++i) {
+                if (!filePaths[i] || !manifests[i]) {
+                    root.weatherAcquisitionStatus = "BLOCKED"
+                    root.weatherAcquisitionMessage = "GFS_BATCH_PRODUCT_OR_MANIFEST_MISSING"
+                    return
+                }
+                products.push({
+                    forecastHour: root.weatherForecastLeadHours[i],
+                    filePath: filePaths[i],
+                    manifest: manifests[i]
+                })
+            }
+            root.weatherDownloadedFiles = products
+            root.weatherForecastLeadIndex = root.weatherForecastLeadHours.length
+            root.weatherAcquisitionStatus = "DOWNLOADS_READY_UNDECODED"
+            root.weatherAcquisitionMessage =
+                    "Все сроки GFS загружены · проверены кэш и манифесты · подготовка декодирования"
+            root.maybeEvaluateWeatherAutomatically()
+        }
+        function onForecastBatchFailed(reason, completedFilePaths) {
+            if (root.weatherAcquisitionStatus !== "DOWNLOADING")
+                return
+            root.weatherBatchDownloadActive = false
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = String(reason)
+        }
         function onForecastReady(filePath, manifest) {
+            if (root.weatherBatchDownloadActive)
+                return
             if (root.weatherAcquisitionStatus !== "DOWNLOADING")
                 return
             if (!root.routeLineageStillMatches()) {
