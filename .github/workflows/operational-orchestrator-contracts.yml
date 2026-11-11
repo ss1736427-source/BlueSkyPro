@@ -1,10 +1,11 @@
-name: BlueSky Operational Orchestrator Contracts
+name: BlueSky Core Contracts
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
+      - integration/architecture-2026-10-04
       - 'arch-ops-004-*'
       - 'arch-ops-005-*'
       - 'arch-ops-006-*'
@@ -15,29 +16,58 @@ on:
       - 'arch-ops-011-*'
       - 'arch-ops-017-*'
     paths:
+      - 'schemas/**'
       - '04_SOFTWARE/OPERATIONS/**'
       - '04_SOFTWARE/PLANNING/**'
       - '04_SOFTWARE/AUTOPILOT_ADAPTER/**'
-      - '.github/workflows/operational-orchestrator-*.yml'
+      - '.github/workflows/operational-orchestrator-contracts.yml'
+      - '.github/workflows/multi-uav-validator.yml'
   pull_request:
+    branches:
+      - main
+      - integration/architecture-2026-10-04
     paths:
+      - 'schemas/**'
       - '04_SOFTWARE/OPERATIONS/**'
       - '04_SOFTWARE/PLANNING/**'
       - '04_SOFTWARE/AUTOPILOT_ADAPTER/**'
-      - '.github/workflows/operational-orchestrator-*.yml'
+      - '.github/workflows/operational-orchestrator-contracts.yml'
+      - '.github/workflows/multi-uav-validator.yml'
 
 jobs:
-  contract-test:
+  core-contracts:
+    name: Validator + Orchestrator contracts
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install validator dependencies
+        run: python -m pip install -r schemas/validator/requirements.txt
+
+      - name: Compile validator sources
+        run: python -m compileall -q schemas/validator
+
+      - name: Run validator regression scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$PWD/schemas/validator"
+          for test in schemas/validator/test_*.py; do
+            echo "=== RUN $test ==="
+            python "$test"
+          done
+
+      - name: Configure operational contracts
         run: cmake -S 04_SOFTWARE/OPERATIONS -B build/operations -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build
+      - name: Build operational contracts
         run: cmake --build build/operations --config Release --parallel
 
-      - name: Test
+      - name: Run operational contract tests
         run: ctest --test-dir build/operations --output-on-failure
