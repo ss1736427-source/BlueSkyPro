@@ -193,8 +193,10 @@ def build_result_message(
                 raise PlanningBridgeContractError("WEATHER_CANDIDATE_OR_ROUTE_ID_DUPLICATE")
             seen_candidates.add(candidate_id)
             seen_routes.add(route_id)
+            environment = candidate["environmentSnapshotRefs"]
             lineage = (
                 candidate["missionVersion"], candidate["calculationInputVersion"],
+                environment["terrainSnapshotId"], environment["airspaceSnapshotId"],
                 candidate["flightSafetyEnvelopeId"], candidate["flightSafetyVehicleId"],
             )
             if common_lineage is None:
