@@ -227,6 +227,8 @@ def test_stdio_adapter_rejects_unknown_candidate_crs() -> None:
 
 if __name__ == "__main__":
     test_stdio_adapter_emits_planning_result()
+    test_stdio_adapter_passes_validated_weather_candidate_set()
+    test_stdio_adapter_rejects_mixed_candidate_safety_lineage()
     test_stdio_adapter_does_not_promote_planar_routes()
     test_stdio_adapter_rejects_missing_environment_snapshot_refs()
     test_stdio_adapter_rejects_unknown_candidate_crs()
