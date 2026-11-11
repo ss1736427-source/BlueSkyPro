@@ -395,6 +395,16 @@ WeatherCoverageRequestBuildResult WeatherCoverageRequestBuilder::build(
         return result;
     }
 
+    if (result.request.bounds.south_deg < -90.0
+        || result.request.bounds.north_deg > 90.0
+        || result.request.bounds.west_deg < -180.0
+        || result.request.bounds.east_deg > 180.0
+        || result.request.bounds.east_deg - result.request.bounds.west_deg > 30.0
+        || result.request.bounds.north_deg - result.request.bounds.south_deg > 30.0) {
+        result.errors.emplace_back("UNION_CANDIDATE_COVERAGE_EXCEEDS_NOAA_SUPPORTED_REGION");
+        return result;
+    }
+
     result.request.calculation_input_version = commonCalculationInputVersion;
     result.request.required_altitudes_agl_m.assign(
         requiredAltitudes.begin(), requiredAltitudes.end());
