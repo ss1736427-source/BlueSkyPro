@@ -22,6 +22,7 @@ class RouteController final : public QObject
     Q_PROPERTY(QString calculationInputVersion READ calculationInputVersion NOTIFY routeChanged)
     Q_PROPERTY(QString validationState READ validationState NOTIFY validationChanged)
     Q_PROPERTY(QString validationReason READ validationReason NOTIFY validationChanged)
+    Q_PROPERTY(QVariantList candidateSnapshots READ candidateSnapshots NOTIFY candidateSetChanged)
 
 public:
     explicit RouteController(QObject *parent = nullptr) : QObject(parent) {}
@@ -32,6 +33,7 @@ public:
     QString calculationInputVersion() const { return m_calculationInputVersion; }
     QString validationState() const { return m_validationState; }
     QString validationReason() const { return m_validationReason; }
+    QVariantList candidateSnapshots() const { return m_candidateSnapshots; }
 
     Q_INVOKABLE QVariantMap routeSnapshot() const
     {
@@ -43,6 +45,7 @@ public:
         snapshot.insert(QStringLiteral("generatorId"), QString::fromStdString(m_route.lineage.generator_id));
         snapshot.insert(QStringLiteral("generatorVersion"), QString::fromStdString(m_route.lineage.generator_version));
         snapshot.insert(QStringLiteral("calculationInputVersion"), m_calculationInputVersion);
+        snapshot.insert(QStringLiteral("coordinateReferenceSystem"), QStringLiteral("EPSG:4326"));
         QVariantMap environmentSnapshotRefs;
         environmentSnapshotRefs.insert(QStringLiteral("terrainSnapshotId"),
                                         QString::fromStdString(m_route.environment.terrain_snapshot_id));
@@ -237,6 +240,119 @@ public:
         emit routeChanged();
         emit validationChanged();
         return true;
+    }
+
+    // Candidate sets are accepted only with complete canonical geometry and
+    // explicit route and flight-safety validation evidence for every member.
+    Q_INVOKABLE bool loadCandidateSet(const QVariantList &candidates,
+                                      const QString &selectedCandidateId = QString())
+    {
+        m_candidateSnapshots.clear();
+        emit candidateSetChanged();
+        if (candidates.isEmpty())
+            return rejectCandidate(QStringLiteral("WEATHER_CANDIDATE_SET_REQUIRED"));
+
+        QVariantList validatedSnapshots;
+        std::set<std::string> routeIds;
+        std::set<std::string> candidateIds;
+        QString commonMissionId, commonMissionVersion, commonInputVersion, commonSafetyEnvelopeId;
+        QVariantMap selectedSnapshot;
+
+        for (const QVariant &value : candidates) {
+            const QVariantMap source = value.toMap();
+            const QString candidateId = source.value(QStringLiteral("candidateId")).toString().trimmed();
+            const QString safetyState = source.value(QStringLiteral("flightSafetyValidationState")).toString();
+            const QString safetyEnvelopeId = source.value(QStringLiteral("flightSafetyEnvelopeId")).toString().trimmed();
+            if (source.value(QStringLiteral("validationState")).toString() != QLatin1String("VALIDATED"))
+                return rejectCandidate(QStringLiteral("CANDIDATE_ROUTE_VALIDATION_NOT_CONFIRMED"));
+            if (safetyState != QLatin1String("ALLOWED") || safetyEnvelopeId.isEmpty())
+                return rejectCandidate(QStringLiteral("CANDIDATE_FLIGHT_SAFETY_VALIDATION_NOT_CONFIRMED"));
+            if (candidateId.isEmpty() || !candidateIds.insert(candidateId.toStdString()).second)
+                return rejectCandidate(QStringLiteral("CANDIDATE_ID_MISSING_OR_DUPLICATE"));
+
+            bool timeOk = false, energyOk = false, reserveOk = false, scoreOk = false;
+            const double nominalTime = source.value(QStringLiteral("estimatedTimeS")).toDouble(&timeOk);
+            const double nominalEnergy = source.value(QStringLiteral("estimatedEnergyWh")).toDouble(&energyOk);
+            const double nominalReserve = source.value(QStringLiteral("estimatedReserveWh")).toDouble(&reserveOk);
+            const double objectiveScore = source.value(QStringLiteral("objectiveScore")).toDouble(&scoreOk);
+            if (!timeOk || !energyOk || !reserveOk || !scoreOk
+                || !std::isfinite(nominalTime) || nominalTime <= 0.0
+                || !std::isfinite(nominalEnergy) || nominalEnergy < 0.0
+                || !std::isfinite(nominalReserve) || nominalReserve < 0.0
+                || !std::isfinite(objectiveScore))
+                return rejectCandidate(QStringLiteral("CANDIDATE_NOMINAL_OBJECTIVE_METRICS_INVALID"));
+
+            RouteController validator;
+            if (!validator.loadCandidate(source))
+                return rejectCandidate(QStringLiteral("CANDIDATE_ROUTE_INVALID: ") + validator.validationReason());
+            if (!validator.routeSnapshot().value(QStringLiteral("trajectoryGeometryComplete")).toBool())
+                return rejectCandidate(QStringLiteral("COMPLETE_TRAJECTORY_GEOMETRY_REQUIRED"));
+            if (!validator.publishValidation(validator.routeVersion(), validator.calculationInputVersion(),
+                                             true, QStringLiteral("OPTIMIZER_CANDIDATE_VALIDATION_ATTESTATION_MATCHED")))
+                return rejectCandidate(QStringLiteral("CANDIDATE_VALIDATION_LINEAGE_MISMATCH"));
+
+            QVariantMap snapshot = validator.routeSnapshot();
+            const QString routeId = snapshot.value(QStringLiteral("routeId")).toString();
+            const QString missionId = snapshot.value(QStringLiteral("missionId")).toString();
+            const QString missionVersion = snapshot.value(QStringLiteral("missionVersion")).toString();
+            const QString inputVersion = snapshot.value(QStringLiteral("calculationInputVersion")).toString();
+            if (routeId.isEmpty() || !routeIds.insert(routeId.toStdString()).second)
+                return rejectCandidate(QStringLiteral("ROUTE_ID_MISSING_OR_DUPLICATE"));
+            if (commonMissionId.isEmpty()) {
+                commonMissionId = missionId;
+                commonMissionVersion = missionVersion;
+                commonInputVersion = inputVersion;
+                commonSafetyEnvelopeId = safetyEnvelopeId;
+            } else if (commonMissionId != missionId || commonMissionVersion != missionVersion
+                       || commonInputVersion != inputVersion || commonSafetyEnvelopeId != safetyEnvelopeId) {
+                return rejectCandidate(QStringLiteral("CANDIDATE_SET_MISSION_INPUT_OR_SAFETY_ENVELOPE_MISMATCH"));
+            }
+
+            snapshot.insert(QStringLiteral("candidateId"), candidateId);
+            snapshot.insert(QStringLiteral("estimatedTimeS"), nominalTime);
+            snapshot.insert(QStringLiteral("estimatedEnergyWh"), nominalEnergy);
+            snapshot.insert(QStringLiteral("estimatedReserveWh"), nominalReserve);
+            snapshot.insert(QStringLiteral("objectiveScore"), objectiveScore);
+            snapshot.insert(QStringLiteral("flightSafetyValidationState"), safetyState);
+            snapshot.insert(QStringLiteral("flightSafetyEnvelopeId"), safetyEnvelopeId);
+            validatedSnapshots.push_back(snapshot);
+            if (candidateId == selectedCandidateId || selectedSnapshot.isEmpty())
+                selectedSnapshot = snapshot;
+        }
+
+        if (!selectedCandidateId.isEmpty()
+            && selectedSnapshot.value(QStringLiteral("candidateId")).toString() != selectedCandidateId)
+            return rejectCandidate(QStringLiteral("SELECTED_CANDIDATE_NOT_IN_VALIDATED_SET"));
+        if (!loadCandidate(selectedSnapshot))
+            return false;
+        if (!publishValidation(routeVersion(), calculationInputVersion(), true,
+                               QStringLiteral("OPTIMIZER_CANDIDATE_SET_VALIDATED")))
+            return rejectCandidate(QStringLiteral("SELECTED_CANDIDATE_VALIDATION_LINEAGE_MISMATCH"));
+        m_candidateSnapshots = validatedSnapshots;
+        emit candidateSetChanged();
+        return true;
+    }
+
+    Q_INVOKABLE bool selectCandidate(const QString &candidateId)
+    {
+        const QString requested = candidateId.trimmed();
+        if (requested.isEmpty())
+            return reject(QStringLiteral("CANDIDATE_ID_REQUIRED"));
+        for (const QVariant &value : m_candidateSnapshots) {
+            const QVariantMap snapshot = value.toMap();
+            if (snapshot.value(QStringLiteral("candidateId")).toString() != requested)
+                continue;
+            const QVariantList preservedSet = m_candidateSnapshots;
+            if (!loadCandidate(snapshot))
+                return false;
+            if (!publishValidation(routeVersion(), calculationInputVersion(), true,
+                                   QStringLiteral("OPTIMIZER_CANDIDATE_SET_VALIDATED")))
+                return rejectCandidate(QStringLiteral("SELECTED_CANDIDATE_VALIDATION_LINEAGE_MISMATCH"));
+            m_candidateSnapshots = preservedSet;
+            emit candidateSetChanged();
+            return true;
+        }
+        return reject(QStringLiteral("CANDIDATE_NOT_FOUND"));
     }
 
     Q_INVOKABLE bool editWaypointAltitude(const QString &waypointId, double altitudeM)
