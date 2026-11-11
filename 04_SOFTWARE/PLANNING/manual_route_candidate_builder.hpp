@@ -17,6 +17,7 @@ struct ManualRouteBuildRequirements {
     std::string calculation_input_version;
     std::string terrain_snapshot_id;
     std::string airspace_snapshot_id;
+    // Optional before weather acquisition; both references must be empty or both present.
     std::string weather_snapshot_id;
     std::string wind_snapshot_id;
     double minimum_target_agl_m{0.0};
