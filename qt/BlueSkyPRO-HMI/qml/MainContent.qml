@@ -89,7 +89,20 @@ Item {
         && root.planningResult.verification.verified === true
     function syncPlanningRouteCandidate() {
         var result = root.planningResult
-        var candidate = result && result.result ? result.result.routeCandidate : null
+        var resultPayload = result && result.result ? result.result : null
+        var candidates = resultPayload && Array.isArray(resultPayload.routeCandidates)
+                ? resultPayload.routeCandidates : []
+        if (candidates.length > 0) {
+            if (typeof routeController !== "undefined" && routeController !== null) {
+                var selectedId = String(resultPayload.selectedCandidateId || "")
+                // loadCandidateSet rejects incomplete geometry, mixed calculation
+                // inputs, and any candidate lacking its own route/safety validation.
+                routeController.loadCandidateSet(candidates, selectedId)
+            }
+            return
+        }
+
+        var candidate = resultPayload ? resultPayload.routeCandidate : null
         if (candidate !== null && candidate !== undefined
                 && String(candidate.missionId) === String(root.missionId)) {
             if (typeof routeController !== "undefined" && routeController !== null) {
@@ -297,6 +310,10 @@ Item {
             forecastAvailabilityService: typeof gfsForecastAvailabilityService !== "undefined" ? gfsForecastAvailabilityService : null
             weatherDataService: typeof weatherDataService !== "undefined" ? weatherDataService : null
             weatherCalculationService: typeof weatherCalculationService !== "undefined" ? weatherCalculationService : null
+            routeObjectivePriorities: root.planningResult && root.planningResult.result
+                                      ? (root.planningResult.result.objectivePriorities
+                                         || root.planningResult.result.objective_priorities || [])
+                                      : []
             missionSummary: root.missionSummary
             missionReviewState: root.missionReviewState
             missionTemplateIndices: root.missionTemplateIndices
