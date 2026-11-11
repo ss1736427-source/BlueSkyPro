@@ -80,6 +80,30 @@ int main()
     assert(result.request.provider_levels_agl_m[1] == 50);
     assert(result.request.provider_levels_agl_m[2] == 80);
 
+    auto secondRoute = route;
+    secondRoute.lineage.route_id = "ROUTE-02";
+    secondRoute.lineage.route_version = "1";
+    secondRoute.waypoints = {
+        {"WP-A", {55.75, 37.65}, 50.0, true, AltitudeReference::AGL},
+        {"WP-B", {55.80, 37.70}, 100.0, true, AltitudeReference::AGL}
+    };
+    const auto multiRoute = WeatherCoverageRequestBuilder::build(
+        mission, std::vector<Route>{route, secondRoute}, options);
+    assert(multiRoute.valid);
+    assert(multiRoute.request.route_id == "MULTI_CANDIDATE");
+    assert(multiRoute.request.candidate_routes.size() == 2);
+    assert(multiRoute.request.components.size() == 5);
+    assert(multiRoute.request.bounds.north_deg > 55.80);
+    assert(multiRoute.request.bounds.east_deg > 37.70);
+    assert(multiRoute.request.required_altitudes_agl_m.size() == 4);
+    assert(multiRoute.request.required_altitudes_agl_m.back() == 100.0);
+    assert((multiRoute.request.provider_levels_agl_m
+            == std::vector<int>{30, 50, 80, 100}));
+
+    auto duplicateCandidate = WeatherCoverageRequestBuilder::build(
+        mission, std::vector<Route>{route, route}, options);
+    assert(!duplicateCandidate.valid);
+
     auto mismatchedRoute = route;
     mismatchedRoute.lineage.mission_version = "2";
     const auto mismatch = WeatherCoverageRequestBuilder::build(
