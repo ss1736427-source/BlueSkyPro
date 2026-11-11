@@ -634,6 +634,17 @@ QVariantMap evaluateCandidateSetOnWorker(
         candidateResults.push_back(item);
     }
     result.insert(QStringLiteral("candidateAssessments"), candidateResults);
+    QVariantList admissibleCandidates;
+    for (const auto& candidate : decision.admissible_candidates) {
+        admissibleCandidates.push_back(QVariantMap{
+            {QStringLiteral("candidateId"), QString::fromStdString(candidate.candidate_id)},
+            {QStringLiteral("estimatedTimeS"), candidate.estimated_time_s},
+            {QStringLiteral("estimatedEnergyWh"), candidate.estimated_energy_wh},
+            {QStringLiteral("estimatedReserveWh"), candidate.estimated_reserve_wh},
+            {QStringLiteral("objectiveScore"), candidate.objective_score}
+        });
+    }
+    result.insert(QStringLiteral("admissibleCandidates"), admissibleCandidates);
     result.insert(QStringLiteral("weatherAssessmentApplied"), decision.weather_assessment_applied);
     result.insert(QStringLiteral("selectedCandidateId"),
                   QString::fromStdString(decision.selected_candidate_id));
