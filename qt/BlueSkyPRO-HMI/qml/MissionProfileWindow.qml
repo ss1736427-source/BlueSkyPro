@@ -88,7 +88,7 @@ Item {
     function estimateWeatherWindow(etdUtc) {
         var routes = root.currentWeatherCandidateRoutes()
         var startMs = Date.parse(String(etdUtc || ""))
-        var pattern = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/
+        var pattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
         if (!pattern.test(String(etdUtc || "")) || !Number.isFinite(startMs) || routes.length === 0)
             return { valid: false, from: "", to: "", durationSeconds: 0, reason: "VALID_ETD_AND_CANONICAL_ROUTE_CANDIDATES_REQUIRED" }
 
@@ -150,7 +150,7 @@ Item {
         var end = new Date(startMs + coveredSeconds * 1000)
         if (!Number.isFinite(end.getTime()))
             return { valid: false, from: "", to: "", durationSeconds: 0, reason: "MISSION_WEATHER_WINDOW_OVERFLOW" }
-        return { valid: true, from: String(etdUtc), to: end.toISOString().replace(/\\.\\d{3}Z$/, "Z"),
+        return { valid: true, from: String(etdUtc), to: end.toISOString().replace(/\.\d{3}Z$/, "Z"),
                  durationSeconds: coveredSeconds, routeDurationSeconds: Math.ceil(longestDuration),
                  reserveSeconds: root.weatherForecastMarginSeconds, routeVersion: routeVersions.join("|") }
     }
@@ -596,8 +596,24 @@ Item {
             }
             root.weatherAssessmentResult = result
             if (result.weatherReady === true && result.trajectoryStatus === "FEASIBLE") {
+                if (String(result.selectedCandidateId || "").length > 0
+                        && (root.routeController.candidateSnapshots || []).length > 0) {
+                    root.applyingWeatherSelection = true
+                    var selectedOk = root.routeController.selectCandidate(String(result.selectedCandidateId))
+                    root.applyingWeatherSelection = false
+                    if (!selectedOk) {
+                        root.weatherAcquisitionStatus = "BLOCKED"
+                        root.weatherAcquisitionMessage = "WEATHER_SELECTED_CANDIDATE_COULD_NOT_BE_RESTORED"
+                        return
+                    }
+                    var expectedLineage = root.weatherRequestRouteLineage
+                    expectedLineage.selectedRouteId = root.routeController.routeId
+                    expectedLineage.selectedRouteVersion = root.routeController.routeVersion
+                    root.weatherRequestRouteLineage = expectedLineage
+                }
                 root.weatherAcquisitionStatus = "WEATHER_ASSESSMENT_READY"
-                root.weatherAcquisitionMessage = "Оценка ветрового влияния завершена · " +
+                root.weatherAcquisitionMessage = "Погодное ранжирование завершено · выбран " +
+                        String(result.selectedCandidateId || root.routeController.routeId) + " · " +
                         Number(result.totalTimeS).toFixed(0) + " с · " +
                         Number(result.totalEnergyWh).toFixed(1) + " Wh"
             } else if (result.weatherReady === true) {
