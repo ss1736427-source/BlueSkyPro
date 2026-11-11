@@ -115,9 +115,13 @@ public:
             || generatorVersion.isEmpty() || inputVersion.isEmpty() || crs.isEmpty()) {
             return rejectCandidate(QStringLiteral("ROUTE_LINEAGE_REQUIRED"));
         }
-        if (terrainSnapshotId.isEmpty() || airspaceSnapshotId.isEmpty()
-            || weatherSnapshotId.isEmpty() || windSnapshotId.isEmpty()) {
-            return rejectCandidate(QStringLiteral("ENVIRONMENT_SNAPSHOT_LINEAGE_REQUIRED"));
+        if (terrainSnapshotId.isEmpty() || airspaceSnapshotId.isEmpty()) {
+            return rejectCandidate(QStringLiteral("TERRAIN_AND_AIRSPACE_SNAPSHOT_LINEAGE_REQUIRED"));
+        }
+        // Route generation precedes weather assessment. Both weather references
+        // may therefore be empty, but a partial weather lineage is never accepted.
+        if (weatherSnapshotId.isEmpty() != windSnapshotId.isEmpty()) {
+            return rejectCandidate(QStringLiteral("WEATHER_AND_WIND_SNAPSHOT_LINEAGE_MUST_BE_PAIRED"));
         }
         if (points.size() < 2)
             return rejectCandidate(QStringLiteral("AT_LEAST_TWO_WAYPOINTS_REQUIRED"));
