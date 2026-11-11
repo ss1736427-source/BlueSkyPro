@@ -51,6 +51,10 @@ static QVariantMap weatherCandidate(const QString &routeId,
     value.insert(QStringLiteral("routeId"), routeId);
     value.insert(QStringLiteral("routeVersion"), QStringLiteral("v1"));
     value.insert(QStringLiteral("trajectoryGeometryComplete"), true);
+    QVariantMap environment = value.value(QStringLiteral("environmentSnapshotRefs")).toMap();
+    environment.insert(QStringLiteral("weatherSnapshotId"), QString());
+    environment.insert(QStringLiteral("windSnapshotId"), QString());
+    value.insert(QStringLiteral("environmentSnapshotRefs"), environment);
     value.insert(QStringLiteral("validationState"), QStringLiteral("VALIDATED"));
     value.insert(QStringLiteral("flightSafetyValidationState"), QStringLiteral("ALLOWED"));
     value.insert(QStringLiteral("flightSafetyEnvelopeId"), QStringLiteral("UAV-ENVELOPE-01"));
@@ -232,6 +236,16 @@ int main(int argc, char *argv[])
     });
     assert(!controller.loadCandidate(invalid));
     assert(controller.validationReason() == QStringLiteral("MANDATORY_FLAG_INVALID"));
+
+    QVariantMap weatherIndependentRoute = completeCandidate;
+    QVariantMap preWeatherEnvironment =
+        weatherIndependentRoute.value(QStringLiteral("environmentSnapshotRefs")).toMap();
+    preWeatherEnvironment.insert(QStringLiteral("weatherSnapshotId"), QString());
+    preWeatherEnvironment.insert(QStringLiteral("windSnapshotId"), QString());
+    weatherIndependentRoute.insert(QStringLiteral("environmentSnapshotRefs"), preWeatherEnvironment);
+    assert(controller.loadCandidate(weatherIndependentRoute));
+    assert(controller.routeSnapshot().value(QStringLiteral("environmentSnapshotRefs")).toMap()
+               .value(QStringLiteral("windSnapshotId")).toString().isEmpty());
 
     const QVariantMap candidateA = weatherCandidate(
         QStringLiteral("ROUTE-CAND-A"), QStringLiteral("CAND-A"), 120.0);
