@@ -285,6 +285,12 @@ int main(int argc, char *argv[])
     assert(controller.selectCandidate(QStringLiteral("CAND-A")));
     assert(controller.routeId() == QStringLiteral("ROUTE-CAND-A"));
     assert(controller.candidateSnapshots().size() == 2);
+    assert(controller.publishValidation(controller.routeVersion(),
+                                        controller.calculationInputVersion(), false,
+                                        QStringLiteral("SAFETY_REVALIDATION_REVOKED")));
+    assert(!controller.selectCandidate(QStringLiteral("CAND-A")));
+    assert(controller.validationReason()
+           == QStringLiteral("CANDIDATE_NO_LONGER_HAS_VALID_ROUTE_AND_SAFETY_ATTESTATION"));
 
     QVariantMap mismatchedCandidate = candidateB;
     mismatchedCandidate.insert(QStringLiteral("calculationInputVersion"), QStringLiteral("input-2"));
