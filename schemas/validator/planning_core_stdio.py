@@ -105,8 +105,10 @@ def _trajectory(raw: dict[str, Any]) -> Trajectory4D:
 
 
 
-def _canonical_route_candidate(raw: Any, mission_id: str) -> dict[str, Any] | None:
-    """Validate a separately supplied WGS84 route candidate; never convert planar x/y."""
+def _canonical_route_candidate(
+    raw: Any, mission_id: str, *, weather_set: bool = False
+) -> dict[str, Any] | None:
+    """Validate a supplied WGS84 flown trajectory; never promote a graph path."""
     if raw is None:
         return None
     if not isinstance(raw, dict):
@@ -120,20 +122,26 @@ def _canonical_route_candidate(raw: Any, mission_id: str) -> dict[str, Any] | No
         raise RequestError("ROUTE_CANDIDATE_MISSION_MISMATCH")
     if raw.get("coordinateReferenceSystem") != "EPSG:4326":
         raise RequestError("ROUTE_CANDIDATE_CRS_UNSUPPORTED")
+    if raw.get("trajectoryGeometryComplete") is not True:
+        raise RequestError("ROUTE_CANDIDATE_COMPLETE_TRAJECTORY_REQUIRED")
+    if raw.get("validationState") != "VALIDATED":
+        raise RequestError("ROUTE_CANDIDATE_ROUTE_VALIDATION_REQUIRED")
+
     environment = raw.get("environmentSnapshotRefs")
-    environment_fields = (
-        "terrainSnapshotId", "airspaceSnapshotId",
-        "weatherSnapshotId", "windSnapshotId",
-    )
     if not isinstance(environment, dict):
         raise RequestError("ROUTE_CANDIDATE_ENVIRONMENT_SNAPSHOT_REFS_REQUIRED")
-    for key in environment_fields:
+    for key in ("terrainSnapshotId", "airspaceSnapshotId"):
         if not isinstance(environment.get(key), str) or not environment[key].strip():
             raise RequestError(f"ROUTE_CANDIDATE_ENVIRONMENT_SNAPSHOT_REQUIRED:{key}")
+    weather_id = environment.get("weatherSnapshotId", "")
+    wind_id = environment.get("windSnapshotId", "")
+    if not isinstance(weather_id, str) or not isinstance(wind_id, str) or bool(weather_id.strip()) != bool(wind_id.strip()):
+        raise RequestError("ROUTE_CANDIDATE_WEATHER_AND_WIND_SNAPSHOT_REFS_MUST_BE_PAIRED")
+
+    import math
     points = raw.get("waypoints")
     if not isinstance(points, list) or len(points) < 2:
         raise RequestError("ROUTE_CANDIDATE_REQUIRES_TWO_WAYPOINTS")
-    import math
     normalized = []
     seen = set()
     for point in points:
@@ -161,11 +169,79 @@ def _canonical_route_candidate(raw: Any, mission_id: str) -> dict[str, Any] | No
             "waypointId": waypoint_id, "latitudeDeg": lat, "longitudeDeg": lon,
             "altitudeM": alt, "mandatory": point["mandatory"], "altitudeReference": "AGL"
         })
-    return {**{key: raw[key] for key in fields},
-            "environmentSnapshotRefs": {key: environment[key] for key in environment_fields},
-            "coordinateReferenceSystem": "EPSG:4326", "waypoints": normalized}
 
+    segments = raw.get("segments")
+    if not isinstance(segments, list) or len(segments) != len(normalized) - 1:
+        raise RequestError("ROUTE_CANDIDATE_COMPLETE_SEGMENT_CHAIN_REQUIRED")
+    normalized_segments = []
+    segment_ids = set()
+    for index, segment in enumerate(segments):
+        if not isinstance(segment, dict):
+            raise RequestError("ROUTE_CANDIDATE_SEGMENT_MUST_BE_OBJECT")
+        segment_id = segment.get("segmentId")
+        if not isinstance(segment_id, str) or not segment_id.strip() or segment_id in segment_ids:
+            raise RequestError("ROUTE_CANDIDATE_SEGMENT_ID_INVALID_OR_DUPLICATE")
+        segment_ids.add(segment_id)
+        if segment.get("fromWaypointId") != normalized[index]["waypointId"] or segment.get("toWaypointId") != normalized[index + 1]["waypointId"]:
+            raise RequestError("ROUTE_CANDIDATE_SEGMENT_WAYPOINT_CHAIN_MISMATCH")
+        try:
+            distance = float(segment["distanceM"])
+            speed = float(segment["nominalSpeedMps"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise RequestError("ROUTE_CANDIDATE_SEGMENT_METRIC_INVALID") from exc
+        if not math.isfinite(distance) or distance <= 0 or not math.isfinite(speed) or speed <= 0:
+            raise RequestError("ROUTE_CANDIDATE_SEGMENT_METRIC_INVALID")
+        normalized_segments.append({
+            "segmentId": segment_id,
+            "fromWaypointId": segment["fromWaypointId"],
+            "toWaypointId": segment["toWaypointId"],
+            "distanceM": distance,
+            "nominalSpeedMps": speed,
+            **({"bankAngleRad": float(segment["bankAngleRad"])} if "bankAngleRad" in segment else {}),
+            **({"lateralAccelerationMps2": float(segment["lateralAccelerationMps2"])} if "lateralAccelerationMps2" in segment else {}),
+        })
 
+    normalized_candidate = {
+        **{key: raw[key] for key in fields},
+        "environmentSnapshotRefs": {
+            "terrainSnapshotId": environment["terrainSnapshotId"],
+            "airspaceSnapshotId": environment["airspaceSnapshotId"],
+            "weatherSnapshotId": weather_id,
+            "windSnapshotId": wind_id,
+        },
+        "coordinateReferenceSystem": "EPSG:4326",
+        "waypoints": normalized,
+        "segments": normalized_segments,
+        "trajectoryGeometryComplete": True,
+        "validationState": "VALIDATED",
+    }
+    if weather_set:
+        for key in ("candidateId", "flightSafetyValidationState",
+                    "flightSafetyEnvelopeId", "flightSafetyVehicleId"):
+            if not isinstance(raw.get(key), str) or not raw[key].strip():
+                raise RequestError(f"WEATHER_CANDIDATE_FIELD_REQUIRED:{key}")
+        if raw["flightSafetyValidationState"] != "ALLOWED":
+            raise RequestError("WEATHER_CANDIDATE_FLIGHT_SAFETY_NOT_ALLOWED")
+        for key, minimum, exclusive in (
+            ("estimatedTimeS", 0.0, True),
+            ("estimatedEnergyWh", 0.0, False),
+            ("estimatedReserveWh", 0.0, False),
+        ):
+            value = raw.get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < minimum or (exclusive and value == minimum):
+                raise RequestError(f"WEATHER_CANDIDATE_METRIC_INVALID:{key}")
+        score = raw.get("objectiveScore")
+        if isinstance(score, bool) or not isinstance(score, (int, float)) or not math.isfinite(score):
+            raise RequestError("WEATHER_CANDIDATE_METRIC_INVALID:objectiveScore")
+        normalized_candidate.update({
+            key: raw[key] for key in (
+                "candidateId", "estimatedTimeS", "estimatedEnergyWh",
+                "estimatedReserveWh", "objectiveScore",
+                "flightSafetyValidationState", "flightSafetyEnvelopeId",
+                "flightSafetyVehicleId",
+            )
+        })
+    return normalized_candidate
 
 def _candidate_revalidator(
     trajectories: tuple[Trajectory4D, ...],
@@ -187,6 +263,38 @@ def process_request(request: dict[str, Any]) -> dict[str, Any]:
     result_id = str(_require(request, "resultId"))
     raw = _require(request, "inputs")
     route_candidate = _canonical_route_candidate(raw.get("routeCandidate"), mission_id)
+    raw_candidates = raw.get("routeCandidates")
+    route_candidates = None
+    if raw_candidates is not None:
+        if not isinstance(raw_candidates, list) or not 1 <= len(raw_candidates) <= 64:
+            raise RequestError("WEATHER_ROUTE_CANDIDATE_SET_SIZE_MUST_BE_1_TO_64")
+        route_candidates = [
+            _canonical_route_candidate(item, mission_id, weather_set=True)
+            for item in raw_candidates
+        ]
+        candidate_ids = [item["candidateId"] for item in route_candidates]
+        route_ids = [item["routeId"] for item in route_candidates]
+        if len(set(candidate_ids)) != len(candidate_ids) or len(set(route_ids)) != len(route_ids):
+            raise RequestError("WEATHER_CANDIDATE_OR_ROUTE_ID_DUPLICATE")
+        lineage = {
+            (item["missionVersion"], item["calculationInputVersion"],
+             item["flightSafetyEnvelopeId"], item["flightSafetyVehicleId"])
+            for item in route_candidates
+        }
+        if len(lineage) != 1:
+            raise RequestError("WEATHER_CANDIDATE_SET_LINEAGE_OR_SAFETY_MISMATCH")
+        objective_priorities = raw.get("objectivePriorities", [])
+        supported_objectives = {"completion_time", "time", "fast", "energy", "endurance", "reserve"}
+        if not isinstance(objective_priorities, list) or not objective_priorities or any(
+            item not in supported_objectives for item in objective_priorities
+        ):
+            raise RequestError("WEATHER_CANDIDATE_OBJECTIVE_PRIORITIES_REQUIRED_OR_UNSUPPORTED")
+        selected_candidate_id = raw.get("selectedCandidateId", "")
+        if selected_candidate_id and selected_candidate_id not in candidate_ids:
+            raise RequestError("SELECTED_WEATHER_CANDIDATE_NOT_IN_SET")
+    else:
+        objective_priorities = []
+        selected_candidate_id = ""
 
     routes = tuple(_route(item) for item in _require(raw, "routes"))
     performance = tuple(_performance(item) for item in _require(raw, "performance"))
@@ -249,6 +357,9 @@ def process_request(request: dict[str, Any]) -> dict[str, Any]:
         artifact_refs=tuple(trace.get("artifactRefs", ())),
         evidence_refs=tuple(trace.get("evidenceRefs", ())),
         route_candidate=route_candidate,
+        route_candidates=route_candidates,
+        selected_candidate_id=selected_candidate_id,
+        objective_priorities=objective_priorities,
     )
     return message
 
