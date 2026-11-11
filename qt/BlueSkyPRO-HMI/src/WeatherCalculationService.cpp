@@ -647,9 +647,13 @@ QVariantMap evaluateCandidateSetOnWorker(
                   result.value(QStringLiteral("weatherReady")).toBool()
                       ? QString() : QString::fromStdString(decision.explanation));
     result.insert(QStringLiteral("weatherSnapshotId"),
-                  QString::fromStdString(decision.weather_snapshot_id));
+                  decision.weather_snapshot_id.empty()
+                      ? QString::fromStdString(snapshot.snapshot_id)
+                      : QString::fromStdString(decision.weather_snapshot_id));
     result.insert(QStringLiteral("weatherSnapshotVersion"),
-                  QString::fromStdString(decision.weather_snapshot_version));
+                  decision.weather_snapshot_version.empty()
+                      ? QString::fromStdString(snapshot.snapshot_version)
+                      : QString::fromStdString(decision.weather_snapshot_version));
     result.insert(QStringLiteral("totalTimeS"), decision.weather_corrected_time_s);
     result.insert(QStringLiteral("totalEnergyWh"), decision.weather_corrected_energy_wh);
     result.insert(QStringLiteral("remainingEnergyWh"), decision.weather_remaining_energy_wh);
