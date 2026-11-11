@@ -3,6 +3,8 @@
 #include "04_SOFTWARE/PLANNING/model/route_model.hpp"
 #include "04_SOFTWARE/PLANNING/wind_performance_trajectory.hpp"
 #include "04_SOFTWARE/WEATHER/grib2_weather_pipeline.hpp"
+#include "04_SOFTWARE/WEATHER/weather_candidate_assessor.hpp"
+#include "04_SOFTWARE/PLANNING/orchestrator/algorithm_orchestrator.hpp"
 
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -16,6 +18,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <string>
@@ -434,6 +438,219 @@ QVariantMap evaluateOnWorker(const std::vector<ForecastProduct>& products,const 
     return result;
 #endif
 }
+
+class CandidateSetSolver final : public bluesky::planning::Solver
+{
+public:
+    explicit CandidateSetSolver(std::vector<bluesky::planning::CandidateSolution> candidates)
+        : m_candidates(std::move(candidates)) {}
+
+    bluesky::planning::SolverMetadata metadata() const override
+    {
+        return {"hmi-weather-candidate-set", "1", {"point_to_point"}, false, true};
+    }
+
+    bool eligible(const bluesky::planning::MissionProblem& problem) const override
+    {
+        return problem.problem_class == "point_to_point";
+    }
+
+    bluesky::planning::RunState run(bluesky::planning::SolverContext& context) override
+    {
+        for (const auto& candidate : m_candidates) {
+            if (context.cancelled()) return bluesky::planning::RunState::Cancelled;
+            context.publish(candidate);
+        }
+        return bluesky::planning::RunState::Completed;
+    }
+
+    void cancel() override {}
+
+private:
+    std::vector<bluesky::planning::CandidateSolution> m_candidates;
+};
+
+class CandidateSetContext final : public bluesky::planning::SolverContext
+{
+public:
+    explicit CandidateSetContext(const bluesky::planning::MissionProblem& problem)
+        : m_problem(problem) {}
+
+    const bluesky::planning::MissionProblem& problem() const override { return m_problem; }
+    const bluesky::planning::ComputeBudget& budget() const override { return m_budget; }
+    bool cancelled() const override { return false; }
+    void publish(bluesky::planning::CandidateSolution candidate) override
+    {
+        m_candidates.push_back(std::move(candidate));
+    }
+    const std::vector<bluesky::planning::CandidateSolution>& candidates() const override
+    {
+        return m_candidates;
+    }
+
+private:
+    const bluesky::planning::MissionProblem& m_problem;
+    bluesky::planning::ComputeBudget m_budget{5000, 512, 64};
+    std::vector<bluesky::planning::CandidateSolution> m_candidates;
+};
+
+QVariantMap evaluateCandidateSetOnWorker(
+    const std::vector<ForecastProduct>& products,
+    const std::vector<bluesky::planning::CandidateSolution>& candidates,
+    const bluesky::planning::MissionProblem& problem,
+    const TrajectoryPerformanceInput& input)
+{
+    QVariantMap result;
+#ifndef BLUESKY_HAVE_ECCODES
+    Q_UNUSED(products);
+    Q_UNUSED(candidates);
+    Q_UNUSED(problem);
+    Q_UNUSED(input);
+    result.insert(QStringLiteral("weatherReady"), false);
+    result.insert(QStringLiteral("decodeSucceeded"), false);
+    result.insert(QStringLiteral("weatherError"), QStringLiteral("GRIB2_DECODER_NOT_AVAILABLE"));
+    result.insert(QStringLiteral("flightReleaseEligible"), false);
+    return result;
+#else
+    QCryptographicHash snapshotHash(QCryptographicHash::Sha256);
+    std::vector<std::string> paths;
+    paths.reserve(products.size());
+    for (const auto& product : products) {
+        QFile file(product.path);
+        if (!file.open(QIODevice::ReadOnly)) {
+            result.insert(QStringLiteral("weatherReady"), false);
+            result.insert(QStringLiteral("decodeSucceeded"), false);
+            result.insert(QStringLiteral("weatherError"),
+                          QStringLiteral("FORECAST_PRODUCT_UNREADABLE: ") + product.path);
+            result.insert(QStringLiteral("flightReleaseEligible"), false);
+            return result;
+        }
+        QCryptographicHash fileHash(QCryptographicHash::Sha256);
+        qint64 actualBytes = 0;
+        while (!file.atEnd()) {
+            const QByteArray chunk = file.read(1024 * 1024);
+            if (chunk.isEmpty() && file.error() != QFileDevice::NoError) {
+                result.insert(QStringLiteral("weatherReady"), false);
+                result.insert(QStringLiteral("decodeSucceeded"), false);
+                result.insert(QStringLiteral("weatherError"),
+                              QStringLiteral("FORECAST_PRODUCT_READ_FAILED: ") + product.path);
+                result.insert(QStringLiteral("flightReleaseEligible"), false);
+                return result;
+            }
+            actualBytes += chunk.size();
+            fileHash.addData(chunk);
+        }
+        const QString actualSha = QString::fromLatin1(fileHash.result().toHex());
+        if (actualBytes != product.bytes || actualSha != product.sha256) {
+            result.insert(QStringLiteral("weatherReady"), false);
+            result.insert(QStringLiteral("decodeSucceeded"), false);
+            result.insert(QStringLiteral("weatherError"),
+                          QStringLiteral("GRIB2_PRODUCT_SHA256_OR_SIZE_MISMATCH: ") + product.path);
+            result.insert(QStringLiteral("flightReleaseEligible"), false);
+            return result;
+        }
+        snapshotHash.addData(actualSha.toLatin1());
+        snapshotHash.addData(QByteArray(1, '\0'));
+        paths.push_back(QFile::encodeName(product.path).toStdString());
+    }
+
+    const QString snapshotId =
+        QStringLiteral("GFS-WIND-") + QString::fromLatin1(snapshotHash.result().toHex());
+    const auto snapshot = bluesky::weather::Grib2WeatherPipeline::decodeFiles(
+        paths, snapshotId.toStdString(), "NOAA-GFS-0.25-GRIB2");
+    result.insert(QStringLiteral("decodeSucceeded"), snapshot.decode_succeeded);
+    result.insert(QStringLiteral("weatherSnapshotId"), QString::fromStdString(snapshot.snapshot_id));
+    result.insert(QStringLiteral("weatherSnapshotVersion"), QString::fromStdString(snapshot.snapshot_version));
+    result.insert(QStringLiteral("modelRunUtc"), products.front().modelRunUtc);
+    result.insert(QStringLiteral("forecastProductCount"), static_cast<int>(products.size()));
+    result.insert(QStringLiteral("candidateCount"), static_cast<int>(candidates.size()));
+    result.insert(QStringLiteral("flightReleaseEligible"), false);
+    result.insert(QStringLiteral("assessmentScope"), QStringLiteral("WEATHER_RERANKING_ONLY"));
+    if (!snapshot.decode_succeeded || snapshot.fields.empty()) {
+        result.insert(QStringLiteral("weatherReady"), false);
+        result.insert(QStringLiteral("weatherError"),
+                      QString::fromStdString(snapshot.error.empty()
+                          ? std::string("DECODED_WIND_SNAPSHOT_EMPTY") : snapshot.error));
+        return result;
+    }
+
+    auto baseAssessor = bluesky::weather::makeCandidateWeatherAssessor(
+        snapshot.fields, input, snapshot.snapshot_id, snapshot.snapshot_version,
+        "WEATHER-TIME-DEPENDENT-ITERATIVE-V1");
+    std::map<std::string, bluesky::planning::CandidateWeatherAssessment> assessments;
+    bluesky::planning::CandidateWeatherAssessor cachedAssessor =
+        [&baseAssessor, &assessments](const bluesky::planning::MissionProblem& mission,
+                                     const bluesky::planning::CandidateSolution& candidate) {
+            auto assessment = baseAssessor(mission, candidate);
+            assessments[candidate.candidate_id] = assessment;
+            return assessment;
+        };
+
+    std::vector<std::unique_ptr<bluesky::planning::Solver>> solvers;
+    solvers.push_back(std::make_unique<CandidateSetSolver>(candidates));
+    CandidateSetContext context(problem);
+    bluesky::planning::AlgorithmOrchestrator orchestrator(
+        std::move(solvers), {}, std::move(cachedAssessor));
+    const auto decision = orchestrator.solve(context);
+
+    QVariantList candidateResults;
+    for (const auto& candidate : candidates) {
+        QVariantMap item;
+        item.insert(QStringLiteral("candidateId"), QString::fromStdString(candidate.candidate_id));
+        const auto found = assessments.find(candidate.candidate_id);
+        if (found == assessments.end()) {
+            item.insert(QStringLiteral("weatherEvaluated"), false);
+            item.insert(QStringLiteral("weatherError"),
+                        QStringLiteral("CANDIDATE_NOT_ASSESSED_BY_ORCHESTRATOR"));
+        } else {
+            const auto& assessment = found->second;
+            item.insert(QStringLiteral("weatherEvaluated"), assessment.evaluated);
+            item.insert(QStringLiteral("weatherError"), QString::fromStdString(assessment.error));
+            if (assessment.evaluated) {
+                item.insert(QStringLiteral("correctedTimeS"), assessment.corrected_time_s);
+                item.insert(QStringLiteral("correctedEnergyWh"), assessment.corrected_energy_wh);
+                item.insert(QStringLiteral("remainingEnergyWh"), assessment.remaining_energy_wh);
+            }
+        }
+        candidateResults.push_back(item);
+    }
+    result.insert(QStringLiteral("candidateAssessments"), candidateResults);
+    result.insert(QStringLiteral("weatherAssessmentApplied"), decision.weather_assessment_applied);
+    result.insert(QStringLiteral("selectedCandidateId"),
+                  QString::fromStdString(decision.selected_candidate_id));
+    result.insert(QStringLiteral("trajectoryStatus"),
+                  decision.feasibility == bluesky::planning::Feasibility::Feasible
+                      ? QStringLiteral("FEASIBLE") : QStringLiteral("INFEASIBLE"));
+    result.insert(QStringLiteral("weatherReady"),
+                  decision.feasibility == bluesky::planning::Feasibility::Feasible
+                      && decision.weather_assessment_applied);
+    result.insert(QStringLiteral("weatherError"),
+                  result.value(QStringLiteral("weatherReady")).toBool()
+                      ? QString() : QString::fromStdString(decision.explanation));
+    result.insert(QStringLiteral("weatherSnapshotId"),
+                  QString::fromStdString(decision.weather_snapshot_id));
+    result.insert(QStringLiteral("weatherSnapshotVersion"),
+                  QString::fromStdString(decision.weather_snapshot_version));
+    result.insert(QStringLiteral("totalTimeS"), decision.weather_corrected_time_s);
+    result.insert(QStringLiteral("totalEnergyWh"), decision.weather_corrected_energy_wh);
+    result.insert(QStringLiteral("remainingEnergyWh"), decision.weather_remaining_energy_wh);
+
+    QVariantList rejected;
+    for (const auto& item : decision.rejected_candidates) {
+        QStringList violations;
+        for (const auto& violation : item.violations)
+            violations.push_back(QString::fromStdString(violation));
+        rejected.push_back(QVariantMap{
+            {QStringLiteral("candidateId"), QString::fromStdString(item.candidate_id)},
+            {QStringLiteral("solverId"), QString::fromStdString(item.solver_id)},
+            {QStringLiteral("violations"), violations}
+        });
+    }
+    result.insert(QStringLiteral("rejectedCandidates"), rejected);
+    return result;
+#endif
+}
+
 } // namespace
 
 WeatherCalculationService::WeatherCalculationService(QObject* parent)
@@ -521,6 +738,165 @@ bool WeatherCalculationService::evaluateRoute(
     m_watcher.setFuture(QtConcurrent::run(
         [products,route,input]() {
             return evaluateOnWorker(products,route,input);
+        }));
+    return true;
+}
+
+
+
+bool WeatherCalculationService::evaluateCandidates(
+    const QVariantList& forecastProducts,
+    const QVariantList& candidateSnapshots,
+    const QString& missionModelJson,
+    const QString& missionStartUtc,
+    const QVariantMap& validatedPerformanceProfile,
+    const QStringList& objectivePriorities)
+{
+    if (m_watcher.isRunning()) {
+        setError(QStringLiteral("WEATHER_ASSESSMENT_ALREADY_RUNNING"));
+        return false;
+    }
+    if (!decoderAvailable()) {
+        setError(QStringLiteral("GRIB2_DECODER_NOT_AVAILABLE"));
+        return false;
+    }
+    if (candidateSnapshots.isEmpty()) {
+        setError(QStringLiteral("WEATHER_CANDIDATE_SET_REQUIRED"));
+        return false;
+    }
+    if (objectivePriorities.isEmpty()) {
+        setError(QStringLiteral("EXPLICIT_ROUTE_OBJECTIVE_PRIORITIES_REQUIRED"));
+        return false;
+    }
+
+    std::vector<ForecastProduct> products;
+    QString error;
+    if (!validateForecastProducts(forecastProducts, products, error)) {
+        setError(error);
+        return false;
+    }
+
+    QString vehicleId, configurationVersion, missionId;
+    if (!validateVehicleAssignment(missionModelJson, validatedPerformanceProfile,
+                                   vehicleId, configurationVersion, missionId, error)) {
+        setError(error);
+        return false;
+    }
+
+    TrajectoryPerformanceInput input;
+    if (!buildPerformanceInput(validatedPerformanceProfile, missionStartUtc, input, error)) {
+        setError(error);
+        return false;
+    }
+    const QDateTime missionStart = QDateTime::fromString(missionStartUtc, Qt::ISODate).toUTC();
+    if (!missionStart.isValid()) {
+        setError(QStringLiteral("VALID_MISSION_START_UTC_REQUIRED"));
+        return false;
+    }
+    const QDateTime firstValid = QDateTime::fromString(
+        products.front().modelRunUtc, Qt::ISODate).toUTC()
+        .addSecs(qint64(products.front().forecastHour) * 3600);
+    const auto lastProduct = std::max_element(products.begin(), products.end(),
+        [](const ForecastProduct& a, const ForecastProduct& b) {
+            return a.forecastHour < b.forecastHour;
+        });
+    const QDateTime lastValid = QDateTime::fromString(
+        lastProduct->modelRunUtc, Qt::ISODate).toUTC()
+        .addSecs(qint64(lastProduct->forecastHour) * 3600);
+    if (missionStart < firstValid || missionStart > lastValid) {
+        setError(QStringLiteral("MISSION_START_OUTSIDE_DOWNLOADED_FORECAST_VALID_TIME_WINDOW"));
+        return false;
+    }
+
+    std::vector<bluesky::planning::CandidateSolution> candidates;
+    candidates.reserve(static_cast<std::size_t>(candidateSnapshots.size()));
+    std::set<std::string> candidateIds;
+    QString missionVersion;
+    QString calculationInputVersion;
+    for (const QVariant& value : candidateSnapshots) {
+        const QVariantMap snapshot = value.toMap();
+        Route route;
+        if (!buildRoute(snapshot, route, error)) {
+            setError(error);
+            return false;
+        }
+        if (route.lineage.mission_id != missionId.toStdString()) {
+            setError(QStringLiteral("MISSION_ROUTE_LINEAGE_MISMATCH"));
+            return false;
+        }
+        const QString currentMissionVersion =
+            QString::fromStdString(route.lineage.mission_version);
+        const QString currentInputVersion =
+            QString::fromStdString(route.lineage.calculation_input_version);
+        if (missionVersion.isEmpty()) {
+            missionVersion = currentMissionVersion;
+            calculationInputVersion = currentInputVersion;
+        } else if (missionVersion != currentMissionVersion
+                   || calculationInputVersion != currentInputVersion) {
+            setError(QStringLiteral("WEATHER_CANDIDATES_MUST_SHARE_MISSION_AND_CALCULATION_INPUT_VERSION"));
+            return false;
+        }
+
+        // Weather ranking must never bypass the already completed dynamic flight-safety gate.
+        if (snapshot.value(QStringLiteral("flightSafetyValidationState")).toString()
+                != QStringLiteral("ALLOWED")
+            || snapshot.value(QStringLiteral("flightSafetyEnvelopeId")).toString().trimmed().isEmpty()) {
+            setError(QStringLiteral("CANDIDATE_REQUIRES_MATCHED_FLIGHT_SAFETY_VALIDATION"));
+            return false;
+        }
+
+        QString candidateId = snapshot.value(QStringLiteral("candidateId")).toString().trimmed();
+        if (candidateId.isEmpty())
+            candidateId = QString::fromStdString(route.lineage.route_id);
+        if (!candidateIds.insert(candidateId.toStdString()).second) {
+            setError(QStringLiteral("DUPLICATE_WEATHER_CANDIDATE_ID"));
+            return false;
+        }
+
+        double nominalTime = 0.0;
+        double nominalEnergy = 0.0;
+        double nominalReserve = 0.0;
+        double objectiveScore = 0.0;
+        if (!readFinite(snapshot, QStringLiteral("estimatedTimeS"), nominalTime)
+            || nominalTime <= 0.0
+            || !readFinite(snapshot, QStringLiteral("estimatedEnergyWh"), nominalEnergy)
+            || nominalEnergy < 0.0
+            || !readFinite(snapshot, QStringLiteral("estimatedReserveWh"), nominalReserve)
+            || nominalReserve < 0.0
+            || !readFinite(snapshot, QStringLiteral("objectiveScore"), objectiveScore)) {
+            setError(QStringLiteral("CANDIDATE_NOMINAL_TIME_ENERGY_RESERVE_AND_OBJECTIVE_REQUIRED"));
+            return false;
+        }
+
+        bluesky::planning::CandidateSolution candidate;
+        candidate.candidate_id = candidateId.toStdString();
+        candidate.solver_id = "hmi-weather-candidate-set";
+        candidate.solver_version = "1";
+        candidate.estimated_time_s = nominalTime;
+        candidate.estimated_energy_wh = nominalEnergy;
+        candidate.estimated_reserve_wh = nominalReserve;
+        candidate.objective_score = objectiveScore;
+        candidate.feasibility = bluesky::planning::Feasibility::Feasible;
+        for (const auto& waypoint : route.waypoints)
+            candidate.route_elements.push_back(waypoint.waypoint_id);
+        candidate.trajectory_route = std::move(route);
+        candidates.push_back(std::move(candidate));
+    }
+
+    bluesky::planning::MissionProblem problem;
+    problem.mission_id = missionId.toStdString();
+    problem.mission_version = missionVersion.toStdString();
+    problem.problem_class = "point_to_point";
+    problem.vehicle_ids = {vehicleId.toStdString()};
+    problem.environment_version = calculationInputVersion.toStdString();
+    for (const auto& priority : objectivePriorities)
+        problem.objective_priorities.push_back(priority.trimmed().toStdString());
+
+    setError(QString());
+    setState(QStringLiteral("ASSESSING_CANDIDATE_SET"));
+    m_watcher.setFuture(QtConcurrent::run(
+        [products, candidates, problem, input]() {
+            return evaluateCandidateSetOnWorker(products, candidates, problem, input);
         }));
     return true;
 }
