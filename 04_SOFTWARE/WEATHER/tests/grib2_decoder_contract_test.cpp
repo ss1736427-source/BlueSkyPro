@@ -1,5 +1,6 @@
 #include "grib2_decoder.hpp"
 #include "grib2_weather_pipeline.hpp"
+#include "weather_candidate_assessor.hpp"
 
 #include <eccodes.h>
 
@@ -70,6 +71,8 @@ int main()
         const double lon=grid.longitudes_deg[x];
 
         bluesky::planning::Route route;
+        route.lineage.mission_id="fixture-mission";
+        route.lineage.mission_version="1";
         route.lineage.route_id="fixture-route";
         route.lineage.route_version="1";
         route.waypoints={
@@ -93,6 +96,34 @@ int main()
         input.energy_per_descent_meter_wh=0.01;
         input.usable_energy_wh=1000.0;
         input.reserve_requirement_wh=10.0;
+
+        const auto snapshot=bluesky::weather::Grib2WeatherPipeline::decodeFiles(
+            {pathF000,pathF001},"fixture-snapshot","fixture-v1");
+        assert(snapshot.decode_succeeded);
+        assert(snapshot.error.empty());
+        assert(snapshot.fields.size()==2);
+        assert(snapshot.snapshot_id=="fixture-snapshot");
+        assert(snapshot.snapshot_version=="fixture-v1");
+
+        bluesky::planning::MissionProblem problem;
+        problem.mission_id="fixture-mission";
+        problem.mission_version="1";
+        problem.vehicle_ids={"fixture-uav"};
+        bluesky::planning::CandidateSolution candidate;
+        candidate.candidate_id="real-grib-candidate";
+        candidate.solver_id="fixture-solver";
+        candidate.solver_version="1";
+        candidate.trajectory_route=route;
+        const auto assessor=bluesky::weather::makeCandidateWeatherAssessor(
+            snapshot.fields,input,snapshot.snapshot_id,snapshot.snapshot_version,
+            "fixture-calc-v1");
+        const auto candidateAssessment=assessor(problem,candidate);
+        assert(candidateAssessment.evaluated);
+        assert(candidateAssessment.error.empty());
+        assert(candidateAssessment.snapshot_id=="fixture-snapshot");
+        assert(candidateAssessment.snapshot_version=="fixture-v1");
+        assert(candidateAssessment.corrected_time_s>0.0);
+        assert(candidateAssessment.corrected_energy_wh>=0.0);
 
         const auto pipeline=bluesky::weather::Grib2WeatherPipeline::evaluateFiles(
             {pathF000,pathF001},route,"fixture-snapshot","fixture-v1",input,"fixture-calc-v1");
