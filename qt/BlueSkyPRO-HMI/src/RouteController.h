@@ -257,6 +257,8 @@ public:
         emit candidateSetChanged();
         if (candidates.isEmpty())
             return rejectCandidate(QStringLiteral("WEATHER_CANDIDATE_SET_REQUIRED"));
+        if (candidates.size() > 64)
+            return rejectCandidate(QStringLiteral("WEATHER_CANDIDATE_SET_EXCEEDS_64_ROUTES"));
 
         QVariantList validatedSnapshots;
         std::set<std::string> routeIds;
