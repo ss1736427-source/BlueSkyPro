@@ -30,6 +30,16 @@ public:
         const QString& missionStartUtc,
         const QVariantMap& validatedPerformanceProfile);
 
+    // Weather-only re-ranking of a complete, already validated candidate set.
+    // Every candidate must carry nominal metrics and a matching flight-safety attestation.
+    Q_INVOKABLE bool evaluateCandidates(
+        const QVariantList& forecastProducts,
+        const QVariantList& candidateSnapshots,
+        const QString& missionModelJson,
+        const QString& missionStartUtc,
+        const QVariantMap& validatedPerformanceProfile,
+        const QStringList& objectivePriorities);
+
 signals:
     void stateChanged();
     void lastErrorChanged();
