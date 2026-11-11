@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
     invalid = candidate();
     invalid.remove(QStringLiteral("environmentSnapshotRefs"));
     assert(!controller.loadCandidate(invalid));
-    assert(controller.validationReason() == QStringLiteral("ENVIRONMENT_SNAPSHOT_LINEAGE_REQUIRED"));
+    assert(controller.validationReason() == QStringLiteral("TERRAIN_AND_AIRSPACE_SNAPSHOT_LINEAGE_REQUIRED"));
     assert(controller.waypoints().isEmpty());
 
     invalid = candidate();
