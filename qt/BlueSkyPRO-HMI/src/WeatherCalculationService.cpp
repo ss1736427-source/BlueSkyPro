@@ -796,6 +796,17 @@ bool WeatherCalculationService::evaluateCandidates(
         return false;
     }
 
+    const QStringList weatherRankablePriorities{
+        QStringLiteral("completion_time"), QStringLiteral("time"), QStringLiteral("fast"),
+        QStringLiteral("energy"), QStringLiteral("endurance"), QStringLiteral("reserve")
+    };
+    for (const QString& priority : objectivePriorities) {
+        if (!weatherRankablePriorities.contains(priority.trimmed())) {
+            setError(QStringLiteral("WEATHER_RERANKING_REQUIRES_TIME_ENERGY_OR_RESERVE_OBJECTIVE"));
+            return false;
+        }
+    }
+
     std::vector<ForecastProduct> products;
     QString error;
     if (!validateForecastProducts(forecastProducts, products, error)) {
