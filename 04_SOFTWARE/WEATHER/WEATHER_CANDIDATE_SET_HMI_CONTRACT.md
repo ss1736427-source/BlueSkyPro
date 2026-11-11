@@ -66,6 +66,8 @@ Waypoint task execution data is optional, but `taskExecutionDurationS` and `task
 
 ## Current integration boundary
 
-The HMI now accepts `result.routeCandidates`, retains the validated set, requests union coverage, and has a multi-candidate weather evaluation path that decodes one snapshot and uses the real `AlgorithmOrchestrator`.
+The HMI accepts `result.routeCandidates`, retains the validated set, requests union coverage, and has a multi-candidate weather evaluation path that decodes one snapshot and uses the real `AlgorithmOrchestrator`.
 
-The upstream planning producer must still emit this contract. The current generic A*/Dijkstra graph solvers publish structural graph paths, not complete flown trajectories with validated transition geometry and per-candidate safety evidence. Those paths must not be relabelled as complete trajectories to satisfy this interface.
+The Python Planning Core stdio bridge now accepts `inputs.routeCandidates`, validates the complete WGS84 segment chain, mission/input lineage, assigned-aircraft safety attestation, nominal metrics, selected candidate and weather-correctable objective priorities, then emits `result.routeCandidates`, `result.selectedCandidateId` and `result.objectivePriorities`. The request and result JSON schemas describe this payload.
+
+This is a validated handoff, not a route-generation implementation. The current stdio pipeline consumes route candidates supplied in its request; it does not generate them. The generic A*/Dijkstra graph solvers publish structural graph paths, not complete flown trajectories with validated transition geometry and per-candidate safety evidence. Those paths must not be relabelled as complete trajectories to satisfy this interface. A production route generator must still produce the full candidate set and supply it to the Planning Core request.
