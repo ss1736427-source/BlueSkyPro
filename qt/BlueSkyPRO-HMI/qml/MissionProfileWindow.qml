@@ -106,6 +106,25 @@ Item {
                 || !Number.isFinite(descent) || descent <= 0)
             return { valid: false, from: "", to: "", durationSeconds: 0, reason: "VALIDATED_APPROVED_UAV_PERFORMANCE_PROFILE_REQUIRED_FOR_WEATHER_WINDOW" }
 
+        if ((root.routeController.candidateSnapshots || []).length > 0) {
+            var priorities = root.routeObjectivePriorities || []
+            var supportedPriorities = ["completion_time", "time", "fast", "minimum_cost",
+                                       "route_efficiency", "energy", "endurance", "reserve"]
+            if (!Array.isArray(priorities) || priorities.length === 0
+                    || priorities.some(function(value) {
+                        return supportedPriorities.indexOf(String(value)) < 0
+                    }))
+                return { valid: false, from: "", to: "", durationSeconds: 0,
+                         reason: "EXPLICIT_SUPPORTED_OBJECTIVE_PRIORITIES_REQUIRED_FOR_CANDIDATE_RERANKING" }
+            for (var s = 0; s < routes.length; ++s) {
+                if (routes[s].flightSafetyValidationState !== "ALLOWED"
+                        || String(routes[s].flightSafetyVehicleId || "") !== String(profile.vehicleId || "")
+                        || String(routes[s].flightSafetyEnvelopeId || "").length === 0)
+                    return { valid: false, from: "", to: "", durationSeconds: 0,
+                             reason: "CANDIDATE_FLIGHT_SAFETY_EVIDENCE_MUST_MATCH_SELECTED_UAV" }
+            }
+        }
+
         var longestDuration = 0
         var routeVersions = []
         var earthRadius = 6371000
