@@ -1,4 +1,5 @@
 #include "Mt01MappingBridge.h"
+#include "NotamGeometryEngine.h"
 
 #include <QCoreApplication>
 #include <QJsonArray>
@@ -120,18 +121,20 @@ int main(int argc, char **argv)
     assert(result.value("metrics").toMap().value("notamApplicableComponentCount").toULongLong() == 0);
 
     QVariantMap activeNotamParameters = validParameters();
-    QVariantMap activeNotam{
+    QVariantMap activeNotamSource{
         {"id", "N-HMI-001"},
         {"effectiveStart", "2027-01-15T08:00:00Z"},
         {"effectiveEnd", "2027-01-15T11:00:00Z"},
-        {"lowerMeters", 50.0},
-        {"upperMeters", 150.0},
-        {"lowerDatum", "AGL"},
-        {"upperDatum", "AGL"},
-        {"restrictionGeometryStatus", "VALIDATED"},
-        {"geometryValidated", true},
+        {"lowerLimitRaw", "GND"},
+        {"upperLimitRaw", "150M AGL"},
+        {"originalText", "E) AIRSPACE CLSD WI AREA: 0008N00008E-0008N00012E-0012N00012E-0012N00008E-0008N00008E\nF)GND\nG)150M AGL"},
         {"geometryJson", QStringLiteral(R"({"type":"Polygon","coordinates":[[[0.0008,0.0008],[0.0012,0.0008],[0.0012,0.0012],[0.0008,0.0012],[0.0008,0.0008]]]})")}
     };
+    const QVariantMap activeNotam = NotamGeometryEngine::normalize(activeNotamSource);
+    assert(activeNotam.value("notamInterpretationVersion").toInt() == 1);
+    assert(activeNotam.value("restrictionClass").toString() == "PROHIBITED");
+    assert(activeNotam.value("interpretationState").toString() == "CONFIRMED");
+    assert(activeNotam.value("planningComponents").toList().size() == 1);
     activeNotamParameters.insert("notamRecords", QVariantList{activeNotam});
     const QVariantMap normalizedActiveSnapshot =
         bridge.normalizeNotamSnapshot(activeNotamParameters);
@@ -147,9 +150,13 @@ int main(int argc, char **argv)
     assert(notamResult.value("notamComponentIds").toStringList().contains("N-HMI-001-COMP-1"));
 
     QVariantMap unsupportedDatumParameters = activeNotamParameters;
-    QVariantMap unsupportedDatum = activeNotam;
-    unsupportedDatum.insert("lowerDatum", "AMSL");
-    unsupportedDatum.insert("upperDatum", "AMSL");
+    QVariantMap unsupportedDatumSource = activeNotamSource;
+    unsupportedDatumSource.insert("lowerLimitRaw", "GND");
+    unsupportedDatumSource.insert("upperLimitRaw", "150M AMSL");
+    unsupportedDatumSource.insert("originalText",
+        "E) AIRSPACE CLSD WI AREA\nF)GND\nG)150M AMSL");
+    const QVariantMap unsupportedDatum =
+        NotamGeometryEngine::normalize(unsupportedDatumSource);
     unsupportedDatumParameters.insert("notamRecords", QVariantList{unsupportedDatum});
     const QVariantMap unsupportedDatumResult =
         bridge.calculate(validMissionJson(), unsupportedDatumParameters);
@@ -158,12 +165,11 @@ int main(int argc, char **argv)
                .contains("NOTAM_ALTITUDE_DATUM_UNSUPPORTED"));
 
     QVariantMap incompleteVerticalParameters = activeNotamParameters;
-    QVariantMap incompleteVertical = activeNotam;
-    incompleteVertical.insert("restrictionGeometryStatus",
-                              "MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS");
-    incompleteVertical.insert("geometryValidated", false);
-    incompleteVertical.insert("lowerDatum", "AGL");
-    incompleteVertical.insert("upperDatum", "AGL");
+    QVariantMap incompleteVerticalSource = activeNotamSource;
+    incompleteVerticalSource.insert("upperLimitRaw", QString());
+    incompleteVerticalSource.insert("originalText", "E) AIRSPACE CLSD WI AREA\nF)GND");
+    const QVariantMap incompleteVertical =
+        NotamGeometryEngine::normalize(incompleteVerticalSource);
     incompleteVerticalParameters.insert("notamRecords", QVariantList{incompleteVertical});
     const QVariantMap incompleteVerticalResult =
         bridge.calculate(validMissionJson(), incompleteVerticalParameters);
