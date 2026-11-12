@@ -63,22 +63,6 @@ void requireText(const std::string &value, const char *code,
     require(!value.empty(), code, blockers);
 }
 
-bool hasCurrentValidation(const MissionLifecycleValidationEvidence &validation,
-                          const MissionLifecycleRecord &record,
-                          const MissionLifecycleEvidence &evidence) {
-    return validation.status == MissionLifecycleValidationStatus::Passed
-        && !validation.result_id.empty()
-        && !validation.validator_id.empty()
-        && !validation.validator_version.empty()
-        && validation.mission_id == record.mission_id
-        && validation.mission_version == record.mission_version
-        && validation.route_id == evidence.route_id
-        && validation.route_version == evidence.route_version
-        && validation.calculation_input_version == evidence.calculation_input_version
-        && evidence.route_id == record.current_route_id
-        && evidence.route_version == record.current_route_version
-        && evidence.calculation_input_version == record.current_calculation_input_version;
-}
 
 } // namespace
 
