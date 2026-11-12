@@ -167,5 +167,87 @@ int main(int argc, char **argv)
     assert(autoDocument.object().value(QStringLiteral("geometryObjects")).toArray().isEmpty());
     assert(!autoMission.value(QStringLiteral("flightReleaseEligible")).toBool());
 
+    // A validated operation must resolve to selected geometry, assigned
+    // equipment and the exact approved vehicle configuration.
+    QVariantMap operationVehicle{
+        {QStringLiteral("vehicleId"), QStringLiteral("UAV-01")},
+        {QStringLiteral("configurationId"), QStringLiteral("CFG-ID-01")},
+        {QStringLiteral("configurationVersion"), QStringLiteral("CFG-01")},
+        {QStringLiteral("configurationType"), QStringLiteral("STANDARD")},
+        {QStringLiteral("validationState"), QStringLiteral("APPROVED")},
+        {QStringLiteral("approvalState"), QStringLiteral("APPROVED")}
+    };
+    QVariantMap operationEquipment{
+        {QStringLiteral("vehicleId"), QStringLiteral("UAV-01")},
+        {QStringLiteral("equipmentId"), QStringLiteral("EQUIP-01")},
+        {QStringLiteral("equipmentProfileId"), QStringLiteral("EQUIP-PROFILE-01")},
+        {QStringLiteral("equipmentClass"), QStringLiteral("CAMERA")},
+        {QStringLiteral("configurationVersion"), QStringLiteral("EQUIP-CFG-01")},
+        {QStringLiteral("compatibilityState"), QStringLiteral("COMPATIBLE")},
+        {QStringLiteral("verificationState"), QStringLiteral("VERIFIED")},
+        {QStringLiteral("calibrationState"), QStringLiteral("VERIFIED")}
+    };
+    QVariantMap validatedEstimate{
+        {QStringLiteral("state"), QStringLiteral("VALIDATED")},
+        {QStringLiteral("durationS"), 420.0},
+        {QStringLiteral("energyWh"), 18.5},
+        {QStringLiteral("sourceType"), QStringLiteral("EQUIPMENT_MODEL")},
+        {QStringLiteral("sourceId"), QStringLiteral("CAMERA-PERFORMANCE-01")},
+        {QStringLiteral("sourceVersion"), QStringLiteral("2")},
+        {QStringLiteral("methodVersion"), QStringLiteral("method-3")},
+        {QStringLiteral("vehicleId"), QStringLiteral("UAV-01")},
+        {QStringLiteral("vehicleConfigurationVersion"), QStringLiteral("CFG-01")},
+        {QStringLiteral("equipmentProfileIds"), QVariantList{QStringLiteral("EQUIP-PROFILE-01")}}
+    };
+    QVariantMap mappedOperation{
+        {QStringLiteral("operationId"), QStringLiteral("OP-01")},
+        {QStringLiteral("templateId"), QStringLiteral("MT-01")},
+        {QStringLiteral("operationType"), QStringLiteral("MAPPING_SWATH")},
+        {QStringLiteral("geometryId"), QStringLiteral("GEO-MT-01-1")},
+        {QStringLiteral("equipmentIds"), QVariantList{QStringLiteral("EQUIP-01")}},
+        {QStringLiteral("executionEstimate"), validatedEstimate}
+    };
+    QVariantMap operationContext{
+        {QStringLiteral("taskDescription"), QStringLiteral("Картографировать AOI")},
+        {QStringLiteral("objective"), QStringLiteral("Получить ортофотоплан")},
+        {QStringLiteral("taskType"), QStringLiteral("MAPPING")},
+        {QStringLiteral("vehicleAssignments"), QVariantList{operationVehicle}},
+        {QStringLiteral("equipmentAssignments"), QVariantList{operationEquipment}},
+        {QStringLiteral("operations"), QVariantList{mappedOperation}}
+    };
+    const QVariantMap operationMission = adapter.buildMissionV2(
+        geometry, {QStringLiteral("MT-01")}, QStringLiteral("MISSION-OPS"), 1, true, operationContext);
+    assert(operationMission.value(QStringLiteral("valid")).toBool());
+    assert(operationMission.value(QStringLiteral("taskExecutionEstimatesReady")).toBool());
+    const QJsonDocument operationDocument = QJsonDocument::fromJson(
+        operationMission.value(QStringLiteral("missionModelJson")).toString().toUtf8());
+    const QJsonArray serializedOperationArray = operationDocument.object()
+        .value(QStringLiteral("operations")).toArray();
+    assert(serializedOperationArray.size() == 1);
+    assert(serializedOperationArray.at(0).toObject().value(QStringLiteral("operationId")).toString()
+           == QStringLiteral("OP-01"));
+
+    QVariantMap unresolvedOperation = mappedOperation;
+    unresolvedOperation.insert(QStringLiteral("executionEstimate"),
+                                QVariantMap{{QStringLiteral("state"), QStringLiteral("UNRESOLVED")}});
+    operationContext.insert(QStringLiteral("operations"), QVariantList{unresolvedOperation});
+    const QVariantMap unresolvedMission = adapter.buildMissionV2(
+        geometry, {QStringLiteral("MT-01")}, QStringLiteral("MISSION-OPS-UNRESOLVED"),
+        1, true, operationContext);
+    assert(unresolvedMission.value(QStringLiteral("valid")).toBool());
+    assert(!unresolvedMission.value(QStringLiteral("taskExecutionEstimatesReady")).toBool());
+
+    QVariantMap mismatchedOperation = mappedOperation;
+    QVariantMap mismatchedEstimate = validatedEstimate;
+    mismatchedEstimate.insert(QStringLiteral("vehicleConfigurationVersion"), QStringLiteral("CFG-OLD"));
+    mismatchedOperation.insert(QStringLiteral("executionEstimate"), mismatchedEstimate);
+    operationContext.insert(QStringLiteral("operations"), QVariantList{mismatchedOperation});
+    const QVariantMap rejectedOperation = adapter.buildMissionV2(
+        geometry, {QStringLiteral("MT-01")}, QStringLiteral("MISSION-OPS-MISMATCH"),
+        1, true, operationContext);
+    assert(!rejectedOperation.value(QStringLiteral("valid")).toBool());
+    assert(rejectedOperation.value(QStringLiteral("errors")).toStringList().contains(
+        QStringLiteral("MISSION_OPERATION_VEHICLE_CONFIGURATION_MISMATCH:OP-01")));
+
     return 0;
 }

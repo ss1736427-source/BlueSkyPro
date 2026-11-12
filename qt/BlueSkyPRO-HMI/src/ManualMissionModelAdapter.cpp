@@ -6,6 +6,7 @@
 #include <QJsonParseError>
 #include <QVariantList>
 #include <QJsonValue>
+#include <QSet>
 
 #include "04_SOFTWARE/PLANNING/model/mission_model.hpp"
 #include "04_SOFTWARE/PLANNING/model/mission_model_validation.hpp"
@@ -22,6 +23,147 @@ using bluesky::planning::validateMissionModelStructure;
 
 namespace
 {
+struct SerializedOperations {
+    QJsonArray json;
+    QStringList errors;
+    bool supplied{false};
+    bool allEstimatesValidated{false};
+};
+
+SerializedOperations serializeOperations(const QVariant &value,
+                                          const QStringList &selectedTemplateIds,
+                                          const QJsonArray &geometryObjects,
+                                          const QVariantList &vehicles,
+                                          const QVariantList &equipment)
+{
+    SerializedOperations result;
+    if (!value.isValid() || value.isNull())
+        return result;
+    result.supplied = true;
+    if (!value.canConvert<QVariantList>()) {
+        result.errors.push_back(QStringLiteral("MISSION_OPERATIONS_INVALID"));
+        return result;
+    }
+
+    const QVariantList operations = value.toList();
+    result.allEstimatesValidated = !operations.isEmpty();
+    QSet<QString> operationIds;
+    QSet<QString> assignedEquipmentIds;
+    QSet<QString> assignedEquipmentProfiles;
+    for (const QVariant &entry : equipment) {
+        const QVariantMap item = entry.toMap();
+        assignedEquipmentIds.insert(item.value(QStringLiteral("equipmentId")).toString());
+        assignedEquipmentProfiles.insert(item.value(QStringLiteral("equipmentProfileId")).toString());
+    }
+
+    for (qsizetype index = 0; index < operations.size(); ++index) {
+        if (!operations.at(index).canConvert<QVariantMap>()) {
+            result.errors.push_back(QStringLiteral("MISSION_OPERATION_INVALID:%1").arg(index));
+            result.allEstimatesValidated = false;
+            continue;
+        }
+        const QVariantMap operation = operations.at(index).toMap();
+        const QString operationId = operation.value(QStringLiteral("operationId")).toString().trimmed();
+        const QString templateId = operation.value(QStringLiteral("templateId")).toString().trimmed();
+        const QString operationType = operation.value(QStringLiteral("operationType")).toString().trimmed();
+        const QString geometryId = operation.value(QStringLiteral("geometryId")).toString().trimmed();
+        if (operationId.isEmpty() || templateId.isEmpty() || operationType.isEmpty() || geometryId.isEmpty())
+            result.errors.push_back(QStringLiteral("MISSION_OPERATION_IDENTITY_INCOMPLETE:%1").arg(index));
+        if (operationIds.contains(operationId))
+            result.errors.push_back(QStringLiteral("MISSION_OPERATION_ID_DUPLICATE:%1").arg(operationId));
+        operationIds.insert(operationId);
+        if (!selectedTemplateIds.contains(templateId))
+            result.errors.push_back(QStringLiteral("MISSION_OPERATION_TEMPLATE_NOT_SELECTED:%1").arg(operationId));
+
+        bool geometryBound = false;
+        for (const QJsonValue &geometryValue : geometryObjects) {
+            const QJsonObject geometry = geometryValue.toObject();
+            if (geometry.value(QStringLiteral("geometryId")).toString() != geometryId)
+                continue;
+            const QJsonArray geometryTemplates = geometry.value(QStringLiteral("templateIds")).toArray();
+            for (const QJsonValue &geometryTemplate : geometryTemplates)
+                geometryBound = geometryBound || geometryTemplate.toString() == templateId;
+        }
+        if (!geometryBound)
+            result.errors.push_back(QStringLiteral("MISSION_OPERATION_GEOMETRY_TEMPLATE_MISMATCH:%1").arg(operationId));
+
+        const QVariant equipmentIdsValue = operation.value(QStringLiteral("equipmentIds"));
+        if (!equipmentIdsValue.canConvert<QVariantList>()) {
+            result.errors.push_back(QStringLiteral("MISSION_OPERATION_EQUIPMENT_IDS_INVALID:%1").arg(operationId));
+        } else {
+            for (const QVariant &equipmentIdValue : equipmentIdsValue.toList()) {
+                const QString equipmentId = equipmentIdValue.toString();
+                if (equipmentId.isEmpty() || !assignedEquipmentIds.contains(equipmentId))
+                    result.errors.push_back(QStringLiteral("MISSION_OPERATION_EQUIPMENT_NOT_ASSIGNED:%1:%2")
+                                                .arg(operationId, equipmentId));
+            }
+        }
+
+        const QVariantMap estimate = operation.value(QStringLiteral("executionEstimate")).toMap();
+        const QString state = estimate.value(QStringLiteral("state")).toString();
+        if (state == QStringLiteral("UNRESOLVED")) {
+            result.allEstimatesValidated = false;
+            const QStringList forbidden = {
+                QStringLiteral("durationS"), QStringLiteral("energyWh"), QStringLiteral("sourceType"),
+                QStringLiteral("sourceId"), QStringLiteral("sourceVersion"), QStringLiteral("methodVersion"),
+                QStringLiteral("vehicleId"), QStringLiteral("vehicleConfigurationVersion")
+            };
+            for (const QString &key : forbidden) {
+                if (estimate.contains(key) && !estimate.value(key).toString().isEmpty())
+                    result.errors.push_back(QStringLiteral("UNRESOLVED_OPERATION_ESTIMATE_HAS_VALUES:%1").arg(operationId));
+            }
+        } else if (state == QStringLiteral("VALIDATED")) {
+            bool durationOk = false, energyOk = false;
+            const double duration = estimate.value(QStringLiteral("durationS")).toDouble(&durationOk);
+            const double energyWh = estimate.value(QStringLiteral("energyWh")).toDouble(&energyOk);
+            const QString sourceType = estimate.value(QStringLiteral("sourceType")).toString();
+            const QString sourceId = estimate.value(QStringLiteral("sourceId")).toString();
+            const QString sourceVersion = estimate.value(QStringLiteral("sourceVersion")).toString();
+            const QString methodVersion = estimate.value(QStringLiteral("methodVersion")).toString();
+            const QString vehicleId = estimate.value(QStringLiteral("vehicleId")).toString();
+            const QString vehicleConfigurationVersion = estimate.value(QStringLiteral("vehicleConfigurationVersion")).toString();
+            const QStringList sourceTypes = {"VEHICLE_MODEL", "EQUIPMENT_MODEL", "MEASURED_PROFILE", "OPERATOR_APPROVED"};
+            if (!durationOk || !energyOk || !std::isfinite(duration) || !std::isfinite(energyWh)
+                || duration < 0.0 || energyWh < 0.0 || !sourceTypes.contains(sourceType)
+                || sourceId.isEmpty() || sourceVersion.isEmpty() || methodVersion.isEmpty()
+                || vehicleId.isEmpty() || vehicleConfigurationVersion.isEmpty()) {
+                result.errors.push_back(QStringLiteral("VALIDATED_OPERATION_ESTIMATE_PROVENANCE_REQUIRED:%1").arg(operationId));
+            }
+            bool vehicleConfigurationFound = false;
+            for (const QVariant &vehicleValue : vehicles) {
+                const QVariantMap vehicle = vehicleValue.toMap();
+                if (vehicle.value(QStringLiteral("vehicleId")).toString() == vehicleId
+                    && vehicle.value(QStringLiteral("configurationVersion")).toString() == vehicleConfigurationVersion
+                    && vehicle.value(QStringLiteral("approvalState")).toString() == QStringLiteral("APPROVED")
+                    && (vehicle.value(QStringLiteral("validationState")).toString() == QStringLiteral("VALIDATED")
+                        || vehicle.value(QStringLiteral("validationState")).toString() == QStringLiteral("APPROVED")))
+                    vehicleConfigurationFound = true;
+            }
+            if (!vehicleConfigurationFound)
+                result.errors.push_back(QStringLiteral("MISSION_OPERATION_VEHICLE_CONFIGURATION_MISMATCH:%1").arg(operationId));
+
+            const QVariant profilesValue = estimate.value(QStringLiteral("equipmentProfileIds"));
+            if (profilesValue.isValid() && profilesValue.canConvert<QVariantList>()) {
+                for (const QVariant &profileValue : profilesValue.toList()) {
+                    if (!assignedEquipmentProfiles.contains(profileValue.toString()))
+                        result.errors.push_back(QStringLiteral("MISSION_OPERATION_EQUIPMENT_PROFILE_NOT_ASSIGNED:%1:%2")
+                                                    .arg(operationId, profileValue.toString()));
+                }
+            }
+            if (sourceType == QStringLiteral("EQUIPMENT_MODEL")
+                && (!profilesValue.canConvert<QVariantList>() || profilesValue.toList().isEmpty()))
+                result.errors.push_back(QStringLiteral("MISSION_OPERATION_EQUIPMENT_PROFILE_REQUIRED:%1").arg(operationId));
+        } else {
+            result.errors.push_back(QStringLiteral("MISSION_OPERATION_ESTIMATE_STATE_INVALID:%1").arg(operationId));
+            result.allEstimatesValidated = false;
+        }
+        result.json.append(QJsonObject::fromVariantMap(operation));
+    }
+    if (!result.errors.isEmpty())
+        result.allEstimatesValidated = false;
+    return result;
+}
+
 QStringList strings(const std::vector<std::string> &values)
 {
     QStringList result;
@@ -341,6 +483,13 @@ QVariantMap ManualMissionModelAdapter::buildMissionV2(
     canonical.insert(QStringLiteral("equipmentAssignments"),
                      QJsonArray::fromVariantList(equipment));
 
+    const SerializedOperations serializedOperations = serializeOperations(
+        missionContext.value(QStringLiteral("operations")), selectedTemplateIds,
+        canonical.value(QStringLiteral("geometryObjects")).toArray(), vehicles, equipment);
+    errors.append(serializedOperations.errors);
+    if (serializedOperations.supplied)
+        canonical.insert(QStringLiteral("operations"), serializedOperations.json);
+
     const QVariantMap constraints = missionContext.value(QStringLiteral("constraints")).toMap();
     if (!constraints.isEmpty())
         canonical.insert(QStringLiteral("constraints"),
@@ -354,6 +503,8 @@ QVariantMap ManualMissionModelAdapter::buildMissionV2(
     result.insert(QStringLiteral("schemaVersion"), QStringLiteral("2"));
     result.insert(QStringLiteral("configurationComplete"),
                   !vehicles.isEmpty() && !equipment.isEmpty());
+    result.insert(QStringLiteral("taskExecutionEstimatesReady"),
+                  serializedOperations.supplied && serializedOperations.allEstimatesValidated);
     result.insert(QStringLiteral("flightReleaseEligible"), false);
     return result;
 }
