@@ -170,6 +170,20 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
         addFinding(result,
             "MT01_KINEMATIC_GEOMETRY_BLOCKED: coverage legs remain available for analysis, but a validated fixed-wing turn-connector candidate was not established.");
     } else {
+        result.route_candidate = Mt01RouteCandidateBuilder::build(
+            result.kinematic_geometry,
+            result.coverage,
+            mission.identity.mission_id,
+            mission.identity.mission_version,
+            request.route_candidate_metadata);
+        result.route_candidate_available = result.route_candidate.available;
+        for (const auto& diagnostic : result.route_candidate.diagnostics)
+            addFinding(result, diagnostic);
+        if (!result.route_candidate_available) {
+            addFinding(result,
+                "MT01_CANONICAL_ROUTE_CANDIDATE_BLOCKED: complete route/generator/input lineage and canonical structure are required.");
+        }
+
         const auto& envelope = request.flight_safety_envelope;
         const bool exactSafetyBinding =
             envelope.vehicle_model_id == assignedVehicle.vehicle_id
