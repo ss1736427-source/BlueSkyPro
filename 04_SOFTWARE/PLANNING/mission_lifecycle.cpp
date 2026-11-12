@@ -120,6 +120,11 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
 
     if (target == MissionLifecycleState::Aborted) {
         requireText(reason, "ABORT_REASON_REQUIRED", result.blockers);
+        if (record.state == MissionLifecycleState::Executing) {
+            require(evidence.execution_closed, "ABORTED_EXECUTION_NOT_CLOSED", result.blockers);
+            require(evidence.postflight_data_archived, "ABORTED_POSTFLIGHT_DATA_NOT_ARCHIVED", result.blockers);
+            requireText(evidence.postflight_record_id, "ABORTED_POSTFLIGHT_RECORD_ID_REQUIRED", result.blockers);
+        }
     } else if (record.state == MissionLifecycleState::Paused
                && target == MissionLifecycleState::Replanning) {
         requireText(reason, "REPLANNING_REASON_REQUIRED", result.blockers);
@@ -181,10 +186,17 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         requireText(evidence.regulatory_submission_id, "REGULATORY_SUBMISSION_ID_REQUIRED", result.blockers);
         break;
     case MissionLifecycleState::Authorized:
-        require(evidence.authorization_present, "EXTERNAL_AUTHORIZATION_MISSING", result.blockers);
-        require(evidence.authorization_current, "EXTERNAL_AUTHORIZATION_STALE_OR_INVALID", result.blockers);
-        require(evidence.authorization_scope_matches, "EXTERNAL_AUTHORIZATION_SCOPE_MISMATCH", result.blockers);
-        requireText(evidence.authorization_id, "AUTHORIZATION_ID_REQUIRED", result.blockers);
+        require(evidence.authorization_requirement_assessed,
+                "AUTHORIZATION_APPLICABILITY_NOT_ASSESSED", result.blockers);
+        if (evidence.authorization_required) {
+            require(evidence.authorization_present, "EXTERNAL_AUTHORIZATION_MISSING", result.blockers);
+            require(evidence.authorization_current, "EXTERNAL_AUTHORIZATION_STALE_OR_INVALID", result.blockers);
+            require(evidence.authorization_scope_matches, "EXTERNAL_AUTHORIZATION_SCOPE_MISMATCH", result.blockers);
+            requireText(evidence.authorization_id, "AUTHORIZATION_ID_REQUIRED", result.blockers);
+        } else {
+            requireText(evidence.authorization_not_required_reason,
+                        "AUTHORIZATION_NOT_REQUIRED_REASON_MISSING", result.blockers);
+        }
         break;
     case MissionLifecycleState::Released:
         require(evidence.package_integrity_verified, "MISSION_PACKAGE_INTEGRITY_NOT_VERIFIED", result.blockers);
