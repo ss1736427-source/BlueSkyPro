@@ -631,6 +631,75 @@ bool routeWithinNotamQueryCoverage(const bluesky::planning::Route& route,
     return !route.waypoints.empty();
 }
 
+bool missionCoordinateWithinNotamCoverage(double latitude, double longitude,
+                                          const bluesky::planning::NotamSnapshot& snapshot,
+                                          double safetyBufferM)
+{
+    constexpr double earthRadiusM = 6371008.8;
+    constexpr double pi = 3.14159265358979323846;
+    const double lat1 = snapshot.coverage_center.latitude_deg * pi / 180.0;
+    const double lat2 = latitude * pi / 180.0;
+    const double dLat = lat2 - lat1;
+    double dLonDegrees = longitude - snapshot.coverage_center.longitude_deg;
+    while (dLonDegrees > 180.0) dLonDegrees -= 360.0;
+    while (dLonDegrees < -180.0) dLonDegrees += 360.0;
+    const double dLon = dLonDegrees * pi / 180.0;
+    const double sinLat = std::sin(dLat * 0.5);
+    const double sinLon = std::sin(dLon * 0.5);
+    const double h = sinLat * sinLat + std::cos(lat1) * std::cos(lat2) * sinLon * sinLon;
+    const double distanceM = 2.0 * earthRadiusM * std::asin(std::sqrt(std::clamp(h, 0.0, 1.0)));
+    return std::isfinite(distanceM)
+        && distanceM + safetyBufferM <= snapshot.coverage_radius_m + 0.01;
+}
+
+bool inspectMissionGeometryCoordinates(const QJsonValue& value,
+                                       const bluesky::planning::NotamSnapshot& snapshot,
+                                       double safetyBufferM,
+                                       bool& foundCoordinate)
+{
+    if (value.isArray()) {
+        const QJsonArray array = value.toArray();
+        if (array.size() >= 2 && array.at(0).isDouble() && array.at(1).isDouble()) {
+            foundCoordinate = true;
+            return missionCoordinateWithinNotamCoverage(array.at(1).toDouble(),
+                                                         array.at(0).toDouble(),
+                                                         snapshot, safetyBufferM);
+        }
+        for (const QJsonValue& child : array) {
+            if (!inspectMissionGeometryCoordinates(child, snapshot, safetyBufferM, foundCoordinate))
+                return false;
+        }
+    } else if (value.isObject()) {
+        const QJsonObject object = value.toObject();
+        if (object.contains(QStringLiteral("coordinates")))
+            return inspectMissionGeometryCoordinates(object.value(QStringLiteral("coordinates")),
+                                                      snapshot, safetyBufferM, foundCoordinate);
+        if (object.contains(QStringLiteral("geometry")))
+            return inspectMissionGeometryCoordinates(object.value(QStringLiteral("geometry")),
+                                                      snapshot, safetyBufferM, foundCoordinate);
+    }
+    return true;
+}
+
+bool missionGeometryWithinNotamQueryCoverage(const QString& missionModelJson,
+                                             const bluesky::planning::NotamSnapshot& snapshot,
+                                             double safetyBufferM)
+{
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(missionModelJson.toUtf8(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject())
+        return false;
+    const QJsonValue geometryValue = document.object().value(QStringLiteral("geometryObjects"));
+    if (!geometryValue.isArray() || geometryValue.toArray().isEmpty())
+        return false;
+    bool foundCoordinate = false;
+    for (const QJsonValue& geometry : geometryValue.toArray()) {
+        if (!inspectMissionGeometryCoordinates(geometry, snapshot, safetyBufferM, foundCoordinate))
+            return false;
+    }
+    return foundCoordinate;
+}
+
 QVariantMap evaluateCandidateSetOnWorker(
     const std::vector<ForecastProduct>& products,
     const std::vector<bluesky::planning::CandidateSolution>& candidates,
@@ -960,6 +1029,11 @@ bool WeatherCalculationService::evaluateCandidates(
     if (!validateVehicleAssignment(missionModelJson, validatedPerformanceProfile,
                                    vehicleId, configurationVersion, missionId, error)) {
         setError(error);
+        return false;
+    }
+
+    if (!missionGeometryWithinNotamQueryCoverage(missionModelJson, notamSnapshot, notamSafetyBufferM)) {
+        setError(QStringLiteral("NOTAM_SNAPSHOT_DOES_NOT_COVER_MISSION_GEOMETRY_WITH_BUFFER"));
         return false;
     }
 
