@@ -4,6 +4,7 @@
 #include "model/route_model.hpp"
 
 #include <cmath>
+#include <cstddef>
 #include <string>
 
 namespace bluesky::planning {
@@ -61,7 +62,11 @@ inline MissionLifecycleValidationEvidence makeTerrainValidationEvidence(
         + ";crs:" + snapshot.horizontal_crs
         + ";vertical-datum:" + snapshot.vertical_datum;
 
-    const bool routeLineageValid = !route.lineage.mission_id.empty()
+    const bool routeGeometryComplete = route.trajectory_geometry_complete
+        && route.waypoints.size() >= 2
+        && route.segments.size() + 1 == route.waypoints.size();
+    const bool routeLineageValid = routeGeometryComplete
+        && !route.lineage.mission_id.empty()
         && !route.lineage.mission_version.empty()
         && !route.lineage.route_id.empty()
         && !route.lineage.route_version.empty()
