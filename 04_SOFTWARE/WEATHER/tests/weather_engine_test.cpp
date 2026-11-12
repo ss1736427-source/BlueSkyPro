@@ -2,6 +2,10 @@
 #include "route_wind_adapter.hpp"
 #include "weather_trajectory_calculator.hpp"
 #include "weather_candidate_assessor.hpp"
+#include "../PLANNING/orchestrator/algorithm_orchestrator.hpp"
+
+#include <memory>
+#include <utility>
 
 #include <cassert>
 #include <algorithm>
@@ -32,6 +36,106 @@ static WindField field(int level,double u,double v)
 {
     return fieldAt(level,u,v,600);
 }
+
+namespace {
+
+class CandidatePairContext final : public SolverContext {
+public:
+    explicit CandidatePairContext(const MissionProblem& problem) : problem_(problem) {}
+    const MissionProblem& problem() const override { return problem_; }
+    const ComputeBudget& budget() const override { return budget_; }
+    bool cancelled() const override { return false; }
+    void publish(CandidateSolution candidate) override {
+        candidates_.push_back(std::move(candidate));
+    }
+    const std::vector<CandidateSolution>& candidates() const override {
+        return candidates_;
+    }
+private:
+    const MissionProblem& problem_;
+    ComputeBudget budget_{2000, 256, 8};
+    std::vector<CandidateSolution> candidates_;
+};
+
+class CandidatePairSolver final : public Solver {
+public:
+    explicit CandidatePairSolver(std::vector<CandidateSolution> candidates)
+        : candidates_(std::move(candidates)) {}
+    SolverMetadata metadata() const override {
+        return {"weather-candidate-set", "1", {"point_to_point"}, false, true};
+    }
+    bool eligible(const MissionProblem& problem) const override {
+        return problem.problem_class == "point_to_point";
+    }
+    RunState run(SolverContext& context) override {
+        for (const auto& candidate : candidates_)
+            context.publish(candidate);
+        return RunState::Completed;
+    }
+    void cancel() override {}
+private:
+    std::vector<CandidateSolution> candidates_;
+};
+
+Route directionalRoute(const std::string& routeId, bool eastbound)
+{
+    Route route;
+    route.lineage.route_id = routeId;
+    route.lineage.route_version = "1";
+    route.lineage.mission_id = "weather-rerank-mission";
+    route.lineage.mission_version = "mission-v1";
+    route.lineage.calculation_input_version = "inputs-v1";
+    route.trajectory_geometry_complete = true;
+
+    RouteWaypoint start;
+    start.waypoint_id = routeId + "-START";
+    start.position = {0.25, 10.25};
+    start.altitude_m = 65.0;
+    start.altitude_reference = AltitudeReference::AGL;
+    RouteWaypoint finish = start;
+    finish.waypoint_id = routeId + "-FINISH";
+    finish.position = eastbound ? GeoPoint{0.25, 10.26} : GeoPoint{0.26, 10.25};
+    route.waypoints = {start, finish};
+    route.segments = {{
+        routeId + "-SEG", start.waypoint_id, finish.waypoint_id,
+        1112.0, 15.0
+    }};
+    return route;
+}
+
+std::vector<CandidateSolution> directionalCandidates()
+{
+    std::vector<CandidateSolution> candidates;
+    for (const auto& item : {
+             std::pair<std::string, bool>{"east-route", true},
+             std::pair<std::string, bool>{"north-route", false}}) {
+        CandidateSolution candidate;
+        candidate.candidate_id = item.first;
+        candidate.solver_id = "weather-candidate-set";
+        candidate.solver_version = "1";
+        candidate.route_elements = {"START", "FINISH"};
+        candidate.estimated_time_s = 80.0;
+        candidate.estimated_energy_wh = 20.0;
+        candidate.estimated_reserve_wh = 80.0;
+        candidate.objective_score = 80.0;
+        candidate.feasibility = Feasibility::Feasible;
+        candidate.trajectory_route = directionalRoute(item.first, item.second);
+        candidates.push_back(std::move(candidate));
+    }
+    return candidates;
+}
+
+std::vector<WindField> directionalForecast(double eastWindMps, double northWindMps)
+{
+    std::vector<WindField> fields;
+    for (const int validTime : {600, 700, 800}) {
+        fields.push_back(fieldAt(50, eastWindMps, northWindMps, validTime));
+        fields.push_back(fieldAt(80, eastWindMps, northWindMps, validTime));
+    }
+    return fields;
+}
+
+} // namespace
 
 int main()
 {
@@ -230,6 +334,49 @@ int main()
     assert(candidateAssessment.corrected_time_s > 0.0);
     assert(candidateAssessment.corrected_energy_wh >= 0.0);
     assert(candidateAssessment.remaining_energy_wh >= 0.0);
+
+    // End-to-end weather reranking: the same two complete routes must
+    // exchange rank when the immutable forecast changes wind direction.
+    MissionProblem rerankProblem;
+    rerankProblem.mission_id = "weather-rerank-mission";
+    rerankProblem.mission_version = "mission-v1";
+    rerankProblem.problem_class = "point_to_point";
+    rerankProblem.vehicle_ids = {"uav-1"};
+    rerankProblem.objective_priorities = {"time"};
+
+    auto rerankPerformance = performanceInput;
+    rerankPerformance.uav_id = "uav-1";
+    rerankPerformance.mission_start_utc = "2026-11-08T06:00:00Z";
+    rerankPerformance.wind_tolerance_mps = 30.0;
+
+    const auto runWeatherRanking = [&](const std::vector<WindField>& forecast,
+                                       const std::string& snapshotId) {
+        std::vector<std::unique_ptr<Solver>> rankingSolvers;
+        rankingSolvers.push_back(
+            std::make_unique<CandidatePairSolver>(directionalCandidates()));
+        CandidatePairContext rankingContext(rerankProblem);
+        auto rankingAssessor = makeCandidateWeatherAssessor(
+            forecast, rerankPerformance, snapshotId, "forecast-v1",
+            "weather-rerank-integration-v1");
+        AlgorithmOrchestrator rankingOrchestrator(
+            std::move(rankingSolvers), {}, std::move(rankingAssessor));
+        return rankingOrchestrator.solve(rankingContext);
+    };
+
+    const auto eastFavourable = runWeatherRanking(
+        directionalForecast(8.0, 0.0), "GFS-EAST-FAVOURABLE");
+    const auto northFavourable = runWeatherRanking(
+        directionalForecast(0.0, 8.0), "GFS-NORTH-FAVOURABLE");
+    assert(eastFavourable.feasibility == Feasibility::Feasible);
+    assert(northFavourable.feasibility == Feasibility::Feasible);
+    assert(eastFavourable.weather_assessment_applied);
+    assert(northFavourable.weather_assessment_applied);
+    assert(eastFavourable.weather_snapshot_id == "GFS-EAST-FAVOURABLE");
+    assert(northFavourable.weather_snapshot_id == "GFS-NORTH-FAVOURABLE");
+    assert(eastFavourable.selected_candidate_id == "east-route");
+    assert(northFavourable.selected_candidate_id == "north-route");
+    assert(eastFavourable.weather_corrected_time_s > 0.0);
+    assert(northFavourable.weather_corrected_time_s > 0.0);
 
     const auto oldSnapshot = input.wind_snapshot_id;
     route.waypoints[1].altitude_reference = AltitudeReference::Unknown;
