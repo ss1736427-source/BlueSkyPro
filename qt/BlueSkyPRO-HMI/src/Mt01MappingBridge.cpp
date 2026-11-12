@@ -173,15 +173,14 @@ bool parseNotamSnapshot(const QVariantMap &parameters,
             record.value(QStringLiteral("interpretationState")).toString();
         if (restrictionClass == QLatin1String("DISPLAY_ONLY"))
             continue;
-        if (restrictionClass != QLatin1String("PROHIBITED")
-            || interpretationState != QLatin1String("CONFIRMED")) {
+        if (restrictionClass != QLatin1String("PROHIBITED")) {
             errors.push_back(QStringLiteral("NOTAM_RESTRICTION_SEMANTICS_UNRESOLVED: ")
-                             + notamId + QStringLiteral(" [")
-                             + restrictionClass + QStringLiteral("/")
-                             + interpretationState + QStringLiteral("]"));
+                             + notamId + QStringLiteral(" [") + restrictionClass
+                             + QStringLiteral("]"));
             return false;
         }
-        if (restrictionStatus != QLatin1String("VALIDATED")
+        if (interpretationState != QLatin1String("CONFIRMED")
+            || restrictionStatus != QLatin1String("VALIDATED")
             || !record.value(QStringLiteral("geometryValidated")).toBool()) {
             errors.push_back(QStringLiteral("NOTAM_RESTRICTION_GEOMETRY_OR_VERTICAL_BOUNDS_UNVALIDATED: ")
                              + notamId);
@@ -196,7 +195,6 @@ bool parseNotamSnapshot(const QVariantMap &parameters,
             return false;
         }
 
-        int fallbackComponentIndex = 0;
         for (const QVariant &componentValue : components) {
             const QVariantMap component = componentValue.toMap();
             const QString componentId = component.value(QStringLiteral("componentId"))
@@ -284,7 +282,6 @@ bool parseNotamSnapshot(const QVariantMap &parameters,
                 return false;
             }
             request.notam_snapshot.zones.push_back(std::move(zone));
-            ++fallbackComponentIndex;
         }
     }
     return true;
