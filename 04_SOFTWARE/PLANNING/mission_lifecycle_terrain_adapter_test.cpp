@@ -12,10 +12,12 @@ static Route makeRoute()
                      "terrain-test", "1", "INPUT-DEM-3"};
     route.environment.terrain_snapshot_id = "DEM-SNAPSHOT-7";
     route.constraints.minimum_clearance_m = 30.0;
+    route.trajectory_geometry_complete = true;
     route.waypoints = {
         {"WP-1", {60.0, 25.0}, 80.0, true, AltitudeReference::AGL},
         {"WP-2", {60.01, 25.01}, 80.0, false, AltitudeReference::AGL}
     };
+    route.segments = {{"SEG-1", "WP-1", "WP-2", 1244.0, 20.0}};
     return route;
 }
 
