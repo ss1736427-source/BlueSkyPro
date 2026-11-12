@@ -138,3 +138,14 @@ The next production dependency is not another planner algorithm: it is an approv
 6. test feed, test messages, SLA/latency, retention and permitted software redistribution/use.
 
 Until these are confirmed and an end-to-end test feed is received, report Russian NOTAM integration as `SOURCE-CONTRACT-DEFINED / OPERATIONAL-FEED-BLOCKED`, not as completed or flight-ready.
+
+## 10. Preserve the currently connected test source
+
+The currently connected FAA NMS adapter and its STAGING/FIT credentials/configuration must remain available and unchanged for engineering tests. Do not disconnect, delete, replace, or silently disable this provider as part of Russian-source work.
+
+Provider selection must be explicit by environment/profile:
+- TEST / STAGING: retain the existing FAA NMS provider for parser, snapshot, geometry, coverage, lifecycle, and post-wind validation tests where its dataset is suitable. Every test result must identify the FAA source and must not be represented as Russian airspace coverage.
+- PRODUCTION / Russian jurisdiction: select only an approved ЦАИ delivery adapter after its access and completeness contract is confirmed. Do not silently fall back from ЦАИ to FAA NMS for an operational mission.
+- OFFLINE / FIXTURE: use controlled, versioned test fixtures with an explicit synthetic/test-source marker.
+
+A test snapshot from FAA NMS may validate software behavior, but it cannot establish the presence or absence of Russian restrictions and cannot authorize flight release in Russian airspace. Keep provider identity, jurisdiction, environment, source watermark and snapshot hash visible in diagnostics and persisted route provenance.
