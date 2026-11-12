@@ -186,6 +186,10 @@ target_include_directories(mission_lifecycle_contract_test PRIVATE
     ../../04_SOFTWARE/PLANNING
 )
 target_compile_features(mission_lifecycle_contract_test PRIVATE cxx_std_20)
+target_compile_options(mission_lifecycle_contract_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
 add_test(NAME mission_lifecycle_contract COMMAND mission_lifecycle_contract_test)
 
 add_executable(notam_geometry_engine_test
