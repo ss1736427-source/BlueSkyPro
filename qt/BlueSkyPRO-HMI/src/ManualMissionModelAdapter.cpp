@@ -30,6 +30,17 @@ struct SerializedOperations {
     bool allEstimatesValidated{false};
 };
 
+QJsonObject draftLifecycle(const QString &missionId, int missionVersion)
+{
+    return QJsonObject{
+        {QStringLiteral("missionId"), missionId},
+        {QStringLiteral("missionVersion"), missionVersion},
+        {QStringLiteral("state"), QStringLiteral("DRAFT")},
+        {QStringLiteral("nextEventSequence"), 1},
+        {QStringLiteral("history"), QJsonArray{}}
+    };
+}
+
 SerializedOperations serializeOperations(const QVariant &value,
                                           const QStringList &selectedTemplateIds,
                                           const QJsonArray &geometryObjects,
@@ -201,6 +212,8 @@ QVariantMap ManualMissionModelAdapter::buildMission(const QString &geometryJson,
     Mission mission;
     mission.identity.mission_id = missionId.toStdString();
     mission.identity.mission_version = std::to_string(missionVersion);
+    mission.lifecycle.mission_id = mission.identity.mission_id;
+    mission.lifecycle.mission_version = mission.identity.mission_version;
     mission.identity.mission_type = "manual";
     mission.identity.operational_status = "draft";
     mission.mission_mode = "MANUAL";
@@ -402,6 +415,7 @@ QVariantMap ManualMissionModelAdapter::buildMission(const QString &geometryJson,
         {QStringLiteral("missionId"), missionId},
         {QStringLiteral("missionVersion"), missionVersion},
         {QStringLiteral("missionMode"), QStringLiteral("MANUAL")},
+        {QStringLiteral("lifecycle"), draftLifecycle(missionId, missionVersion)},
         {QStringLiteral("selectedTemplateIds"), templateArray},
         {QStringLiteral("geometryObjects"), geometryArray}
     };
@@ -609,6 +623,7 @@ QVariantMap ManualMissionModelAdapter::buildAutoMissionV2(
         {QStringLiteral("missionId"), missionId},
         {QStringLiteral("missionVersion"), missionVersion},
         {QStringLiteral("status"), QStringLiteral("DRAFT")},
+        {QStringLiteral("lifecycle"), draftLifecycle(missionId, missionVersion)},
         {QStringLiteral("missionMode"), QStringLiteral("AUTO")},
         {QStringLiteral("selectedTemplateIds"), templates},
         {QStringLiteral("task"), QJsonObject{
