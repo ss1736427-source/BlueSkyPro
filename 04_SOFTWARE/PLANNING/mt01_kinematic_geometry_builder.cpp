@@ -58,6 +58,7 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
     const auto fail = [&](const std::string& reason) {
         result.feasible = false;
         result.waypoints.clear();
+        result.segments.clear();
         result.diagnostics.push_back(reason);
         return result;
     };
