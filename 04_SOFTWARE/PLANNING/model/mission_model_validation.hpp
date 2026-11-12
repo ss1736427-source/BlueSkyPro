@@ -2,6 +2,7 @@
 
 #include "mission_model.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <set>
 #include <string>
@@ -107,6 +108,69 @@ inline std::vector<std::string> validateMissionModelStructure(const Mission &mis
     for (const auto &templateId : selectedTemplates) {
         if (associatedTemplates.count(templateId) == 0)
             errors.push_back("TEMPLATE_GEOMETRY_REQUIRED:" + templateId);
+    }
+
+    // Operation estimates are optional in a draft. Once supplied, every
+    // operation must resolve to selected task geometry and assigned equipment.
+    std::set<std::string> operationIds;
+    std::set<std::string> assignedEquipmentIds;
+    std::set<std::string> assignedEquipmentProfiles;
+    for (const auto &assignment : mission.equipment_assignments) {
+        assignedEquipmentIds.insert(assignment.equipment_id);
+        assignedEquipmentProfiles.insert(assignment.equipment_profile_id);
+    }
+    for (const auto &operation : mission.operations) {
+        if (operation.operation_id.empty())
+            errors.push_back("OPERATION_ID_REQUIRED");
+        else if (!operationIds.insert(operation.operation_id).second)
+            errors.push_back("OPERATION_ID_DUPLICATE:" + operation.operation_id);
+        if (!isApprovedMissionTemplateId(operation.template_id)
+            || selectedTemplates.count(operation.template_id) == 0)
+            errors.push_back("OPERATION_TEMPLATE_NOT_SELECTED:" + operation.operation_id);
+        if (geometryIds.count(operation.geometry_id) == 0)
+            errors.push_back("OPERATION_GEOMETRY_NOT_FOUND:" + operation.operation_id);
+        if (operation.operation_type.empty())
+            errors.push_back("OPERATION_TYPE_REQUIRED:" + operation.operation_id);
+        for (const auto &equipmentId : operation.equipment_ids) {
+            if (assignedEquipmentIds.count(equipmentId) == 0)
+                errors.push_back("OPERATION_EQUIPMENT_NOT_ASSIGNED:" + operation.operation_id + ":" + equipmentId);
+        }
+
+        const auto &estimate = operation.execution_estimate;
+        const bool hasDuration = estimate.duration_s.has_value();
+        const bool hasEnergy = estimate.energy_wh.has_value();
+        if (estimate.state != "UNRESOLVED" && estimate.state != "VALIDATED")
+            errors.push_back("OPERATION_ESTIMATE_STATE_INVALID:" + operation.operation_id);
+        if (hasDuration != hasEnergy
+            || (hasDuration && (!std::isfinite(*estimate.duration_s) || *estimate.duration_s < 0.0
+                                || !std::isfinite(*estimate.energy_wh) || *estimate.energy_wh < 0.0)))
+            errors.push_back("OPERATION_ESTIMATE_VALUES_INVALID:" + operation.operation_id);
+        if (estimate.state == "UNRESOLVED") {
+            if (hasDuration || hasEnergy || !estimate.source_id.empty()
+                || !estimate.source_version.empty() || !estimate.method_version.empty())
+                errors.push_back("UNRESOLVED_OPERATION_ESTIMATE_HAS_VALUES:" + operation.operation_id);
+        } else {
+            if (!hasDuration || estimate.source_id.empty() || estimate.source_version.empty()
+                || estimate.method_version.empty() || estimate.vehicle_id.empty()
+                || estimate.vehicle_configuration_version.empty())
+                errors.push_back("VALIDATED_OPERATION_ESTIMATE_PROVENANCE_REQUIRED:" + operation.operation_id);
+            const auto vehicle = std::find_if(mission.vehicle_assignments.begin(), mission.vehicle_assignments.end(),
+                [&](const VehicleAssignment &assignment) {
+                    return assignment.vehicle_id == estimate.vehicle_id
+                        && assignment.configuration_version == estimate.vehicle_configuration_version;
+                });
+            if (vehicle == mission.vehicle_assignments.end())
+                errors.push_back("OPERATION_ESTIMATE_VEHICLE_CONFIGURATION_MISMATCH:" + operation.operation_id);
+            if (estimate.source_type != "VEHICLE_MODEL" && estimate.source_type != "EQUIPMENT_MODEL"
+                && estimate.source_type != "MEASURED_PROFILE" && estimate.source_type != "OPERATOR_APPROVED")
+                errors.push_back("OPERATION_ESTIMATE_SOURCE_TYPE_INVALID:" + operation.operation_id);
+            for (const auto &profileId : estimate.equipment_profile_ids) {
+                if (assignedEquipmentProfiles.count(profileId) == 0)
+                    errors.push_back("OPERATION_ESTIMATE_EQUIPMENT_PROFILE_NOT_ASSIGNED:" + operation.operation_id + ":" + profileId);
+            }
+            if (estimate.source_type == "EQUIPMENT_MODEL" && estimate.equipment_profile_ids.empty())
+                errors.push_back("OPERATION_ESTIMATE_EQUIPMENT_PROFILE_REQUIRED:" + operation.operation_id);
+        }
     }
 
     return errors;
