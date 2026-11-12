@@ -276,6 +276,9 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     out["lowerDatum"]=ld;out["upperDatum"]=hd;
     QJsonObject g;const QString raw=source.value("geometryJson").toString();
     auto gd=QJsonDocument::fromJson(raw.toUtf8());if(gd.isObject())g=gd.object();
+    const QString sourceGeometryType = g.value("type").toString();
+    const bool sourceAreaGeometry = sourceGeometryType == QStringLiteral("Polygon")
+        || sourceGeometryType == QStringLiteral("MultiPolygon");
     bool compoundParsed=false;
     // Prefer explicit compound text over an upstream single-polygon approximation.
     {
@@ -371,5 +374,82 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     out["restrictionGeometryStatus"]=areaGeometry?(vok?"VALIDATED":"MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS")
         :(displayGeometry?"DISPLAY_ONLY_NON_AREA_GEOMETRY":"MISSING_HORIZONTAL_BOUNDS");
     out["altitudeReference"]=vok?ld:"UNKNOWN";
+
+    // Canonical interpretation contract shared by map and planning consumers.
+    // The map-facing geometryJson remains unchanged; planning receives typed
+    // components so it never reparses JSON geometry at the HMI boundary.
+    const QString semanticText = text.toUpper();
+    const bool explicitlyProhibited =
+        semanticText.contains(QRegularExpression(QStringLiteral("\\bAIRSPACE\\s+(?:CLSD|CLOSED)\\b")))
+        || semanticText.contains(QRegularExpression(QStringLiteral("\\bPROHIBITED\\s+AREA\\b")))
+        || semanticText.contains(QRegularExpression(QStringLiteral("\\bAREA\\s+PROHIBITED\\b")));
+    const bool explicitlyConditional =
+        semanticText.contains(QRegularExpression(QStringLiteral("\\bRESTRICTED\\s+AREA\\b")))
+        || semanticText.contains(QRegularExpression(QStringLiteral("\\bDANGER\\s+AREA\\b")))
+        || semanticText.contains(QRegularExpression(QStringLiteral("\\bTEMPORARY\\s+RESERVED\\b")));
+
+    QString restrictionClass = QStringLiteral("AMBIGUOUS");
+    QString interpretationEvidence = QStringLiteral("NO_EXPLICIT_RESTRICTION_SEMANTICS");
+    if (!areaGeometry) {
+        restrictionClass = QStringLiteral("DISPLAY_ONLY");
+        interpretationEvidence = QStringLiteral("NON_AREA_GEOMETRY");
+    } else if (explicitlyProhibited) {
+        restrictionClass = QStringLiteral("PROHIBITED");
+        interpretationEvidence = QStringLiteral("EXPLICIT_CLOSURE_OR_PROHIBITION_TEXT");
+    } else if (explicitlyConditional) {
+        restrictionClass = QStringLiteral("CONDITIONAL");
+        interpretationEvidence = QStringLiteral("CONDITIONAL_AIRSPACE_CLASS_REQUIRES_RULE_EVALUATION");
+    }
+
+    const QString interpretationState = !areaGeometry
+        ? QStringLiteral("CONFIRMED")
+        : (restrictionClass == QStringLiteral("PROHIBITED") && vok
+            ? QStringLiteral("CONFIRMED") : QStringLiteral("AMBIGUOUS"));
+    out["notamInterpretationVersion"] = 1;
+    out["restrictionClass"] = restrictionClass;
+    out["interpretationState"] = interpretationState;
+    out["interpretationEvidence"] = interpretationEvidence;
+    out["geometryProvenance"] = sourceAreaGeometry
+        ? QStringLiteral("SOURCE_GEOJSON")
+        : (areaGeometry ? QStringLiteral("TEXT_DERIVED") : QStringLiteral("SOURCE_DISPLAY_GEOMETRY"));
+
+    QVariantList planningComponents;
+    if (areaGeometry) {
+        const QJsonArray sourcePolygons = type == QStringLiteral("Polygon")
+            ? QJsonArray{g.value(QStringLiteral("coordinates")).toArray()}
+            : g.value(QStringLiteral("coordinates")).toArray();
+        int componentIndex = 0;
+        for (const QJsonValue &polygonValue : sourcePolygons) {
+            const QJsonArray rings = polygonValue.toArray();
+            if (rings.isEmpty()) continue;
+            const QJsonArray outerRing = rings.first().toArray();
+            QVariantList coordinates;
+            for (const QJsonValue &coordinateValue : outerRing) {
+                const QJsonArray coordinate = coordinateValue.toArray();
+                if (coordinate.size() < 2) { coordinates.clear(); break; }
+                coordinates.push_back(QVariantList{coordinate.at(0).toDouble(),
+                                                    coordinate.at(1).toDouble()});
+            }
+            if (coordinates.size() < 4) continue;
+            QVariantMap component;
+            component["componentId"] = source.value("id").toString()
+                + QStringLiteral("-COMP-") + QString::number(++componentIndex);
+            component["geometryType"] = QStringLiteral("POLYGON");
+            component["coordinates"] = coordinates;
+            component["interiorRingCount"] = qMax(0, rings.size() - 1);
+            component["geometryValidated"] = areaGeometry && vok;
+            component["restrictionGeometryStatus"] = out.value("restrictionGeometryStatus");
+            component["restrictionClass"] = restrictionClass;
+            component["interpretationState"] = interpretationState;
+            component["interpretationEvidence"] = interpretationEvidence;
+            component["geometryProvenance"] = out.value("geometryProvenance");
+            component["lowerMeters"] = lo;
+            component["upperMeters"] = hi;
+            component["lowerDatum"] = ld;
+            component["upperDatum"] = hd;
+            planningComponents.push_back(component);
+        }
+    }
+    out["planningComponents"] = planningComponents;
     return out;
 }
