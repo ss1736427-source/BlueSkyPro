@@ -59,6 +59,29 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
 
+  weather-engine-linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Install ecCodes
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeccodes-dev qt6-base-dev
+      - name: Configure standalone weather engine
+        run: cmake -S 04_SOFTWARE/WEATHER -B build-weather -DBLUESKY_ENABLE_ECCODES=ON -DBLUESKY_ENABLE_QT_NETWORK=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build standalone weather engine
+        run: cmake --build build-weather --parallel 2
+      - name: Test standalone weather engine
+        run: ctest --test-dir build-weather --output-on-failure
+      - name: Configure integrated planning library
+        run: cmake -S 04_SOFTWARE/PLANNING -B build-planning-weather -DBLUESKY_ENABLE_ECCODES=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build integrated planning weather targets
+        run: cmake --build build-planning-weather --parallel 2 --target weather_engine_test weather_applicability_policy_test gfs_forecast_planner_test grib2_decoder_contract_test weather_candidate_reranking_integration_test
+      - name: Test integrated planning weather targets
+        run: ctest --test-dir build-planning-weather -R "(weather_engine_contract_test|weather_applicability_policy_contract|gfs_forecast_planner_contract|grib2_decoder_contract_test|weather_candidate_reranking_integration_test)" --output-on-failure
+
+
   build-hmi-windows:
     runs-on: windows-2022
     steps:
@@ -289,14 +312,18 @@ jobs:
     needs:
       - build-hmi
       - build-hmi-windows
+      - weather-engine-linux
     runs-on: ubuntu-24.04
     steps:
       - name: Require Linux tests and Windows build/map checks to pass
         env:
           LINUX_RESULT: ${{ needs.build-hmi.result }}
           WINDOWS_RESULT: ${{ needs.build-hmi-windows.result }}
+          WEATHER_RESULT: ${{ needs.weather-engine-linux.result }}
         run: |
           echo "Linux HMI and ctest: ${LINUX_RESULT}"
           echo "Windows HMI, map regressions, smoke test and package: ${WINDOWS_RESULT}"
+          echo "Standalone and integrated weather engine tests: ${WEATHER_RESULT}"
           test "${LINUX_RESULT}" = "success"
           test "${WINDOWS_RESULT}" = "success"
+          test "${WEATHER_RESULT}" = "success"

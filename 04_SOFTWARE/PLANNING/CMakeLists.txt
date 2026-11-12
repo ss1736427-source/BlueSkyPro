@@ -353,6 +353,17 @@ target_compile_options(weather_engine_test PRIVATE
 )
     add_test(NAME weather_engine_contract_test COMMAND weather_engine_test)
 
+add_executable(weather_candidate_reranking_integration_test
+    weather_candidate_reranking_integration_test.cpp
+)
+target_link_libraries(weather_candidate_reranking_integration_test PRIVATE bluesky_planning)
+target_compile_options(weather_candidate_reranking_integration_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME weather_candidate_reranking_integration_test
+    COMMAND weather_candidate_reranking_integration_test)
+
 if(BLUESKY_ENABLE_ECCODES)
     add_executable(grib2_decoder_contract_test
         ../WEATHER/tests/grib2_decoder_contract_test.cpp
