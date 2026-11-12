@@ -95,6 +95,19 @@ int main() {
     assert(std::find(staleValidation.blockers.begin(), staleValidation.blockers.end(),
                      "VALIDATION_ROUTE_VERSION_MISMATCH") != staleValidation.blockers.end());
     e.validation_route_version = e.route_version;
+    auto changedRouteIdentity = e;
+    changedRouteIdentity.route_id = "ROUTE-OTHER";
+    auto wrongRouteIdentity = move(record, MissionLifecycleState::Ready, changedRouteIdentity);
+    assert(!wrongRouteIdentity.accepted);
+    assert(std::find(wrongRouteIdentity.blockers.begin(), wrongRouteIdentity.blockers.end(),
+                     "VALIDATION_ROUTE_ID_NOT_CURRENT") != wrongRouteIdentity.blockers.end());
+    auto changedInputIdentity = e;
+    changedInputIdentity.calculation_input_version = "INPUT-OTHER";
+    changedInputIdentity.validation_input_version = "INPUT-OTHER";
+    auto wrongInputIdentity = move(record, MissionLifecycleState::Ready, changedInputIdentity);
+    assert(!wrongInputIdentity.accepted);
+    assert(std::find(wrongInputIdentity.blockers.begin(), wrongInputIdentity.blockers.end(),
+                     "VALIDATION_INPUT_VERSION_NOT_CURRENT") != wrongInputIdentity.blockers.end());
     assert(move(record, MissionLifecycleState::Ready, e).accepted);
     assert(move(record, MissionLifecycleState::Submitted, e).accepted);
 
@@ -104,6 +117,18 @@ int main() {
     e.authorization_scope_matches = true;
     assert(move(record, MissionLifecycleState::Authorized, e).accepted);
 
+    e.route_id = "ROUTE-OTHER";
+    auto changedReleaseRoute = move(record, MissionLifecycleState::Released, e);
+    assert(!changedReleaseRoute.accepted);
+    assert(std::find(changedReleaseRoute.blockers.begin(), changedReleaseRoute.blockers.end(),
+                     "RELEASE_ROUTE_ID_NOT_CURRENT") != changedReleaseRoute.blockers.end());
+    e.route_id = "ROUTE-01";
+    e.calculation_input_version = "INPUT-OTHER";
+    auto changedReleaseInput = move(record, MissionLifecycleState::Released, e);
+    assert(!changedReleaseInput.accepted);
+    assert(std::find(changedReleaseInput.blockers.begin(), changedReleaseInput.blockers.end(),
+                     "RELEASE_INPUT_VERSION_NOT_CURRENT") != changedReleaseInput.blockers.end());
+    e.calculation_input_version = "INPUT-9";
     e.package_route_version = "OLD-ROUTE";
     auto wrongPackage = move(record, MissionLifecycleState::Released, e);
     assert(!wrongPackage.accepted);
