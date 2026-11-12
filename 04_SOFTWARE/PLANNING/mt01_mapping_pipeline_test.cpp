@@ -178,6 +178,13 @@ int main()
     safety.maximum_bank_angle_rad =
         fixedWingRequest.vehicle_motion_model.bank_angle_rad;
     safety.maximum_lateral_acceleration_mps2 = 6.0;
+    auto& routeMetadata = fixedWingRequest.route_candidate_metadata;
+    routeMetadata.route_id = "MT01-ROUTE-PIPELINE-TEST";
+    routeMetadata.route_version = "1";
+    routeMetadata.generator_id = "MT01-KINEMATIC-GENERATOR";
+    routeMetadata.generator_version = "1";
+    routeMetadata.calculation_input_version = "INPUT-PIPELINE-TEST-1";
+    routeMetadata.constraints = {50.0, 150.0, 30.0, true};
     const auto fixedWingResult = Mt01MappingPipeline::calculate(fixedWingRequest);
     assert(fixedWingResult.coverage_candidate_available);
     assert(fixedWingResult.kinematic_geometry_available);
@@ -185,7 +192,20 @@ int main()
            fixedWingResult.kinematic_geometry.waypoints.size());
     assert(fixedWingResult.segment_dynamics_validated);
     assert(fixedWingResult.flight_safety_validation.status == FlightSafetyStatus::Allowed);
+    assert(fixedWingResult.route_candidate_available);
+    assert(fixedWingResult.route_candidate.structural_validation.status ==
+           RouteValidationStatus::Allowed);
+    assert(!fixedWingResult.route_candidate.route.trajectory_geometry_complete);
     assert(!fixedWingResult.flight_release_eligible);
+
+    auto missingRouteProvenance = fixedWingRequest;
+    missingRouteProvenance.route_candidate_metadata.calculation_input_version.clear();
+    const auto missingProvenanceResult =
+        Mt01MappingPipeline::calculate(missingRouteProvenance);
+    assert(missingProvenanceResult.kinematic_geometry_available);
+    assert(missingProvenanceResult.segment_dynamics_validated);
+    assert(!missingProvenanceResult.route_candidate_available);
+    assert(!missingProvenanceResult.flight_release_eligible);
 
     return 0;
 }
