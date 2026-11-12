@@ -336,7 +336,7 @@ void FaaNmsClient::queryNotamsForScope(double latitude, double longitude,
         tokenReply->deleteLater();
         if (networkError != QNetworkReply::NoError || http < 200 || http >= 300) {
             m_queryInProgress = false;
-            emit notamQueryFinished(false, QStringLiteral("FAA NMS OAuth failed (HTTP %1, network error %2%3).")
+            finishNotamQuery(false, missionScope, QStringLiteral("FAA NMS OAuth failed (HTTP %1, network error %2%3).")
                 .arg(http).arg(static_cast<int>(networkError))
                 .arg(timedOut ? QStringLiteral(", timeout") : QString()));
             return;
@@ -475,7 +475,7 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
                 : dataValue.isObject() ? QStringLiteral("object")
                 : dataValue.isArray() ? QStringLiteral("array")
                 : dataValue.isNull() ? QStringLiteral("null") : QStringLiteral("other");
-            emit notamQueryFinished(false, QStringLiteral("FAA NMS response schema mismatch; top-level keys: %1; data type: %2; data keys: %3. No data accepted.")
+            finishNotamQuery(false, missionScope, QStringLiteral("FAA NMS response schema mismatch; top-level keys: %1; data type: %2; data keys: %3. No data accepted.")
                 .arg(keys.join(QStringLiteral(", ")).left(100), payloadType,
                      dataKeys.isEmpty() ? QStringLiteral("none") : dataKeys));
             return;
