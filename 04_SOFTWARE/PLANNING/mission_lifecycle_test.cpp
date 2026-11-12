@@ -175,13 +175,13 @@ int main() {
     auto wrongRouteIdentity = move(record, MissionLifecycleState::Ready, changedRouteIdentity);
     assert(!wrongRouteIdentity.accepted);
     assert(std::find(wrongRouteIdentity.blockers.begin(), wrongRouteIdentity.blockers.end(),
-                     "VALIDATION_ROUTE_ID_NOT_CURRENT") != wrongRouteIdentity.blockers.end());
+                     "ROUTE_STRUCTURE_VALIDATION_LINEAGE_MISMATCH") != wrongRouteIdentity.blockers.end());
     auto changedInputIdentity = e;
     changedInputIdentity.calculation_input_version = "INPUT-OTHER";
     auto wrongInputIdentity = move(record, MissionLifecycleState::Ready, changedInputIdentity);
     assert(!wrongInputIdentity.accepted);
     assert(std::find(wrongInputIdentity.blockers.begin(), wrongInputIdentity.blockers.end(),
-                     "NOTAM_VALIDATION_LINEAGE_MISMATCH") != wrongInputIdentity.blockers.end());
+                     "ROUTE_STRUCTURE_VALIDATION_LINEAGE_MISMATCH") != wrongInputIdentity.blockers.end());
     assert(move(record, MissionLifecycleState::Ready, e).accepted);
     assert(move(record, MissionLifecycleState::Submitted, e).accepted);
 
