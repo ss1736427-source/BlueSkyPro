@@ -1,5 +1,8 @@
 #include "mt01_mapping_pipeline.hpp"
 #include "mt01_kinematic_geometry_builder.hpp"
+#include "notam_geometry_adapter.hpp"
+
+#include <cmath>
 
 #include <algorithm>
 #include <utility>
@@ -129,11 +132,43 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
     if (!result.findings.empty())
         return result;
 
+    // Derive the same camera-based AGL target used by CoveragePathPlanner so
+    // only vertically applicable NOTAM zones are removed from the coverage domain.
+    const double targetGsdM = request.camera.target_gsd_cm_px / 100.0;
+    const double targetAltitudeAglM =
+        targetGsdM * (request.camera.focal_length_mm * 1e-3) /
+        (request.camera.pixel_pitch_um * 1e-6);
+    const NotamGeometryAdapterInput notamInput{
+        &request.notam_snapshot,
+        request.planned_mission_start_epoch_s,
+        request.planned_mission_end_epoch_s,
+        targetAltitudeAglM,
+        request.notam_safety_buffer_m
+    };
+    result.notam_geometry = NotamGeometryAdapter::build(notamInput);
+    if (!result.notam_geometry.valid) {
+        for (const auto& diagnostic : result.notam_geometry.diagnostics)
+            addFinding(result, diagnostic);
+        return result;
+    }
+
+    auto combinedExclusions = request.exclusion_areas;
+    combinedExclusions.insert(combinedExclusions.end(),
+        result.notam_geometry.exclusion_areas.begin(),
+        result.notam_geometry.exclusion_areas.end());
+    auto routeMetadata = request.route_candidate_metadata;
+    if (!routeMetadata.environment.airspace_snapshot_id.empty() &&
+        routeMetadata.environment.airspace_snapshot_id != result.notam_geometry.snapshot_id) {
+        addFinding(result, "MT01_NOTAM_SNAPSHOT_LINEAGE_MISMATCH");
+        return result;
+    }
+    routeMetadata.environment.airspace_snapshot_id = result.notam_geometry.snapshot_id;
+
     CoverageMissionInput coverageInput;
     coverageInput.mission_id = mission.identity.mission_id;
     coverageInput.mission_version = mission.identity.mission_version;
     coverageInput.area_of_interest = std::move(area);
-    coverageInput.exclusion_areas = request.exclusion_areas;
+    coverageInput.exclusion_areas = combinedExclusions;
     coverageInput.camera = request.camera;
     coverageInput.minimum_altitude_agl_m = request.minimum_altitude_agl_m;
     coverageInput.maximum_altitude_agl_m = request.maximum_altitude_agl_m;
@@ -162,7 +197,7 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
         assignedVehicle.vehicle_id,
         assignedVehicle.configuration_id,
         request.cruise_speed_mps,
-        request.exclusion_areas);
+        combinedExclusions);
     result.kinematic_geometry_available = result.kinematic_geometry.feasible;
     for (const auto& diagnostic : result.kinematic_geometry.diagnostics)
         addFinding(result, diagnostic);
@@ -175,7 +210,7 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
             result.coverage,
             mission.identity.mission_id,
             mission.identity.mission_version,
-            request.route_candidate_metadata);
+            routeMetadata);
         result.route_candidate_available = result.route_candidate.available;
         for (const auto& diagnostic : result.route_candidate.diagnostics)
             addFinding(result, diagnostic);

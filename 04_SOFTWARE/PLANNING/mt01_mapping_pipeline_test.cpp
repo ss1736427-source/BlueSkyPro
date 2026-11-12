@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 
 using namespace bluesky::planning;
 
@@ -47,12 +48,76 @@ static Mt01MappingRequest makeRequest()
     request.maximum_altitude_agl_m = 150.0;
     request.cruise_speed_mps = 10.0;
     request.line_angle_deg = 0.0;
+    request.notam_snapshot.snapshot_id = "NOTAM-SNAPSHOT-TEST";
+    request.notam_snapshot.source_id = "CONTROLLED-TEST-SOURCE";
+    request.notam_snapshot.source_version = "1";
+    request.notam_snapshot.evaluation_epoch_s = 1800000000;
+    request.planned_mission_start_epoch_s = 1800000000;
+    request.planned_mission_end_epoch_s = 1800003600;
+    request.notam_safety_buffer_m = 25.0;
     return request;
 }
 
 int main()
 {
     const auto request = makeRequest();
+
+    // NOTAM snapshot is now a mandatory input to MT-01 geometry generation.
+    auto missingNotam = request;
+    missingNotam.notam_snapshot = NotamSnapshot{};
+    const auto missingNotamResult = Mt01MappingPipeline::calculate(missingNotam);
+    assert(missingNotamResult.status == Mt01PipelineStatus::NeedsInput);
+    bool missingSnapshotReported = false;
+    for (const auto& finding : missingNotamResult.findings)
+        if (finding.find("NOTAM_SNAPSHOT_REQUIRED") != std::string::npos)
+            missingSnapshotReported = true;
+    assert(missingSnapshotReported);
+
+    // An applicable circular NOTAM must reduce coverage and bind its snapshot
+    // identity to the generated canonical route candidate.
+    auto withNotam = request;
+    NotamZone circle;
+    circle.notam_id = "TEST-CIRCLE-01";
+    circle.restriction_type = NotamRestrictionType::Prohibited;
+    circle.geometry_type = NotamGeometryType::Circle;
+    circle.center = {0.001, 0.001};
+    circle.radius_m = 35.0;
+    circle.lower_altitude_m = 50.0;
+    circle.upper_altitude_m = 150.0;
+    circle.valid_from_epoch_s = withNotam.planned_mission_start_epoch_s;
+    circle.valid_to_epoch_s = withNotam.planned_mission_end_epoch_s;
+    circle.altitude_reference = NotamAltitudeReference::AGL;
+    withNotam.notam_snapshot.zones.push_back(circle);
+    const auto clearResult = Mt01MappingPipeline::calculate(request);
+    const auto restrictedResult = Mt01MappingPipeline::calculate(withNotam);
+    assert(restrictedResult.notam_geometry.valid);
+    assert(restrictedResult.notam_geometry.applicable_zone_count == 1);
+    assert(!restrictedResult.notam_geometry.exclusion_areas.empty());
+    assert(restrictedResult.coverage.valid);
+    assert(restrictedResult.coverage.metrics.estimated_coverage_leg_length_m <
+           clearResult.coverage.metrics.estimated_coverage_leg_length_m);
+    assert(restrictedResult.route_candidate_available == false ||
+           restrictedResult.route_candidate.route.environment.airspace_snapshot_id ==
+               withNotam.notam_snapshot.snapshot_id);
+
+    // A zone outside the planned time window is not used for initial geometry.
+    auto futureNotam = request;
+    auto futureZone = circle;
+    futureZone.notam_id = "TEST-FUTURE-01";
+    futureZone.valid_from_epoch_s = futureNotam.planned_mission_end_epoch_s + 3600;
+    futureZone.valid_to_epoch_s = futureZone.valid_from_epoch_s + 3600;
+    futureNotam.notam_snapshot.zones.push_back(futureZone);
+    const auto futureResult = Mt01MappingPipeline::calculate(futureNotam);
+    assert(futureResult.notam_geometry.valid);
+    assert(futureResult.notam_geometry.applicable_zone_count == 0);
+
+    // An applicable NOTAM with an unsupported vertical datum must fail closed.
+    auto unknownDatum = withNotam;
+    unknownDatum.notam_snapshot.zones.front().altitude_reference =
+        NotamAltitudeReference::Unknown;
+    const auto unknownDatumResult = Mt01MappingPipeline::calculate(unknownDatum);
+    assert(unknownDatumResult.status == Mt01PipelineStatus::NeedsInput);
+
     const auto result = Mt01MappingPipeline::calculate(request);
     assert(result.status == Mt01PipelineStatus::CoverageCandidateAvailable);
     assert(result.coverage_candidate_available);

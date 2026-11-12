@@ -15,6 +15,7 @@ add_library(bluesky_planning
     solvers/astar_solver.cpp
     solvers/dijkstra_solver.cpp
     coverage_path_planner.cpp
+    notam_geometry_adapter.cpp
     mt01_mapping_pipeline.cpp
     mt01_kinematic_geometry_builder.cpp
     mt01_route_candidate_builder.cpp
