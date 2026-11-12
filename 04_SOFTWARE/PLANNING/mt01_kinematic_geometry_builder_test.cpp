@@ -77,7 +77,12 @@ int main()
     const auto dynamicsCheck =
         FlightSafetyConstraintValidator::validate(envelope, segmentStates);
     assert(dynamicsCheck.status == FlightSafetyStatus::Allowed);
-    assert(!dynamicsCheck.maximum_regime_warning_required);
+    // The connector deliberately uses the validated maximum bank angle; this
+    // is allowed but must be disclosed to the operator.
+    assert(dynamicsCheck.maximum_regime_warning_required);
+    assert(!dynamicsCheck.maximum_regime_uses.empty());
+    assert(dynamicsCheck.operator_warning.find("максимально допустимых режимов БВС") !=
+           std::string::npos);
 
     auto insufficientEnvelope = envelope;
     insufficientEnvelope.maximum_bank_angle_rad = vehicle.bank_angle_rad * 0.8;
