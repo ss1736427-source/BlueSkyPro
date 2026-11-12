@@ -27,6 +27,8 @@ Item {
     property string weatherCoverageEndUtc: ""
     // Operational reserve for wind-coupled ETA changes; not a regulatory validity period.
     property int weatherForecastMarginSeconds: 1800
+    property string weatherRequestEtdUtc: ""
+    property real weatherRequestSpatialBufferM: 0
     property var lastWeatherCoverageResult: ({})
     onMissionModelJsonChanged: {
         var acquisitionWasActive =
@@ -57,6 +59,33 @@ Item {
         lastWeatherCoverageResult && lastWeatherCoverageResult.valid === true
         ? "REQUEST_READY" : (lastWeatherCoverageResult && lastWeatherCoverageResult.errors
                             ? "BLOCKED" : "NOT_REQUESTED")
+
+    function invalidateWeatherIfInputsChanged() {
+        if (root.weatherRequestEtdUtc.length === 0)
+            return false
+        var currentEtd = weatherMissionStartInput.text.trim()
+        var bufferText = weatherBufferInput.text.trim()
+        var currentBuffer = bufferText.length > 0 ? Number(bufferText) : NaN
+        var sameBuffer = Number.isFinite(currentBuffer)
+                && Math.abs(currentBuffer - root.weatherRequestSpatialBufferM) < 1e-9
+        if (currentEtd === root.weatherRequestEtdUtc && sameBuffer)
+            return false
+        var requestStates = [
+            "CHECKING_FORECAST_AVAILABILITY", "DOWNLOADING", "ASSESSING_WEATHER",
+            "DOWNLOADS_READY_UNDECODED", "WEATHER_ASSESSMENT_READY",
+            "WEATHER_ASSESSMENT_INFEASIBLE", "BLOCKED"
+        ]
+        if (requestStates.indexOf(root.weatherAcquisitionStatus) >= 0) {
+            root.invalidateWeatherAcquisition("MISSION_WEATHER_TIME_OR_BUFFER_CHANGED")
+            return true
+        }
+        return false
+    }
+
+    function finishWeatherInputEdit() {
+        root.invalidateWeatherIfInputsChanged()
+        root.maybeRequestWeatherAutomatically()
+    }
 
     function notamPlanningInputs() {
         return {
@@ -295,6 +324,8 @@ Item {
             selectedRouteId: selectedRoute.routeId,
             selectedRouteVersion: selectedRoute.routeVersion
         }
+        root.weatherRequestEtdUtc = missionStartUtc
+        root.weatherRequestSpatialBufferM = Number(spatialBufferM)
         root.weatherMissionStartUtc = missionStartUtc
         root.weatherCoverageStartUtc = validFromUtc
         root.weatherCoverageEndUtc = validToUtc
@@ -1340,7 +1371,8 @@ Item {
                             verticalAlignment: TextInput.AlignVCenter
                             selectByMouse: true
                             inputMethodHints: Qt.ImhDate | Qt.ImhTime
-                            onEditingFinished: root.maybeRequestWeatherAutomatically()
+                            onTextEdited: root.invalidateWeatherIfInputsChanged()
+                            onEditingFinished: root.finishWeatherInputEdit()
                             property string placeholder: "ETD / TAKEOFF UTC"
                             Text {
                                 anchors.fill: parent
@@ -1430,7 +1462,8 @@ Item {
                             verticalAlignment: TextInput.AlignVCenter
                             selectByMouse: true
                             inputMethodHints: Qt.ImhDigitsOnly
-                            onEditingFinished: root.maybeRequestWeatherAutomatically()
+                            onTextEdited: root.invalidateWeatherIfInputsChanged()
+                            onEditingFinished: root.finishWeatherInputEdit()
                             property string placeholder: "BUFFER m"
                             Text {
                                 anchors.fill: parent
