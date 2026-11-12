@@ -35,6 +35,7 @@ struct MissionLifecycleValidationEvidence {
     std::string validator_id;
     std::string validator_version;
     std::string source_reference;
+    std::string vehicle_configuration_id;
     MissionLifecycleValidationStatus status{MissionLifecycleValidationStatus::Missing};
 };
 

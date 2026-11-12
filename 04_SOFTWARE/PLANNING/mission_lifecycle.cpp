@@ -140,6 +140,7 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
             require(evidence.task_definition_complete, "TASK_DEFINITION_INCOMPLETE", result.blockers);
             require(evidence.mission_geometry_complete, "MISSION_GEOMETRY_INCOMPLETE", result.blockers);
             require(evidence.vehicle_configuration_validated, "VEHICLE_CONFIGURATION_NOT_VALIDATED", result.blockers);
+            requireText(evidence.vehicle_configuration_id, "VEHICLE_CONFIGURATION_ID_REQUIRED", result.blockers);
             require(evidence.equipment_configuration_validated, "EQUIPMENT_CONFIGURATION_NOT_VALIDATED", result.blockers);
             require(evidence.mission_notam_snapshot_current, "MISSION_NOTAM_SNAPSHOT_MISSING_OR_STALE", result.blockers);
             requireText(evidence.mission_notam_snapshot_id, "MISSION_NOTAM_SNAPSHOT_ID_REQUIRED", result.blockers);
@@ -200,6 +201,9 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         requireValidation(evidence.vehicle_envelope_validation,
                           "VEHICLE_ENVELOPE_VALIDATION_EVIDENCE_REQUIRED",
                           "VEHICLE_ENVELOPE_VALIDATION_LINEAGE_MISMATCH");
+        require(evidence.vehicle_envelope_validation.vehicle_configuration_id
+                    == evidence.vehicle_configuration_id,
+                "VEHICLE_ENVELOPE_CONFIGURATION_MISMATCH", result.blockers);
         requireValidation(evidence.weather_validation,
                           "WEATHER_VALIDATION_EVIDENCE_REQUIRED", "WEATHER_VALIDATION_LINEAGE_MISMATCH");
         requireValidation(evidence.energy_reserve_validation,

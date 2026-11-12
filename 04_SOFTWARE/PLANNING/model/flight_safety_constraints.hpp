@@ -77,6 +77,8 @@ struct FlightSafetyValidationResult {
     std::string model_version;
     std::string configuration_id;
     std::string source_reference;
+    std::string validator_id;
+    std::string validator_version;
     std::vector<FlightSafetyFinding> findings;
     std::vector<MaximumRegimeUse> maximum_regime_uses;
     bool maximum_regime_warning_required{false};

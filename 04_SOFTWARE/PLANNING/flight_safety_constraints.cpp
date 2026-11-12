@@ -79,6 +79,8 @@ FlightSafetyValidationResult FlightSafetyConstraintValidator::validate(
     double equalityTolerance)
 {
     FlightSafetyValidationResult result;
+    result.validator_id = "shared-flight-safety-constraint-validator";
+    result.validator_version = "1";
     result.vehicle_model_id = envelope.vehicle_model_id;
     result.model_version = envelope.model_version;
     result.configuration_id = envelope.configuration_id;

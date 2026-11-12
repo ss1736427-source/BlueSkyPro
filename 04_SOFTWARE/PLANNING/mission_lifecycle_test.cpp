@@ -1,6 +1,7 @@
 #include "mission_lifecycle.hpp"
 #include "mission_lifecycle_route_adapter.hpp"
 #include "mission_lifecycle_notam_adapter.hpp"
+#include "mission_lifecycle_vehicle_adapter.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -53,6 +54,36 @@ static MissionLifecycleValidationEvidence notamValidation() {
     return evidence;
 }
 
+static MissionLifecycleValidationEvidence vehicleEnvelopeValidation() {
+    Route route;
+    route.lineage = {"ROUTE-01", "3", "MISSION-001", "7",
+                     "test-generator", "1", "INPUT-9"};
+    route.trajectory_geometry_complete = true;
+    route.waypoints = {
+        {"WP-1", {60.0, 25.0}, 100.0, true, AltitudeReference::AGL},
+        {"WP-2", {60.1, 25.1}, 100.0, false, AltitudeReference::AGL}
+    };
+    route.segments = {{"SEG-1", "WP-1", "WP-2", 1000.0, 18.0, 0.3, 2.0}};
+    FlightSafetyEnvelope envelope;
+    envelope.vehicle_model_id = "TEST-UAV";
+    envelope.model_version = "2";
+    envelope.configuration_id = "CFG-01";
+    envelope.source_reference = "validated-flight-test-report";
+    envelope.speed_reference = "TAS";
+    envelope.minimum_speed_basis = "CONFIGURATION_SPECIFIC_STALL_SPEED_WITH_BANK_AND_MARGIN";
+    envelope.evidence = FlightSafetyEvidence::FlightTestValidated;
+    envelope.motion_class = MotionClass::FixedWing;
+    envelope.minimum_speed_mps = 10.0;
+    envelope.maximum_speed_mps = 25.0;
+    envelope.maximum_bank_angle_rad = 0.7853981633974483;
+    envelope.maximum_lateral_acceleration_mps2 = 5.0;
+    const auto result = FlightSafetyConstraintValidator::validateRoute(envelope, route);
+    assert(result.status == FlightSafetyStatus::Allowed);
+    auto evidence = makeVehicleEnvelopeValidationEvidence(route, result);
+    assert(evidence.status == MissionLifecycleValidationStatus::Passed);
+    return evidence;
+}
+
 static MissionLifecycleValidationEvidence validation(const std::string &id) {
     MissionLifecycleValidationEvidence result;
     result.result_id = id;
@@ -75,6 +106,7 @@ static MissionLifecycleEvidence evidence() {
     e.route_id = "ROUTE-01";
     e.route_version = "3";
     e.calculation_input_version = "INPUT-9";
+    e.vehicle_configuration_id = "CFG-01";
     e.terrain_snapshot_id = "TERRAIN-4";
     e.mission_notam_snapshot_id = "NOTAM-5";
     e.weather_snapshot_id = "GFS-20261112-12Z";
@@ -103,7 +135,7 @@ static MissionLifecycleEvidence evidence() {
     e.trajectory_geometry_validation = validation("GEOMETRY-RESULT");
     e.notam_validation = notamValidation();
     e.terrain_validation = validation("TERRAIN-RESULT");
-    e.vehicle_envelope_validation = validation("VEHICLE-RESULT");
+    e.vehicle_envelope_validation = vehicleEnvelopeValidation();
     e.weather_validation = validation("WEATHER-RESULT");
     e.energy_reserve_validation = validation("ENERGY-RESULT");
     e.task_quality_validation = validation("TASK-QUALITY-RESULT");
@@ -164,6 +196,12 @@ int main() {
     assert(!missingRouteStructureResult.accepted);
     assert(std::find(missingRouteStructureResult.blockers.begin(), missingRouteStructureResult.blockers.end(),
                      "ROUTE_STRUCTURE_VALIDATION_EVIDENCE_REQUIRED") != missingRouteStructureResult.blockers.end());
+    auto wrongVehicleConfiguration = e;
+    wrongVehicleConfiguration.vehicle_envelope_validation.vehicle_configuration_id = "CFG-OTHER";
+    auto mismatchedVehicleConfiguration = move(record, MissionLifecycleState::Ready, wrongVehicleConfiguration);
+    assert(!mismatchedVehicleConfiguration.accepted);
+    assert(std::find(mismatchedVehicleConfiguration.blockers.begin(), mismatchedVehicleConfiguration.blockers.end(),
+                     "VEHICLE_ENVELOPE_CONFIGURATION_MISMATCH") != mismatchedVehicleConfiguration.blockers.end());
     auto missingValidationId = e;
     missingValidationId.terrain_validation.result_id.clear();
     auto missingValidation = move(record, MissionLifecycleState::Ready, missingValidationId);
