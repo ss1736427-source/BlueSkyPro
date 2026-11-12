@@ -211,6 +211,7 @@ add_executable(mission_lifecycle_test
     mission_lifecycle_route_adapter.hpp
     mission_lifecycle_notam_adapter.hpp
     mission_lifecycle_vehicle_adapter.hpp
+    mission_lifecycle_weather_adapter.hpp
 )
 target_link_libraries(mission_lifecycle_test PRIVATE bluesky_planning)
 

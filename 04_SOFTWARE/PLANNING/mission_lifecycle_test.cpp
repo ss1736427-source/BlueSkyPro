@@ -2,8 +2,11 @@
 #include "mission_lifecycle_route_adapter.hpp"
 #include "mission_lifecycle_notam_adapter.hpp"
 #include "mission_lifecycle_vehicle_adapter.hpp"
+#include "mission_lifecycle_weather_adapter.hpp"
 
 #include <algorithm>
+#include <utility>
+#include <vector>
 #include <cassert>
 #include <string>
 
@@ -84,6 +87,87 @@ static MissionLifecycleValidationEvidence vehicleEnvelopeValidation() {
     return evidence;
 }
 
+struct WeatherLifecycleEvidence {
+    MissionLifecycleValidationEvidence weather;
+    MissionLifecycleValidationEvidence energy;
+};
+
+static WeatherLifecycleEvidence weatherValidation() {
+    Route route;
+    route.lineage = {"ROUTE-01", "3", "MISSION-001", "7",
+                     "weather-test", "1", "INPUT-9"};
+    route.trajectory_geometry_complete = true;
+    route.environment.wind_snapshot_id = "WX-SNAP-1";
+    route.waypoints = {
+        {"WP-1", {60.0, 25.0}, 100.0, true, AltitudeReference::AGL},
+        {"WP-2", {60.01, 25.01}, 100.0, false, AltitudeReference::AGL}
+    };
+    route.segments = {{"SEG-1", "WP-1", "WP-2", 1244.0, 20.0}};
+
+    TrajectoryPerformanceInput input;
+    input.uav_id = "UAV-1";
+    input.configuration_version = "CFG-REV-1";
+    input.performance_version = "PERF-1";
+    input.wind_snapshot_id = "WX-SNAP-1";
+    input.wind_snapshot_version = "GFS-20261112-12Z";
+    input.mission_start_utc = "2026-11-12T12:00:00Z";
+    input.cruise_airspeed_mps = 20.0;
+    input.climb_rate_mps = 5.0;
+    input.descent_rate_mps = 5.0;
+    input.wind_tolerance_mps = 20.0;
+    input.energy_per_horizontal_meter_wh = 0.001;
+    input.energy_per_climb_meter_wh = 0.001;
+    input.energy_per_descent_meter_wh = 0.001;
+    input.usable_energy_wh = 1000.0;
+    input.reserve_requirement_wh = 100.0;
+
+    std::vector<bluesky::weather::WindField> fields;
+    for (const int validTime : {1200, 1300}) {
+        bluesky::weather::WindField field;
+        field.level_agl_m = 100;
+        field.valid_date_utc = 20261112;
+        field.valid_time_utc = validTime;
+        field.rows = 2;
+        field.columns = 2;
+        field.latitudes_deg = {59.9, 60.1};
+        field.longitudes_deg = {24.9, 25.1};
+        field.eastward_mps.assign(4, 0.0);
+        field.northward_mps.assign(4, 0.0);
+        fields.push_back(std::move(field));
+    }
+
+    const auto evaluation = bluesky::weather::WeatherTrajectoryCalculator::evaluate(
+        route, fields, input.wind_snapshot_id, input.wind_snapshot_version,
+        input, "WX-CALC-1");
+    assert(evaluation.weather_ready);
+    assert(evaluation.trajectory.status == TrajectoryStatus::Feasible);
+    assert(evaluation.trajectory.mission_start_epoch_s > 0);
+
+    WeatherLifecycleEvidence result;
+    result.weather = makeWeatherValidationEvidence(route, evaluation, input, "CFG-01");
+    result.energy = makeEnergyReserveValidationEvidence(route, evaluation, input, "CFG-01");
+    assert(result.weather.status == MissionLifecycleValidationStatus::Passed);
+    assert(result.energy.status == MissionLifecycleValidationStatus::Passed);
+
+    auto staleSnapshotInput = input;
+    staleSnapshotInput.wind_snapshot_id = "WX-OTHER";
+    const auto staleWeather = makeWeatherValidationEvidence(
+        route, evaluation, staleSnapshotInput, "CFG-01");
+    assert(staleWeather.status == MissionLifecycleValidationStatus::Failed);
+
+    auto reserveFailureInput = input;
+    reserveFailureInput.reserve_requirement_wh = 999.9;
+    const auto reserveFailure = bluesky::weather::WeatherTrajectoryCalculator::evaluate(
+        route, fields, reserveFailureInput.wind_snapshot_id,
+        reserveFailureInput.wind_snapshot_version, reserveFailureInput, "WX-CALC-2");
+    assert(!reserveFailure.weather_ready);
+    assert(reserveFailure.trajectory.status == TrajectoryStatus::Infeasible);
+    const auto rejectedEnergy = makeEnergyReserveValidationEvidence(
+        route, reserveFailure, reserveFailureInput, "CFG-01");
+    assert(rejectedEnergy.status == MissionLifecycleValidationStatus::Failed);
+    return result;
+}
+
 static MissionLifecycleValidationEvidence validation(const std::string &id) {
     MissionLifecycleValidationEvidence result;
     result.result_id = id;
@@ -136,8 +220,9 @@ static MissionLifecycleEvidence evidence() {
     e.notam_validation = notamValidation();
     e.terrain_validation = validation("TERRAIN-RESULT");
     e.vehicle_envelope_validation = vehicleEnvelopeValidation();
-    e.weather_validation = validation("WEATHER-RESULT");
-    e.energy_reserve_validation = validation("ENERGY-RESULT");
+    const auto weatherEvidence = weatherValidation();
+    e.weather_validation = weatherEvidence.weather;
+    e.energy_reserve_validation = weatherEvidence.energy;
     e.task_quality_validation = validation("TASK-QUALITY-RESULT");
     e.regulatory_validation = validation("REGULATORY-RESULT");
     e.operator_review_accepted = true;

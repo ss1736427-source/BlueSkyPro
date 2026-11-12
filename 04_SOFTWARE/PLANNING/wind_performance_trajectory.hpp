@@ -79,6 +79,7 @@ struct TrajectoryResult {
     std::int64_t mission_start_epoch_s{0};
     std::string uav_id;
     std::string configuration_version;
+    std::string performance_version;
     std::string wind_snapshot_id;
     std::string wind_snapshot_version;
     std::string calculation_version;
@@ -86,6 +87,8 @@ struct TrajectoryResult {
     double total_time_s{0.0};
     double total_energy_wh{0.0};
     double remaining_energy_wh{0.0};
+    double usable_energy_wh{0.0};
+    double reserve_requirement_wh{0.0};
     std::vector<TrajectoryPoint4D> points;
     std::vector<TrajectorySegmentResult> segments;
     std::vector<TrajectoryFinding> findings;

@@ -39,10 +39,17 @@ const WindSample* find_wind(const std::vector<WindSample>& samples,const std::st
 
 std::string dependency(const Route&r,const TrajectoryPerformanceInput&i,const std::string&v){
     std::ostringstream o;
-    o<<r.lineage.route_id<<'|'<<r.lineage.route_version<<'|'<<r.lineage.calculation_input_version
+    o<<r.lineage.mission_id<<'|'<<r.lineage.mission_version
+     <<'|'<<r.lineage.route_id<<'|'<<r.lineage.route_version
+     <<'|'<<r.lineage.calculation_input_version
      <<'|'<<i.uav_id<<'|'<<i.configuration_version<<'|'<<i.performance_version
      <<'|'<<i.wind_snapshot_id<<'|'<<i.wind_snapshot_version<<'|'<<i.mission_start_utc
      <<'|'<<i.mission_start_epoch_s<<'|'<<v
+     <<'|'<<std::setprecision(17)
+     <<i.cruise_airspeed_mps<<'|'<<i.climb_rate_mps<<'|'<<i.descent_rate_mps
+     <<'|'<<i.wind_tolerance_mps<<'|'<<i.energy_per_horizontal_meter_wh
+     <<'|'<<i.energy_per_climb_meter_wh<<'|'<<i.energy_per_descent_meter_wh
+     <<'|'<<i.usable_energy_wh<<'|'<<i.reserve_requirement_wh
      <<'|'<<r.trajectory_geometry_complete;
     for (const auto& point : r.waypoints) {
         o << "|WP:" << point.waypoint_id << ':' << std::setprecision(17)
@@ -77,9 +84,12 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
     r.mission_start_epoch_s=input.mission_start_epoch_s;
     r.uav_id=input.uav_id;
     r.configuration_version=input.configuration_version;
+    r.performance_version=input.performance_version;
     r.wind_snapshot_id=input.wind_snapshot_id;
     r.wind_snapshot_version=input.wind_snapshot_version;
     r.calculation_version=calculation_version;
+    r.usable_energy_wh=input.usable_energy_wh;
+    r.reserve_requirement_wh=input.reserve_requirement_wh;
     r.dependency_identity=dependency(route,input,calculation_version);
 
     if(input.cruise_airspeed_mps<=0.0 || input.climb_rate_mps<=0.0 ||

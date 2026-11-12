@@ -348,12 +348,15 @@ WeatherTrajectoryEvaluation WeatherTrajectoryCalculator::evaluate(
             return result;
         iterationInput.wind_snapshot_id=snapshot_id;
         iterationInput.wind_snapshot_version=snapshot_version;
+        iterationInput.mission_start_epoch_s=missionStart;
         auto trajectory=bluesky::planning::WindPerformanceTrajectory::calculate(
             samplingRoute,iterationInput,calculation_version);
-        result.weather_ready=true;
         result.trajectory=std::move(trajectory);
-        if (result.trajectory.status!=bluesky::planning::TrajectoryStatus::Feasible)
+        if (result.trajectory.status!=bluesky::planning::TrajectoryStatus::Feasible) {
+            if (!result.trajectory.findings.empty())
+                result.weather_error = result.trajectory.findings.front().detail;
             return result;
+        }
         if (result.trajectory.segments.size()!=estimatedDurations.size()) {
             result.weather_ready=false;
             result.weather_error="trajectory result segment count changed during weather coupling";
@@ -370,6 +373,7 @@ WeatherTrajectoryEvaluation WeatherTrajectoryCalculator::evaluate(
             maximumDelta=std::max(maximumDelta,std::abs(actual-estimatedDurations[i]));
         }
         if (maximumDelta<=kConvergenceToleranceSeconds) {
+            result.weather_ready=true;
             result.weather_error.clear();
             return result;
         }

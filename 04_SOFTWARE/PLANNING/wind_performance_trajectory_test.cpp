@@ -40,6 +40,9 @@ int main(){
     assert(r.segments[0].traversal_time_s>4.0 && r.segments[0].traversal_time_s<5.0);
     assert(r.total_energy_wh>1.0);
     assert(r.remaining_energy_wh<100.0);
+    assert(r.performance_version == in.performance_version);
+    assert(r.usable_energy_wh == in.usable_energy_wh);
+    assert(r.reserve_requirement_wh == in.reserve_requirement_wh);
     assert(!r.dependency_identity.empty());
     auto shiftedStart = in;
     shiftedStart.mission_start_epoch_s += 1;
@@ -47,6 +50,16 @@ int main(){
         WindPerformanceTrajectory::calculate(route, shiftedStart, "CALC1");
     assert(shiftedResult.status == TrajectoryStatus::Feasible);
     assert(shiftedResult.dependency_identity != r.dependency_identity);
+    auto changedReserve = in;
+    changedReserve.reserve_requirement_wh += 1.0;
+    const auto changedReserveResult =
+        WindPerformanceTrajectory::calculate(route, changedReserve, "CALC1");
+    assert(changedReserveResult.dependency_identity != r.dependency_identity);
+    auto changedPerformance = in;
+    changedPerformance.cruise_airspeed_mps += 1.0;
+    const auto changedPerformanceResult =
+        WindPerformanceTrajectory::calculate(route, changedPerformance, "CALC1");
+    assert(changedPerformanceResult.dependency_identity != r.dependency_identity);
 
     Route withTaskDwell=route;
     withTaskDwell.waypoints.back().task_execution_duration_s=60.0;
