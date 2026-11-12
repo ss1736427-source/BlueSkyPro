@@ -108,6 +108,7 @@ int main(int argc, char **argv)
         {"lowerDatum", "AGL"},
         {"upperDatum", "AGL"},
         {"restrictionGeometryStatus", "VALIDATED"},
+        {"geometryValidated", true},
         {"geometryJson", QStringLiteral(R"({"type":"Polygon","coordinates":[[[0.0008,0.0008],[0.0012,0.0008],[0.0012,0.0012],[0.0008,0.0012],[0.0008,0.0008]]]})")}
     };
     activeNotamParameters.insert("notamRecords", QVariantList{activeNotam});
