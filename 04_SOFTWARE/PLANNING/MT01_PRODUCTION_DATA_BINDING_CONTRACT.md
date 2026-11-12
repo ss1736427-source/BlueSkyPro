@@ -113,29 +113,35 @@ The mission-planning sequence must:
 7. Re-evaluate time-dependent NOTAM applicability after wind/performance timing changes and validate the final complete trajectory against the same referenced snapshot (or a newer explicitly acquired snapshot). If the timing change activates a restriction, regenerate/reject the affected candidate.
 8. Preserve NOTAM IDs, component IDs, buffers, altitude/time decisions and snapshot provenance in candidate findings and lineage.
 
-The current code has only part of this mechanism:
-- `Mt01MappingRequest::exclusion_areas` is a caller-supplied list of 2D polygons. No current MT-01 adapter in this pipeline derives it from a `NotamSnapshot`.
-- `CoveragePathPlanner` subtracts supplied polygons from coverage stripes, but requires every exclusion polygon to be completely inside the AOI and rejects boundary-crossing or overlapping exclusions. It has no altitude band, datum, validity interval, NOTAM ID or snapshot fields. This cannot represent the full operational NOTAM rule.
-- `Mt01KinematicGeometryBuilder` forwards the same 2D polygons to the Dubins turn connector, which checks sampled connector geometry for polygon intersection. The straight coverage legs rely on the earlier 2D stripe subtraction.
-- `NotamProhibitedZoneValidator` checks a completed `Route` against a `NotamSnapshot`; it is a final validation gate, not a route-avoidance generator, and the MT-01 pipeline does not call it.
-- The current `NotamZone` supports circle/polygon geometry, vertical limits and effective time, but its current validator accepts AGL only when zones exist. AMSL/Flight Level conversion is not yet implemented.
+The current implementation now has a first executable NOTAM-to-geometry path:
+- `Mt01MappingRequest` carries the immutable `NotamSnapshot`, explicit planned mission start/end UTC epochs and an explicit positive lateral safety buffer for applicable zones.
+- `NotamGeometryAdapter` validates snapshot/source identity and zone records, filters prohibited zones by overlap with the planned time window and the camera-derived target AGL altitude, and fails closed for applicable zones whose vertical datum is not AGL.
+- Circular restrictions are converted to circumscribed 32-vertex polygons using the NOTAM radius plus the supplied buffer. Polygon restrictions are represented as the source polygon plus edge strips and circumscribed vertex disks. The coverage planner unions overlapping components by scanline subtraction.
+- The combined operator exclusions and NOTAM-derived exclusions are passed to both `CoveragePathPlanner` and `Mt01KinematicGeometryBuilder`; the resulting canonical route carries the exact NOTAM snapshot ID in `RouteEnvironmentReference::airspace_snapshot_id`.
+- The time-aware `NotamProhibitedZoneValidator::validate(route, snapshot, trajectory)` is now invoked by `AlgorithmOrchestrator` after a weather assessor returns the 4D `TrajectoryResult` and before candidate ranking, when `MissionProblem::requires_notam_validation` is enabled. Missing snapshot or missing 4D result blocks selection.
+- `NotamProhibitedZoneValidator` and the geometry adapter currently accept AGL only. AMSL/Flight Level conversion is not implemented.
 
-Therefore, NOTAM avoidance is **not integrated end-to-end** in MT-01. Passing manually prepared polygons through `exclusion_areas` proves only a partial geometric exclusion capability, not automatic current-NOTAM-aware route generation.
+Known limitations remain explicit:
+- The adapter consumes a normalized snapshot; authoritative NOTAM retrieval, free-text interpretation, component normalization and AOI-scoped source acquisition remain upstream responsibilities.
+- The buffer is a single explicit request value, not yet a policy-resolved per-NOTAM/per-operation value. No implicit buffer default is invented.
+- Polygon buffering is a conservative local-planar approximation made from overlapping components, not a geodesic polygon-offset engine. The existing local projection limits still apply.
+- The pipeline does not yet prove a wind-corrected ground-track geometry. The current wind stage updates performance/time for supplied geometry; if the route is not ground-referenced, a geometric wind correction stage remains necessary.
+- Production HMI/runtime callers must supply the exact snapshot, planned time window and approved buffer, and enable the orchestrator's final NOTAM gate. CI tests exercise the contracts, but do not by themselves prove that the deployed Qt runtime supplies these inputs.
 
-The correct architecture is: `AOI/time/altitude -> authoritative NOTAM snapshot -> normalized 4D restriction components -> altitude/time-filtered and safety-buffered exclusions -> route candidate generation/avoidance -> wind/time update -> final NOTAM/airspace validation -> candidate promotion`.
+The architecture is now: `AOI/time/target altitude -> authoritative normalized NOTAM snapshot -> buffered exclusions -> MT-01 coverage and turn generation -> wind/performance 4D timing -> final time-dependent NOTAM validation -> candidate ranking`.
 
 ## 7. NOTAM/airspace integration boundary
 
-`NotamProhibitedZoneValidator` accepts a `Route` and a versioned `NotamSnapshot`, checks snapshot identity/time, altitude reference and prohibited-zone intersections. The MT-01 pipeline currently does not call it.
+`NotamProhibitedZoneValidator` has a time-aware overload that consumes the exact route, snapshot and wind/performance `TrajectoryResult`. The `AlgorithmOrchestrator` invokes it after weather assessment and before ranking when `MissionProblem::requires_notam_validation` is true.
 
-Integration must:
-- use the exact current NOTAM/airspace snapshot referenced by the route;
-- run against the final ground-referenced trajectory geometry after any wind/terrain geometry transformation;
-- preserve altitude datum and vertical overlap semantics;
-- block on missing/stale/mismatched snapshots, unsupported altitude references and invalid zone records;
-- retain findings and snapshot provenance in the candidate's validation evidence.
+The production caller must:
+- bind the same NOTAM snapshot ID to the route and the `MissionProblem`;
+- set `requires_notam_validation = true` for flight-planning candidates;
+- provide a weather assessor that returns the actual 4D trajectory, not only summary time/energy values;
+- ensure the route geometry is ground-referenced or provide a validated wind-corrected geometry before treating the intersection result as final;
+- retain the returned NOTAM findings and snapshot provenance in the candidate evidence.
 
-The validator currently requires AGL when zones are present. Until vertical datum conversion is implemented, unsupported NOTAM altitude references must remain blocked rather than being numerically compared. A time-aware validator overload now consumes the wind/performance trajectory result and checks NOTAM validity against segment traversal and waypoint dwell intervals; the MT-01 pipeline still must be wired to call this overload.
+The validator requires AGL when zones are present. Until vertical datum conversion is implemented, unsupported NOTAM altitude references remain blocked rather than being numerically compared. The orchestrator fails closed if the required snapshot or 4D weather trajectory is missing.
 
 ## 8. Energy and reserve integration boundary
 
@@ -163,9 +169,9 @@ Any missing/unknown item remains a hard block. AUTO and MANUAL must use the same
 1. Locate and expose the authoritative vehicle/equipment profile repository or service used by the production application.
 2. Add the versioned profile-to-motion/safety binding and contract tests, including mismatch, stale evidence, unit ambiguity and custom configuration cases.
 3. Locate the authoritative DEM service/data interface; if none exists, define the provider contract before implementing a sampler.
-4. Implement the NOTAM snapshot-to-4D-exclusion adapter and feed active, altitude-relevant, buffered exclusions into candidate generation before optimization; handle zones crossing AOI boundaries by robust clipping rather than rejecting them.
+4. Complete production binding for the implemented NOTAM snapshot-to-geometry adapter: authoritative snapshot acquisition/normalization, approved buffer policy, mission time-window input, and Qt runtime wiring. The planning adapter already filters by time/target AGL and feeds buffered geometry to coverage and turn generation.
 5. Add wind-ground-track geometry semantics and tests; after wind changes segment ETA, re-evaluate NOTAM validity and regenerate/reject affected candidates.
-6. Integrate final NOTAM/airspace validation against the completed geometry and exact snapshot.
+6. Complete production activation and evidence retention for the final time-aware NOTAM gate already connected to the orchestrator; verify it receives the same snapshot and the final ground-referenced 4D trajectory.
 7. Integrate full-trajectory energy/reserve and recovery assessment.
 8. Add the promotion gate and multi-candidate publication into the existing weather reranking path.
 9. Verify the Qt production runtime actually invokes the task-aware generator and publishes its candidate set.
