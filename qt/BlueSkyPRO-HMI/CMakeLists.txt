@@ -213,7 +213,7 @@ target_compile_options(mission_lifecycle_terrain_adapter_contract_test PRIVATE
 add_test(NAME mission_lifecycle_terrain_adapter_contract
     COMMAND mission_lifecycle_terrain_adapter_contract_test)
 set_tests_properties(mission_lifecycle_terrain_adapter_contract
-    PROPERTIES LABELS "planning;lifecycle;terrain" TIMEOUT 30)
+    PROPERTIES LABELS "planning;lifecycle;terrain;dem" TIMEOUT 30)
 
 add_executable(notam_geometry_engine_test
     tests/NotamGeometryEngineTest.cpp
