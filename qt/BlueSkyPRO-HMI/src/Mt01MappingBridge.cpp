@@ -314,6 +314,87 @@ bool parseMission(const QJsonObject &json, Mission &mission, QStringList &errors
         }
     }
 
+    const QJsonValue operationsValue = json.value(QStringLiteral("operations"));
+    if (!operationsValue.isArray()) {
+        errors.push_back(QStringLiteral("MISSION_OPERATIONS_INVALID"));
+    } else {
+        for (const QJsonValue &value : operationsValue.toArray()) {
+            if (!value.isObject()) {
+                errors.push_back(QStringLiteral("MISSION_OPERATION_INVALID"));
+                continue;
+            }
+            const QJsonObject item = value.toObject();
+            MissionOperation operation;
+            operation.operation_id = item.value(QStringLiteral("operationId")).toString().trimmed().toStdString();
+            operation.template_id = item.value(QStringLiteral("templateId")).toString().trimmed().toStdString();
+            operation.operation_type = item.value(QStringLiteral("operationType")).toString().trimmed().toStdString();
+            operation.geometry_id = item.value(QStringLiteral("geometryId")).toString().trimmed().toStdString();
+            const QJsonValue equipmentIds = item.value(QStringLiteral("equipmentIds"));
+            if (!equipmentIds.isArray()) {
+                errors.push_back(QStringLiteral("MISSION_OPERATION_EQUIPMENT_IDS_INVALID"));
+            } else {
+                for (const QJsonValue &equipmentId : equipmentIds.toArray()) {
+                    if (!equipmentId.isString() || equipmentId.toString().trimmed().isEmpty()) {
+                        errors.push_back(QStringLiteral("MISSION_OPERATION_EQUIPMENT_ID_INVALID"));
+                        continue;
+                    }
+                    operation.equipment_ids.push_back(equipmentId.toString().trimmed().toStdString());
+                }
+            }
+            const QJsonValue estimateValue = item.value(QStringLiteral("executionEstimate"));
+            if (!estimateValue.isObject()) {
+                errors.push_back(QStringLiteral("MISSION_OPERATION_EXECUTION_ESTIMATE_INVALID"));
+            } else {
+                const QJsonObject estimate = estimateValue.toObject();
+                auto &target = operation.execution_estimate;
+                target.state = estimate.value(QStringLiteral("state")).toString().trimmed().toStdString();
+                if (estimate.contains(QStringLiteral("durationS"))) {
+                    if (!estimate.value(QStringLiteral("durationS")).isDouble())
+                        errors.push_back(QStringLiteral("MISSION_OPERATION_DURATION_INVALID"));
+                    else
+                        target.duration_s = estimate.value(QStringLiteral("durationS")).toDouble();
+                }
+                if (estimate.contains(QStringLiteral("energyWh"))) {
+                    if (!estimate.value(QStringLiteral("energyWh")).isDouble())
+                        errors.push_back(QStringLiteral("MISSION_OPERATION_ENERGY_INVALID"));
+                    else
+                        target.energy_wh = estimate.value(QStringLiteral("energyWh")).toDouble();
+                }
+                target.source_type = estimate.value(QStringLiteral("sourceType")).toString().trimmed().toStdString();
+                target.source_id = estimate.value(QStringLiteral("sourceId")).toString().trimmed().toStdString();
+                target.source_version = estimate.value(QStringLiteral("sourceVersion")).toString().trimmed().toStdString();
+                target.method_version = estimate.value(QStringLiteral("methodVersion")).toString().trimmed().toStdString();
+                target.vehicle_id = estimate.value(QStringLiteral("vehicleId")).toString().trimmed().toStdString();
+                target.vehicle_configuration_version =
+                    estimate.value(QStringLiteral("vehicleConfigurationVersion")).toString().trimmed().toStdString();
+                const QJsonValue profiles = estimate.value(QStringLiteral("equipmentProfileIds"));
+                if (!profiles.isUndefined() && !profiles.isNull()) {
+                    if (!profiles.isArray()) {
+                        errors.push_back(QStringLiteral("MISSION_OPERATION_EQUIPMENT_PROFILES_INVALID"));
+                    } else {
+                        for (const QJsonValue &profile : profiles.toArray()) {
+                            if (!profile.isString() || profile.toString().trimmed().isEmpty()) {
+                                errors.push_back(QStringLiteral("MISSION_OPERATION_EQUIPMENT_PROFILE_INVALID"));
+                                continue;
+                            }
+                            target.equipment_profile_ids.push_back(profile.toString().trimmed().toStdString());
+                        }
+                    }
+                }
+            }
+            if (operation.operation_id.empty() || operation.template_id.empty()
+                || operation.operation_type.empty() || operation.geometry_id.empty())
+                errors.push_back(QStringLiteral("MISSION_OPERATION_IDENTITY_INCOMPLETE"));
+            for (const auto &existing : mission.operations) {
+                if (existing.operation_id == operation.operation_id) {
+                    errors.push_back(QStringLiteral("MISSION_OPERATION_ID_DUPLICATE"));
+                    break;
+                }
+            }
+            mission.operations.push_back(std::move(operation));
+        }
+    }
+
     const QJsonValue geometriesValue = json.value(QStringLiteral("geometryObjects"));
     if (!geometriesValue.isArray()) {
         errors.push_back(QStringLiteral("MISSION_GEOMETRY_OBJECTS_INVALID"));
