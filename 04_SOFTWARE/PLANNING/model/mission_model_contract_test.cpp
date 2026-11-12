@@ -60,8 +60,17 @@ int main() {
     assert(mission.executable_packages.size() == 1);
     assert(mission.execution_references.size() == 1);
 
+    mission.lifecycle.mission_id = mission.identity.mission_id;
+    mission.lifecycle.mission_version = mission.identity.mission_version;
+    mission.lifecycle.state = MissionLifecycleState::Draft;
     const auto validErrors = validateMissionModelStructure(mission);
     assert(validErrors.empty());
+
+    Mission mismatchedLifecycle = mission;
+    mismatchedLifecycle.lifecycle.mission_version = "OLD";
+    const auto lifecycleErrors = validateMissionModelStructure(mismatchedLifecycle);
+    assert(std::find(lifecycleErrors.begin(), lifecycleErrors.end(),
+                     "MISSION_LIFECYCLE_IDENTITY_MISMATCH") != lifecycleErrors.end());
 
     Mission missingGeometry = mission;
     missingGeometry.geometry_objects.clear();
