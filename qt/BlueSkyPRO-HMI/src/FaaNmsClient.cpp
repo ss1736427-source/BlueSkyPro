@@ -352,7 +352,7 @@ void FaaNmsClient::queryNotamsForScope(double latitude, double longitude,
         if (parseError.error != QJsonParseError::NoError || !doc.isObject()
             || token.isEmpty() || !expiryOk || expirySeconds <= 0) {
             m_queryInProgress = false;
-            emit notamQueryFinished(false, QStringLiteral("FAA NMS OAuth response did not match documented token schema."));
+            finishNotamQuery(false, missionScope, QStringLiteral("FAA NMS OAuth response did not match documented token schema."));
             return;
         }
         requestNotams(token, latitude, longitude, radiusNm, missionScope);
