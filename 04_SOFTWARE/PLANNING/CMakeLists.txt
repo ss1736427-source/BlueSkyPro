@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(BLUESKY_ENABLE_ECCODES "Build the ecCodes GRIB2 decoder into planning" OFF)
 
 add_library(bluesky_planning
+    mission_lifecycle.cpp
     command_lifecycle_runtime.cpp
     mission_transfer_runtime.cpp
     capability_execution_integration.cpp
@@ -205,6 +206,9 @@ add_executable(mission_model_contract_test
 )
 target_link_libraries(mission_model_contract_test PRIVATE bluesky_planning)
 
+add_executable(mission_lifecycle_test mission_lifecycle_test.cpp)
+target_link_libraries(mission_lifecycle_test PRIVATE bluesky_planning)
+
 add_executable(vehicle_equipment_capability_contract_test
     model/vehicle_equipment_capability_contract_test.cpp
 )
@@ -308,6 +312,7 @@ target_link_libraries(capability_execution_integration_test PRIVATE bluesky_plan
     add_test(NAME manual_route_candidate_builder_test COMMAND manual_route_candidate_builder_test)
     add_test(NAME manual_route_candidate_assessment_test COMMAND manual_route_candidate_assessment_test)
     add_test(NAME mission_model_contract_test COMMAND mission_model_contract_test)
+    add_test(NAME mission_lifecycle_test COMMAND mission_lifecycle_test)
     add_test(NAME vehicle_equipment_capability_contract_test COMMAND vehicle_equipment_capability_contract_test)
     add_test(NAME vehicle_motion_model_test COMMAND vehicle_motion_model_test)
     add_test(NAME flight_safety_constraints_test COMMAND flight_safety_constraints_test)
