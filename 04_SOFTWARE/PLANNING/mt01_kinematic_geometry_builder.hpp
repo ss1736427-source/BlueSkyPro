@@ -4,6 +4,7 @@
 #include "dubins_turn_connector.hpp"
 #include "model/vehicle_motion_model.hpp"
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -29,7 +30,9 @@ struct Mt01KinematicGeometryResult {
     std::string vehicle_model_version;
     std::string vehicle_configuration_id;
     std::size_t connector_count{0};
-    std::vector<GeoPoint> waypoints;\n    // One explicit dynamics record for every adjacent waypoint pair.\n    std::vector<Mt01KinematicSegment> segments;
+    std::vector<GeoPoint> waypoints;
+    // One explicit dynamics record for every adjacent waypoint pair.
+    std::vector<Mt01KinematicSegment> segments;
     std::vector<std::string> diagnostics;
 };
 
