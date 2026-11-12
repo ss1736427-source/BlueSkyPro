@@ -120,6 +120,18 @@ bool parseNotamSnapshot(const QVariantMap &parameters,
     request.notam_snapshot.source_id = sourceId.toStdString();
     request.notam_snapshot.source_version = sourceVersion.toStdString();
     request.notam_snapshot.evaluation_epoch_s = snapshotEpoch;
+    double queryLatitude = 0.0, queryLongitude = 0.0, queryRadiusM = 0.0;
+    if (!readNumber(parameters, QStringLiteral("notamQueryLatitude"), queryLatitude)
+        || !readNumber(parameters, QStringLiteral("notamQueryLongitude"), queryLongitude)
+        || !readNumber(parameters, QStringLiteral("notamQueryRadiusM"), queryRadiusM)
+        || queryLatitude < -90.0 || queryLatitude > 90.0
+        || queryLongitude < -180.0 || queryLongitude > 180.0
+        || queryRadiusM <= 0.0) {
+        errors.push_back(QStringLiteral("NOTAM_SNAPSHOT_COVERAGE_METADATA_REQUIRED"));
+        return false;
+    }
+    request.notam_snapshot.coverage_center = {queryLatitude, queryLongitude};
+    request.notam_snapshot.coverage_radius_m = queryRadiusM;
 
     const QVariantList records = parameters.value(QStringLiteral("notamRecords")).toList();
     for (const QVariant &recordValue : records) {
