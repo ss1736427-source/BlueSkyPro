@@ -1,4 +1,5 @@
 #include "mt01_kinematic_geometry_builder.hpp"
+#include "mt01_route_candidate_builder.hpp"
 #include "model/flight_safety_constraints.hpp"
 
 #include <cassert>
@@ -83,6 +84,33 @@ int main()
     assert(!dynamicsCheck.maximum_regime_uses.empty());
     assert(dynamicsCheck.operator_warning.find("максимально допустимых режимов БВС") !=
            std::string::npos);
+
+    coverage.metrics.calculated_altitude_agl_m = 100.0;
+    Mt01RouteCandidateMetadata routeMetadata;
+    routeMetadata.route_id = "MT01-ROUTE-TEST";
+    routeMetadata.route_version = "1";
+    routeMetadata.generator_id = "MT01-KINEMATIC-GENERATOR";
+    routeMetadata.generator_version = "1";
+    routeMetadata.calculation_input_version = "INPUT-TEST-1";
+    routeMetadata.constraints = {50.0, 150.0, 30.0, true};
+    const auto routeCandidate = Mt01RouteCandidateBuilder::build(
+        result, coverage, "MT01-MISSION-TEST", "1", routeMetadata);
+    assert(routeCandidate.available);
+    assert(routeCandidate.structural_validation.status == RouteValidationStatus::Allowed);
+    assert(routeCandidate.route.waypoints.size() == result.waypoints.size());
+    assert(routeCandidate.route.segments.size() == result.segments.size());
+    assert(!routeCandidate.route.trajectory_geometry_complete);
+    const auto routeDynamics = FlightSafetyConstraintValidator::validateRoute(
+        envelope, routeCandidate.route);
+    assert(routeDynamics.status == FlightSafetyStatus::Allowed);
+    assert(routeDynamics.maximum_regime_warning_required);
+
+    auto missingRouteLineage = routeMetadata;
+    missingRouteLineage.calculation_input_version.clear();
+    const auto blockedRoute = Mt01RouteCandidateBuilder::build(
+        result, coverage, "MT01-MISSION-TEST", "1", missingRouteLineage);
+    assert(!blockedRoute.available);
+    assert(!blockedRoute.diagnostics.empty());
 
     auto insufficientEnvelope = envelope;
     insufficientEnvelope.maximum_bank_angle_rad = vehicle.bank_angle_rad * 0.8;
