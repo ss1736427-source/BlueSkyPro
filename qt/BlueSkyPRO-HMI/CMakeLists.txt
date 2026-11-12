@@ -197,6 +197,24 @@ target_compile_options(mission_lifecycle_contract_test PRIVATE
 add_test(NAME mission_lifecycle_contract COMMAND mission_lifecycle_contract_test)
 set_tests_properties(mission_lifecycle_contract PROPERTIES LABELS "planning;lifecycle" TIMEOUT 30)
 
+add_executable(mission_lifecycle_terrain_adapter_contract_test
+    ../../04_SOFTWARE/PLANNING/mission_lifecycle_terrain_adapter_test.cpp
+    ../../04_SOFTWARE/PLANNING/mission_lifecycle_terrain_adapter.hpp
+)
+target_include_directories(mission_lifecycle_terrain_adapter_contract_test PRIVATE
+    ../../04_SOFTWARE/PLANNING
+)
+target_link_libraries(mission_lifecycle_terrain_adapter_contract_test PRIVATE bluesky_planning)
+target_compile_features(mission_lifecycle_terrain_adapter_contract_test PRIVATE cxx_std_20)
+target_compile_options(mission_lifecycle_terrain_adapter_contract_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME mission_lifecycle_terrain_adapter_contract
+    COMMAND mission_lifecycle_terrain_adapter_contract_test)
+set_tests_properties(mission_lifecycle_terrain_adapter_contract
+    PROPERTIES LABELS "planning;lifecycle;terrain" TIMEOUT 30)
+
 add_executable(notam_geometry_engine_test
     tests/NotamGeometryEngineTest.cpp
     src/NotamGeometryEngine.cpp
