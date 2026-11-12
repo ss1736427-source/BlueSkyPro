@@ -155,6 +155,8 @@ add_executable(mt01_mapping_bridge_test
     tests/Mt01MappingBridgeTest.cpp
     src/Mt01MappingBridge.cpp
     src/Mt01MappingBridge.h
+    src/NotamGeometryEngine.cpp
+    src/NotamGeometryEngine.h
 )
 target_include_directories(mt01_mapping_bridge_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.. ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(mt01_mapping_bridge_test PRIVATE bluesky_planning Qt6::Core)
