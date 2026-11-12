@@ -19,6 +19,12 @@ on:
       - '.github/workflows/bluesky-pro-windows-map-check.yml'
   workflow_dispatch:
 
+# Keep only the newest validation for a branch; stale commits must not consume
+# duplicate Windows/Qt runners while a newer main revision is being checked.
+concurrency:
+  group: bluesky-pro-hmi-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-hmi:
     runs-on: ubuntu-24.04
