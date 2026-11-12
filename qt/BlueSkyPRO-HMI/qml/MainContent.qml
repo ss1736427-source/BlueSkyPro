@@ -626,7 +626,7 @@ Item {
 
                 // Acquire NOTAMs for the mission AOI independently of the map viewport.
                 // A map pan/zoom can never satisfy or replace this mission snapshot.
-                var missionNotamArea = root.missionNotamQueryArea(manualGeometryBridge.geometryJson)
+                var missionNotamArea = root.missionNotamQueryArea(root.manualMissionModelJson)
                 if (!missionNotamArea.valid) {
                     root.manualModelValidationStatus = missionNotamArea.reason
                     root.manualSetRequested = false
