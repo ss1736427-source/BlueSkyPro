@@ -57,20 +57,25 @@ int main()
     assert(result.status == Mt01PipelineStatus::CoverageCandidateAvailable);
     assert(result.coverage_candidate_available);
     assert(!result.flight_release_eligible);
+    assert(!result.kinematic_geometry_available);
     assert(result.coverage.valid);
     assert(result.coverage.metrics.coverage_segment_count > 0);
     assert(std::abs(result.coverage.metrics.calculated_altitude_agl_m - 111.7272727) < 0.01);
 
     bool blockedReleaseDisclosed = false;
     bool calibrationGapDisclosed = false;
+    bool kinematicBlockDisclosed = false;
     for (const auto& finding : result.findings) {
         if (finding.find("FLIGHT_RELEASE_BLOCKED") != std::string::npos)
             blockedReleaseDisclosed = true;
         if (finding.find("CAMERA_CALIBRATION_UNVERIFIED") != std::string::npos)
             calibrationGapDisclosed = true;
+        if (finding.find("MT01_KINEMATIC_GEOMETRY_BLOCKED") != std::string::npos)
+            kinematicBlockDisclosed = true;
     }
     assert(blockedReleaseDisclosed);
     assert(calibrationGapDisclosed);
+    assert(kinematicBlockDisclosed);
 
     auto missingVehicle = request;
     missingVehicle.mission.vehicle_assignments.clear();
