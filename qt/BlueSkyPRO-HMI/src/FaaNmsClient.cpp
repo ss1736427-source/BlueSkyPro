@@ -279,7 +279,7 @@ void FaaNmsClient::queryMissionNotams(double latitude, double longitude, double 
 void FaaNmsClient::queryNotamsForScope(double latitude, double longitude,
                                        double radiusNm, bool missionScope)
 {
-    if (m_queryInProgress || m_requestInProgress) {
+    if (m_queryInProgress) {
         if (missionScope) {
             m_pendingMissionQuery = true;
             m_pendingMissionLatitude = latitude;
