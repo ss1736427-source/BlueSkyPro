@@ -81,7 +81,10 @@ Do not create two independent text parsers. That would allow map and optimizer t
 ### Remaining work
 
 - The interpreter currently resides in the HMI Qt Core layer. Extracting a Qt-independent domain library is still outstanding; no QML, WebEngine or rendering dependency is introduced into the interpreter.
-- Map viewport acquisition and mission-AOI acquisition are not yet separate result channels. The current FAA result properties are still shared by the map and `MissionProfileWindow`; a viewport refresh can therefore replace the planning input snapshot. This must be separated before treating mission NOTAM coverage as authoritative.
+- FAA acquisition now publishes independent result channels: `notamRecords` / `notamSnapshotId` remain viewport-only for the map; `missionNotamRecords` / `missionNotamSnapshotId` and their own coverage metadata are reserved for planning. A map refresh cannot clear or overwrite the mission snapshot.
+- MT-01 manual planning derives a conservative circular query envelope from the canonical mission AOI polygon, adds a 2 NM acquisition margin, and requests a separate mission snapshot when the existing one does not cover the AOI. The 100 NM FAA query limit is enforced. The operator is told to repeat SET after acquisition completes; no route is calculated against a viewport-only snapshot.
+- Mission requests are queued behind an active viewport request and take priority immediately after it completes. Query failures are reported on the matching consumer signal. A successful replacement is published atomically; an existing mission snapshot remains available while the replacement is in flight.
+- The weather/mission-profile NOTAM inputs now bind only to the mission snapshot. Map display remains bound only to the viewport snapshot.
 - Spatial/temporal snapshot indexes and a reusable immutable snapshot repository are not yet implemented. Planning projection currently walks the already interpreted component list.
 - Activation schedules and the full NOTAM condition vocabulary are not yet interpreted. Unknown or unsupported area semantics block planning rather than being silently accepted.
 - The current explicit semantic classifier is intentionally narrow. It must be expanded against a controlled NOTAM corpus with expected classifications before widening automatic `PROHIBITED` recognition.
