@@ -408,7 +408,7 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
         const QJsonValue dataValue = root.value(QStringLiteral("data"));
         if (!root.contains(QStringLiteral("status")) || statusValue.toString().compare(QStringLiteral("Success"), Qt::CaseInsensitive) != 0) {
             QString statusText = statusValue.isString() ? statusValue.toString() : QStringLiteral("missing/unsupported");
-            emit notamQueryFinished(false, QStringLiteral("FAA NMS reported a missing or non-success response status (%1). No records accepted.")
+            finishNotamQuery(false, missionScope, QStringLiteral("FAA NMS reported a missing or non-success response status (%1). No records accepted.")
                 .arg(statusText.left(80)));
             return;
         }
