@@ -40,6 +40,7 @@ Item {
     property real weatherRequestSpatialBufferM: 0
     property var lastWeatherCoverageResult: ({})
     onMissionModelJsonChanged: {
+        root.resetWeatherSourceRetries()
         var acquisitionWasActive =
                 weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
                 || weatherAcquisitionStatus === "DOWNLOADING"
@@ -55,6 +56,7 @@ Item {
         }
     }
     onMissionIdChanged: {
+        root.resetWeatherSourceRetries()
         if (weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
                 || weatherAcquisitionStatus === "DOWNLOADING"
                 || weatherAcquisitionStatus === "ASSESSING_WEATHER"
@@ -95,6 +97,11 @@ Item {
                         "Повтор GFS не запущен: проверьте исходные данные миссии и профиль БВС"
             }
         }
+    }
+
+    function resetWeatherSourceRetries() {
+        root.weatherForecastRetryPending = false
+        root.weatherForecastRetryCount = 0
     }
 
     function scheduleWeatherSourceRetry(reason) {
@@ -142,6 +149,7 @@ Item {
     }
 
     function finishWeatherInputEdit() {
+        root.resetWeatherSourceRetries()
         root.invalidateWeatherIfInputsChanged()
         root.maybeRequestWeatherAutomatically()
     }
@@ -339,6 +347,9 @@ Item {
     }
 
     function requestMissionWeather(validFromUtc, validToUtc, spatialBufferM, areaAltitudesAglM, missionStartUtc) {
+        // A fresh request supersedes any delayed retry; prevents overlapping requests
+        // when the operator manually retries before the retry timer fires.
+        root.weatherForecastRetryPending = false
         var utcPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
         var fromMs = Date.parse(validFromUtc)
         var toMs = Date.parse(validToUtc)
@@ -725,6 +736,7 @@ Item {
         target: root.routeController
         enabled: target !== null
         function onRouteChanged() {
+            root.resetWeatherSourceRetries()
             if (!root.applyingWeatherSelection
                     && (root.weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
                     || root.weatherAcquisitionStatus === "DOWNLOADING"
@@ -735,6 +747,7 @@ Item {
                 root.invalidateWeatherAcquisition("ROUTE_CHANGED_WEATHER_REQUEST_INVALIDATED")
         }
         function onCandidateSetChanged() {
+            root.resetWeatherSourceRetries()
             if (!root.applyingWeatherSelection
                     && (root.weatherAcquisitionStatus === "CHECKING_FORECAST_AVAILABILITY"
                         || root.weatherAcquisitionStatus === "DOWNLOADING"
