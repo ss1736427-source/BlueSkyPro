@@ -202,6 +202,9 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
                         lineageCode, result.blockers);
             }
         };
+        requireValidation(evidence.route_structure_validation,
+                          "ROUTE_STRUCTURE_VALIDATION_EVIDENCE_REQUIRED",
+                          "ROUTE_STRUCTURE_VALIDATION_LINEAGE_MISMATCH");
         requireValidation(evidence.trajectory_geometry_validation,
                           "TRAJECTORY_GEOMETRY_VALIDATION_EVIDENCE_REQUIRED",
                           "TRAJECTORY_GEOMETRY_VALIDATION_LINEAGE_MISMATCH");

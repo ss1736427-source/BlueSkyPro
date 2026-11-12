@@ -181,6 +181,8 @@ add_executable(mission_lifecycle_contract_test
     ../../04_SOFTWARE/PLANNING/mission_lifecycle.cpp
     ../../04_SOFTWARE/PLANNING/mission_lifecycle.hpp
     ../../04_SOFTWARE/PLANNING/mission_lifecycle_test.cpp
+    ../../04_SOFTWARE/PLANNING/route_constraint_validator.cpp
+    ../../04_SOFTWARE/PLANNING/mission_lifecycle_route_adapter.hpp
 )
 target_include_directories(mission_lifecycle_contract_test PRIVATE
     ../../04_SOFTWARE/PLANNING

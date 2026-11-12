@@ -1,10 +1,26 @@
 #include "mission_lifecycle.hpp"
+#include "mission_lifecycle_route_adapter.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <string>
 
 using namespace bluesky::planning;
+
+static MissionLifecycleValidationEvidence routeStructureValidation() {
+    Route route;
+    route.lineage = {"ROUTE-01", "3", "MISSION-001", "7",
+                     "test-generator", "1", "INPUT-9"};
+    route.constraints = {80.0, 120.0, 30.0, true};
+    route.waypoints = {
+        {"WP-1", {60.0, 25.0}, 100.0, true, AltitudeReference::AGL},
+        {"WP-2", {60.1, 25.1}, 100.0, false, AltitudeReference::AGL}
+    };
+    route.segments = {{"SEG-1", "WP-1", "WP-2", 1000.0, 20.0}};
+    const auto result = RouteConstraintValidator::validate(route);
+    assert(result.status == RouteValidationStatus::Allowed);
+    return makeRouteStructureValidationEvidence(route, result);
+}
 
 static MissionLifecycleValidationEvidence validation(const std::string &id) {
     return {id, "MISSION-001", "7", "ROUTE-01", "3", "INPUT-9",
@@ -42,6 +58,7 @@ static MissionLifecycleEvidence evidence() {
     e.weather_aware_route_generated = true;
     e.notam_recheck_complete = true;
     e.route_candidate_selected = true;
+    e.route_structure_validation = routeStructureValidation();
     e.trajectory_geometry_validation = validation("GEOMETRY-RESULT");
     e.notam_validation = validation("NOTAM-RESULT");
     e.terrain_validation = validation("TERRAIN-RESULT");
@@ -99,6 +116,12 @@ int main() {
     assert(std::find(staleValidation.blockers.begin(), staleValidation.blockers.end(),
                      "NOTAM_VALIDATION_LINEAGE_MISMATCH") != staleValidation.blockers.end());
     e.notam_validation = validation("NOTAM-RESULT");
+    auto missingRouteStructure = e;
+    missingRouteStructure.route_structure_validation.result_id.clear();
+    auto missingRouteStructureResult = move(record, MissionLifecycleState::Ready, missingRouteStructure);
+    assert(!missingRouteStructureResult.accepted);
+    assert(std::find(missingRouteStructureResult.blockers.begin(), missingRouteStructureResult.blockers.end(),
+                     "ROUTE_STRUCTURE_VALIDATION_EVIDENCE_REQUIRED") != missingRouteStructureResult.blockers.end());
     auto missingValidationId = e;
     missingValidationId.terrain_validation.result_id.clear();
     auto missingValidation = move(record, MissionLifecycleState::Ready, missingValidationId);

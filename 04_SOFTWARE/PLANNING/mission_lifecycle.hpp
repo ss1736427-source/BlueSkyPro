@@ -69,6 +69,7 @@ struct MissionLifecycleEvidence {
     bool weather_aware_route_generated{false};
     bool notam_recheck_complete{false};
     bool route_candidate_selected{false};
+    MissionLifecycleValidationEvidence route_structure_validation;
     MissionLifecycleValidationEvidence trajectory_geometry_validation;
     MissionLifecycleValidationEvidence notam_validation;
     MissionLifecycleValidationEvidence terrain_validation;
