@@ -59,7 +59,7 @@ std::vector<GeoPoint> circlePolygon(const GeoPoint& center, double radiusM) {
 }
 
 bool validZone(const NotamZone& zone) {
-    if (zone.notam_id.empty() || !finite(zone.lower_altitude_m)
+    if (zone.notam_id.empty() || zone.component_id.empty() || !finite(zone.lower_altitude_m)
         || !finite(zone.upper_altitude_m) || zone.lower_altitude_m > zone.upper_altitude_m
         || zone.valid_from_epoch_s <= 0 || zone.valid_to_epoch_s < zone.valid_from_epoch_s)
         return false;
@@ -173,6 +173,7 @@ NotamGeometryAdapterResult NotamGeometryAdapter::build(
                                    result.exclusion_areas);
         }
         result.applicable_notam_ids.push_back(zone.notam_id);
+        result.applicable_component_ids.push_back(zone.component_id);
     }
 
     result.applicable_zone_count = result.applicable_notam_ids.size();

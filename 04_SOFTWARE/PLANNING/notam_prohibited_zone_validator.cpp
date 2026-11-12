@@ -114,7 +114,7 @@ bool segment_intersects_zone(const NotamZone& z, const GeoPoint& a, const GeoPoi
 }
 
 bool valid_zone(const NotamZone& z) {
-    if (z.notam_id.empty() || !std::isfinite(z.lower_altitude_m) ||
+    if (z.notam_id.empty() || z.component_id.empty() || !std::isfinite(z.lower_altitude_m) ||
         !std::isfinite(z.upper_altitude_m) || z.lower_altitude_m > z.upper_altitude_m ||
         z.valid_from_epoch_s <= 0 || z.valid_to_epoch_s < z.valid_from_epoch_s)
         return false;
@@ -217,7 +217,7 @@ NotamValidationResult NotamProhibitedZoneValidator::validate(const Route& route,
                 result.findings.push_back({NotamValidationCode::WaypointInsideProhibitedZone,
                                            wp.waypoint_id, zone.notam_id,
                                            "Route waypoint lies inside an active NOTAM prohibited zone",
-                                           "", ""});
+                                           "", "", zone.component_id});
             }
         }
 
@@ -230,7 +230,7 @@ NotamValidationResult NotamProhibitedZoneValidator::validate(const Route& route,
                 result.findings.push_back({NotamValidationCode::SegmentIntersectsProhibitedZone,
                                            "", zone.notam_id,
                                            "Route segment intersects an active NOTAM prohibited zone",
-                                           start.waypoint_id, end.waypoint_id});
+                                           start.waypoint_id, end.waypoint_id, zone.component_id});
             }
         }
     }
@@ -381,7 +381,7 @@ NotamValidationResult NotamProhibitedZoneValidator::validate(
                     NotamValidationCode::WaypointOccupancyOverlapsNotamValidity,
                     waypoint.waypoint_id, zone.notam_id,
                     "Waypoint occupancy interval overlaps the inclusive NOTAM validity interval",
-                    "", ""
+                    "", "", zone.component_id
                 });
             }
         }
@@ -402,7 +402,7 @@ NotamValidationResult NotamProhibitedZoneValidator::validate(
                     NotamValidationCode::SegmentOccupancyOverlapsNotamValidity,
                     "", zone.notam_id,
                     "Segment occupancy interval overlaps the inclusive NOTAM validity interval",
-                    from.waypoint_id, to.waypoint_id
+                    from.waypoint_id, to.waypoint_id, zone.component_id
                 });
             }
         }

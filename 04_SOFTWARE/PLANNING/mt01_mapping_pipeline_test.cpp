@@ -78,6 +78,7 @@ int main()
     auto withNotam = request;
     NotamZone circle;
     circle.notam_id = "TEST-CIRCLE-01";
+    circle.component_id = "TEST-CIRCLE-01-COMP-01";
     circle.restriction_type = NotamRestrictionType::Prohibited;
     circle.geometry_type = NotamGeometryType::Circle;
     circle.center = {0.001, 0.001};
@@ -115,7 +116,8 @@ int main()
     // union of the source polygon, edge strips and circumscribed vertex disks.
     auto polygonNotam = request;
     NotamZone polygonZone;
-    polygonZone.notam_id = "TEST-POLYGON-01";
+    polygonZone.notam_id = "TEST-COMPOUND-01";
+    polygonZone.component_id = "TEST-COMPOUND-01-AREA-01";
     polygonZone.restriction_type = NotamRestrictionType::Prohibited;
     polygonZone.geometry_type = NotamGeometryType::Polygon;
     polygonZone.polygon = {
@@ -128,9 +130,19 @@ int main()
     polygonZone.valid_to_epoch_s = polygonNotam.planned_mission_end_epoch_s;
     polygonZone.altitude_reference = NotamAltitudeReference::AGL;
     polygonNotam.notam_snapshot.zones.push_back(polygonZone);
+    auto circleComponent = circle;
+    circleComponent.notam_id = "TEST-COMPOUND-01";
+    circleComponent.component_id = "TEST-COMPOUND-01-WI-CIRCLE-01";
+    polygonNotam.notam_snapshot.zones.push_back(circleComponent);
     const auto polygonResult = Mt01MappingPipeline::calculate(polygonNotam);
     assert(polygonResult.notam_geometry.valid);
-    assert(polygonResult.notam_geometry.applicable_zone_count == 1);
+    assert(polygonResult.notam_geometry.applicable_zone_count == 2);
+    assert(polygonResult.notam_geometry.applicable_notam_ids.size() == 2);
+    assert(polygonResult.notam_geometry.applicable_component_ids.size() == 2);
+    assert(polygonResult.notam_geometry.applicable_component_ids[0] ==
+           "TEST-COMPOUND-01-AREA-01");
+    assert(polygonResult.notam_geometry.applicable_component_ids[1] ==
+           "TEST-COMPOUND-01-WI-CIRCLE-01");
     assert(polygonResult.notam_geometry.exclusion_areas.size() > 1);
     assert(polygonResult.coverage.valid);
     assert(polygonResult.coverage.metrics.estimated_coverage_leg_length_m <

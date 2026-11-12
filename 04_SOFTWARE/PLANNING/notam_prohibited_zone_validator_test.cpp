@@ -20,8 +20,9 @@ static NotamSnapshot snapshot() {
     s.source_id = "AUTH-NOTAM";
     s.source_version = "2026-09-24T12:00Z";
     s.evaluation_epoch_s = 1000;
-    s.zones.push_back({"N-001", NotamRestrictionType::Prohibited, NotamGeometryType::Circle,
-                       {60.0, 25.0}, 1000.0, {}, 0.0, 500.0, 900, 1100, NotamAltitudeReference::AGL});
+     s.zones.push_back({"N-001", NotamRestrictionType::Prohibited, NotamGeometryType::Circle,
+                       {60.0, 25.0}, 1000.0, {}, 0.0, 500.0, 900, 1100,
+                       NotamAltitudeReference::AGL, "N-001-COMP-01"});
     return s;
 }
 
@@ -64,7 +65,7 @@ int main() {
     s.zones.front() = {"N-POLY", NotamRestrictionType::Prohibited, NotamGeometryType::Polygon,
                        {}, 0.0, {{59.999, 24.999}, {60.001, 24.999},
                                  {60.001, 25.001}, {59.999, 25.001}},
-                       0.0, 500.0, 900, 1100, NotamAltitudeReference::AGL};
+                       0.0, 500.0, 900, 1100, NotamAltitudeReference::AGL, "N-POLY-COMP-01"};
     auto polygon_crossing = NotamProhibitedZoneValidator::validate(r, s);
     assert(polygon_crossing.status == RouteValidationStatus::Rejected);
     bool polygon_finding = false;
@@ -159,7 +160,8 @@ int main() {
     bool timedSegmentFinding = false;
     for (const auto& finding : timedConflict.findings)
         if (finding.code == NotamValidationCode::SegmentOccupancyOverlapsNotamValidity &&
-            finding.notam_id == "N-001") timedSegmentFinding = true;
+            finding.notam_id == "N-001" &&
+            finding.component_id == "N-001-COMP-01") timedSegmentFinding = true;
     assert(timedSegmentFinding);
 
     timedSnapshot.zones.front().valid_from_epoch_s = 1201;

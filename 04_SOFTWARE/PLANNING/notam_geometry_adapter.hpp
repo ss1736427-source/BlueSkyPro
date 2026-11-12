@@ -22,6 +22,7 @@ struct NotamGeometryAdapterResult {
     std::size_t applicable_zone_count{0};
     std::vector<std::vector<GeoPoint>> exclusion_areas;
     std::vector<std::string> applicable_notam_ids;
+    std::vector<std::string> applicable_component_ids;
     std::vector<std::string> diagnostics;
 };
 

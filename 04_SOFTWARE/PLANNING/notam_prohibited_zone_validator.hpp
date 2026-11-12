@@ -36,6 +36,8 @@ struct NotamZone {
     std::int64_t valid_from_epoch_s{0};
     std::int64_t valid_to_epoch_s{0};
     NotamAltitudeReference altitude_reference{NotamAltitudeReference::Unknown};
+    // Stable identity of one normalized geometry component within a compound NOTAM.
+    std::string component_id;
 };
 
 struct NotamSnapshot {
@@ -53,6 +55,7 @@ struct NotamValidationFinding {
     std::string detail;
     std::string segment_start_waypoint_id;
     std::string segment_end_waypoint_id;
+    std::string component_id;
 };
 
 struct NotamValidationResult {

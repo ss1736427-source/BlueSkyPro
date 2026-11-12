@@ -159,6 +159,7 @@ int main()
     snapshot->evaluation_epoch_s = 1000;
     NotamZone crossingZone;
     crossingZone.notam_id = "NOTAM-TIMED-001";
+    crossingZone.component_id = "NOTAM-TIMED-001-COMP-01";
     crossingZone.geometry_type = NotamGeometryType::Circle;
     crossingZone.center = {55.005, 37.005};
     crossingZone.radius_m = 150.0;
