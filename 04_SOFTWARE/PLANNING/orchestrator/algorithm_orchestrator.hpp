@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../solver_contract/solver_contract.hpp"
+#include "../wind_performance_trajectory.hpp"
 #include <functional>
 #include <memory>
 #include <string>
@@ -22,6 +23,7 @@ struct CandidateWeatherAssessment {
     double corrected_energy_wh{0.0};
     double remaining_energy_wh{0.0};
     std::string error;
+    std::optional<TrajectoryResult> trajectory;
 };
 
 using CandidateWeatherAssessor = std::function<CandidateWeatherAssessment(

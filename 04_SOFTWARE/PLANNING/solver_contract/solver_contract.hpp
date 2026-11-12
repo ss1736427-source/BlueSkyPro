@@ -3,12 +3,15 @@
 #include "../model/planning_graph.hpp"
 #include "../model/flight_safety_constraints.hpp"
 #include <optional>
+#include <memory>
 #include <cstdint>
 #include <string>
 #include <vector>
 #include <utility>
 
 namespace bluesky::planning {
+
+struct NotamSnapshot;
 
 enum class Feasibility { Feasible, Infeasible, Uncertain, Partial };
 enum class RunState { Started, Running, Candidate, Completed, Timeout, Cancelled, Failed };
@@ -33,6 +36,8 @@ struct MissionProblem {
     // Current contract is single-aircraft only; this must match the sole vehicle_ids entry.
     std::string flight_safety_vehicle_id;
     std::optional<FlightSafetyEnvelope> flight_safety_envelope;
+    std::shared_ptr<const NotamSnapshot> notam_snapshot;
+    bool requires_notam_validation{false};
 };
 
 struct CandidateSolution {

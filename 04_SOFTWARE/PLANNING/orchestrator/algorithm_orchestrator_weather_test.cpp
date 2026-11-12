@@ -33,6 +33,7 @@ Route completeRoute(const std::string& id)
     route.lineage.route_id = id;
     route.lineage.route_version = "1";
     route.trajectory_geometry_complete = true;
+    route.environment.airspace_snapshot_id = "NOTAM-SNAPSHOT-WEATHER-TEST";
     RouteWaypoint a;
     a.waypoint_id = id + "-A";
     a.position = {55.0, 37.0};
@@ -146,5 +147,85 @@ int main()
         }
     }
     assert(missingGeometryRejected);
+
+    // Final NOTAM validation runs after the weather assessor returns the matching 4D trajectory.
+    MissionProblem notamProblem = problem;
+    notamProblem.requires_notam_validation = true;
+    auto snapshot = std::make_shared<NotamSnapshot>();
+    snapshot->snapshot_id = "NOTAM-SNAPSHOT-WEATHER-TEST";
+    snapshot->source_id = "CONTROLLED-TEST-SOURCE";
+    snapshot->source_version = "1";
+    snapshot->evaluation_epoch_s = 1000;
+    NotamZone crossingZone;
+    crossingZone.notam_id = "NOTAM-TIMED-001";
+    crossingZone.geometry_type = NotamGeometryType::Circle;
+    crossingZone.center = {55.005, 37.005};
+    crossingZone.radius_m = 150.0;
+    crossingZone.lower_altitude_m = 90.0;
+    crossingZone.upper_altitude_m = 110.0;
+    crossingZone.valid_from_epoch_s = 1040;
+    crossingZone.valid_to_epoch_s = 1060;
+    crossingZone.altitude_reference = NotamAltitudeReference::AGL;
+    snapshot->zones.push_back(crossingZone);
+    notamProblem.notam_snapshot = snapshot;
+
+    TestContext notamContext(notamProblem);
+    std::vector<std::unique_ptr<Solver>> notamSolvers;
+    notamSolvers.push_back(std::make_unique<CandidateSolver>());
+    CandidateWeatherAssessor timedAssessor =
+        [](const MissionProblem&, const CandidateSolution& candidate) {
+            CandidateWeatherAssessment result;
+            result.evaluated = true;
+            result.snapshot_id = "GFS-TEST";
+            result.snapshot_version = "1";
+            result.corrected_time_s = 100.0;
+            result.corrected_energy_wh = 20.0;
+            result.remaining_energy_wh = 80.0;
+            const auto& route = *candidate.trajectory_route;
+            TrajectoryResult trajectory;
+            trajectory.status = TrajectoryStatus::Feasible;
+            trajectory.route_id = route.lineage.route_id;
+            trajectory.route_version = route.lineage.route_version;
+            trajectory.mission_start_epoch_s = 1000;
+            trajectory.total_time_s = 100.0;
+            trajectory.total_energy_wh = 20.0;
+            trajectory.remaining_energy_wh = 80.0;
+            for (std::size_t i = 0; i < route.waypoints.size(); ++i) {
+                const auto& waypoint = route.waypoints[i];
+                trajectory.points.push_back({
+                    waypoint.waypoint_id, waypoint.position, waypoint.altitude_m,
+                    i == 0 ? 0.0 : 100.0, 0.0
+                });
+            }
+            trajectory.segments.push_back({
+                route.segments.front().segment_id, 10.0, 45.0, 100.0, 20.0
+            });
+            result.trajectory = trajectory;
+            return result;
+        };
+    AlgorithmOrchestrator notamOrchestrator(
+        std::move(notamSolvers), {}, timedAssessor);
+    const auto notamDecision = notamOrchestrator.solve(notamContext);
+    assert(notamDecision.feasibility == Feasibility::Infeasible);
+    bool temporalNotamConflictRejected = false;
+    for (const auto& rejected : notamDecision.rejected_candidates) {
+        for (const auto& violation : rejected.violations) {
+            if (violation.find("NOTAM_VALIDATION") != std::string::npos &&
+                violation.find("NOTAM-TIMED-001") != std::string::npos)
+                temporalNotamConflictRejected = true;
+        }
+    }
+    assert(temporalNotamConflictRejected);
+
+    MissionProblem missingSnapshotProblem = problem;
+    missingSnapshotProblem.requires_notam_validation = true;
+    TestContext missingSnapshotContext(missingSnapshotProblem);
+    std::vector<std::unique_ptr<Solver>> missingSnapshotSolvers;
+    missingSnapshotSolvers.push_back(std::make_unique<CandidateSolver>());
+    AlgorithmOrchestrator missingSnapshotOrchestrator(
+        std::move(missingSnapshotSolvers), {}, assessor);
+    assert(missingSnapshotOrchestrator.solve(missingSnapshotContext).feasibility ==
+           Feasibility::Uncertain);
+
     return 0;
 }

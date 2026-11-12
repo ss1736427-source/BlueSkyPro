@@ -99,6 +99,7 @@ bluesky::planning::CandidateWeatherAssessor makeCandidateWeatherAssessor(
         result.corrected_time_s = trajectory.total_time_s;
         result.corrected_energy_wh = trajectory.total_energy_wh;
         result.remaining_energy_wh = trajectory.remaining_energy_wh;
+        result.trajectory = trajectory;
         return result;
     };
 }

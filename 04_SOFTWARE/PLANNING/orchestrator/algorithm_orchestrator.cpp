@@ -1,4 +1,5 @@
 #include "algorithm_orchestrator.hpp"
+#include "../notam_prohibited_zone_validator.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -116,6 +117,13 @@ AlgorithmOrchestrator::AlgorithmOrchestrator(
 OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
     OrchestratorDecision decision;
     CandidateSolution best;
+    if (context.problem().requires_notam_validation &&
+        !context.problem().notam_snapshot) {
+        decision.feasibility = Feasibility::Uncertain;
+        decision.explanation =
+            "Расчёт остановлен: для обязательной проверки NOTAM после погодного расчёта отсутствует подтверждённый снимок ограничений.";
+        return decision;
+    }
     std::vector<MaximumRegimeUse> bestMaximumRegimeUses;
     bool bestMaximumRegimeWarning = false;
     std::string bestOperatorWarning;
@@ -244,6 +252,44 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
                         rankedCandidate.estimated_time_s = weatherAssessment.corrected_time_s;
                         rankedCandidate.estimated_energy_wh = weatherAssessment.corrected_energy_wh;
                         rankedCandidate.estimated_reserve_wh = weatherAssessment.remaining_energy_wh;
+                    }
+                }
+            }
+
+            if (violations.empty() && context.problem().requires_notam_validation) {
+                if (!weather_assessor_) {
+                    violations.push_back(
+                        "NOTAM_VALIDATION_UNKNOWN: обязательная проверка после ветрового расчёта невозможна без weather assessor.");
+                } else if (!candidate.trajectory_route.has_value() ||
+                           !weatherAssessment.trajectory.has_value()) {
+                    violations.push_back(
+                        "NOTAM_VALIDATION_UNKNOWN: отсутствует канонический маршрут или фактический 4D результат ветрового расчёта.");
+                } else if (!candidate.trajectory_route->constraints.avoid_restricted_areas) {
+                    violations.push_back(
+                        "NOTAM_VALIDATION_UNKNOWN: кандидат отключил обязательное избегание ограниченного воздушного пространства.");
+                } else {
+                    const auto notamResult = NotamProhibitedZoneValidator::validate(
+                        *candidate.trajectory_route,
+                        *context.problem().notam_snapshot,
+                        *weatherAssessment.trajectory);
+                    if (notamResult.status != RouteValidationStatus::Allowed) {
+                        if (notamResult.findings.empty()) {
+                            violations.push_back(
+                                "NOTAM_VALIDATION_REJECTED: маршрут не прошёл итоговую временную проверку NOTAM.");
+                        } else {
+                            for (const auto& finding : notamResult.findings) {
+                                std::ostringstream reason;
+                                reason << "NOTAM_VALIDATION: " << finding.detail;
+                                if (!finding.notam_id.empty())
+                                    reason << " NOTAM: " << finding.notam_id << ".";
+                                if (!finding.waypoint_id.empty())
+                                    reason << " Точка: " << finding.waypoint_id << ".";
+                                if (!finding.segment_start_waypoint_id.empty())
+                                    reason << " Участок: " << finding.segment_start_waypoint_id
+                                           << " -> " << finding.segment_end_waypoint_id << ".";
+                                violations.push_back(reason.str());
+                            }
+                        }
                     }
                 }
             }
