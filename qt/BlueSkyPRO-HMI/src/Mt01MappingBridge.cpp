@@ -530,6 +530,10 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
             assignmentFindings.push_back(QStringLiteral("CAMERA_EQUIPMENT_NOT_VERIFIED"));
     }
     bool taskExecutionEstimatesReady = false;
+    if (std::find(mission.selected_template_ids.begin(),
+                  mission.selected_template_ids.end(), "MT-01")
+        == mission.selected_template_ids.end())
+        assignmentFindings.push_back(QStringLiteral("MT01_TEMPLATE_NOT_SELECTED"));
     const MissionGeometryObject *mappingAoi = nullptr;
     for (const auto &geometry : mission.geometry_objects) {
         if (geometry.geometry_type != "POLYGON_AOI"
