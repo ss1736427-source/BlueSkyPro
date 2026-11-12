@@ -10,6 +10,7 @@ namespace bluesky::planning {
 // airspace snapshot already bound to that route.
 inline MissionLifecycleValidationEvidence makeNotamValidationEvidence(
     const Route &route,
+    const NotamSnapshot &snapshot,
     const NotamValidationResult &validation)
 {
     MissionLifecycleValidationEvidence evidence;
@@ -23,11 +24,15 @@ inline MissionLifecycleValidationEvidence makeNotamValidationEvidence(
     evidence.calculation_input_version = route.lineage.calculation_input_version;
     evidence.validator_id = validation.validator_id;
     evidence.validator_version = validation.validator_version;
+    evidence.source_reference = snapshot.source_id + "@" + snapshot.source_version;
     const bool lineageMatches = !route.lineage.mission_id.empty()
         && !route.lineage.mission_version.empty() && !route.lineage.route_id.empty()
         && !route.lineage.route_version.empty()
         && !route.lineage.calculation_input_version.empty()
-        && !validation.snapshot_id.empty()
+        && !snapshot.source_id.empty() && !snapshot.source_version.empty()
+        && !snapshot.snapshot_id.empty()
+        && validation.snapshot_id == snapshot.snapshot_id
+        && !evidence.source_reference.empty()
         && validation.snapshot_id == route.environment.airspace_snapshot_id
         && !validation.validator_id.empty() && !validation.validator_version.empty();
     evidence.status = validation.status == RouteValidationStatus::Allowed

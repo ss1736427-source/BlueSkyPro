@@ -25,6 +25,8 @@ inline MissionLifecycleValidationEvidence makeRouteStructureValidationEvidence(
     evidence.calculation_input_version = route.lineage.calculation_input_version;
     evidence.validator_id = validation.validator_id;
     evidence.validator_version = validation.validator_version;
+    evidence.source_reference = "canonical-route:" + route.lineage.route_id
+        + "@" + route.lineage.route_version;
     const bool lineageMatches = !evidence.result_id.empty()
         && !evidence.validator_id.empty() && !evidence.validator_version.empty()
         && validation.calculation_input_version == route.lineage.calculation_input_version

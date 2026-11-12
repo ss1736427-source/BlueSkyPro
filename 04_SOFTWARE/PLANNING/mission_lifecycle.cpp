@@ -172,7 +172,8 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
                                            const char *missingCode, const char *lineageCode) {
             const bool hasResult = validation.status == MissionLifecycleValidationStatus::Passed
                 && !validation.result_id.empty() && !validation.validator_id.empty()
-                && !validation.validator_version.empty();
+                && !validation.validator_version.empty()
+                && !validation.source_reference.empty();
             require(hasResult, missingCode, result.blockers);
             if (hasResult) {
                 require(validation.mission_id == record.mission_id

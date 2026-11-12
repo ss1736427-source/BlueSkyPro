@@ -34,6 +34,7 @@ struct MissionLifecycleValidationEvidence {
     std::string calculation_input_version;
     std::string validator_id;
     std::string validator_version;
+    std::string source_reference;
     MissionLifecycleValidationStatus status{MissionLifecycleValidationStatus::Missing};
 };
 

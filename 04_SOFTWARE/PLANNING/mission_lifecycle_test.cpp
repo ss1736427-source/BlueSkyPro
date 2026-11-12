@@ -42,20 +42,30 @@ static MissionLifecycleValidationEvidence notamValidation() {
     snapshot.evaluation_epoch_s = 1000;
     const auto result = NotamProhibitedZoneValidator::validate(route, snapshot);
     assert(result.status == RouteValidationStatus::Allowed);
-    auto evidence = makeNotamValidationEvidence(route, result);
+    auto evidence = makeNotamValidationEvidence(route, snapshot, result);
     assert(evidence.status == MissionLifecycleValidationStatus::Passed);
 
     auto mismatchedSnapshot = snapshot;
     mismatchedSnapshot.snapshot_id = "NOTAM-OTHER";
     const auto rejected = NotamProhibitedZoneValidator::validate(route, mismatchedSnapshot);
-    const auto rejectedEvidence = makeNotamValidationEvidence(route, rejected);
+    const auto rejectedEvidence = makeNotamValidationEvidence(route, mismatchedSnapshot, rejected);
     assert(rejectedEvidence.status == MissionLifecycleValidationStatus::Failed);
     return evidence;
 }
 
 static MissionLifecycleValidationEvidence validation(const std::string &id) {
-    return {id, "MISSION-001", "7", "ROUTE-01", "3", "INPUT-9",
-            "validator-" + id, "1", MissionLifecycleValidationStatus::Passed};
+    MissionLifecycleValidationEvidence result;
+    result.result_id = id;
+    result.mission_id = "MISSION-001";
+    result.mission_version = "7";
+    result.route_id = "ROUTE-01";
+    result.route_version = "3";
+    result.calculation_input_version = "INPUT-9";
+    result.validator_id = "validator-" + id;
+    result.validator_version = "1";
+    result.source_reference = "test-fixture:" + id;
+    result.status = MissionLifecycleValidationStatus::Passed;
+    return result;
 }
 
 static MissionLifecycleEvidence evidence() {
