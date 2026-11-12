@@ -30,6 +30,12 @@ Item {
     // GFS model cycles are issued at 00Z/06Z/12Z/18Z. Recheck once per cycle;
     // immutable GRIB products are reused from the verified SHA-256 cache when unchanged.
     property int weatherForecastRefreshIntervalMs: 6 * 60 * 60 * 1000
+    // Retry only source availability/download failures; bounded to avoid endless
+    // traffic when NOMADS is unavailable or the requested product cannot be served.
+    property int weatherForecastRetryIntervalMs: 5 * 60 * 1000
+    property int weatherForecastRetryLimit: 3
+    property int weatherForecastRetryCount: 0
+    property bool weatherForecastRetryPending: false
     property string weatherRequestEtdUtc: ""
     property real weatherRequestSpatialBufferM: 0
     property var lastWeatherCoverageResult: ({})
@@ -68,6 +74,44 @@ Item {
             root.invalidateWeatherAcquisition("GFS_MODEL_CYCLE_REVALIDATION_DUE")
             root.maybeRequestWeatherAutomatically()
         }
+    }
+
+    Timer {
+        id: weatherForecastRetryTimer
+        interval: root.weatherForecastRetryIntervalMs
+        repeat: false
+        running: root.weatherForecastRetryPending
+        onTriggered: {
+            root.weatherForecastRetryPending = false
+            if (root.routeValidationState !== "VALIDATED") {
+                root.weatherAcquisitionStatus = "STALE"
+                root.weatherAcquisitionMessage =
+                        "Повтор GFS отложен: маршрут больше не прошёл проверку"
+                return
+            }
+            if (!root.maybeRequestWeatherAutomatically()
+                    && root.weatherAcquisitionStatus === "STALE") {
+                root.weatherAcquisitionMessage =
+                        "Повтор GFS не запущен: проверьте исходные данные миссии и профиль БВС"
+            }
+        }
+    }
+
+    function scheduleWeatherSourceRetry(reason) {
+        if (root.weatherForecastRetryCount >= root.weatherForecastRetryLimit) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = String(reason)
+                    + " · автоматические повторы исчерпаны ("
+                    + root.weatherForecastRetryLimit + ")"
+            return false
+        }
+        root.weatherForecastRetryCount += 1
+        root.invalidateWeatherAcquisition("TRANSIENT_GFS_SOURCE_FAILURE")
+        root.weatherForecastRetryPending = true
+        root.weatherAcquisitionMessage = String(reason)
+                + " · повтор " + root.weatherForecastRetryCount + "/"
+                + root.weatherForecastRetryLimit + " через 5 мин"
+        return true
     }
 
     readonly property string weatherCoverageStatus:
@@ -357,8 +401,8 @@ Item {
         var accepted = root.forecastAvailabilityService.checkMissionForecast(
                     validFromUtc, validToUtc)
         if (!accepted) {
-            root.weatherAcquisitionStatus = "BLOCKED"
-            root.weatherAcquisitionMessage = root.forecastAvailabilityService.lastError
+            root.scheduleWeatherSourceRetry(root.forecastAvailabilityService.lastError
+                    || "GFS_AVAILABILITY_REQUEST_NOT_ACCEPTED")
             return false
         }
         return true
@@ -579,8 +623,8 @@ Item {
                     levels)
         if (!started && root.weatherBatchDownloadActive) {
             root.weatherBatchDownloadActive = false
-            root.weatherAcquisitionStatus = "BLOCKED"
-            root.weatherAcquisitionMessage = root.weatherDataService.lastError
+            root.scheduleWeatherSourceRetry(root.weatherDataService.lastError
+                    || "GFS_BATCH_DOWNLOAD_NOT_ACCEPTED")
         }
     }
 
@@ -605,8 +649,7 @@ Item {
         function onCheckFailed(reason, diagnostics) {
             if (root.weatherAcquisitionStatus !== "CHECKING_FORECAST_AVAILABILITY")
                 return
-            root.weatherAcquisitionStatus = "BLOCKED"
-            root.weatherAcquisitionMessage = String(reason)
+            root.scheduleWeatherSourceRetry(String(reason))
         }
     }
 
@@ -653,8 +696,7 @@ Item {
             if (root.weatherAcquisitionStatus !== "DOWNLOADING")
                 return
             root.weatherBatchDownloadActive = false
-            root.weatherAcquisitionStatus = "BLOCKED"
-            root.weatherAcquisitionMessage = String(reason)
+            root.scheduleWeatherSourceRetry(String(reason))
         }
         function onForecastReady(filePath, manifest) {
             if (root.weatherBatchDownloadActive)
@@ -674,10 +716,8 @@ Item {
             root.downloadNextWeatherForecast()
         }
         function onDownloadFailed(reason) {
-            if (root.weatherAcquisitionStatus === "DOWNLOADING") {
-                root.weatherAcquisitionStatus = "BLOCKED"
-                root.weatherAcquisitionMessage = String(reason)
-            }
+            if (root.weatherAcquisitionStatus === "DOWNLOADING")
+                root.scheduleWeatherSourceRetry(String(reason))
         }
     }
 
@@ -736,6 +776,8 @@ Item {
                     expectedLineage.selectedRouteVersion = root.routeController.routeVersion
                     root.weatherRequestRouteLineage = expectedLineage
                 }
+                root.weatherForecastRetryCount = 0
+                root.weatherForecastRetryPending = false
                 root.weatherAcquisitionStatus = "WEATHER_ASSESSMENT_READY"
                 root.weatherAcquisitionMessage = "Погодное ранжирование завершено · выбран " +
                         String(result.selectedCandidateId || root.routeController.routeId) + " · " +
