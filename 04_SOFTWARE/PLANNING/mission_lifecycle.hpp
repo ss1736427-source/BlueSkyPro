@@ -42,6 +42,7 @@ struct MissionLifecycleEvidence {
     std::string package_vehicle_id;
     std::string execution_reference_id;
     std::string execution_vehicle_id;
+    std::string postflight_record_id;
 
     bool task_definition_complete{false};
     bool mission_geometry_complete{false};
@@ -71,6 +72,8 @@ struct MissionLifecycleEvidence {
     bool package_matches_selected_route{false};
     bool package_vehicle_approved{false};
     bool execution_session_linked{false};
+    bool execution_closed{false};
+    bool postflight_data_archived{false};
 };
 
 struct MissionLifecycleEvent {
@@ -85,6 +88,7 @@ struct MissionLifecycleEvent {
     std::string route_id;
     std::string route_version;
     std::string evidence_reference;
+    std::vector<std::string> evidence_references;
 };
 
 struct MissionLifecycleRecord {
