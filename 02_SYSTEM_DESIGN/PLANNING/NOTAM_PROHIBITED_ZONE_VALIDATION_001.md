@@ -12,6 +12,8 @@ Deterministically verify that route waypoints and route segments are outside act
 
 NOTAM data is an external, versioned planning input. The validator does not fetch NOTAMs, interpret free-form NOTAM text, authorize flight, change readiness, bypass safety, or command an aircraft.
 
+**Requirement ownership:** this document owns final route-versus-NOTAM validation, time-of-occupancy evaluation, conflict findings and validator-side HMI semantics. NOTAM-aware exclusion generation before coverage/route optimization is owned by 04_SOFTWARE/PLANNING/MT01_PRODUCTION_DATA_BINDING_CONTRACT.md; constrained spatial search is owned by 02_SYSTEM_DESIGN/PLANNING/CONSTRAINED_ROUTE_GENERATOR_001.md. Those upstream requirements are prerequisites, not duplicated implementations of this validator.
+
 The upstream NOTAM adapter is responsible for converting an authoritative NOTAM source into a normalized snapshot containing geometry, validity interval, altitude limits, restriction type, source identity and snapshot version.
 
 ## Required checks
@@ -35,14 +37,20 @@ Circle segment checks use a local tangent-plane distance approximation; polygon 
 
 A prohibited NOTAM zone is a hard planning constraint only when the planned aircraft occupancy of the zone overlaps the NOTAM validity interval. Mission-start time alone is not sufficient to decide whether a route conflicts with a NOTAM.
 
-The optimizer/validator workflow shall execute in this order:
+The combined planning workflow has two distinct NOTAM controls. They are complementary and must not be collapsed into a single post-generation check:
 
-1. Generate a candidate route using the existing optimization objective and constraints.
-2. Apply the selected wind model to that candidate and calculate a time profile for the resulting route, including ground/track speed and estimated passage time at each waypoint and the time interval for every segment. The profile must be derived from the wind-adjusted candidate, not copied from the pre-wind route.
-3. For every prohibited zone, check horizontal geometry, vertical overlap, and temporal overlap together. Check the full interval during which each route segment occupies/intersects the zone, not only waypoint timestamps, the segment endpoints, or mission-start time.
-4. If any waypoint or any portion of a segment occupies the zone during the inclusive NOTAM validity interval, reject that candidate and return a deterministic conflict finding identifying the NOTAM and affected waypoint/segment to the optimizer.
-5. Rebuild the candidate to avoid the conflicting zone, then reapply wind and recalculate the complete time profile. Revalidate the entire changed route against all zones and constraints. Never reuse the previous candidate's timing profile after route geometry changes.
-6. Accept the route only when all required checks pass. Missing, invalid, stale, or unreliable timing/validity inputs must not be silently treated as clear airspace.
+**A. Before candidate optimization — NOTAM-aware geometry generation (upstream prerequisite):**
+- Show the source-defined NOTAM restrictions for the AOI before route construction.
+- Acquire and normalize the authoritative snapshot; resolve geometry components, altitude datum/bands, validity and required safety buffers.
+- Pass active, vertically relevant exclusions into coverage/route generation so coverage legs, turns and connectors are generated in the feasible domain. A candidate that cannot be generated safely is BLOCKED/INFEASIBLE.
+- This stage is specified by 04_SOFTWARE/PLANNING/MT01_PRODUCTION_DATA_BINDING_CONTRACT.md; this validator does not implement or replace it.
+
+**B. After wind/performance timing — final temporal validation (this document's responsibility):**
+1. Receive a candidate whose geometry was generated in the NOTAM-constrained feasible domain. Apply the selected wind model and calculate a time profile for that candidate, including ground/track speed, waypoint passage times and the complete occupancy interval of every segment. The profile must be derived from the current candidate, not copied from an earlier geometry version.
+2. For every prohibited zone, check horizontal geometry, vertical overlap and temporal overlap together. Check the full interval during which each route segment occupies/intersects the zone, not only waypoint timestamps, segment endpoints or mission-start time.
+3. If any waypoint or any portion of a segment occupies the zone during the inclusive NOTAM validity interval, reject that candidate and return a deterministic conflict finding identifying the NOTAM and affected waypoint/segment to the constrained generator/optimizer.
+4. Rebuild the affected candidate in the NOTAM-constrained feasible domain, then reapply wind and recalculate the complete time profile. Revalidate the entire changed route against all zones and constraints. Never reuse the previous candidate's timing profile after route geometry changes.
+5. Accept the candidate for downstream comparison only when all required checks pass. Missing, invalid, stale or unreliable geometry, altitude, timing or validity inputs must not be silently treated as clear airspace.
 
 All timestamps shall be normalized to a common UTC epoch before comparison. The NOTAM validity endpoints are inclusive. If the NOTAM is inactive throughout the aircraft's occupancy interval, that NOTAM alone must not reject or penalize the route. If the NOTAM becomes active during any part of the occupancy interval, the candidate conflicts.
 
