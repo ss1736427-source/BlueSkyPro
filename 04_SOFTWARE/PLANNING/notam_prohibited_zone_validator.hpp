@@ -68,7 +68,7 @@ struct NotamValidationResult {
     RouteValidationStatus status{RouteValidationStatus::Allowed};
     std::vector<NotamValidationFinding> findings;
     std::string validator_id{"NOTAM-PROHIBITED-ZONE-VALIDATOR"};
-    std::string validator_version{"1.3"};
+    std::string validator_version{"1.4"};
     std::string snapshot_id;
 };
 
