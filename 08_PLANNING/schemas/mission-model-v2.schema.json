@@ -48,6 +48,45 @@
         "pattern": "^MT-(0[1-9]|1[0-3])$"
       }
     },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operationId", "templateId", "operationType", "geometryId", "equipmentIds", "executionEstimate"],
+        "properties": {
+          "operationId": {"type": "string", "minLength": 1},
+          "templateId": {"type": "string", "pattern": "^MT-(0[1-9]|1[0-3])$"},
+          "operationType": {"type": "string", "minLength": 1},
+          "geometryId": {"type": "string", "minLength": 1},
+          "equipmentIds": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "executionEstimate": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["state"],
+            "properties": {
+              "state": {"type": "string", "enum": ["UNRESOLVED", "VALIDATED"]},
+              "durationS": {"type": "number", "minimum": 0},
+              "energyWh": {"type": "number", "minimum": 0},
+              "sourceType": {"type": "string", "enum": ["VEHICLE_MODEL", "EQUIPMENT_MODEL", "MEASURED_PROFILE", "OPERATOR_APPROVED"]},
+              "sourceId": {"type": "string", "minLength": 1},
+              "sourceVersion": {"type": "string", "minLength": 1},
+              "methodVersion": {"type": "string", "minLength": 1},
+              "vehicleId": {"type": "string", "minLength": 1},
+              "vehicleConfigurationVersion": {"type": "string", "minLength": 1},
+              "equipmentProfileIds": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+            },
+            "allOf": [
+              {
+                "if": {"properties": {"state": {"const": "VALIDATED"}}, "required": ["state"]},
+                "then": {"required": ["durationS", "energyWh", "sourceType", "sourceId", "sourceVersion", "methodVersion", "vehicleId", "vehicleConfigurationVersion"]},
+                "else": {"not": {"anyOf": [{"required": ["durationS"]}, {"required": ["energyWh"]}, {"required": ["sourceId"]}, {"required": ["sourceVersion"]}, {"required": ["methodVersion"]}]}}
+              }
+            ]
+          }
+        }
+      }
+    },
     "task": {
       "type": "object",
       "additionalProperties": false,
