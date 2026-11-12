@@ -267,6 +267,14 @@ Item {
         root.weatherForecastLeadIndex = 0
         root.weatherDownloadedFiles = []
         root.weatherAssessmentResult = ({})
+        root.weatherForecastPlan = ({})
+        root.lastWeatherCoverageResult = ({})
+        root.weatherRequestRouteLineage = ({ candidates: [], selectedRouteId: "", selectedRouteVersion: "" })
+        root.weatherRequestEtdUtc = ""
+        root.weatherRequestSpatialBufferM = 0
+        root.weatherMissionStartUtc = ""
+        root.weatherCoverageStartUtc = ""
+        root.weatherCoverageEndUtc = ""
         root.weatherAcquisitionStatus = "STALE"
         root.weatherAcquisitionMessage = reason || "MISSION_OR_ROUTE_CHANGED"
     }
