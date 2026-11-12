@@ -144,6 +144,11 @@ bool parseNotamSnapshot(const QVariantMap &parameters,
             errors.push_back(QStringLiteral("NOTAM_RECORD_ID_MISSING"));
             return false;
         }
+        if (record.value(QStringLiteral("notamInterpretationVersion")).toInt() != 1) {
+            errors.push_back(QStringLiteral("NOTAM_CANONICAL_INTERPRETATION_REQUIRED: ") + notamId);
+            return false;
+        }
+
         std::int64_t validFrom = 0, validTo = 0;
         if (!utcEpoch(record.value(QStringLiteral("effectiveStart")).toString(), validFrom)
             || !utcEpoch(record.value(QStringLiteral("effectiveEnd")).toString(), validTo)
@@ -155,102 +160,131 @@ bool parseNotamSnapshot(const QVariantMap &parameters,
             || validTo < request.planned_mission_start_epoch_s)
             continue;
 
-        QJsonParseError geometryError;
-        const QJsonDocument geometryDocument = QJsonDocument::fromJson(
-            record.value(QStringLiteral("geometryJson")).toString().toUtf8(), &geometryError);
-        if (geometryError.error != QJsonParseError::NoError || !geometryDocument.isObject()) {
-            if (record.value(QStringLiteral("restrictionGeometryStatus")).toString()
-                == QLatin1String("DISPLAY_ONLY_NON_AREA_GEOMETRY"))
-                continue;
-            errors.push_back(QStringLiteral("NOTAM_RESTRICTION_GEOMETRY_UNAVAILABLE: ") + notamId);
-            return false;
-        }
         const QString restrictionStatus =
             record.value(QStringLiteral("restrictionGeometryStatus")).toString();
-        if (restrictionStatus == QLatin1String("DISPLAY_ONLY_NON_AREA_GEOMETRY"))
+        if (restrictionStatus == QLatin1String("DISPLAY_ONLY_NON_AREA_GEOMETRY")
+            && record.value(QStringLiteral("restrictionClass")).toString()
+                == QLatin1String("DISPLAY_ONLY"))
             continue;
+
+        const QString restrictionClass =
+            record.value(QStringLiteral("restrictionClass")).toString();
+        const QString interpretationState =
+            record.value(QStringLiteral("interpretationState")).toString();
+        if (restrictionClass == QLatin1String("DISPLAY_ONLY"))
+            continue;
+        if (restrictionClass != QLatin1String("PROHIBITED")
+            || interpretationState != QLatin1String("CONFIRMED")) {
+            errors.push_back(QStringLiteral("NOTAM_RESTRICTION_SEMANTICS_UNRESOLVED: ")
+                             + notamId + QStringLiteral(" [")
+                             + restrictionClass + QStringLiteral("/")
+                             + interpretationState + QStringLiteral("]"));
+            return false;
+        }
         if (restrictionStatus != QLatin1String("VALIDATED")
-            && restrictionStatus != QLatin1String("MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS")) {
-            errors.push_back(QStringLiteral("NOTAM_COMPONENT_NOT_VALIDATED: ") + notamId);
-            return false;
-        }
-        if (restrictionStatus == QLatin1String("VALIDATED")
-            && !record.value(QStringLiteral("geometryValidated")).toBool()) {
-            errors.push_back(QStringLiteral("NOTAM_COMPONENT_VALIDATION_FLAG_MISMATCH: ") + notamId);
-            return false;
-        }
-        const QJsonObject geometry = geometryDocument.object();
-        const QString geometryType = geometry.value(QStringLiteral("type")).toString();
-        QJsonArray polygons;
-        if (geometryType == QLatin1String("Polygon"))
-            polygons.append(geometry.value(QStringLiteral("coordinates")).toArray());
-        else if (geometryType == QLatin1String("MultiPolygon"))
-            polygons = geometry.value(QStringLiteral("coordinates")).toArray();
-        else if (record.value(QStringLiteral("restrictionGeometryStatus")).toString()
-                 == QLatin1String("DISPLAY_ONLY_NON_AREA_GEOMETRY"))
-            continue;
-        else {
-            errors.push_back(QStringLiteral("NOTAM_RESTRICTION_GEOMETRY_UNSUPPORTED: ") + notamId);
-            return false;
-        }
-        if (polygons.isEmpty()) {
-            errors.push_back(QStringLiteral("NOTAM_RESTRICTION_GEOMETRY_EMPTY: ") + notamId);
+            || !record.value(QStringLiteral("geometryValidated")).toBool()) {
+            errors.push_back(QStringLiteral("NOTAM_RESTRICTION_GEOMETRY_OR_VERTICAL_BOUNDS_UNVALIDATED: ")
+                             + notamId);
             return false;
         }
 
-        bool lowerOk = false, upperOk = false;
-        const double lower = record.value(QStringLiteral("lowerMeters")).toDouble(&lowerOk);
-        const double upper = record.value(QStringLiteral("upperMeters")).toDouble(&upperOk);
-        const QString lowerDatum = record.value(QStringLiteral("lowerDatum")).toString().trimmed().toUpper();
-        const QString upperDatum = record.value(QStringLiteral("upperDatum")).toString().trimmed().toUpper();
-        NotamAltitudeReference datum = NotamAltitudeReference::Unknown;
-        if (restrictionStatus == QLatin1String("VALIDATED") && lowerDatum == upperDatum) {
-            if (lowerDatum == QLatin1String("AGL")) datum = NotamAltitudeReference::AGL;
-            else if (lowerDatum == QLatin1String("AMSL") || lowerDatum == QLatin1String("MSL"))
-                datum = NotamAltitudeReference::AMSL;
-            else if (lowerDatum == QLatin1String("FL")) datum = NotamAltitudeReference::FlightLevel;
+        const QVariantList components =
+            record.value(QStringLiteral("planningComponents")).toList();
+        if (components.isEmpty()) {
+            errors.push_back(QStringLiteral("NOTAM_CANONICAL_PLANNING_COMPONENTS_MISSING: ")
+                             + notamId);
+            return false;
         }
-        // Incomplete/mixed source bounds are never converted into a numeric clearance.
 
-        int componentIndex = 0;
-        for (const QJsonValue &polygonValue : polygons) {
-            const QJsonArray rings = polygonValue.toArray();
-            if (rings.isEmpty() || !rings.first().isArray()) {
-                errors.push_back(QStringLiteral("NOTAM_COMPONENT_OUTER_RING_MISSING: ") + notamId);
+        int fallbackComponentIndex = 0;
+        for (const QVariant &componentValue : components) {
+            const QVariantMap component = componentValue.toMap();
+            const QString componentId = component.value(QStringLiteral("componentId"))
+                .toString().trimmed();
+            if (componentId.isEmpty()
+                || component.value(QStringLiteral("restrictionClass")).toString()
+                    != QLatin1String("PROHIBITED")
+                || component.value(QStringLiteral("interpretationState")).toString()
+                    != QLatin1String("CONFIRMED")
+                || !component.value(QStringLiteral("geometryValidated")).toBool()) {
+                errors.push_back(QStringLiteral("NOTAM_CANONICAL_COMPONENT_NOT_CONFIRMED: ")
+                                 + notamId);
                 return false;
             }
-            const QJsonArray ring = rings.first().toArray();
-            if (ring.size() < 4) {
-                errors.push_back(QStringLiteral("NOTAM_COMPONENT_RING_INVALID: ") + notamId);
+            if (component.value(QStringLiteral("interiorRingCount")).toInt() > 0) {
+                errors.push_back(QStringLiteral("NOTAM_INTERIOR_RINGS_UNSUPPORTED_FOR_PLANNING: ")
+                                 + componentId);
                 return false;
             }
+
+            bool lowerOk = false, upperOk = false;
+            const double lower = component.value(QStringLiteral("lowerMeters")).toDouble(&lowerOk);
+            const double upper = component.value(QStringLiteral("upperMeters")).toDouble(&upperOk);
+            const QString lowerDatum = component.value(QStringLiteral("lowerDatum"))
+                .toString().trimmed().toUpper();
+            const QString upperDatum = component.value(QStringLiteral("upperDatum"))
+                .toString().trimmed().toUpper();
+            NotamAltitudeReference datum = NotamAltitudeReference::Unknown;
+            if (lowerDatum == upperDatum) {
+                if (lowerDatum == QLatin1String("AGL")) datum = NotamAltitudeReference::AGL;
+                else if (lowerDatum == QLatin1String("AMSL")
+                         || lowerDatum == QLatin1String("MSL"))
+                    datum = NotamAltitudeReference::AMSL;
+                else if (lowerDatum == QLatin1String("FL"))
+                    datum = NotamAltitudeReference::FlightLevel;
+            }
+            if (!lowerOk || !upperOk || !std::isfinite(lower) || !std::isfinite(upper)
+                || lower > upper || datum == NotamAltitudeReference::Unknown) {
+                errors.push_back(QStringLiteral("NOTAM_ALTITUDE_DATUM_UNSUPPORTED: ") + notamId);
+                return false;
+            }
+
+            const QVariantList coordinates =
+                component.value(QStringLiteral("coordinates")).toList();
+            if (coordinates.size() < 4) {
+                errors.push_back(QStringLiteral("NOTAM_COMPONENT_RING_INVALID: ") + componentId);
+                return false;
+            }
+
             NotamZone zone;
             zone.notam_id = notamId.toStdString();
-            zone.component_id = (notamId + QStringLiteral("-COMP-")
-                                 + QString::number(++componentIndex)).toStdString();
+            zone.component_id = componentId.toStdString();
             zone.restriction_type = NotamRestrictionType::Prohibited;
             zone.geometry_type = NotamGeometryType::Polygon;
-            zone.lower_altitude_m = lowerOk && std::isfinite(lower) ? lower : 0.0;
-            zone.upper_altitude_m = upperOk && std::isfinite(upper) ? upper : 0.0;
+            zone.lower_altitude_m = lower;
+            zone.upper_altitude_m = upper;
             zone.altitude_reference = datum;
             zone.valid_from_epoch_s = validFrom;
             zone.valid_to_epoch_s = validTo;
-            for (const QJsonValue &coordinateValue : ring) {
-                const QJsonArray coordinate = coordinateValue.toArray();
-                if (coordinate.size() < 2 || !coordinate.at(0).isDouble()
-                    || !coordinate.at(1).isDouble()
-                    || !std::isfinite(coordinate.at(0).toDouble())
-                    || !std::isfinite(coordinate.at(1).toDouble())) {
-                    errors.push_back(QStringLiteral("NOTAM_COMPONENT_COORDINATE_INVALID: ") + notamId);
+            for (const QVariant &coordinateValue : coordinates) {
+                const QVariantList coordinate = coordinateValue.toList();
+                if (coordinate.size() < 2) {
+                    errors.push_back(QStringLiteral("NOTAM_COMPONENT_COORDINATE_INVALID: ")
+                                     + componentId);
                     return false;
                 }
-                zone.polygon.push_back({coordinate.at(1).toDouble(), coordinate.at(0).toDouble()});
+                bool longitudeOk = false, latitudeOk = false;
+                const double longitude = coordinate.at(0).toDouble(&longitudeOk);
+                const double latitude = coordinate.at(1).toDouble(&latitudeOk);
+                if (!longitudeOk || !latitudeOk || !std::isfinite(longitude)
+                    || !std::isfinite(latitude) || longitude < -180.0 || longitude > 180.0
+                    || latitude < -90.0 || latitude > 90.0) {
+                    errors.push_back(QStringLiteral("NOTAM_COMPONENT_COORDINATE_INVALID: ")
+                                     + componentId);
+                    return false;
+                }
+                zone.polygon.push_back({latitude, longitude});
             }
             if (zone.polygon.size() >= 2
                 && std::abs(zone.polygon.front().latitude_deg - zone.polygon.back().latitude_deg) < 1e-9
                 && std::abs(zone.polygon.front().longitude_deg - zone.polygon.back().longitude_deg) < 1e-9)
                 zone.polygon.pop_back();
+            if (zone.polygon.size() < 3) {
+                errors.push_back(QStringLiteral("NOTAM_COMPONENT_RING_INVALID: ") + componentId);
+                return false;
+            }
             request.notam_snapshot.zones.push_back(std::move(zone));
+            ++fallbackComponentIndex;
         }
     }
     return true;
