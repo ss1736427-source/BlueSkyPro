@@ -425,6 +425,19 @@ Item {
         }
 
         Connections {
+            target: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
+                   ? faaNmsClient : null
+            function onMissionNotamQueryFinished(success, message) {
+                root.manualModelValidationStatus = success
+                        ? "MISSION_NOTAM_SNAPSHOT_READY; PRESS SET AGAIN"
+                        : "MISSION_NOTAM_QUERY_FAILED: " + message
+                root.manualSetRequested = false
+                root.manualSetBlocked = true
+                root.missionState = "MANUAL"
+            }
+        }
+
+        Connections {
             target: manualGeometryBridge
             function onCompositionCompleteChanged() {
                 root.manualCompositionComplete = manualGeometryBridge.compositionComplete
