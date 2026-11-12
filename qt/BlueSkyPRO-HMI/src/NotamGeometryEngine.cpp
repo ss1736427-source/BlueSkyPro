@@ -436,7 +436,7 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
                 + QStringLiteral("-COMP-") + QString::number(++componentIndex);
             component["geometryType"] = QStringLiteral("POLYGON");
             component["coordinates"] = coordinates;
-            component["interiorRingCount"] = qMax(0, rings.size() - 1);
+            component["interiorRingCount"] = static_cast<int>(rings.size() - 1);
             component["geometryValidated"] = areaGeometry && vok;
             component["restrictionGeometryStatus"] = out.value("restrictionGeometryStatus");
             component["restrictionClass"] = restrictionClass;
