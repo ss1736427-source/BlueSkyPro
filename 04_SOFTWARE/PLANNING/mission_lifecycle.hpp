@@ -1,0 +1,115 @@
+#pragma once
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+namespace bluesky::planning {
+
+enum class MissionLifecycleState {
+    Draft,
+    Calculating,
+    Validating,
+    Ready,
+    Submitted,
+    Authorized,
+    Released,
+    Executing,
+    Paused,
+    Replanning,
+    Completed,
+    Aborted
+};
+
+const char *toString(MissionLifecycleState state) noexcept;
+
+struct MissionLifecycleEvidence {
+    std::string mission_id;
+    std::string mission_version;
+    std::string route_id;
+    std::string route_version;
+    std::string calculation_input_version;
+    std::string validation_route_version;
+    std::string validation_input_version;
+    std::string terrain_snapshot_id;
+    std::string mission_notam_snapshot_id;
+    std::string weather_snapshot_id;
+    std::string notam_recheck_snapshot_id;
+    std::string regulatory_submission_id;
+    std::string authorization_id;
+    std::string package_id;
+    std::string package_route_version;
+    std::string package_vehicle_id;
+    std::string execution_reference_id;
+    std::string execution_vehicle_id;
+
+    bool task_definition_complete{false};
+    bool mission_geometry_complete{false};
+    bool vehicle_configuration_validated{false};
+    bool equipment_configuration_validated{false};
+    bool mission_notam_snapshot_current{false};
+    bool terrain_snapshot_current{false};
+    bool baseline_route_generated{false};
+    bool weather_assessment_complete{false};
+    bool weather_aware_route_generated{false};
+    bool notam_recheck_complete{false};
+    bool route_candidate_selected{false};
+    bool complete_trajectory_geometry{false};
+    bool notam_validation_passed{false};
+    bool terrain_validation_passed{false};
+    bool vehicle_envelope_validation_passed{false};
+    bool weather_validation_passed{false};
+    bool energy_reserve_validation_passed{false};
+    bool task_quality_validation_passed{false};
+    bool regulatory_validation_passed{false};
+    bool operator_review_accepted{false};
+    bool regulatory_submission_prepared{false};
+    bool authorization_present{false};
+    bool authorization_current{false};
+    bool authorization_scope_matches{false};
+    bool package_integrity_verified{false};
+    bool package_matches_selected_route{false};
+    bool package_vehicle_approved{false};
+    bool execution_session_linked{false};
+};
+
+struct MissionLifecycleEvent {
+    std::uint64_t sequence{0};
+    std::string mission_id;
+    std::string mission_version;
+    std::string actor_id;
+    std::string timestamp;
+    std::string reason;
+    MissionLifecycleState from{MissionLifecycleState::Draft};
+    MissionLifecycleState to{MissionLifecycleState::Draft};
+    std::string route_id;
+    std::string route_version;
+    std::string evidence_reference;
+};
+
+struct MissionLifecycleRecord {
+    std::string mission_id;
+    std::string mission_version;
+    MissionLifecycleState state{MissionLifecycleState::Draft};
+    std::uint64_t next_event_sequence{1};
+    std::vector<MissionLifecycleEvent> history;
+};
+
+struct MissionLifecycleTransitionResult {
+    bool accepted{false};
+    MissionLifecycleState state{MissionLifecycleState::Draft};
+    std::vector<std::string> blockers;
+};
+
+class MissionLifecycleController {
+public:
+    static MissionLifecycleTransitionResult transition(
+        MissionLifecycleRecord &record,
+        MissionLifecycleState target,
+        const MissionLifecycleEvidence &evidence,
+        const std::string &actor_id,
+        const std::string &timestamp,
+        const std::string &reason);
+};
+
+} // namespace bluesky::planning
