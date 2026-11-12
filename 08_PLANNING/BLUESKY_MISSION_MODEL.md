@@ -423,3 +423,27 @@ The lifecycle state sequence in Section 3 is the top-level mission status. The f
 - Change mission geometry, UAV configuration, NOTAM, weather or operator route edits and verify dependent validation becomes stale.
 - Verify authorization and release cannot be inferred from technical READY.
 - Verify execution, replanning and post-flight replay preserve complete mission/route version lineage.
+
+
+### 22.3 Implementation status — evidence-gated lifecycle core
+
+The shared Planning Core now contains a typed lifecycle state machine and a transition gate. The canonical Mission aggregate carries a lifecycle record; the HMI mission adapters initialize both AUTO and MANUAL missions as DRAFT.
+
+The current core contract enforces:
+
+- ordered transitions; skipped stages and transitions out of terminal states are rejected;
+- mission identity/version matching for every transition;
+- task, geometry, vehicle/equipment, mission NOTAM and terrain evidence before calculation;
+- baseline route, weather assessment, weather-aware route and post-weather NOTAM recheck before validation;
+- complete trajectory geometry, domain validation results, operator acceptance and exact route/input version matching before READY;
+- explicit assessment of whether external authorization is required; when required, its validity and scope are checked, and when not required, a recorded reason is mandatory;
+- executable package integrity, selected-route version and vehicle binding before RELEASED;
+- execution-to-package vehicle identity matching;
+- post-flight closure and archive evidence before COMPLETED; an in-flight ABORTED transition also requires closure and post-flight evidence;
+- a new mission version, route version and calculation-input version when moving from REPLANNING back to CALCULATING;
+- ordered transition events with actor, timestamp, reason, route lineage and evidence references.
+
+A dedicated lifecycle contract test is registered in the existing HMI CTest suite so it is included even when standalone planning tests are disabled.
+
+**Not yet end-to-end integrated:** evidence is currently supplied to the lifecycle controller through a typed input contract. The NOTAM, weather, terrain, vehicle, route-validator, regulatory, mission-package and execution services still need explicit evidence producers/adapters that populate this contract from their authoritative results. Durable journal persistence and HMI display/control of lifecycle history are also outstanding. Until those integrations and CI/runtime tests pass, the state machine is a core gate implementation, not proof that the full operational lifecycle is complete.
+
