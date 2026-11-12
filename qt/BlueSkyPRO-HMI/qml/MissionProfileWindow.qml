@@ -1479,6 +1479,7 @@ Item {
                 Row {
                     x: 8
                     y: 36
+                    width: parent.width - 16
                     height: 27
                     spacing: 6
 

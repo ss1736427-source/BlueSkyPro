@@ -150,6 +150,14 @@ bool parseNotamSnapshot(const QVariantMap &parameters,
             errors.push_back(QStringLiteral("NOTAM_RESTRICTION_GEOMETRY_UNAVAILABLE: ") + notamId);
             return false;
         }
+        const QString restrictionStatus =
+            record.value(QStringLiteral("restrictionGeometryStatus")).toString();
+        if (restrictionStatus != QLatin1String("VALIDATED")
+            && restrictionStatus != QLatin1String("MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS")
+            && restrictionStatus != QLatin1String("DISPLAY_ONLY_NON_AREA_GEOMETRY")) {
+            errors.push_back(QStringLiteral("NOTAM_COMPONENT_NOT_VALIDATED: ") + notamId);
+            return false;
+        }
         const QJsonObject geometry = geometryDocument.object();
         const QString geometryType = geometry.value(QStringLiteral("type")).toString();
         QJsonArray polygons;

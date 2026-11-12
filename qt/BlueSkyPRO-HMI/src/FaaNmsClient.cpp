@@ -438,7 +438,7 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
                     .arg(m_notamSnapshotId));
         } else {
             emit notamQueryFinished(true,
-                QStringLiteral("FAA NMS query succeeded: %1 records; %2 have displayable geometry (%3 area restrictions, %4 point/line only); %5 have no displayable geometry. Snapshot %6. Raw altitude limits are preserved; this test-source snapshot is not connected to route validation.")
+                QStringLiteral("FAA NMS query succeeded: %1 records; %2 have displayable geometry (%3 area restrictions, %4 point/line only); %5 have no displayable geometry. Snapshot %6. Normalized geometry is available to the MT-01 planning bridge; FAA NMS STAGING/FIT remains a test source and does not establish operational airspace clearance or flight-release eligibility.")
                     .arg(normalizedRecords.size()).arg(featuresWithGeometry).arg(areaRestrictions)
                     .arg(displayOnlyGeometry).arg(recordsWithoutGeometry).arg(m_notamSnapshotId));
         }
