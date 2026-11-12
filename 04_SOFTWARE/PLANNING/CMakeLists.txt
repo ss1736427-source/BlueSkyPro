@@ -17,6 +17,7 @@ add_library(bluesky_planning
     coverage_path_planner.cpp
     mt01_mapping_pipeline.cpp
     mt01_kinematic_geometry_builder.cpp
+    mt01_route_candidate_builder.cpp
     orchestrator/algorithm_orchestrator.cpp
     benchmarks/solver_benchmark_runner.cpp
     adapter/universal_adapter_registry.cpp
