@@ -134,6 +134,7 @@ static MissionLifecycleTransitionResult move(
 int main() {
     MissionLifecycleRecord record{"MISSION-001", "7"};
     auto e = evidence();
+    e.task_definition_complete = false;
 
     auto blocked = move(record, MissionLifecycleState::Calculating, e);
     assert(!blocked.accepted);
