@@ -194,6 +194,11 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         require(evidence.execution_vehicle_id == evidence.package_vehicle_id,
                 "EXECUTION_VEHICLE_PACKAGE_MISMATCH", result.blockers);
         break;
+    case MissionLifecycleState::Completed:
+        require(evidence.execution_closed, "EXECUTION_NOT_CLOSED", result.blockers);
+        require(evidence.postflight_data_archived, "POSTFLIGHT_DATA_NOT_ARCHIVED", result.blockers);
+        requireText(evidence.postflight_record_id, "POSTFLIGHT_RECORD_ID_REQUIRED", result.blockers);
+        break;
     case MissionLifecycleState::Paused:
     case MissionLifecycleState::Replanning:
     case MissionLifecycleState::Completed:
@@ -217,6 +222,19 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
     event.route_id = evidence.route_id;
     event.route_version = evidence.route_version;
     event.evidence_reference = evidence.calculation_input_version;
+    const auto addEvidence = [&event](const std::string &value) {
+        if (!value.empty())
+            event.evidence_references.push_back(value);
+    };
+    addEvidence(evidence.terrain_snapshot_id);
+    addEvidence(evidence.mission_notam_snapshot_id);
+    addEvidence(evidence.weather_snapshot_id);
+    addEvidence(evidence.notam_recheck_snapshot_id);
+    addEvidence(evidence.regulatory_submission_id);
+    addEvidence(evidence.authorization_id);
+    addEvidence(evidence.package_id);
+    addEvidence(evidence.execution_reference_id);
+    addEvidence(evidence.postflight_record_id);
     record.history.push_back(std::move(event));
     ++record.next_event_sequence;
     record.state = target;
