@@ -140,6 +140,29 @@ NotamGeometryAdapterResult NotamGeometryAdapter::build(
         return fail("NOTAM_TARGET_ALTITUDE_INVALID: a finite AGL target altitude is required.");
     if (!finite(input.safety_buffer_m) || input.safety_buffer_m < 0.0)
         return fail("NOTAM_SAFETY_BUFFER_INVALID: safety buffer must be finite and non-negative.");
+    if (!validPoint(snapshot.coverage_center) || !finite(snapshot.coverage_radius_m)
+        || snapshot.coverage_radius_m <= 0.0)
+        return fail("NOTAM_SNAPSHOT_COVERAGE_METADATA_REQUIRED: source query center and positive radius are mandatory.");
+    if (input.aoi_boundary.size() < 3
+        || !std::all_of(input.aoi_boundary.begin(), input.aoi_boundary.end(), validPoint))
+        return fail("NOTAM_AOI_BOUNDARY_INVALID: a valid AOI boundary is required to prove source coverage.");
+
+    for (const auto& vertex : input.aoi_boundary) {
+        const double lat1 = radians(snapshot.coverage_center.latitude_deg);
+        const double lat2 = radians(vertex.latitude_deg);
+        const double dLat = lat2 - lat1;
+        const double dLon = radians(normalizeLongitudeDelta(
+            vertex.longitude_deg - snapshot.coverage_center.longitude_deg));
+        const double sinLat = std::sin(dLat * 0.5);
+        const double sinLon = std::sin(dLon * 0.5);
+        const double haversine = sinLat * sinLat
+            + std::cos(lat1) * std::cos(lat2) * sinLon * sinLon;
+        const double distanceM = 2.0 * kEarthRadiusM
+            * std::asin(std::sqrt(std::clamp(haversine, 0.0, 1.0)));
+        if (!finite(distanceM)
+            || distanceM + input.safety_buffer_m > snapshot.coverage_radius_m + 0.01)
+            return fail("NOTAM_SNAPSHOT_DOES_NOT_COVER_AOI_WITH_BUFFER: FAA NMS query radius does not contain the complete AOI plus the configured safety buffer.");
+    }
 
     for (const auto& zone : snapshot.zones) {
         if (!validZone(zone))
@@ -179,7 +202,7 @@ NotamGeometryAdapterResult NotamGeometryAdapter::build(
     result.applicable_zone_count = result.applicable_notam_ids.size();
     result.valid = true;
     result.diagnostics.push_back(
-        "NOTAM_GEOMETRY_BOUND: applicable prohibited zones were filtered by planned time and target AGL, buffered and converted to coverage/turn exclusions.");
+        "NOTAM_GEOMETRY_BOUND: source query coverage contains the complete AOI plus safety buffer; applicable prohibited zones were filtered by planned time and target AGL, buffered and converted to coverage/turn exclusions.");
     return result;
 }
 

@@ -14,6 +14,7 @@ struct NotamGeometryAdapterInput {
     std::int64_t mission_end_epoch_s{0};
     double target_altitude_agl_m{0.0};
     double safety_buffer_m{0.0};
+    std::vector<GeoPoint> aoi_boundary;
 };
 
 struct NotamGeometryAdapterResult {

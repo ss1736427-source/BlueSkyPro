@@ -46,6 +46,8 @@ struct NotamSnapshot {
     std::string source_version;
     std::int64_t evaluation_epoch_s{0};
     std::vector<NotamZone> zones;
+    GeoPoint coverage_center;
+    double coverage_radius_m{0.0};
 };
 
 struct NotamValidationFinding {
@@ -62,7 +64,7 @@ struct NotamValidationResult {
     RouteValidationStatus status{RouteValidationStatus::Allowed};
     std::vector<NotamValidationFinding> findings;
     std::string validator_id{"NOTAM-PROHIBITED-ZONE-VALIDATOR"};
-    std::string validator_version{"1.2"};
+    std::string validator_version{"1.3"};
     std::string snapshot_id;
 };
 

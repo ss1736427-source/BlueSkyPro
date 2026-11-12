@@ -143,7 +143,8 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
         request.planned_mission_start_epoch_s,
         request.planned_mission_end_epoch_s,
         targetAltitudeAglM,
-        request.notam_safety_buffer_m
+        request.notam_safety_buffer_m,
+        area
     };
     result.notam_geometry = NotamGeometryAdapter::build(notamInput);
     if (!result.notam_geometry.valid) {

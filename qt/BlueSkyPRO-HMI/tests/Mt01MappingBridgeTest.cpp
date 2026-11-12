@@ -72,6 +72,9 @@ static QVariantMap validParameters()
         {"notamSourceId", "FAA_NMS_TEST"},
         {"notamSourceVersion", "FAA-NMS-TEST-SNAPSHOT"},
         {"notamSnapshotEpochS", 1800000000LL},
+        {"notamQueryLatitude", 0.001},
+        {"notamQueryLongitude", 0.001},
+        {"notamQueryRadiusM", 500.0},
         {"plannedMissionStartUtc", "2027-01-15T09:00:00Z"},
         {"plannedMissionEndUtc", "2027-01-15T10:00:00Z"},
         {"notamSafetyBufferM", 25.0},
@@ -142,6 +145,22 @@ int main(int argc, char **argv)
     assert(incompleteVerticalResult.value("status").toString() == "NEEDS_INPUT");
     assert(incompleteVerticalResult.value("findings").toStringList().join(";")
                .contains("NOTAM_ALTITUDE_DATUM_UNSUPPORTED"));
+
+    QVariantMap outsideCoverageParameters = validParameters();
+    outsideCoverageParameters.insert("notamQueryRadiusM", 50.0);
+    const QVariantMap outsideCoverageResult =
+        bridge.calculate(validMissionJson(), outsideCoverageParameters);
+    assert(outsideCoverageResult.value("status").toString() == "NEEDS_INPUT");
+    assert(outsideCoverageResult.value("findings").toStringList().join(";")
+               .contains("NOTAM_SNAPSHOT_DOES_NOT_COVER_AOI_WITH_BUFFER"));
+
+    QVariantMap missingCoverageMetadata = validParameters();
+    missingCoverageMetadata.remove("notamQueryRadiusM");
+    const QVariantMap missingCoverageResult =
+        bridge.calculate(validMissionJson(), missingCoverageMetadata);
+    assert(missingCoverageResult.value("status").toString() == "NEEDS_INPUT");
+    assert(missingCoverageResult.value("findings").toStringList().contains(
+        "NOTAM_SNAPSHOT_COVERAGE_METADATA_REQUIRED"));
 
     QVariantMap missingNotamSnapshot = validParameters();
     missingNotamSnapshot.remove("notamSnapshotId");

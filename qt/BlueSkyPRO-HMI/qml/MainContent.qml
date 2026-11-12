@@ -552,7 +552,13 @@ Item {
                                 notamSourceVersion: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
                                     ? faaNmsClient.notamSnapshotId : "",
                                 notamSnapshotEpochS: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
-                                    ? faaNmsClient.notamSnapshotEpochS : 0
+                                    ? faaNmsClient.notamSnapshotEpochS : 0,
+                                notamQueryLatitude: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
+                                    ? faaNmsClient.notamQueryLatitude : 0,
+                                notamQueryLongitude: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
+                                    ? faaNmsClient.notamQueryLongitude : 0,
+                                notamQueryRadiusM: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
+                                    ? faaNmsClient.notamQueryRadiusM : 0
                             })
                 root.manualMt01Result = mt01MappingBridge.calculate(
                             root.manualMissionModelJson,

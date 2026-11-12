@@ -52,6 +52,8 @@ static Mt01MappingRequest makeRequest()
     request.notam_snapshot.source_id = "CONTROLLED-TEST-SOURCE";
     request.notam_snapshot.source_version = "1";
     request.notam_snapshot.evaluation_epoch_s = 1800000000;
+    request.notam_snapshot.coverage_center = {0.001, 0.001};
+    request.notam_snapshot.coverage_radius_m = 500.0;
     request.planned_mission_start_epoch_s = 1800000000;
     request.planned_mission_end_epoch_s = 1800003600;
     request.notam_safety_buffer_m = 25.0;
@@ -72,6 +74,17 @@ int main()
         if (finding.find("NOTAM_SNAPSHOT_REQUIRED") != std::string::npos)
             missingSnapshotReported = true;
     assert(missingSnapshotReported);
+
+    auto incompleteSourceCoverage = request;
+    incompleteSourceCoverage.notam_snapshot.coverage_radius_m = 50.0;
+    const auto incompleteCoverageResult =
+        Mt01MappingPipeline::calculate(incompleteSourceCoverage);
+    assert(incompleteCoverageResult.status == Mt01PipelineStatus::NeedsInput);
+    bool sourceCoverageBlocked = false;
+    for (const auto& finding : incompleteCoverageResult.findings)
+        if (finding.find("NOTAM_SNAPSHOT_DOES_NOT_COVER_AOI_WITH_BUFFER") != std::string::npos)
+            sourceCoverageBlocked = true;
+    assert(sourceCoverageBlocked);
 
     // An applicable circular NOTAM must reduce coverage and bind its snapshot
     // identity to the generated canonical route candidate.

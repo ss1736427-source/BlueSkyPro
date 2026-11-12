@@ -27,6 +27,9 @@ QString FaaNmsClient::environment() const { return m_environment; }
 QVariantList FaaNmsClient::notamRecords() const { return m_notamRecords; }
 QString FaaNmsClient::notamSnapshotId() const { return m_notamSnapshotId; }
 qint64 FaaNmsClient::notamSnapshotEpochS() const { return m_notamSnapshotEpochS; }
+double FaaNmsClient::notamQueryLatitude() const { return m_notamQueryLatitude; }
+double FaaNmsClient::notamQueryLongitude() const { return m_notamQueryLongitude; }
+double FaaNmsClient::notamQueryRadiusM() const { return m_notamQueryRadiusM; }
 
 void FaaNmsClient::setEnvironment(const QString &environment)
 {
@@ -40,6 +43,9 @@ void FaaNmsClient::setEnvironment(const QString &environment)
     m_notamRecords.clear();
     m_notamSnapshotId.clear();
     m_notamSnapshotEpochS = 0;
+    m_notamQueryLatitude = 0.0;
+    m_notamQueryLongitude = 0.0;
+    m_notamQueryRadiusM = 0.0;
     emit notamRecordsChanged();
     emit environmentChanged();
 }
@@ -173,6 +179,13 @@ void FaaNmsClient::testConnection()
 void FaaNmsClient::queryNotams(double latitude, double longitude, double radiusNm)
 {
     if (m_queryInProgress || m_requestInProgress) return;
+    m_notamRecords.clear();
+    m_notamSnapshotId.clear();
+    m_notamSnapshotEpochS = 0;
+    m_notamQueryLatitude = 0.0;
+    m_notamQueryLongitude = 0.0;
+    m_notamQueryRadiusM = 0.0;
+    emit notamRecordsChanged();
     if (!std::isfinite(latitude) || latitude < -90.0 || latitude > 90.0
         || !std::isfinite(longitude) || longitude < -180.0 || longitude > 180.0
         || !std::isfinite(radiusNm) || radiusNm <= 0.0 || radiusNm > 100.0) {
@@ -191,11 +204,6 @@ void FaaNmsClient::queryNotams(double latitude, double longitude, double radiusN
     }
 
     m_queryInProgress = true;
-    // Never allow a previous query result to masquerade as the current snapshot.
-    m_notamRecords.clear();
-    m_notamSnapshotId.clear();
-    m_notamSnapshotEpochS = 0;
-    emit notamRecordsChanged();
     QUrl tokenUrl = baseUrl();
     tokenUrl.setPath(QStringLiteral("/v1/auth/token"));
     QNetworkRequest tokenRequest(tokenUrl);
@@ -268,7 +276,8 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
         reply->abort();
     });
     timeout->start(15000);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, timeout]() {
+    connect(reply, &QNetworkReply::finished, this,
+            [this, reply, timeout, latitude, longitude, radiusNm]() {
         timeout->stop();
         const int http = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const auto networkError = reply->error();
@@ -431,6 +440,9 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
         m_notamSnapshotId = QStringLiteral("FAA-NMS-%1-%2")
             .arg(m_environment, QUuid::createUuid().toString(QUuid::WithoutBraces));
         m_notamSnapshotEpochS = QDateTime::currentSecsSinceEpoch();
+        m_notamQueryLatitude = std::round(latitude * 1e6) / 1e6;
+        m_notamQueryLongitude = std::round(longitude * 1e6) / 1e6;
+        m_notamQueryRadiusM = std::round(radiusNm * 100.0) / 100.0 * 1852.0;
         emit notamRecordsChanged();
         if (normalizedRecords.isEmpty()) {
             emit notamQueryFinished(true,
