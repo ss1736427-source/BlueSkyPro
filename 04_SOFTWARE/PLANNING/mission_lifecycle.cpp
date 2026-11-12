@@ -167,7 +167,7 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         requireText(evidence.route_version, "SELECTED_ROUTE_VERSION_REQUIRED", result.blockers);
         requireText(evidence.calculation_input_version, "CALCULATION_INPUT_VERSION_REQUIRED", result.blockers);
         break;
-    case MissionLifecycleState::Ready:
+    case MissionLifecycleState::Ready: {
         const auto requireValidation = [&](const MissionLifecycleValidationEvidence &validation,
                                            const char *missingCode, const char *lineageCode) {
             const bool hasResult = validation.status == MissionLifecycleValidationStatus::Passed
@@ -212,6 +212,7 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
                           "REGULATORY_VALIDATION_LINEAGE_MISMATCH");
         require(evidence.operator_review_accepted, "OPERATOR_REVIEW_NOT_ACCEPTED", result.blockers);
         break;
+    }
     case MissionLifecycleState::Submitted:
         require(evidence.regulatory_submission_prepared, "REGULATORY_SUBMISSION_NOT_PREPARED", result.blockers);
         requireText(evidence.regulatory_submission_id, "REGULATORY_SUBMISSION_ID_REQUIRED", result.blockers);
