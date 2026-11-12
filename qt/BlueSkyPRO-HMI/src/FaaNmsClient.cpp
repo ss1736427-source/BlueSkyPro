@@ -18,6 +18,7 @@
 #include <QUuid>
 #include <QVariantMap>
 #include <cmath>
+#include <utility>
 
 namespace {
 struct NotamInterpretationBatch {
