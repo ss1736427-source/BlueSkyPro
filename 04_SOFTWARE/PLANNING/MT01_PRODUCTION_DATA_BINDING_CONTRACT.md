@@ -86,7 +86,32 @@ A production terrain stage must provide:
 
 Missing coverage, unsupported datum or unresolved nodata must block the candidate. A constant AGL waypoint field is not evidence of terrain clearance.
 
-## 6. NOTAM/airspace integration boundary
+## 6. NOTAM-aware geometry generation (mandatory, before optimization)
+
+This is a generation constraint, not merely a post-generation validation step.
+
+The mission-planning sequence must:
+1. Determine the mission AOI, planned time window, altitude range and intended trajectory corridor.
+2. Acquire the current authoritative NOTAM/airspace snapshot covering the AOI plus the required lateral safety buffer.
+3. Normalize each relevant restriction into independent geometry components. Preserve each component's NOTAM ID, restriction type, geometry (polygon/circle), lower/upper altitude, altitude datum, effective interval, source/version and snapshot identity. A compound NOTAM must not connect separate AREA and WI CIRCLE components into one artificial polygon.
+4. Resolve whether each component is active for the planned segment time and whether its vertical band overlaps the candidate's altitude profile. Do not treat every 2D footprint as an all-altitude permanent exclusion.
+5. Convert active, vertically relevant prohibited components into buffered exclusion geometry and feed those constraints into the route generator before it creates coverage legs and turn connectors.
+6. Generate/modify candidate geometry around those exclusions. If a safe path cannot be generated, reject that candidate or return BLOCKED; never draw a straight connector through a restricted area.
+7. Re-evaluate time-dependent NOTAM applicability after wind/performance timing changes and validate the final complete trajectory against the same referenced snapshot (or a newer explicitly acquired snapshot). If the timing change activates a restriction, regenerate/reject the affected candidate.
+8. Preserve NOTAM IDs, component IDs, buffers, altitude/time decisions and snapshot provenance in candidate findings and lineage.
+
+The current code has only part of this mechanism:
+- `Mt01MappingRequest::exclusion_areas` is a caller-supplied list of 2D polygons. No current MT-01 adapter in this pipeline derives it from a `NotamSnapshot`.
+- `CoveragePathPlanner` subtracts supplied polygons from coverage stripes, but requires every exclusion polygon to be completely inside the AOI and rejects boundary-crossing or overlapping exclusions. It has no altitude band, datum, validity interval, NOTAM ID or snapshot fields. This cannot represent the full operational NOTAM rule.
+- `Mt01KinematicGeometryBuilder` forwards the same 2D polygons to the Dubins turn connector, which checks sampled connector geometry for polygon intersection. The straight coverage legs rely on the earlier 2D stripe subtraction.
+- `NotamProhibitedZoneValidator` checks a completed `Route` against a `NotamSnapshot`; it is a final validation gate, not a route-avoidance generator, and the MT-01 pipeline does not call it.
+- The current `NotamZone` supports circle/polygon geometry, vertical limits and effective time, but its current validator accepts AGL only when zones exist. AMSL/Flight Level conversion is not yet implemented.
+
+Therefore, NOTAM avoidance is **not integrated end-to-end** in MT-01. Passing manually prepared polygons through `exclusion_areas` proves only a partial geometric exclusion capability, not automatic current-NOTAM-aware route generation.
+
+The correct architecture is: `AOI/time/altitude -> authoritative NOTAM snapshot -> normalized 4D restriction components -> altitude/time-filtered and safety-buffered exclusions -> route candidate generation/avoidance -> wind/time update -> final NOTAM/airspace validation -> candidate promotion`.
+
+## 7. NOTAM/airspace integration boundary
 
 `NotamProhibitedZoneValidator` accepts a `Route` and a versioned `NotamSnapshot`, checks snapshot identity/time, altitude reference and prohibited-zone intersections. The MT-01 pipeline currently does not call it.
 
@@ -99,13 +124,13 @@ Integration must:
 
 The validator currently requires AGL when zones are present. Until vertical datum conversion is implemented, unsupported NOTAM altitude references must remain blocked rather than being numerically compared.
 
-## 7. Energy and reserve integration boundary
+## 8. Energy and reserve integration boundary
 
 `WindPerformanceTrajectory` can calculate segment time/energy from explicit performance inputs and wind samples, including task execution energy/time. Production use still requires an aircraft/configuration-specific performance source, battery state/health and degradation, equipment power/mass, recovery requirement and reserve policy, all with provenance.
 
 The calculation must cover the complete trajectory, including turns, transitions, climb/descent, task execution and recovery. Missing segment samples or unsupported energy model inputs must block; no generic energy-per-metre defaults.
 
-## 8. Promotion criteria for a complete route candidate
+## 9. Promotion criteria for a complete route candidate
 
 Only after all of the following pass may a separate promotion stage set `trajectory_geometry_complete = true` and provide a `VALIDATED/ALLOWED` candidate to the multi-candidate weather ranking path:
 
@@ -120,15 +145,16 @@ Only after all of the following pass may a separate promotion stage set `traject
 
 Any missing/unknown item remains a hard block. AUTO and MANUAL must use the same safety and release gates; only their route-input processes differ.
 
-## 9. Next implementation sequence
+## 10. Next implementation sequence
 
 1. Locate and expose the authoritative vehicle/equipment profile repository or service used by the production application.
 2. Add the versioned profile-to-motion/safety binding and contract tests, including mismatch, stale evidence, unit ambiguity and custom configuration cases.
 3. Locate the authoritative DEM service/data interface; if none exists, define the provider contract before implementing a sampler.
-4. Add wind-ground-track geometry semantics and tests; do not conflate track angle/performance output with corrected waypoint coordinates.
-5. Integrate NOTAM/airspace validation after final geometry generation.
-6. Integrate full-trajectory energy/reserve and recovery assessment.
-7. Add the promotion gate and multi-candidate publication into the existing weather reranking path.
-8. Verify the Qt production runtime actually invokes the task-aware generator and publishes its candidate set.
+4. Implement the NOTAM snapshot-to-4D-exclusion adapter and feed active, altitude-relevant, buffered exclusions into candidate generation before optimization; handle zones crossing AOI boundaries by robust clipping rather than rejecting them.
+5. Add wind-ground-track geometry semantics and tests; after wind changes segment ETA, re-evaluate NOTAM validity and regenerate/reject affected candidates.
+6. Integrate final NOTAM/airspace validation against the completed geometry and exact snapshot.
+7. Integrate full-trajectory energy/reserve and recovery assessment.
+8. Add the promotion gate and multi-candidate publication into the existing weather reranking path.
+9. Verify the Qt production runtime actually invokes the task-aware generator and publishes its candidate set.
 
 No stage may silently substitute test fixtures or structural graph paths for production aircraft data or complete flight trajectories.
