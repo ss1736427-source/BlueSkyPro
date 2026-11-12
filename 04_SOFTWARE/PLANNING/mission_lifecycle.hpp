@@ -80,6 +80,7 @@ struct MissionLifecycleEvent {
     std::uint64_t sequence{0};
     std::string mission_id;
     std::string mission_version;
+    std::string parent_mission_version;
     std::string actor_id;
     std::string timestamp;
     std::string reason;
@@ -95,6 +96,10 @@ struct MissionLifecycleRecord {
     std::string mission_id;
     std::string mission_version;
     MissionLifecycleState state{MissionLifecycleState::Draft};
+    std::string parent_mission_version;
+    std::string current_route_id;
+    std::string current_route_version;
+    std::string current_calculation_input_version;
     std::uint64_t next_event_sequence{1};
     std::vector<MissionLifecycleEvent> history;
 };
