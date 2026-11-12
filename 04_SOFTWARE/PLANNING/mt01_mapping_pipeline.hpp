@@ -2,6 +2,7 @@
 
 #include "coverage_path_planner.hpp"
 #include "mt01_kinematic_geometry_builder.hpp"
+#include "model/flight_safety_constraints.hpp"
 #include "model/mission_model.hpp"
 
 #include <string>
@@ -23,6 +24,7 @@ struct Mt01MappingRequest {
     double cruise_speed_mps{0.0};
     double line_angle_deg{0.0};
     VehicleMotionModel vehicle_motion_model;
+    // Explicit, independently validated envelope; never inferred from motion estimates.\n    FlightSafetyEnvelope flight_safety_envelope;
 };
 
 struct Mt01MappingPipelineResult {
@@ -32,6 +34,8 @@ struct Mt01MappingPipelineResult {
     CoveragePlanResult coverage;
     bool kinematic_geometry_available{false};
     Mt01KinematicGeometryResult kinematic_geometry;
+    bool segment_dynamics_validated{false};
+    FlightSafetyValidationResult flight_safety_validation;
     std::vector<std::string> findings;
 };
 
