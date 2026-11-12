@@ -9,6 +9,8 @@ Item {
     property var forecastAvailabilityService: null
     property var weatherDataService: null
     property var weatherCalculationService: null
+    property var notamSnapshotBridge: null
+    property var notamSnapshotParameters: ({})
     property var weatherAssessmentResult: ({})
     property var routeObjectivePriorities: []
     property bool applyingWeatherSelection: false
@@ -428,9 +430,35 @@ Item {
             root.weatherAcquisitionMessage = "EXPLICIT_ROUTE_OBJECTIVE_PRIORITIES_REQUIRED_FOR_CANDIDATE_RERANKING"
             return false
         }
+        if (!root.notamSnapshotBridge
+                || typeof root.notamSnapshotBridge.normalizeNotamSnapshot !== "function") {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = "NOTAM_SNAPSHOT_NORMALIZER_UNAVAILABLE"
+            return false
+        }
+        var notamParameters = Object.assign(
+                    {}, root.notamSnapshotParameters || ({}), root.notamPlanningInputs())
+        var notamStartMs = Date.parse(String(notamParameters.plannedMissionStartUtc || ""))
+        var notamEndMs = Date.parse(String(notamParameters.plannedMissionEndUtc || ""))
+        var weatherEndMs = Date.parse(String(root.weatherCoverageEndUtc || ""))
+        var missionStartMs = Date.parse(String(root.weatherMissionStartUtc || ""))
+        if (!Number.isFinite(notamStartMs) || !Number.isFinite(notamEndMs)
+                || !Number.isFinite(weatherEndMs) || !Number.isFinite(missionStartMs)
+                || notamEndMs < weatherEndMs || notamStartMs > missionStartMs) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = "NOTAM_VALIDITY_WINDOW_MUST_COVER_WIND_CORRECTED_ROUTE_AND_RESERVE"
+            return false
+        }
+        var normalizedNotam = root.notamSnapshotBridge.normalizeNotamSnapshot(notamParameters)
+        if (!normalizedNotam || normalizedNotam.valid !== true) {
+            root.weatherAcquisitionStatus = "BLOCKED"
+            root.weatherAcquisitionMessage = normalizedNotam && normalizedNotam.errors
+                    ? normalizedNotam.errors.join(", ") : "NOTAM_SNAPSHOT_NORMALIZATION_FAILED"
+            return false
+        }
         var accepted = root.weatherCalculationService.evaluateCandidates(
                     products, candidateSet, root.missionModelJson,
-                    root.weatherMissionStartUtc, performanceProfile, priorities)
+                    root.weatherMissionStartUtc, performanceProfile, priorities, normalizedNotam)
         if (!accepted) {
             root.weatherAcquisitionStatus = "BLOCKED"
             root.weatherAcquisitionMessage = root.weatherCalculationService.lastError

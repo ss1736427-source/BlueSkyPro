@@ -5,6 +5,7 @@
 #include "04_SOFTWARE/WEATHER/grib2_weather_pipeline.hpp"
 #include "04_SOFTWARE/WEATHER/weather_candidate_assessor.hpp"
 #include "04_SOFTWARE/PLANNING/orchestrator/algorithm_orchestrator.hpp"
+#include "04_SOFTWARE/PLANNING/notam_prohibited_zone_validator.hpp"
 
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -513,11 +514,129 @@ private:
     std::vector<bluesky::planning::CandidateSolution> m_candidates;
 };
 
+
+bool parseNormalizedNotamSnapshot(const QVariantMap& value,
+                                  bluesky::planning::NotamSnapshot& snapshot,
+                                  double& safetyBufferM,
+                                  QString& error)
+{
+    using namespace bluesky::planning;
+    if (value.value(QStringLiteral("valid")).toBool() != true
+        || !value.contains(QStringLiteral("zones"))) {
+        error = QStringLiteral("NOTAM_SNAPSHOT_REQUIRED_FOR_WEATHER_RERANKING");
+        return false;
+    }
+    const auto requiredString = [&value](const QString& key) {
+        return value.value(key).toString().trimmed();
+    };
+    snapshot.snapshot_id = requiredString(QStringLiteral("snapshotId")).toStdString();
+    snapshot.source_id = requiredString(QStringLiteral("sourceId")).toStdString();
+    snapshot.source_version = requiredString(QStringLiteral("sourceVersion")).toStdString();
+    bool epochOk = false, latOk = false, lonOk = false, radiusOk = false;
+    snapshot.evaluation_epoch_s = value.value(QStringLiteral("evaluationEpochS")).toLongLong(&epochOk);
+    snapshot.coverage_center.latitude_deg = value.value(QStringLiteral("coverageCenterLatitudeDeg")).toDouble(&latOk);
+    snapshot.coverage_center.longitude_deg = value.value(QStringLiteral("coverageCenterLongitudeDeg")).toDouble(&lonOk);
+    snapshot.coverage_radius_m = value.value(QStringLiteral("coverageRadiusM")).toDouble(&radiusOk);
+    bool startOk = false, endOk = false, bufferOk = false;
+    const qint64 missionStart = value.value(QStringLiteral("plannedMissionStartEpochS")).toLongLong(&startOk);
+    const qint64 missionEnd = value.value(QStringLiteral("plannedMissionEndEpochS")).toLongLong(&endOk);
+    safetyBufferM = value.value(QStringLiteral("safetyBufferM")).toDouble(&bufferOk);
+    if (snapshot.snapshot_id.empty() || snapshot.source_id.empty() || snapshot.source_version.empty()
+        || !epochOk || snapshot.evaluation_epoch_s <= 0
+        || !latOk || !lonOk || !radiusOk
+        || !std::isfinite(snapshot.coverage_center.latitude_deg)
+        || !std::isfinite(snapshot.coverage_center.longitude_deg)
+        || snapshot.coverage_center.latitude_deg < -90.0 || snapshot.coverage_center.latitude_deg > 90.0
+        || snapshot.coverage_center.longitude_deg < -180.0 || snapshot.coverage_center.longitude_deg > 180.0
+        || !std::isfinite(snapshot.coverage_radius_m) || snapshot.coverage_radius_m <= 0.0
+        || !startOk || !endOk || missionStart <= 0 || missionEnd < missionStart
+        || !bufferOk || !std::isfinite(safetyBufferM) || safetyBufferM <= 0.0) {
+        error = QStringLiteral("NOTAM_SNAPSHOT_IDENTITY_COVERAGE_OR_TIME_WINDOW_INVALID");
+        return false;
+    }
+    for (const QVariant& zoneValue : value.value(QStringLiteral("zones")).toList()) {
+        const QVariantMap item = zoneValue.toMap();
+        NotamZone zone;
+        zone.notam_id = item.value(QStringLiteral("notamId")).toString().trimmed().toStdString();
+        zone.component_id = item.value(QStringLiteral("componentId")).toString().trimmed().toStdString();
+        if (zone.notam_id.empty() || zone.component_id.empty()
+            || item.value(QStringLiteral("geometryType")).toString() != QStringLiteral("POLYGON")) {
+            error = QStringLiteral("NOTAM_NORMALIZED_COMPONENT_ID_OR_GEOMETRY_INVALID");
+            return false;
+        }
+        bool lowerOk = false, upperOk = false, fromOk = false, toOk = false;
+        zone.lower_altitude_m = item.value(QStringLiteral("lowerAltitudeM")).toDouble(&lowerOk);
+        zone.upper_altitude_m = item.value(QStringLiteral("upperAltitudeM")).toDouble(&upperOk);
+        zone.valid_from_epoch_s = item.value(QStringLiteral("validFromEpochS")).toLongLong(&fromOk);
+        zone.valid_to_epoch_s = item.value(QStringLiteral("validToEpochS")).toLongLong(&toOk);
+        const QString datum = item.value(QStringLiteral("altitudeReference")).toString();
+        if (datum == QStringLiteral("AGL")) zone.altitude_reference = NotamAltitudeReference::AGL;
+        else if (datum == QStringLiteral("AMSL")) zone.altitude_reference = NotamAltitudeReference::AMSL;
+        else if (datum == QStringLiteral("FL")) zone.altitude_reference = NotamAltitudeReference::FlightLevel;
+        else zone.altitude_reference = NotamAltitudeReference::Unknown;
+        if (!lowerOk || !upperOk || !fromOk || !toOk
+            || !std::isfinite(zone.lower_altitude_m) || !std::isfinite(zone.upper_altitude_m)
+            || zone.lower_altitude_m > zone.upper_altitude_m
+            || zone.valid_from_epoch_s <= 0 || zone.valid_to_epoch_s < zone.valid_from_epoch_s) {
+            error = QStringLiteral("NOTAM_NORMALIZED_COMPONENT_VERTICAL_OR_TIME_BOUNDS_INVALID");
+            return false;
+        }
+        const QVariantList points = item.value(QStringLiteral("polygon")).toList();
+        if (points.size() < 3) {
+            error = QStringLiteral("NOTAM_NORMALIZED_COMPONENT_POLYGON_INVALID");
+            return false;
+        }
+        for (const QVariant& pointValue : points) {
+            const QVariantMap point = pointValue.toMap();
+            bool pointLatOk = false, pointLonOk = false;
+            const double latitude = point.value(QStringLiteral("latitudeDeg")).toDouble(&pointLatOk);
+            const double longitude = point.value(QStringLiteral("longitudeDeg")).toDouble(&pointLonOk);
+            if (!pointLatOk || !pointLonOk || !std::isfinite(latitude) || !std::isfinite(longitude)
+                || latitude < -90.0 || latitude > 90.0 || longitude < -180.0 || longitude > 180.0) {
+                error = QStringLiteral("NOTAM_NORMALIZED_COMPONENT_COORDINATE_INVALID");
+                return false;
+            }
+            zone.polygon.push_back({latitude, longitude});
+        }
+        zone.geometry_type = NotamGeometryType::Polygon;
+        zone.restriction_type = NotamRestrictionType::Prohibited;
+        snapshot.zones.push_back(std::move(zone));
+    }
+    error.clear();
+    return true;
+}
+
+bool routeWithinNotamQueryCoverage(const bluesky::planning::Route& route,
+                                   const bluesky::planning::NotamSnapshot& snapshot,
+                                   double safetyBufferM)
+{
+    constexpr double earthRadiusM = 6371008.8;
+    constexpr double pi = 3.14159265358979323846;
+    const auto radians = [pi](double value) { return value * pi / 180.0; };
+    for (const auto& waypoint : route.waypoints) {
+        const double lat1 = radians(snapshot.coverage_center.latitude_deg);
+        const double lat2 = radians(waypoint.position.latitude_deg);
+        const double dLat = lat2 - lat1;
+        double dLonDegrees = waypoint.position.longitude_deg - snapshot.coverage_center.longitude_deg;
+        while (dLonDegrees > 180.0) dLonDegrees -= 360.0;
+        while (dLonDegrees < -180.0) dLonDegrees += 360.0;
+        const double dLon = radians(dLonDegrees);
+        const double sinLat = std::sin(dLat * 0.5);
+        const double sinLon = std::sin(dLon * 0.5);
+        const double h = sinLat * sinLat + std::cos(lat1) * std::cos(lat2) * sinLon * sinLon;
+        const double distanceM = 2.0 * earthRadiusM * std::asin(std::sqrt(std::clamp(h, 0.0, 1.0)));
+        if (!std::isfinite(distanceM) || distanceM + safetyBufferM > snapshot.coverage_radius_m + 0.01)
+            return false;
+    }
+    return !route.waypoints.empty();
+}
+
 QVariantMap evaluateCandidateSetOnWorker(
     const std::vector<ForecastProduct>& products,
     const std::vector<bluesky::planning::CandidateSolution>& candidates,
     const bluesky::planning::MissionProblem& problem,
-    const TrajectoryPerformanceInput& input)
+    const TrajectoryPerformanceInput& input,
+    const bluesky::planning::NotamSnapshot& notamSnapshot)
 {
     QVariantMap result;
 #ifndef BLUESKY_HAVE_ECCODES
@@ -584,7 +703,9 @@ QVariantMap evaluateCandidateSetOnWorker(
     result.insert(QStringLiteral("forecastProductCount"), static_cast<int>(products.size()));
     result.insert(QStringLiteral("candidateCount"), static_cast<int>(candidates.size()));
     result.insert(QStringLiteral("flightReleaseEligible"), false);
-    result.insert(QStringLiteral("assessmentScope"), QStringLiteral("WEATHER_RERANKING_ONLY"));
+    result.insert(QStringLiteral("assessmentScope"), QStringLiteral("WEATHER_RERANKING_WITH_POST_WIND_NOTAM_GATE"));
+    result.insert(QStringLiteral("notamValidationRequired"), true);
+    result.insert(QStringLiteral("notamSnapshotId"), QString::fromStdString(notamSnapshot.snapshot_id));
     if (!snapshot.decode_succeeded || snapshot.fields.empty()) {
         result.insert(QStringLiteral("weatherReady"), false);
         result.insert(QStringLiteral("weatherError"),
@@ -784,10 +905,20 @@ bool WeatherCalculationService::evaluateCandidates(
     const QString& missionModelJson,
     const QString& missionStartUtc,
     const QVariantMap& validatedPerformanceProfile,
-    const QStringList& objectivePriorities)
+    const QStringList& objectivePriorities,
+    const QVariantMap& normalizedNotamSnapshot)
 {
     if (m_watcher.isRunning()) {
         setError(QStringLiteral("WEATHER_ASSESSMENT_ALREADY_RUNNING"));
+        return false;
+    }
+
+    bluesky::planning::NotamSnapshot notamSnapshot;
+    double notamSafetyBufferM = 0.0;
+    QString notamSnapshotError;
+    if (!parseNormalizedNotamSnapshot(normalizedNotamSnapshot, notamSnapshot,
+                                      notamSafetyBufferM, notamSnapshotError)) {
+        setError(notamSnapshotError);
         return false;
     }
     if (!decoderAvailable()) {
@@ -868,6 +999,18 @@ bool WeatherCalculationService::evaluateCandidates(
         Route route;
         if (!buildRoute(snapshot, route, error)) {
             setError(error);
+            return false;
+        }
+        if (!route.constraints.avoid_restricted_areas) {
+            setError(QStringLiteral("NOTAM_AVOIDANCE_REQUIRED_FOR_WEATHER_RERANKING"));
+            return false;
+        }
+        if (route.environment.airspace_snapshot_id != notamSnapshot.snapshot_id) {
+            setError(QStringLiteral("ROUTE_NOTAM_SNAPSHOT_IDENTITY_MISMATCH"));
+            return false;
+        }
+        if (!routeWithinNotamQueryCoverage(route, notamSnapshot, notamSafetyBufferM)) {
+            setError(QStringLiteral("NOTAM_SNAPSHOT_DOES_NOT_COVER_ROUTE_WITH_BUFFER"));
             return false;
         }
         if (route.lineage.mission_id != missionId.toStdString()) {
@@ -952,14 +1095,16 @@ bool WeatherCalculationService::evaluateCandidates(
     problem.problem_class = "point_to_point";
     problem.vehicle_ids = {vehicleId.toStdString()};
     problem.environment_version = calculationInputVersion.toStdString();
+    problem.notam_snapshot = std::make_shared<const bluesky::planning::NotamSnapshot>(notamSnapshot);
+    problem.requires_notam_validation = true;
     for (const auto& priority : objectivePriorities)
         problem.objective_priorities.push_back(priority.trimmed().toStdString());
 
     setError(QString());
     setState(QStringLiteral("ASSESSING_CANDIDATE_SET"));
     m_watcher.setFuture(QtConcurrent::run(
-        [products, candidates, problem, input]() {
-            return evaluateCandidateSetOnWorker(products, candidates, problem, input);
+        [products, candidates, problem, input, notamSnapshot]() {
+            return evaluateCandidateSetOnWorker(products, candidates, problem, input, notamSnapshot);
         }));
     return true;
 }

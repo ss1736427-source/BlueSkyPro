@@ -567,3 +567,53 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
         }()}
     };
 }
+
+QVariantMap Mt01MappingBridge::normalizeNotamSnapshot(const QVariantMap &parameters) const
+{
+    Mt01MappingRequest request;
+    QStringList errors;
+    if (!parseNotamSnapshot(parameters, request, errors))
+        return {{QStringLiteral("valid"), false}, {QStringLiteral("errors"), errors}};
+
+    QVariantList zones;
+    for (const NotamZone &zone : request.notam_snapshot.zones) {
+        QString datum = QStringLiteral("UNKNOWN");
+        switch (zone.altitude_reference) {
+        case NotamAltitudeReference::AGL: datum = QStringLiteral("AGL"); break;
+        case NotamAltitudeReference::AMSL: datum = QStringLiteral("AMSL"); break;
+        case NotamAltitudeReference::FlightLevel: datum = QStringLiteral("FL"); break;
+        case NotamAltitudeReference::Unknown: break;
+        }
+        QVariantList polygon;
+        for (const GeoPoint &point : zone.polygon)
+            polygon.push_back(QVariantMap{
+                {QStringLiteral("latitudeDeg"), point.latitude_deg},
+                {QStringLiteral("longitudeDeg"), point.longitude_deg}
+            });
+        zones.push_back(QVariantMap{
+            {QStringLiteral("notamId"), QString::fromStdString(zone.notam_id)},
+            {QStringLiteral("componentId"), QString::fromStdString(zone.component_id)},
+            {QStringLiteral("geometryType"), QStringLiteral("POLYGON")},
+            {QStringLiteral("polygon"), polygon},
+            {QStringLiteral("lowerAltitudeM"), zone.lower_altitude_m},
+            {QStringLiteral("upperAltitudeM"), zone.upper_altitude_m},
+            {QStringLiteral("altitudeReference"), datum},
+            {QStringLiteral("validFromEpochS"), static_cast<qlonglong>(zone.valid_from_epoch_s)},
+            {QStringLiteral("validToEpochS"), static_cast<qlonglong>(zone.valid_to_epoch_s)}
+        });
+    }
+    return {
+        {QStringLiteral("valid"), true},
+        {QStringLiteral("snapshotId"), QString::fromStdString(request.notam_snapshot.snapshot_id)},
+        {QStringLiteral("sourceId"), QString::fromStdString(request.notam_snapshot.source_id)},
+        {QStringLiteral("sourceVersion"), QString::fromStdString(request.notam_snapshot.source_version)},
+        {QStringLiteral("evaluationEpochS"), static_cast<qlonglong>(request.notam_snapshot.evaluation_epoch_s)},
+        {QStringLiteral("coverageCenterLatitudeDeg"), request.notam_snapshot.coverage_center.latitude_deg},
+        {QStringLiteral("coverageCenterLongitudeDeg"), request.notam_snapshot.coverage_center.longitude_deg},
+        {QStringLiteral("coverageRadiusM"), request.notam_snapshot.coverage_radius_m},
+        {QStringLiteral("plannedMissionStartEpochS"), static_cast<qlonglong>(request.planned_mission_start_epoch_s)},
+        {QStringLiteral("plannedMissionEndEpochS"), static_cast<qlonglong>(request.planned_mission_end_epoch_s)},
+        {QStringLiteral("safetyBufferM"), request.notam_safety_buffer_m},
+        {QStringLiteral("zones"), zones}
+    };
+}

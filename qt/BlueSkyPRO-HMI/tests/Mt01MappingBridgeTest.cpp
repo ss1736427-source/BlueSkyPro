@@ -87,6 +87,12 @@ int main(int argc, char **argv)
     QCoreApplication app(argc, argv);
     Mt01MappingBridge bridge;
 
+    const QVariantMap normalizedEmptySnapshot = bridge.normalizeNotamSnapshot(validParameters());
+    assert(normalizedEmptySnapshot.value("valid").toBool());
+    assert(normalizedEmptySnapshot.value("snapshotId").toString() == "FAA-NMS-TEST-SNAPSHOT");
+    assert(normalizedEmptySnapshot.value("zones").toList().isEmpty());
+    assert(normalizedEmptySnapshot.value("coverageRadiusM").toDouble() == 500.0);
+
     const QVariantMap result = bridge.calculate(validMissionJson(), validParameters());
     assert(result.value("status").toString() == "COVERAGE_CANDIDATE_AVAILABLE");
     assert(result.value("coverageCandidateAvailable").toBool());
@@ -115,6 +121,13 @@ int main(int argc, char **argv)
         {"geometryJson", QStringLiteral(R"({"type":"Polygon","coordinates":[[[0.0008,0.0008],[0.0012,0.0008],[0.0012,0.0012],[0.0008,0.0012],[0.0008,0.0008]]]})")}
     };
     activeNotamParameters.insert("notamRecords", QVariantList{activeNotam});
+    const QVariantMap normalizedActiveSnapshot =
+        bridge.normalizeNotamSnapshot(activeNotamParameters);
+    assert(normalizedActiveSnapshot.value("valid").toBool());
+    const QVariantList normalizedZones = normalizedActiveSnapshot.value("zones").toList();
+    assert(normalizedZones.size() == 1);
+    assert(normalizedZones.first().toMap().value("componentId").toString()
+           == "N-HMI-001-COMP-1");
     const QVariantMap notamResult = bridge.calculate(validMissionJson(), activeNotamParameters);
     assert(notamResult.value("status").toString() == "COVERAGE_CANDIDATE_AVAILABLE");
     assert(notamResult.value("metrics").toMap().value("notamApplicableComponentCount").toULongLong() == 1);
@@ -166,6 +179,11 @@ int main(int argc, char **argv)
     missingNotamSnapshot.remove("notamSnapshotId");
     const QVariantMap missingSnapshotResult =
         bridge.calculate(validMissionJson(), missingNotamSnapshot);
+    const QVariantMap missingNormalizedSnapshot =
+        bridge.normalizeNotamSnapshot(missingNotamSnapshot);
+    assert(!missingNormalizedSnapshot.value("valid").toBool());
+    assert(missingNormalizedSnapshot.value("errors").toStringList().contains(
+        "NOTAM_SNAPSHOT_IDENTITY_AND_RECORDS_REQUIRED"));
     assert(missingSnapshotResult.value("status").toString() == "NEEDS_INPUT");
     assert(missingSnapshotResult.value("findings").toStringList().contains(
         "NOTAM_SNAPSHOT_IDENTITY_AND_RECORDS_REQUIRED"));

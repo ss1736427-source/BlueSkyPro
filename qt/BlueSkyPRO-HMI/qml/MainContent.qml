@@ -316,6 +316,18 @@ Item {
             forecastAvailabilityService: typeof gfsForecastAvailabilityService !== "undefined" ? gfsForecastAvailabilityService : null
             weatherDataService: typeof weatherDataService !== "undefined" ? weatherDataService : null
             weatherCalculationService: typeof weatherCalculationService !== "undefined" ? weatherCalculationService : null
+            notamSnapshotBridge: typeof mt01MappingBridge !== "undefined" ? mt01MappingBridge : null
+            notamSnapshotParameters: ({
+                notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : [],
+                notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : "",
+                notamSourceId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
+                    ? "FAA_NMS_" + faaNmsClient.environment : "",
+                notamSourceVersion: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : "",
+                notamSnapshotEpochS: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotEpochS : 0,
+                notamQueryLatitude: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamQueryLatitude : 0,
+                notamQueryLongitude: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamQueryLongitude : 0,
+                notamQueryRadiusM: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamQueryRadiusM : 0
+            })
             routeObjectivePriorities: root.planningResult && root.planningResult.result
                                       ? (root.planningResult.result.objectivePriorities
                                          || root.planningResult.result.objective_priorities || [])

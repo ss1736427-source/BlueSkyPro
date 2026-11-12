@@ -49,9 +49,10 @@ Waypoint task execution data is optional, but `taskExecutionDurationS` and `task
 3. The weather coverage bridge builds a union request over every candidate route and all required AGL levels.
 4. GFS products are fetched for one model run and a common set of forecast valid times.
 5. GRIB2 files are identity/hash checked and decoded into one immutable weather snapshot.
-6. The same snapshot and assigned-UAV performance input are used to assess each candidate.
-7. `AlgorithmOrchestrator` rejects candidates with incomplete or infeasible weather assessment and ranks the remaining candidates using the declared objective priorities.
-8. The HMI selects the returned `selectedCandidateId` and displays the weather-corrected metrics.
+6. The same decoded forecast snapshot and assigned-UAV performance input are used to assess each candidate.
+7. The HMI normalizes the current FAA NMS snapshot, including source identity, query center/radius, component IDs, vertical datum and validity intervals. Every candidate must reference that exact airspace snapshot and remain inside its queried coverage circle plus the configured NOTAM buffer.
+8. `AlgorithmOrchestrator` applies the wind-corrected 4D trajectory, then runs the time-dependent NOTAM validator against the same immutable snapshot. A missing snapshot, mismatched airspace reference, incomplete query coverage, unsupported altitude datum or NOTAM intersection rejects the candidate before ranking.
+9. Only candidates that pass the weather and post-wind NOTAM gates are ranked using the declared objective priorities. The HMI selects the returned `selectedCandidateId` and displays the weather-corrected metrics.
 
 ## Fail-closed rules
 
@@ -66,7 +67,7 @@ Waypoint task execution data is optional, but `taskExecutionDurationS` and `task
 
 ## Current integration boundary
 
-The HMI accepts `result.routeCandidates`, retains the validated set, requests union coverage, and has a multi-candidate weather evaluation path that decodes one snapshot and uses the real `AlgorithmOrchestrator`.
+The HMI accepts `result.routeCandidates`, retains the validated set, requests union coverage, decodes one snapshot and uses the real `AlgorithmOrchestrator`. The HMI weather path now passes a normalized immutable NOTAM snapshot into that orchestrator and sets `requires_notam_validation`; the final NOTAM check runs after wind/performance trajectory generation and before candidate ranking. Route-to-snapshot identity and the route's geographic containment inside the exact source query circle plus buffer are hard requirements. This is still a weather re-ranking path, not flight-release authorization.
 
 The Python Planning Core stdio bridge now accepts `inputs.routeCandidates`, validates the complete WGS84 segment chain, mission/input lineage, assigned-aircraft safety attestation, nominal metrics, selected candidate and weather-correctable objective priorities, then emits `result.routeCandidates`, `result.selectedCandidateId` and `result.objectivePriorities`. The request and result JSON schemas describe this payload.
 

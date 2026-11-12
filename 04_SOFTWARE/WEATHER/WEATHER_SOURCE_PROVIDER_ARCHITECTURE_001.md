@@ -56,9 +56,15 @@ ADMINISTRATOR / EXTERNAL CONNECTIONS / WEATHER
                      |
             Weather Assessment
                      |
-        Algorithm Orchestrator (future
-        verified weather-aware re-ranking)
+        Algorithm Orchestrator (weather-aware
+        candidate ranking + post-wind NOTAM gate)
 ```
+
+## 3.1 Current implementation boundary
+
+The current HMI acquisition path is a built-in NOAA/NCEP NOMADS GFS 0.25-degree GRIB2 integration. It requests mission/candidate-scoped regional U/V subsets and explicit AGL levels, checks directory-listing availability with a short-lived 10-minute cache, reuses immutable forecast products only when request identity, valid time, byte count and SHA-256 match the manifest, and decodes one coherent run for the candidate set.
+
+The generic `WeatherProviderRegistry` currently validates adapter descriptors and provider capability declarations. It is not yet the runtime acquisition interface used by the HMI: the active HMI download/availability services still call NOMADS directly. A provider-neutral acquisition API, adapter implementations for additional sources, canonical product repository and administrator configuration workspace remain future integration work. Do not describe the multi-provider architecture as operationally complete.
 
 ## 4. Provider and adapter model
 

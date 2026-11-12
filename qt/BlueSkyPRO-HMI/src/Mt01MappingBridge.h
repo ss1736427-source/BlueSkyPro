@@ -16,4 +16,5 @@ public:
 
     Q_INVOKABLE QVariantMap calculate(const QString &missionJson,
                                       const QVariantMap &parameters) const;
+    Q_INVOKABLE QVariantMap normalizeNotamSnapshot(const QVariantMap &parameters) const;
 };

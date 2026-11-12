@@ -38,7 +38,8 @@ public:
         const QString& missionModelJson,
         const QString& missionStartUtc,
         const QVariantMap& validatedPerformanceProfile,
-        const QStringList& objectivePriorities);
+        const QStringList& objectivePriorities,
+        const QVariantMap& normalizedNotamSnapshot);
 
 signals:
     void stateChanged();
