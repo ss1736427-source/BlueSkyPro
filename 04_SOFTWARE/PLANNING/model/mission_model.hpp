@@ -134,6 +134,32 @@ struct MissionOrigin {
     std::optional<double> true_north_bearing_deg;
 };
 
+// A mission operation is a task phase, not merely a waypoint dwell. It may
+// generate a coverage pattern, orbit, inspection sequence, delivery leg, etc.
+// Execution estimates are usable by trajectory calculation only when their
+// provenance is validated against the assigned airframe/equipment revision.
+struct OperationExecutionEstimate {
+    std::string state = "UNRESOLVED"; // UNRESOLVED or VALIDATED
+    std::optional<double> duration_s;
+    std::optional<double> energy_wh;
+    std::string source_type; // VEHICLE_MODEL, EQUIPMENT_MODEL, MEASURED_PROFILE, OPERATOR_APPROVED
+    std::string source_id;
+    std::string source_version;
+    std::string method_version;
+    std::string vehicle_id;
+    std::string vehicle_configuration_version;
+    std::vector<std::string> equipment_profile_ids;
+};
+
+struct MissionOperation {
+    std::string operation_id;
+    std::string template_id;
+    std::string operation_type; // e.g. MAPPING_SWATH, ORBIT, INSPECTION, SEARCH, DELIVERY
+    std::string geometry_id;
+    std::vector<std::string> equipment_ids;
+    OperationExecutionEstimate execution_estimate;
+};
+
 struct Mission {
     MissionIdentity identity;
     // AUTO and MANUAL share the same canonical model and safety pipeline.
@@ -143,6 +169,7 @@ struct Mission {
     std::vector<MissionGeometryObject> geometry_objects;
     MissionIntent intent;
     TaskDefinition task;
+    std::vector<MissionOperation> operations;
     ConstraintSet constraints;
     std::vector<EnvironmentSnapshot> environment_snapshots;
     std::vector<VehicleAssignment> vehicle_assignments;
