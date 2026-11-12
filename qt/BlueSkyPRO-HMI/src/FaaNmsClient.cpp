@@ -303,7 +303,7 @@ void FaaNmsClient::queryNotamsForScope(double latitude, double longitude,
     const QString clientId = m_vault->readSecret(QStringLiteral("faa_nms_client_id"));
     const QString clientSecret = m_vault->readSecret(QStringLiteral("faa_nms_client_secret"));
     if (clientId.isEmpty() || clientSecret.isEmpty()) {
-        emit notamQueryFinished(false, QStringLiteral("FAA NMS credentials are not configured."));
+        finishNotamQuery(false, missionScope, QStringLiteral("FAA NMS credentials are not configured."));
         return;
     }
 
@@ -400,7 +400,7 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
         QJsonParseError parseError {};
         const QJsonDocument doc = QJsonDocument::fromJson(body, &parseError);
         if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
-            emit notamQueryFinished(false, QStringLiteral("FAA NMS NOTAM response is not a valid JSON object."));
+            finishNotamQuery(false, missionScope, QStringLiteral("FAA NMS NOTAM response is not a valid JSON object."));
             return;
         }
         const QJsonObject root = doc.object();
@@ -533,7 +533,7 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
         m_queryInProgress = true;
         auto *watcher = new QFutureWatcher<NotamInterpretationBatch>(this);
         connect(watcher, &QFutureWatcher<NotamInterpretationBatch>::finished, this,
-                [this, watcher, latitude, longitude, radiusNm, environment = m_environment]() {
+                [this, watcher, latitude, longitude, radiusNm, missionScope, environment = m_environment]() {
             const NotamInterpretationBatch batch = watcher->result();
             watcher->deleteLater();
             if (m_environment != environment) {
@@ -571,9 +571,9 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
             if (batch.records.isEmpty()) {
                 finishNotamQuery(true, missionScope,
                     QStringLiteral("FAA NMS query completed with zero matching records for this radius. This US test source does not establish that the queried airspace is unrestricted. Snapshot %1.")
-                        .arg(m_notamSnapshotId));
+                        .arg(snapshotId));
             } else {
-                emit notamQueryFinished(true,
+                finishNotamQuery(true, missionScope,
                     QStringLiteral("FAA NMS query succeeded: %1 records; %2 have displayable geometry (%3 area restrictions, %4 point/line only); %5 have no displayable geometry. Snapshot %6. Shared interpretation completed off the UI thread; FAA NMS STAGING/FIT remains a test source and does not establish operational airspace clearance or flight-release eligibility.")
                         .arg(batch.records.size()).arg(batch.featuresWithGeometry)
                         .arg(batch.areaRestrictions).arg(batch.displayOnlyGeometry)
