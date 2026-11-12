@@ -200,8 +200,10 @@ int main() {
     assert(move(aborted, MissionLifecycleState::Authorized, e).accepted);
     assert(move(aborted, MissionLifecycleState::Released, e).accepted);
     assert(move(aborted, MissionLifecycleState::Executing, e).accepted);
+    auto abortEvidence = e;
+    abortEvidence.execution_closed = false;
     auto incompleteAbort = MissionLifecycleController::transition(
-        aborted, MissionLifecycleState::Aborted, e, "OPERATOR-1",
+        aborted, MissionLifecycleState::Aborted, abortEvidence, "OPERATOR-1",
         "2026-11-12T12:04:00Z", "operator abort");
     assert(!incompleteAbort.accepted);
     assert(std::find(incompleteAbort.blockers.begin(), incompleteAbort.blockers.end(),
