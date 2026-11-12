@@ -175,6 +175,19 @@ target_include_directories(route_controller_test PRIVATE ${CMAKE_CURRENT_SOURCE_
 target_link_libraries(route_controller_test PRIVATE Qt6::Core)
 add_test(NAME route_controller_fail_closed_contract COMMAND route_controller_test)
 
+# Keep the mission lifecycle gate in the HMI CI test set even when the shared
+# planning subdirectory is built with BLUESKY_BUILD_PLANNING_TESTS=OFF.
+add_executable(mission_lifecycle_contract_test
+    ../../04_SOFTWARE/PLANNING/mission_lifecycle.cpp
+    ../../04_SOFTWARE/PLANNING/mission_lifecycle.hpp
+    ../../04_SOFTWARE/PLANNING/mission_lifecycle_test.cpp
+)
+target_include_directories(mission_lifecycle_contract_test PRIVATE
+    ../../04_SOFTWARE/PLANNING
+)
+target_compile_features(mission_lifecycle_contract_test PRIVATE cxx_std_20)
+add_test(NAME mission_lifecycle_contract COMMAND mission_lifecycle_contract_test)
+
 add_executable(notam_geometry_engine_test
     tests/NotamGeometryEngineTest.cpp
     src/NotamGeometryEngine.cpp
