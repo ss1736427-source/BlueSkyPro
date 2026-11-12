@@ -118,15 +118,35 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
         prohibited.push_back(std::move(polygon));
     }
 
-    const auto append = [&](const GeoPoint& point) {
+    const auto appendInitial = [&](const GeoPoint& point) {
+        if (result.waypoints.empty())
+            result.waypoints.push_back(point);
+    };
+    const auto appendEdge = [&](const GeoPoint& point,
+                                Mt01KinematicSegmentType type,
+                                double bankAngleRad,
+                                double lateralAccelerationMps2) {
         if (result.waypoints.empty()) {
             result.waypoints.push_back(point);
             return;
         }
         const auto& previous = result.waypoints.back();
         const auto delta = project(point, previous.latitude_deg, previous.longitude_deg);
-        if (std::hypot(delta.x, delta.y) > 0.01)
-            result.waypoints.push_back(point);
+        const double distance = std::hypot(delta.x, delta.y);
+        if (distance <= 0.01)
+            return;
+        const std::size_t fromIndex = result.waypoints.size() - 1;
+        result.waypoints.push_back(point);
+        Mt01KinematicSegment segment;
+        segment.segment_id = "MT01-SEG-" + std::to_string(result.segments.size() + 1);
+        segment.from_waypoint_index = fromIndex;
+        segment.to_waypoint_index = fromIndex + 1;
+        segment.type = type;
+        segment.distance_m = distance;
+        segment.nominal_speed_mps = coverageCruiseSpeedMps;
+        segment.bank_angle_rad = bankAngleRad;
+        segment.lateral_acceleration_mps2 = lateralAccelerationMps2;
+        result.segments.push_back(std::move(segment));
     };
 
     for (std::size_t leg = 0; leg < coverage.waypoints.size(); leg += 2) {
@@ -142,7 +162,7 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
         const TurnPose2D finish{finishXY.x, finishXY.y, heading};
 
         if (leg == 0) {
-            append(coverage.waypoints[leg]);
+            appendInitial(coverage.waypoints[leg]);
         } else {
             const auto& previousGeo = result.waypoints.back();
             const auto previousXY = project(previousGeo, originLat, originLon);
@@ -159,15 +179,42 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
             const auto connector = DubinsTurnConnector::build(connectorInput);
             if (!connector.feasible)
                 return fail("MT01_TURN_CONNECTOR_BLOCKED: " + connector.diagnostic);
-            for (std::size_t i = 1; i < connector.points.size(); ++i)
-                append(unproject(connector.points[i], originLat, originLon));
+            for (std::size_t i = 1; i < connector.points.size(); ++i) {
+                const double headingDelta = std::abs(std::remainder(
+                    connector.points[i].heading_rad - connector.points[i - 1].heading_rad,
+                    2.0 * kPi));
+                const bool turning = headingDelta > 1e-7;
+                appendEdge(
+                    unproject(connector.points[i], originLat, originLon),
+                    turning ? Mt01KinematicSegmentType::ConnectorTurn
+                            : Mt01KinematicSegmentType::ConnectorStraight,
+                    turning ? vehicle.bank_angle_rad : 0.0,
+                    turning ? (coverageCruiseSpeedMps * coverageCruiseSpeedMps /
+                               radius.air_relative_radius_m) : 0.0);
+            }
             ++result.connector_count;
         }
-        append(coverage.waypoints[leg + 1]);
+        appendEdge(coverage.waypoints[leg + 1],
+                   Mt01KinematicSegmentType::Coverage, 0.0, 0.0);
     }
 
-    if (result.waypoints.size() < 2)
-        return fail("MT01_KINEMATIC_GEOMETRY_EMPTY: no usable trajectory candidate was produced.");
+    if (result.waypoints.size() < 2
+        || result.segments.size() + 1 != result.waypoints.size())
+        return fail("MT01_KINEMATIC_GEOMETRY_EMPTY: waypoint/segment chain is incomplete.");
+
+    for (std::size_t i = 0; i < result.segments.size(); ++i) {
+        const auto& segment = result.segments[i];
+        if (segment.segment_id.empty()
+            || segment.from_waypoint_index != i
+            || segment.to_waypoint_index != i + 1
+            || !finite(segment.distance_m) || segment.distance_m <= 0.0
+            || !finite(segment.nominal_speed_mps) || segment.nominal_speed_mps <= 0.0
+            || !finite(segment.bank_angle_rad) || segment.bank_angle_rad < 0.0
+            || !finite(segment.lateral_acceleration_mps2)
+            || segment.lateral_acceleration_mps2 < 0.0) {
+            return fail("MT01_KINEMATIC_SEGMENT_INVALID: every generated edge must carry finite ordered dynamics.");
+        }
+    }
 
     result.feasible = true;
     result.diagnostics.push_back(
