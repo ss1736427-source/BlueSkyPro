@@ -136,6 +136,12 @@ int main(int argc, char **argv)
     assert(v2Document.isObject());
     const QJsonObject v2Object = v2Document.object();
     assert(v2Object.value(QStringLiteral("status")).toString() == QStringLiteral("DRAFT"));
+    const QJsonObject lifecycle = v2Object.value(QStringLiteral("lifecycle")).toObject();
+    assert(lifecycle.value(QStringLiteral("state")).toString() == QStringLiteral("DRAFT"));
+    assert(lifecycle.value(QStringLiteral("missionId")).toString() == QStringLiteral("MISSION-V2"));
+    assert(lifecycle.value(QStringLiteral("missionVersion")).toInt() == 7);
+    assert(lifecycle.value(QStringLiteral("nextEventSequence")).toInt() == 1);
+    assert(lifecycle.value(QStringLiteral("history")).toArray().isEmpty());
     assert(v2Object.value(QStringLiteral("task")).toObject()
                .value(QStringLiteral("description")).toString() == QStringLiteral("Картографировать AOI"));
     assert(v2Object.value(QStringLiteral("vehicleAssignments")).toArray().isEmpty());
@@ -178,6 +184,11 @@ int main(int argc, char **argv)
     assert(autoDocument.isObject());
     assert(autoDocument.object().value(QStringLiteral("missionMode")).toString() == QStringLiteral("AUTO"));
     assert(autoDocument.object().value(QStringLiteral("status")).toString() == QStringLiteral("DRAFT"));
+    const QJsonObject autoLifecycle = autoDocument.object()
+        .value(QStringLiteral("lifecycle")).toObject();
+    assert(autoLifecycle.value(QStringLiteral("state")).toString() == QStringLiteral("DRAFT"));
+    assert(autoLifecycle.value(QStringLiteral("missionId")).toString()
+           == QStringLiteral("MISSION-AUTO-V2"));
     assert(autoDocument.object().value(QStringLiteral("geometryObjects")).toArray().isEmpty());
     assert(!autoMission.value(QStringLiteral("flightReleaseEligible")).toBool());
 
