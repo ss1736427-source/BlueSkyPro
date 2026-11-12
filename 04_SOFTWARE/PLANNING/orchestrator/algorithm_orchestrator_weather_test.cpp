@@ -157,6 +157,8 @@ int main()
     snapshot->source_id = "CONTROLLED-TEST-SOURCE";
     snapshot->source_version = "1";
     snapshot->evaluation_epoch_s = 1000;
+    snapshot->planned_mission_start_epoch_s = 1000;
+    snapshot->planned_mission_end_epoch_s = 1100;
     NotamZone crossingZone;
     crossingZone.notam_id = "NOTAM-TIMED-001";
     crossingZone.component_id = "NOTAM-TIMED-001-COMP-01";

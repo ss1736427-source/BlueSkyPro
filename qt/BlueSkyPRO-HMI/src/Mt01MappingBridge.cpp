@@ -132,6 +132,8 @@ bool parseNotamSnapshot(const QVariantMap &parameters,
     }
     request.notam_snapshot.coverage_center = {queryLatitude, queryLongitude};
     request.notam_snapshot.coverage_radius_m = queryRadiusM;
+    request.notam_snapshot.planned_mission_start_epoch_s = request.planned_mission_start_epoch_s;
+    request.notam_snapshot.planned_mission_end_epoch_s = request.planned_mission_end_epoch_s;
 
     const QVariantList records = parameters.value(QStringLiteral("notamRecords")).toList();
     for (const QVariant &recordValue : records) {

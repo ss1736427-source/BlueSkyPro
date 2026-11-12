@@ -180,6 +180,7 @@ int main() {
     dwellTiming.points.front().elapsed_time_s = 60.0;
     dwellTiming.points.back().elapsed_time_s = 260.0;
     dwellTiming.total_time_s = 260.0;
+    timedSnapshot.planned_mission_end_epoch_s = 1300;
     timedSnapshot.zones.front().center = dwellRoute.waypoints.front().position;
     timedSnapshot.zones.front().radius_m = 50.0;
     timedSnapshot.zones.front().valid_from_epoch_s = 1000;

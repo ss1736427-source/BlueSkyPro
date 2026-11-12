@@ -257,6 +257,30 @@ NotamValidationResult NotamProhibitedZoneValidator::validate(
                                    "", "", detail, "", ""});
     };
 
+    const auto reject_window = [&result](const std::string& detail) {
+        result.status = RouteValidationStatus::Rejected;
+        result.findings.push_back({NotamValidationCode::TrajectoryOutsideSnapshotWindow,
+                                   "", "", detail, "", ""});
+    };
+
+    if (snapshot.planned_mission_start_epoch_s <= 0
+        || snapshot.planned_mission_end_epoch_s < snapshot.planned_mission_start_epoch_s) {
+        reject_window("NOTAM snapshot is missing the planned mission validity window");
+        return result;
+    }
+    if (trajectory.mission_start_epoch_s != snapshot.planned_mission_start_epoch_s) {
+        reject_window("4D trajectory mission start does not match the NOTAM snapshot filtering window");
+        return result;
+    }
+    const double trajectoryEndEpochS =
+        static_cast<double>(trajectory.mission_start_epoch_s) + trajectory.total_time_s;
+    if (!std::isfinite(trajectoryEndEpochS)
+        || trajectoryEndEpochS
+            > static_cast<double>(snapshot.planned_mission_end_epoch_s) + 1e-3) {
+        reject_window("Wind-corrected 4D trajectory extends beyond the NOTAM snapshot filtering window");
+        return result;
+    }
+
     if (trajectory.status != TrajectoryStatus::Feasible ||
         trajectory.mission_start_epoch_s <= 0 ||
         trajectory.route_id != route.lineage.route_id ||

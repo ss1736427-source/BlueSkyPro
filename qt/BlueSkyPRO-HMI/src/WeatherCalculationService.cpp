@@ -540,6 +540,8 @@ bool parseNormalizedNotamSnapshot(const QVariantMap& value,
     bool startOk = false, endOk = false, bufferOk = false;
     const qint64 missionStart = value.value(QStringLiteral("plannedMissionStartEpochS")).toLongLong(&startOk);
     const qint64 missionEnd = value.value(QStringLiteral("plannedMissionEndEpochS")).toLongLong(&endOk);
+    snapshot.planned_mission_start_epoch_s = missionStart;
+    snapshot.planned_mission_end_epoch_s = missionEnd;
     safetyBufferM = value.value(QStringLiteral("safetyBufferM")).toDouble(&bufferOk);
     if (snapshot.snapshot_id.empty() || snapshot.source_id.empty() || snapshot.source_version.empty()
         || !epochOk || snapshot.evaluation_epoch_s <= 0

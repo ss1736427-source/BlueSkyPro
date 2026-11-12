@@ -21,7 +21,8 @@ enum class NotamValidationCode {
     UnsupportedAltitudeReference,
     TrajectoryTimingUnavailable,
     WaypointOccupancyOverlapsNotamValidity,
-    SegmentOccupancyOverlapsNotamValidity
+    SegmentOccupancyOverlapsNotamValidity,
+    TrajectoryOutsideSnapshotWindow
 };
 
 struct NotamZone {
@@ -48,6 +49,9 @@ struct NotamSnapshot {
     std::vector<NotamZone> zones;
     GeoPoint coverage_center;
     double coverage_radius_m{0.0};
+    // Time interval for which the source records were filtered and verified.
+    std::int64_t planned_mission_start_epoch_s{0};
+    std::int64_t planned_mission_end_epoch_s{0};
 };
 
 struct NotamValidationFinding {
