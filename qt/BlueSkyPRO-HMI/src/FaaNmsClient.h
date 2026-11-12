@@ -4,6 +4,7 @@
 #include <QUrl>
 #include <QString>
 #include <QVariantList>
+#include <QVariantMap>
 #include <QHash>
 #include <QList>
 
