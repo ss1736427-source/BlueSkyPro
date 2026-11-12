@@ -4,6 +4,8 @@
 #include <QUrl>
 #include <QString>
 #include <QVariantList>
+#include <QHash>
+#include <QList>
 
 class CredentialVault;
 class QNetworkAccessManager;
@@ -62,6 +64,9 @@ private:
     bool m_requestInProgress = false;
     bool m_queryInProgress = false;
     QVariantList m_notamRecords;
+    // Bounded content-addressed cache: unchanged records are not reparsed on viewport refresh.
+    QHash<QString, QVariantMap> m_interpretationCache;
+    QList<QString> m_interpretationCacheOrder;
     QString m_notamSnapshotId;
     qint64 m_notamSnapshotEpochS = 0;
     double m_notamQueryLatitude = 0.0;
