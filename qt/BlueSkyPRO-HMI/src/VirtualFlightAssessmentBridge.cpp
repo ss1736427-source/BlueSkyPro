@@ -30,7 +30,8 @@ ManualRouteBuildRequirements syntheticRequirements() {
       "VF-WEATHER-SYNTHETIC-1","VF-WIND-SYNTHETIC-1",20.0,80.0,10.0,8.0};
 }
 NotamZone syntheticZone(const std::string &id,const GeoPoint &center,double radius) {
-    NotamZone z; z.notam_id=id; z.restriction_type=NotamRestrictionType::Prohibited;
+    NotamZone z; z.notam_id=id; z.component_id=id+"-COMP-1";
+    z.restriction_type=NotamRestrictionType::Prohibited;
     z.geometry_type=NotamGeometryType::Circle; z.center=center; z.radius_m=radius;
     z.lower_altitude_m=0.0; z.upper_altitude_m=100.0;
     z.valid_from_epoch_s=1700000000; z.valid_to_epoch_s=1900000000;
