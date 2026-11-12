@@ -128,6 +128,20 @@ int main(int argc, char **argv)
     assert(unsupportedDatumResult.value("findings").toStringList().join(";")
                .contains("NOTAM_ALTITUDE_DATUM_UNSUPPORTED"));
 
+    QVariantMap incompleteVerticalParameters = activeNotamParameters;
+    QVariantMap incompleteVertical = activeNotam;
+    incompleteVertical.insert("restrictionGeometryStatus",
+                              "MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS");
+    incompleteVertical.insert("geometryValidated", false);
+    incompleteVertical.insert("lowerDatum", "AGL");
+    incompleteVertical.insert("upperDatum", "AGL");
+    incompleteVerticalParameters.insert("notamRecords", QVariantList{incompleteVertical});
+    const QVariantMap incompleteVerticalResult =
+        bridge.calculate(validMissionJson(), incompleteVerticalParameters);
+    assert(incompleteVerticalResult.value("status").toString() == "NEEDS_INPUT");
+    assert(incompleteVerticalResult.value("findings").toStringList().join(";")
+               .contains("NOTAM_ALTITUDE_DATUM_UNSUPPORTED"));
+
     QVariantMap missingNotamSnapshot = validParameters();
     missingNotamSnapshot.remove("notamSnapshotId");
     const QVariantMap missingSnapshotResult =

@@ -152,10 +152,16 @@ bool parseNotamSnapshot(const QVariantMap &parameters,
         }
         const QString restrictionStatus =
             record.value(QStringLiteral("restrictionGeometryStatus")).toString();
+        if (restrictionStatus == QLatin1String("DISPLAY_ONLY_NON_AREA_GEOMETRY"))
+            continue;
         if (restrictionStatus != QLatin1String("VALIDATED")
-            && restrictionStatus != QLatin1String("MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS")
-            && restrictionStatus != QLatin1String("DISPLAY_ONLY_NON_AREA_GEOMETRY")) {
+            && restrictionStatus != QLatin1String("MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS")) {
             errors.push_back(QStringLiteral("NOTAM_COMPONENT_NOT_VALIDATED: ") + notamId);
+            return false;
+        }
+        if (restrictionStatus == QLatin1String("VALIDATED")
+            && !record.value(QStringLiteral("geometryValidated")).toBool()) {
+            errors.push_back(QStringLiteral("NOTAM_COMPONENT_VALIDATION_FLAG_MISMATCH: ") + notamId);
             return false;
         }
         const QJsonObject geometry = geometryDocument.object();
@@ -183,12 +189,13 @@ bool parseNotamSnapshot(const QVariantMap &parameters,
         const QString lowerDatum = record.value(QStringLiteral("lowerDatum")).toString().trimmed().toUpper();
         const QString upperDatum = record.value(QStringLiteral("upperDatum")).toString().trimmed().toUpper();
         NotamAltitudeReference datum = NotamAltitudeReference::Unknown;
-        if (lowerDatum == upperDatum) {
+        if (restrictionStatus == QLatin1String("VALIDATED") && lowerDatum == upperDatum) {
             if (lowerDatum == QLatin1String("AGL")) datum = NotamAltitudeReference::AGL;
             else if (lowerDatum == QLatin1String("AMSL") || lowerDatum == QLatin1String("MSL"))
                 datum = NotamAltitudeReference::AMSL;
             else if (lowerDatum == QLatin1String("FL")) datum = NotamAltitudeReference::FlightLevel;
         }
+        // Incomplete/mixed source bounds are never converted into a numeric clearance.
 
         int componentIndex = 0;
         for (const QJsonValue &polygonValue : polygons) {

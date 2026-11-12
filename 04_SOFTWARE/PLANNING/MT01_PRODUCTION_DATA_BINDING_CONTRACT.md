@@ -127,7 +127,8 @@ Known limitations remain explicit:
 - The buffer is a single explicit request value, not yet a policy-resolved per-NOTAM/per-operation value. No implicit buffer default is invented.
 - Polygon buffering is a conservative local-planar approximation made from overlapping components, not a geodesic polygon-offset engine. The existing local projection limits still apply.
 - The pipeline does not yet prove a wind-corrected ground-track geometry. The current wind stage updates performance/time for supplied geometry; if the route is not ground-referenced, a geometric wind correction stage remains necessary.
-- Production HMI/runtime callers must supply the exact snapshot, planned time window and approved buffer, and enable the orchestrator's final NOTAM gate. CI tests exercise the contracts, but do not by themselves prove that the deployed Qt runtime supplies these inputs.
+- The Qt MT-01 bridge now accepts the FAA NMS normalized record list, snapshot ID/source/version/evaluation epoch, explicit planned UTC start/end and a separate NOTAM buffer from the mission profile. It maps each Polygon/MultiPolygon outer component to a stable per-NOTAM component ID and returns those IDs with the planning result. Non-area display-only records are not treated as exclusion polygons; missing or incompatible vertical bounds remain blocked.
+- The FAA NMS client is currently STAGING/FIT test-only. The query coverage is still operator-selected and is not yet checked against the full mission AOI plus buffer. Production NOTAM source coverage and AOI-scoped acquisition remain an open integration gate. CI tests exercise the bridge contract, but do not by themselves prove live source coverage or flight-release suitability.
 
 The architecture is now: `AOI/time/target altitude -> authoritative normalized NOTAM snapshot -> buffered exclusions -> MT-01 coverage and turn generation -> wind/performance 4D timing -> final time-dependent NOTAM validation -> candidate ranking`.
 
