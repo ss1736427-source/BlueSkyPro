@@ -1,4 +1,5 @@
 #include "algorithm_orchestrator.hpp"
+#include "../notam_prohibited_zone_validator.hpp"
 
 #include <cassert>
 #include <memory>
