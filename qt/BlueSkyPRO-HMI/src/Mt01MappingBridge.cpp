@@ -6,9 +6,11 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
+#include <QDateTime>
 #include <QVariantList>
 
 #include <cmath>
+#include <cstdint>
 #include <string>
 #include <utility>
 
@@ -60,6 +62,168 @@ QVariantMap blockedFindings(const QStringList &findings)
         {QStringLiteral("coverageValid"), false},
         {QStringLiteral("findings"), findings}
     };
+}
+
+bool utcEpoch(const QString &value, std::int64_t &epoch)
+{
+    const QString text = value.trimmed();
+    if (text.isEmpty() || !text.endsWith(QLatin1Char('Z')))
+        return false;
+    QDateTime parsed = QDateTime::fromString(text, Qt::ISODateWithMs);
+    if (!parsed.isValid())
+        parsed = QDateTime::fromString(text, Qt::ISODate);
+    if (!parsed.isValid())
+        return false;
+    epoch = parsed.toUTC().toSecsSinceEpoch();
+    return epoch > 0;
+}
+
+bool parseNotamSnapshot(const QVariantMap &parameters,
+                        Mt01MappingRequest &request,
+                        QStringList &errors)
+{
+    const auto requiredString = [&parameters](const QString &key) {
+        return parameters.value(key).toString().trimmed();
+    };
+    const QString snapshotId = requiredString(QStringLiteral("notamSnapshotId"));
+    const QString sourceId = requiredString(QStringLiteral("notamSourceId"));
+    const QString sourceVersion = requiredString(QStringLiteral("notamSourceVersion"));
+    if (snapshotId.isEmpty() || sourceId.isEmpty() || sourceVersion.isEmpty()
+        || !parameters.contains(QStringLiteral("notamSnapshotEpochS"))
+        || !parameters.contains(QStringLiteral("notamRecords"))) {
+        errors.push_back(QStringLiteral("NOTAM_SNAPSHOT_IDENTITY_AND_RECORDS_REQUIRED"));
+        return false;
+    }
+    bool epochOk = false;
+    const qlonglong snapshotEpoch =
+        parameters.value(QStringLiteral("notamSnapshotEpochS")).toLongLong(&epochOk);
+    if (!epochOk || snapshotEpoch <= 0) {
+        errors.push_back(QStringLiteral("NOTAM_SNAPSHOT_EPOCH_INVALID"));
+        return false;
+    }
+    if (!utcEpoch(requiredString(QStringLiteral("plannedMissionStartUtc")),
+                  request.planned_mission_start_epoch_s)
+        || !utcEpoch(requiredString(QStringLiteral("plannedMissionEndUtc")),
+                     request.planned_mission_end_epoch_s)
+        || request.planned_mission_end_epoch_s < request.planned_mission_start_epoch_s) {
+        errors.push_back(QStringLiteral("NOTAM_PLANNED_MISSION_UTC_WINDOW_REQUIRED"));
+        return false;
+    }
+    double safetyBuffer = 0.0;
+    if (!readNumber(parameters, QStringLiteral("notamSafetyBufferM"), safetyBuffer)
+        || safetyBuffer <= 0.0) {
+        errors.push_back(QStringLiteral("NOTAM_POSITIVE_SAFETY_BUFFER_REQUIRED"));
+        return false;
+    }
+    request.notam_safety_buffer_m = safetyBuffer;
+    request.notam_snapshot.snapshot_id = snapshotId.toStdString();
+    request.notam_snapshot.source_id = sourceId.toStdString();
+    request.notam_snapshot.source_version = sourceVersion.toStdString();
+    request.notam_snapshot.evaluation_epoch_s = snapshotEpoch;
+
+    const QVariantList records = parameters.value(QStringLiteral("notamRecords")).toList();
+    for (const QVariant &recordValue : records) {
+        const QVariantMap record = recordValue.toMap();
+        const QString notamId = record.value(QStringLiteral("id")).toString().trimmed();
+        if (notamId.isEmpty()) {
+            errors.push_back(QStringLiteral("NOTAM_RECORD_ID_MISSING"));
+            return false;
+        }
+        std::int64_t validFrom = 0, validTo = 0;
+        if (!utcEpoch(record.value(QStringLiteral("effectiveStart")).toString(), validFrom)
+            || !utcEpoch(record.value(QStringLiteral("effectiveEnd")).toString(), validTo)
+            || validTo < validFrom) {
+            errors.push_back(QStringLiteral("NOTAM_VALIDITY_INTERVAL_INVALID: ") + notamId);
+            return false;
+        }
+        if (validFrom > request.planned_mission_end_epoch_s
+            || validTo < request.planned_mission_start_epoch_s)
+            continue;
+
+        QJsonParseError geometryError;
+        const QJsonDocument geometryDocument = QJsonDocument::fromJson(
+            record.value(QStringLiteral("geometryJson")).toString().toUtf8(), &geometryError);
+        if (geometryError.error != QJsonParseError::NoError || !geometryDocument.isObject()) {
+            if (record.value(QStringLiteral("restrictionGeometryStatus")).toString()
+                == QLatin1String("DISPLAY_ONLY_NON_AREA_GEOMETRY"))
+                continue;
+            errors.push_back(QStringLiteral("NOTAM_RESTRICTION_GEOMETRY_UNAVAILABLE: ") + notamId);
+            return false;
+        }
+        const QJsonObject geometry = geometryDocument.object();
+        const QString geometryType = geometry.value(QStringLiteral("type")).toString();
+        QJsonArray polygons;
+        if (geometryType == QLatin1String("Polygon"))
+            polygons.append(geometry.value(QStringLiteral("coordinates")).toArray());
+        else if (geometryType == QLatin1String("MultiPolygon"))
+            polygons = geometry.value(QStringLiteral("coordinates")).toArray();
+        else if (record.value(QStringLiteral("restrictionGeometryStatus")).toString()
+                 == QLatin1String("DISPLAY_ONLY_NON_AREA_GEOMETRY"))
+            continue;
+        else {
+            errors.push_back(QStringLiteral("NOTAM_RESTRICTION_GEOMETRY_UNSUPPORTED: ") + notamId);
+            return false;
+        }
+        if (polygons.isEmpty()) {
+            errors.push_back(QStringLiteral("NOTAM_RESTRICTION_GEOMETRY_EMPTY: ") + notamId);
+            return false;
+        }
+
+        bool lowerOk = false, upperOk = false;
+        const double lower = record.value(QStringLiteral("lowerMeters")).toDouble(&lowerOk);
+        const double upper = record.value(QStringLiteral("upperMeters")).toDouble(&upperOk);
+        const QString lowerDatum = record.value(QStringLiteral("lowerDatum")).toString().trimmed().toUpper();
+        const QString upperDatum = record.value(QStringLiteral("upperDatum")).toString().trimmed().toUpper();
+        NotamAltitudeReference datum = NotamAltitudeReference::Unknown;
+        if (lowerDatum == upperDatum) {
+            if (lowerDatum == QLatin1String("AGL")) datum = NotamAltitudeReference::AGL;
+            else if (lowerDatum == QLatin1String("AMSL") || lowerDatum == QLatin1String("MSL"))
+                datum = NotamAltitudeReference::AMSL;
+            else if (lowerDatum == QLatin1String("FL")) datum = NotamAltitudeReference::FlightLevel;
+        }
+
+        int componentIndex = 0;
+        for (const QJsonValue &polygonValue : polygons) {
+            const QJsonArray rings = polygonValue.toArray();
+            if (rings.isEmpty() || !rings.first().isArray()) {
+                errors.push_back(QStringLiteral("NOTAM_COMPONENT_OUTER_RING_MISSING: ") + notamId);
+                return false;
+            }
+            const QJsonArray ring = rings.first().toArray();
+            if (ring.size() < 4) {
+                errors.push_back(QStringLiteral("NOTAM_COMPONENT_RING_INVALID: ") + notamId);
+                return false;
+            }
+            NotamZone zone;
+            zone.notam_id = notamId.toStdString();
+            zone.component_id = (notamId + QStringLiteral("-COMP-")
+                                 + QString::number(++componentIndex)).toStdString();
+            zone.restriction_type = NotamRestrictionType::Prohibited;
+            zone.geometry_type = NotamGeometryType::Polygon;
+            zone.lower_altitude_m = lowerOk && std::isfinite(lower) ? lower : 0.0;
+            zone.upper_altitude_m = upperOk && std::isfinite(upper) ? upper : 0.0;
+            zone.altitude_reference = datum;
+            zone.valid_from_epoch_s = validFrom;
+            zone.valid_to_epoch_s = validTo;
+            for (const QJsonValue &coordinateValue : ring) {
+                const QJsonArray coordinate = coordinateValue.toArray();
+                if (coordinate.size() < 2 || !coordinate.at(0).isDouble()
+                    || !coordinate.at(1).isDouble()
+                    || !std::isfinite(coordinate.at(0).toDouble())
+                    || !std::isfinite(coordinate.at(1).toDouble())) {
+                    errors.push_back(QStringLiteral("NOTAM_COMPONENT_COORDINATE_INVALID: ") + notamId);
+                    return false;
+                }
+                zone.polygon.push_back({coordinate.at(1).toDouble(), coordinate.at(0).toDouble()});
+            }
+            if (zone.polygon.size() >= 2
+                && std::abs(zone.polygon.front().latitude_deg - zone.polygon.back().latitude_deg) < 1e-9
+                && std::abs(zone.polygon.front().longitude_deg - zone.polygon.back().longitude_deg) < 1e-9)
+                zone.polygon.pop_back();
+            request.notam_snapshot.zones.push_back(std::move(zone));
+        }
+    }
+    return true;
 }
 
 bool parseMission(const QJsonObject &json, Mission &mission, QStringList &errors)
@@ -288,6 +452,10 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
     request.camera.intrinsic_calibration_verified =
         parameters.value(QStringLiteral("intrinsicCalibrationVerified")).toBool();
 
+    QStringList notamErrors;
+    if (!parseNotamSnapshot(parameters, request, notamErrors))
+        return blockedFindings(notamErrors);
+
     const QJsonDocument exclusionsDocument = QJsonDocument::fromJson(
         parameters.value(QStringLiteral("exclusionAreasJson")).toString().toUtf8());
     if (!parameters.value(QStringLiteral("exclusionAreasJson")).toString().isEmpty()) {
@@ -325,7 +493,8 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
         {QStringLiteral("coverageLegTimeS"), calculated.coverage.metrics.estimated_coverage_leg_time_s},
         {QStringLiteral("coverageLineCount"), static_cast<qulonglong>(calculated.coverage.metrics.coverage_line_count)},
         {QStringLiteral("coverageSegmentCount"), static_cast<qulonglong>(calculated.coverage.metrics.coverage_segment_count)},
-        {QStringLiteral("exclusionIntersectionCount"), static_cast<qulonglong>(calculated.coverage.metrics.exclusion_intersection_count)}
+        {QStringLiteral("exclusionIntersectionCount"), static_cast<qulonglong>(calculated.coverage.metrics.exclusion_intersection_count)},
+        {QStringLiteral("notamApplicableComponentCount"), static_cast<qulonglong>(calculated.notam_geometry.applicable_component_ids.size())}
     };
 
     QVariantList waypoints;
@@ -355,6 +524,19 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
         {QStringLiteral("findings"), findings},
         {QStringLiteral("metrics"), metrics},
         {QStringLiteral("waypoints"), waypoints},
-        {QStringLiteral("capturePoints"), capturePoints}
+        {QStringLiteral("capturePoints"), capturePoints},
+        {QStringLiteral("notamSnapshotId"), QString::fromStdString(calculated.notam_geometry.snapshot_id)},
+        {QStringLiteral("notamApplicableIds"), [&calculated]() {
+            QStringList values;
+            for (const auto &id : calculated.notam_geometry.applicable_notam_ids)
+                values.push_back(QString::fromStdString(id));
+            return values;
+        }()},
+        {QStringLiteral("notamComponentIds"), [&calculated]() {
+            QStringList values;
+            for (const auto &id : calculated.notam_geometry.applicable_component_ids)
+                values.push_back(QString::fromStdString(id));
+            return values;
+        }()}
     };
 }

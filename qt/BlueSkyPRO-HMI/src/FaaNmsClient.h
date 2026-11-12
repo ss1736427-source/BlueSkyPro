@@ -17,6 +17,7 @@ class FaaNmsClient final : public QObject
     Q_PROPERTY(QString environment READ environment WRITE setEnvironment NOTIFY environmentChanged)
     Q_PROPERTY(QVariantList notamRecords READ notamRecords NOTIFY notamRecordsChanged)
     Q_PROPERTY(QString notamSnapshotId READ notamSnapshotId NOTIFY notamRecordsChanged)
+    Q_PROPERTY(qint64 notamSnapshotEpochS READ notamSnapshotEpochS NOTIFY notamRecordsChanged)
 
 public:
     explicit FaaNmsClient(CredentialVault *vault, QObject *parent = nullptr);
@@ -25,6 +26,7 @@ public:
     QString environment() const;
     QVariantList notamRecords() const;
     QString notamSnapshotId() const;
+    qint64 notamSnapshotEpochS() const;
     void setEnvironment(const QString &environment);
 
     Q_INVOKABLE void testConnection();
@@ -55,4 +57,5 @@ private:
     bool m_queryInProgress = false;
     QVariantList m_notamRecords;
     QString m_notamSnapshotId;
+    qint64 m_notamSnapshotEpochS = 0;
 };
