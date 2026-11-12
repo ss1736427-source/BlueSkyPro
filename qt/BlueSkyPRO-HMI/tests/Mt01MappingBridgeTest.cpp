@@ -2,6 +2,7 @@
 #include "NotamGeometryEngine.h"
 
 #include <QCoreApplication>
+#include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -133,6 +134,13 @@ int main(int argc, char **argv)
     const QVariantMap activeNotam = NotamGeometryEngine::normalize(activeNotamSource);
     assert(activeNotam.value("notamInterpretationVersion").toInt() == 1);
     assert(activeNotam.value("restrictionClass").toString() == "PROHIBITED");
+    qInfo().noquote() << "NOTAM_DIAGNOSTIC" << activeNotam.value("geometryType").toString()
+        << activeNotam.value("geometryValidated").toBool()
+        << activeNotam.value("lowerLimitRaw").toString()
+        << activeNotam.value("upperLimitRaw").toString()
+        << activeNotam.value("lowerDatum").toString()
+        << activeNotam.value("upperDatum").toString()
+        << activeNotam.value("altitudeReference").toString();
     assert(activeNotam.value("interpretationState").toString() == "CONFIRMED");
     assert(activeNotam.value("planningComponents").toList().size() == 1);
     activeNotamParameters.insert("notamRecords", QVariantList{activeNotam});
