@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../mission_lifecycle.hpp"
+
 #include <optional>
 #include <string>
 #include <vector>
@@ -162,6 +164,8 @@ struct MissionOperation {
 
 struct Mission {
     MissionIdentity identity;
+    // Typed lifecycle state and append-only transition history for this mission revision.
+    MissionLifecycleRecord lifecycle;
     // AUTO and MANUAL share the same canonical model and safety pipeline.
     std::string mission_mode = "AUTO";
     std::optional<MissionOrigin> origin;
