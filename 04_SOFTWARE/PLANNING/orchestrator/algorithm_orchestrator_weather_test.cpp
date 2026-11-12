@@ -213,7 +213,8 @@ int main()
     for (const auto& rejected : notamDecision.rejected_candidates) {
         for (const auto& violation : rejected.violations) {
             if (violation.find("NOTAM_VALIDATION") != std::string::npos &&
-                violation.find("NOTAM-TIMED-001") != std::string::npos)
+                violation.find("NOTAM-TIMED-001") != std::string::npos &&
+                violation.find("NOTAM-TIMED-001-COMP-01") != std::string::npos)
                 temporalNotamConflictRejected = true;
         }
     }

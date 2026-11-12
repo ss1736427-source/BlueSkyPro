@@ -282,6 +282,8 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
                                 reason << "NOTAM_VALIDATION: " << finding.detail;
                                 if (!finding.notam_id.empty())
                                     reason << " NOTAM: " << finding.notam_id << ".";
+                                if (!finding.component_id.empty())
+                                    reason << " Компонент: " << finding.component_id << ".";
                                 if (!finding.waypoint_id.empty())
                                     reason << " Точка: " << finding.waypoint_id << ".";
                                 if (!finding.segment_start_waypoint_id.empty())
