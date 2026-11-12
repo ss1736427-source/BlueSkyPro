@@ -193,6 +193,7 @@ target_compile_options(mission_lifecycle_contract_test PRIVATE
     "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
 )
 add_test(NAME mission_lifecycle_contract COMMAND mission_lifecycle_contract_test)
+set_tests_properties(mission_lifecycle_contract PROPERTIES LABELS "planning;lifecycle" TIMEOUT 30)
 
 add_executable(notam_geometry_engine_test
     tests/NotamGeometryEngineTest.cpp
