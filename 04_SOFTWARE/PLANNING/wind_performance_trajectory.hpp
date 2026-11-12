@@ -1,6 +1,7 @@
 #pragma once
 
 #include "model/route_model.hpp"
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -35,6 +36,8 @@ struct TrajectoryPerformanceInput {
     std::string wind_snapshot_version;
     // Explicit planned UTC start used to time-index weather along the route.
     std::string mission_start_utc;
+    // Explicit UTC epoch used by downstream time-dependent airspace validation.
+    std::int64_t mission_start_epoch_s{0};
     double cruise_airspeed_mps{0.0};
     double climb_rate_mps{0.0};
     double descent_rate_mps{0.0};
@@ -73,6 +76,7 @@ struct TrajectoryResult {
     TrajectoryStatus status{TrajectoryStatus::Infeasible};
     std::string route_id;
     std::string route_version;
+    std::int64_t mission_start_epoch_s{0};
     std::string uav_id;
     std::string configuration_version;
     std::string wind_snapshot_id;

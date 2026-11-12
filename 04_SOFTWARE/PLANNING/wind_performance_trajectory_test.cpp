@@ -21,6 +21,7 @@ int main(){
     in.performance_version="PERF1";
     in.wind_snapshot_id="W1";
     in.wind_snapshot_version="1";
+    in.mission_start_epoch_s=1000;
     in.cruise_airspeed_mps=20.0;
     in.climb_rate_mps=2.0;
     in.descent_rate_mps=2.0;
@@ -32,6 +33,7 @@ int main(){
 
     const auto r=WindPerformanceTrajectory::calculate(route,in,"CALC1");
     assert(r.status==TrajectoryStatus::Feasible);
+    assert(r.mission_start_epoch_s==1000);
     assert(r.segments.size()==1);
     assert(r.points.size()==2);
     assert(r.segments[0].ground_speed_mps>20.0);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "model/route_model.hpp"
+#include "wind_performance_trajectory.hpp"
 #include "route_constraint_validator.hpp"
 #include <cstdint>
 #include <string>
@@ -17,7 +18,10 @@ enum class NotamValidationCode {
     SnapshotNotValid,
     WaypointInsideProhibitedZone,
     SegmentIntersectsProhibitedZone,
-    UnsupportedAltitudeReference
+    UnsupportedAltitudeReference,
+    TrajectoryTimingUnavailable,
+    WaypointOccupancyOverlapsNotamValidity,
+    SegmentOccupancyOverlapsNotamValidity
 };
 
 struct NotamZone {
@@ -63,6 +67,10 @@ class NotamProhibitedZoneValidator {
 public:
     static NotamValidationResult validate(const Route& route,
                                           const NotamSnapshot& snapshot);
+    // Final time-dependent gate. Requires the wind/performance 4D result for this exact route version.
+    static NotamValidationResult validate(const Route& route,
+                                          const NotamSnapshot& snapshot,
+                                          const TrajectoryResult& trajectory);
 };
 
 } // namespace bluesky::planning

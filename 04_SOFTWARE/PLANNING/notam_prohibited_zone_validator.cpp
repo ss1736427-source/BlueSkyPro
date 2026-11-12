@@ -237,4 +237,177 @@ NotamValidationResult NotamProhibitedZoneValidator::validate(const Route& route,
     return result;
 }
 
+
+NotamValidationResult NotamProhibitedZoneValidator::validate(
+    const Route& route,
+    const NotamSnapshot& snapshot,
+    const TrajectoryResult& trajectory) {
+    // Reuse the existing identity/coordinate gate without applying its
+    // snapshot-instant activity rule to a route that has a 4D time profile.
+    NotamSnapshot identitySnapshot = snapshot;
+    identitySnapshot.zones.clear();
+    auto result = validate(route, identitySnapshot);
+    result.snapshot_id = snapshot.snapshot_id;
+    if (result.status != RouteValidationStatus::Allowed)
+        return result;
+
+    const auto reject_timing = [&result](const std::string& detail) {
+        result.status = RouteValidationStatus::Rejected;
+        result.findings.push_back({NotamValidationCode::TrajectoryTimingUnavailable,
+                                   "", "", detail, "", ""});
+    };
+
+    if (trajectory.status != TrajectoryStatus::Feasible ||
+        trajectory.mission_start_epoch_s <= 0 ||
+        trajectory.route_id != route.lineage.route_id ||
+        trajectory.route_version != route.lineage.route_version ||
+        route.waypoints.empty() ||
+        route.segments.size() + 1 != route.waypoints.size() ||
+        trajectory.points.size() != route.waypoints.size() ||
+        trajectory.segments.size() != route.segments.size() ||
+        !std::isfinite(trajectory.total_time_s) ||
+        trajectory.total_time_s < 0.0) {
+        reject_timing("A feasible 4D timing result with matching route identity/version and UTC mission start is required");
+        return result;
+    }
+
+    for (const auto& zone : snapshot.zones) {
+        if (!valid_zone(zone)) {
+            result.status = RouteValidationStatus::Rejected;
+            result.findings.push_back({NotamValidationCode::SnapshotNotValid, "", "",
+                                       "NOTAM snapshot contains an invalid prohibited-zone record",
+                                       "", ""});
+            return result;
+        }
+    }
+
+    if (!snapshot.zones.empty()) {
+        for (const auto& waypoint : route.waypoints) {
+            if (waypoint.altitude_reference != AltitudeReference::AGL) {
+                result.status = RouteValidationStatus::Rejected;
+                result.findings.push_back({NotamValidationCode::UnsupportedAltitudeReference,
+                                           waypoint.waypoint_id, "",
+                                           "Route waypoint altitude reference is unsupported; AGL is required until datum conversion is implemented",
+                                           "", ""});
+                return result;
+            }
+        }
+        for (const auto& zone : snapshot.zones) {
+            if (zone.altitude_reference != NotamAltitudeReference::AGL) {
+                result.status = RouteValidationStatus::Rejected;
+                result.findings.push_back({NotamValidationCode::UnsupportedAltitudeReference,
+                                           "", zone.notam_id,
+                                           "NOTAM altitude reference is unsupported; AGL is required until datum conversion is implemented",
+                                           "", ""});
+                return result;
+            }
+        }
+    }
+
+    constexpr double timingToleranceS = 1e-3;
+    for (std::size_t i = 0; i < route.waypoints.size(); ++i) {
+        const auto& waypoint = route.waypoints[i];
+        const auto& point = trajectory.points[i];
+        if (!valid_point(waypoint.position) ||
+            !std::isfinite(waypoint.altitude_m) ||
+            point.waypoint_id != waypoint.waypoint_id ||
+            !valid_point(point.position) ||
+            std::abs(point.position.latitude_deg - waypoint.position.latitude_deg) > 1e-9 ||
+            std::abs(point.position.longitude_deg - waypoint.position.longitude_deg) > 1e-9 ||
+            !std::isfinite(point.altitude_m) ||
+            std::abs(point.altitude_m - waypoint.altitude_m) > 1e-6 ||
+            !std::isfinite(point.elapsed_time_s) ||
+            point.elapsed_time_s < 0.0 ||
+            (i > 0 && point.elapsed_time_s + timingToleranceS <
+                          trajectory.points[i - 1].elapsed_time_s)) {
+            reject_timing("4D trajectory waypoint identity, geometry or elapsed-time ordering does not match the route");
+            return result;
+        }
+    }
+
+    if (std::abs(trajectory.points.back().elapsed_time_s - trajectory.total_time_s) >
+        timingToleranceS) {
+        reject_timing("4D trajectory total time does not match its final waypoint time");
+        return result;
+    }
+
+    for (std::size_t i = 0; i < route.segments.size(); ++i) {
+        const auto& segment = route.segments[i];
+        const auto& timing = trajectory.segments[i];
+        const auto& from = route.waypoints[i];
+        const auto& to = route.waypoints[i + 1];
+        const double departure = trajectory.points[i].elapsed_time_s;
+        const double duration = timing.traversal_time_s;
+        const double destinationDwell = to.task_execution_duration_s.value_or(0.0);
+        const double destinationArrival = trajectory.points[i + 1].elapsed_time_s - destinationDwell;
+        if (segment.from_waypoint_id != from.waypoint_id ||
+            segment.to_waypoint_id != to.waypoint_id ||
+            timing.segment_id != segment.segment_id ||
+            !std::isfinite(duration) || duration < 0.0 ||
+            destinationArrival + timingToleranceS < departure ||
+            std::abs((departure + duration) - destinationArrival) > timingToleranceS) {
+            reject_timing("4D segment timing/lineage does not match the ordered route segment chain");
+            return result;
+        }
+    }
+
+    const auto overlaps_validity = [&snapshot, &trajectory](
+        const NotamZone& zone, double elapsedStart, double elapsedEnd) {
+        const double absoluteStart =
+            static_cast<double>(trajectory.mission_start_epoch_s) + elapsedStart;
+        const double absoluteEnd =
+            static_cast<double>(trajectory.mission_start_epoch_s) + elapsedEnd;
+        return absoluteStart <= static_cast<double>(zone.valid_to_epoch_s) &&
+               absoluteEnd >= static_cast<double>(zone.valid_from_epoch_s);
+    };
+
+    for (const auto& zone : snapshot.zones) {
+        if (zone.restriction_type != NotamRestrictionType::Prohibited)
+            continue;
+
+        for (std::size_t i = 0; i < route.waypoints.size(); ++i) {
+            const auto& waypoint = route.waypoints[i];
+            if (waypoint.altitude_m < zone.lower_altitude_m ||
+                waypoint.altitude_m > zone.upper_altitude_m ||
+                !contains(zone, waypoint.position))
+                continue;
+
+            const double departure = trajectory.points[i].elapsed_time_s;
+            const double dwell = waypoint.task_execution_duration_s.value_or(0.0);
+            const double arrival = departure - dwell;
+            if (overlaps_validity(zone, arrival, departure)) {
+                result.status = RouteValidationStatus::Rejected;
+                result.findings.push_back({
+                    NotamValidationCode::WaypointOccupancyOverlapsNotamValidity,
+                    waypoint.waypoint_id, zone.notam_id,
+                    "Waypoint occupancy interval overlaps the inclusive NOTAM validity interval",
+                    "", ""
+                });
+            }
+        }
+
+        for (std::size_t i = 0; i < route.segments.size(); ++i) {
+            const auto& from = route.waypoints[i];
+            const auto& to = route.waypoints[i + 1];
+            if (!altitude_overlaps(zone, from.altitude_m, to.altitude_m) ||
+                !segment_intersects_zone(zone, from.position, to.position))
+                continue;
+
+            const double segmentStart = trajectory.points[i].elapsed_time_s;
+            const double segmentEnd =
+                segmentStart + trajectory.segments[i].traversal_time_s;
+            if (overlaps_validity(zone, segmentStart, segmentEnd)) {
+                result.status = RouteValidationStatus::Rejected;
+                result.findings.push_back({
+                    NotamValidationCode::SegmentOccupancyOverlapsNotamValidity,
+                    "", zone.notam_id,
+                    "Segment occupancy interval overlaps the inclusive NOTAM validity interval",
+                    from.waypoint_id, to.waypoint_id
+                });
+            }
+        }
+    }
+    return result;
+}
+
 } // namespace bluesky::planning

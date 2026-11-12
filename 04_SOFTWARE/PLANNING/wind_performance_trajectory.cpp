@@ -41,7 +41,8 @@ std::string dependency(const Route&r,const TrajectoryPerformanceInput&i,const st
     std::ostringstream o;
     o<<r.lineage.route_id<<'|'<<r.lineage.route_version<<'|'<<r.lineage.calculation_input_version
      <<'|'<<i.uav_id<<'|'<<i.configuration_version<<'|'<<i.performance_version
-     <<'|'<<i.wind_snapshot_id<<'|'<<i.wind_snapshot_version<<'|'<<i.mission_start_utc<<'|'<<v
+     <<'|'<<i.wind_snapshot_id<<'|'<<i.wind_snapshot_version<<'|'<<i.mission_start_utc
+     <<'|'<<i.mission_start_epoch_s<<'|'<<v
      <<'|'<<r.trajectory_geometry_complete;
     for (const auto& point : r.waypoints) {
         o << "|WP:" << point.waypoint_id << ':' << std::setprecision(17)
@@ -73,6 +74,7 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
     TrajectoryResult r;
     r.route_id=route.lineage.route_id;
     r.route_version=route.lineage.route_version;
+    r.mission_start_epoch_s=input.mission_start_epoch_s;
     r.uav_id=input.uav_id;
     r.configuration_version=input.configuration_version;
     r.wind_snapshot_id=input.wind_snapshot_id;

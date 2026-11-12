@@ -123,6 +123,83 @@ int main() {
     assert(amsl_notam_result.status == RouteValidationStatus::Rejected);
     assert(amsl_notam_result.findings.front().code == NotamValidationCode::UnsupportedAltitudeReference);
 
+
+    // Time-dependent validation uses actual segment occupancy after wind/performance.
+    auto timedRoute = route();
+    timedRoute.waypoints = {
+        {"A", {60.0, 24.98}, 100.0, true, AltitudeReference::AGL},
+        {"B", {60.0, 25.02}, 100.0, false, AltitudeReference::AGL}
+    };
+    timedRoute.segments = {{"S-TIMED", "A", "B", 2200.0, 10.0}};
+    TrajectoryResult timed;
+    timed.status = TrajectoryStatus::Feasible;
+    timed.route_id = timedRoute.lineage.route_id;
+    timed.route_version = timedRoute.lineage.route_version;
+    timed.mission_start_epoch_s = 1000;
+    timed.total_time_s = 200.0;
+    timed.points = {
+        {"A", timedRoute.waypoints[0].position, 100.0, 0.0, 0.0},
+        {"B", timedRoute.waypoints[1].position, 100.0, 200.0, 0.0}
+    };
+    timed.segments = {{"S-TIMED", 11.0, 90.0, 200.0, 0.0}};
+
+    auto timedSnapshot = snapshot();
+    timedSnapshot.evaluation_epoch_s = 1000;
+    timedSnapshot.zones.front().center = {60.0, 25.0};
+    timedSnapshot.zones.front().radius_m = 150.0;
+    timedSnapshot.zones.front().valid_from_epoch_s = 1100;
+    timedSnapshot.zones.front().valid_to_epoch_s = 1200;
+    // The static snapshot-instant check sees the zone as inactive; the 4D
+    // validator must still reject because the segment crosses it during validity.
+    assert(NotamProhibitedZoneValidator::validate(timedRoute, timedSnapshot).status ==
+           RouteValidationStatus::Allowed);
+    const auto timedConflict =
+        NotamProhibitedZoneValidator::validate(timedRoute, timedSnapshot, timed);
+    assert(timedConflict.status == RouteValidationStatus::Rejected);
+    bool timedSegmentFinding = false;
+    for (const auto& finding : timedConflict.findings)
+        if (finding.code == NotamValidationCode::SegmentOccupancyOverlapsNotamValidity &&
+            finding.notam_id == "N-001") timedSegmentFinding = true;
+    assert(timedSegmentFinding);
+
+    timedSnapshot.zones.front().valid_from_epoch_s = 1201;
+    timedSnapshot.zones.front().valid_to_epoch_s = 1300;
+    assert(NotamProhibitedZoneValidator::validate(timedRoute, timedSnapshot, timed).status ==
+           RouteValidationStatus::Allowed);
+    timedSnapshot.zones.front().valid_from_epoch_s = 1200;
+    timedSnapshot.zones.front().valid_to_epoch_s = 1300;
+    assert(NotamProhibitedZoneValidator::validate(timedRoute, timedSnapshot, timed).status ==
+           RouteValidationStatus::Rejected);
+
+    auto dwellRoute = timedRoute;
+    dwellRoute.waypoints.front().task_execution_duration_s = 60.0;
+    dwellRoute.waypoints.front().task_execution_energy_wh = 1.0;
+    auto dwellTiming = timed;
+    dwellTiming.points.front().elapsed_time_s = 60.0;
+    dwellTiming.points.back().elapsed_time_s = 260.0;
+    dwellTiming.total_time_s = 260.0;
+    timedSnapshot.zones.front().center = dwellRoute.waypoints.front().position;
+    timedSnapshot.zones.front().radius_m = 50.0;
+    timedSnapshot.zones.front().valid_from_epoch_s = 1000;
+    timedSnapshot.zones.front().valid_to_epoch_s = 1050;
+    const auto dwellConflict =
+        NotamProhibitedZoneValidator::validate(dwellRoute, timedSnapshot, dwellTiming);
+    assert(dwellConflict.status == RouteValidationStatus::Rejected);
+    bool dwellFinding = false;
+    for (const auto& finding : dwellConflict.findings)
+        if (finding.code == NotamValidationCode::WaypointOccupancyOverlapsNotamValidity)
+            dwellFinding = true;
+    assert(dwellFinding);
+
+    auto missingEpoch = timed;
+    missingEpoch.mission_start_epoch_s = 0;
+    assert(NotamProhibitedZoneValidator::validate(timedRoute, timedSnapshot, missingEpoch).status ==
+           RouteValidationStatus::Rejected);
+    auto wrongRouteVersion = timed;
+    wrongRouteVersion.route_version = "stale";
+    assert(NotamProhibitedZoneValidator::validate(timedRoute, timedSnapshot, wrongRouteVersion).status ==
+           RouteValidationStatus::Rejected);
+
     r = route();
     r.environment.airspace_snapshot_id.clear();
     auto missing = NotamProhibitedZoneValidator::validate(r, snapshot());
