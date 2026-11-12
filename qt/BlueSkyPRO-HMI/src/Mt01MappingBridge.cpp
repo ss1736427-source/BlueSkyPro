@@ -9,6 +9,7 @@
 #include <QDateTime>
 #include <QVariantList>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <string>
