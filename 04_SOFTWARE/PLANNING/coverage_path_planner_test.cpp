@@ -39,13 +39,14 @@ int main(){
  auto boundaryCrossing=CoveragePathPlanner::generate(outside);
  assert(boundaryCrossing.valid);
  assert(boundaryCrossing.metrics.exclusion_intersection_count>0);
- assert(boundaryCrossing.metrics.coverage_segment_count<r.metrics.coverage_segment_count*2);
+ assert(boundaryCrossing.metrics.estimated_coverage_leg_length_m<r.metrics.estimated_coverage_leg_length_m);
  auto overlapping=in;overlapping.exclusion_areas={
   {{0.0004,0.0004},{0.0004,0.0012},{0.0012,0.0012},{0.0012,0.0004}},
   {{0.0008,0.0008},{0.0008,0.0016},{0.0016,0.0016},{0.0016,0.0008}}
  };auto overlappingResult=CoveragePathPlanner::generate(overlapping);
  assert(overlappingResult.valid);
  assert(overlappingResult.metrics.exclusion_intersection_count>0);
+ assert(overlappingResult.metrics.estimated_coverage_leg_length_m<r.metrics.estimated_coverage_leg_length_m);
  auto concave=in;concave.area_of_interest={{0,0},{0,0.002},{0.0008,0.002},{0.0008,0.0008},{0.002,0.0008},{0.002,0}};assert(CoveragePathPlanner::generate(concave).valid);
  // DJI Mavic 3E manufacturer optical geometry: a reference calculation only.
  // It must remain explicitly uncalibrated until individual camera intrinsics exist.
