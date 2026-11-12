@@ -34,11 +34,18 @@ int main(){
  auto h=CoveragePathPlanner::generate(hole);assert(h.valid);assert(h.metrics.exclusion_intersection_count>0);assert(h.metrics.coverage_segment_count>r.metrics.coverage_segment_count);
  auto badHole=in;badHole.exclusion_areas={{{0,0},{0.001,0.001},{0,0.001},{0.001,0}}};assert(!CoveragePathPlanner::generate(badHole).valid);
  auto closed=in;closed.area_of_interest.push_back(closed.area_of_interest.front());assert(CoveragePathPlanner::generate(closed).valid);
- auto outside=in;outside.exclusion_areas={{{0.0005,0.0005},{0.0005,0.003},{0.0015,0.003},{0.0015,0.0005}}};assert(!CoveragePathPlanner::generate(outside).valid);
+ // An exclusion crossing the AOI boundary is clipped to the AOI scanline spans.
+ auto outside=in;outside.exclusion_areas={{{0.0005,0.0005},{0.0005,0.003},{0.0015,0.003},{0.0015,0.0005}}};
+ auto boundaryCrossing=CoveragePathPlanner::generate(outside);
+ assert(boundaryCrossing.valid);
+ assert(boundaryCrossing.metrics.exclusion_intersection_count>0);
+ assert(boundaryCrossing.metrics.coverage_segment_count<r.metrics.coverage_segment_count*2);
  auto overlapping=in;overlapping.exclusion_areas={
   {{0.0004,0.0004},{0.0004,0.0012},{0.0012,0.0012},{0.0012,0.0004}},
   {{0.0008,0.0008},{0.0008,0.0016},{0.0016,0.0016},{0.0016,0.0008}}
- };assert(!CoveragePathPlanner::generate(overlapping).valid);
+ };auto overlappingResult=CoveragePathPlanner::generate(overlapping);
+ assert(overlappingResult.valid);
+ assert(overlappingResult.metrics.exclusion_intersection_count>0);
  auto concave=in;concave.area_of_interest={{0,0},{0,0.002},{0.0008,0.002},{0.0008,0.0008},{0.002,0.0008},{0.002,0}};assert(CoveragePathPlanner::generate(concave).valid);
  // DJI Mavic 3E manufacturer optical geometry: a reference calculation only.
  // It must remain explicitly uncalibrated until individual camera intrinsics exist.
