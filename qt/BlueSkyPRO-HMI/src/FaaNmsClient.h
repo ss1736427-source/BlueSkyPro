@@ -71,6 +71,7 @@ private:
     void requestNotams(const QString &accessToken, double latitude, double longitude, double radiusNm, bool missionScope);
     void queryNotamsForScope(double latitude, double longitude, double radiusNm, bool missionScope);
     void finishFailure(const QString &status, const QString &message);
+    void finishNotamQuery(bool success, bool missionScope, const QString &message);
     QUrl baseUrl() const;
 
     CredentialVault *m_vault = nullptr;
