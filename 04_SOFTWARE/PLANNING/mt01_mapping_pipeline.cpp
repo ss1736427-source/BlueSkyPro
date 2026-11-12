@@ -169,9 +169,57 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
     if (!result.kinematic_geometry_available) {
         addFinding(result,
             "MT01_KINEMATIC_GEOMETRY_BLOCKED: coverage legs remain available for analysis, but a validated fixed-wing turn-connector candidate was not established.");
+    } else {
+        const auto& envelope = request.flight_safety_envelope;
+        const bool exactSafetyBinding =
+            envelope.vehicle_model_id == assignedVehicle.vehicle_id
+            && envelope.vehicle_model_id == request.vehicle_motion_model.model_id
+            && envelope.model_version == request.vehicle_motion_model.model_version
+            && envelope.configuration_id == assignedVehicle.configuration_id
+            && envelope.configuration_id == request.vehicle_motion_model.configuration_id
+            && envelope.motion_class == request.vehicle_motion_model.motion_class
+            && envelope.speed_reference == request.vehicle_motion_model.speed_reference;
+        if (!exactSafetyBinding) {
+            result.flight_safety_validation.status = FlightSafetyStatus::Unknown;
+            result.flight_safety_validation.vehicle_model_id = envelope.vehicle_model_id;
+            result.flight_safety_validation.model_version = envelope.model_version;
+            result.flight_safety_validation.configuration_id = envelope.configuration_id;
+            result.flight_safety_validation.source_reference = envelope.source_reference;
+            result.flight_safety_validation.findings.push_back({
+                FlightSafetyParameter::ModelEvidence, {}, {}, 0.0, 0.0,
+                "Safety envelope identity/configuration does not exactly match the assigned vehicle and kinematic model."
+            });
+            addFinding(result,
+                "MT01_SEGMENT_DYNAMICS_UNKNOWN: validated safety envelope is missing or does not match the assigned vehicle configuration.");
+        } else {
+            std::vector<FlightSafetySegmentState> segmentStates;
+            segmentStates.reserve(result.kinematic_geometry.segments.size());
+            for (const auto& segment : result.kinematic_geometry.segments) {
+                segmentStates.push_back({
+                    segment.segment_id,
+                    std::optional<double>{segment.nominal_speed_mps},
+                    std::optional<double>{segment.bank_angle_rad},
+                    std::optional<double>{segment.lateral_acceleration_mps2}
+                });
+            }
+            result.flight_safety_validation =
+                FlightSafetyConstraintValidator::validate(envelope, segmentStates);
+            result.segment_dynamics_validated =
+                result.flight_safety_validation.status == FlightSafetyStatus::Allowed;
+            if (!result.segment_dynamics_validated) {
+                addFinding(result,
+                    result.flight_safety_validation.status == FlightSafetyStatus::Rejected
+                        ? "MT01_SEGMENT_DYNAMICS_REJECTED: one or more trajectory segments exceed the validated aircraft envelope."
+                        : "MT01_SEGMENT_DYNAMICS_UNKNOWN: validated speed/bank/acceleration evidence is incomplete.");
+                for (const auto& finding : result.flight_safety_validation.findings)
+                    addFinding(result, finding.detail);
+            } else if (result.flight_safety_validation.maximum_regime_warning_required) {
+                addFinding(result, result.flight_safety_validation.operator_warning);
+            }
+        }
     }
     addFinding(result,
-        "FLIGHT_RELEASE_BLOCKED: this geometry stage does not perform wind-ground-track correction, DEM terrain following, obstacle clearance, current airspace/NOTAM validation, segment-level dynamic validation, energy/reserve assessment or independent mission-package checks.");
+        "FLIGHT_RELEASE_BLOCKED: this geometry stage does not perform wind-ground-track correction, DEM terrain following, obstacle clearance, current airspace/NOTAM validation, energy/reserve assessment or independent mission-package checks.");
     if (!request.camera.intrinsic_calibration_verified)
         addFinding(result,
             "CAMERA_CALIBRATION_UNVERIFIED: manufacturer optical geometry is not an individual camera/lens calibration.");
