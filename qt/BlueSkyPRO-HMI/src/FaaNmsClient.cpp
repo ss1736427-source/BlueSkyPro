@@ -135,6 +135,16 @@ void FaaNmsClient::finishNotamQuery(bool success, bool missionScope, const QStri
 {
     if (missionScope) emit missionNotamQueryFinished(success, message);
     else emit notamQueryFinished(success, message);
+
+    if (m_pendingMissionQuery && !m_queryInProgress && !m_requestInProgress) {
+        const double latitude = m_pendingMissionLatitude;
+        const double longitude = m_pendingMissionLongitude;
+        const double radiusNm = m_pendingMissionRadiusNm;
+        m_pendingMissionQuery = false;
+        QTimer::singleShot(0, this, [this, latitude, longitude, radiusNm]() {
+            queryMissionNotams(latitude, longitude, radiusNm);
+        });
+    }
 }
 
 void FaaNmsClient::setStatus(const QString &value)
@@ -269,7 +279,15 @@ void FaaNmsClient::queryMissionNotams(double latitude, double longitude, double 
 void FaaNmsClient::queryNotamsForScope(double latitude, double longitude,
                                        double radiusNm, bool missionScope)
 {
-    if (m_queryInProgress || m_requestInProgress) return;
+    if (m_queryInProgress || m_requestInProgress) {
+        if (missionScope) {
+            m_pendingMissionQuery = true;
+            m_pendingMissionLatitude = latitude;
+            m_pendingMissionLongitude = longitude;
+            m_pendingMissionRadiusNm = radiusNm;
+        }
+        return;
+    }
     // Keep the last successful snapshot intact while a replacement is in flight.
     // Viewport and mission scopes have independent publication channels.
     if (!std::isfinite(latitude) || latitude < -90.0 || latitude > 90.0
@@ -520,6 +538,8 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
             watcher->deleteLater();
             if (m_environment != environment) {
                 m_queryInProgress = false;
+                finishNotamQuery(false, missionScope,
+                                 QStringLiteral("FAA_NMS_ENVIRONMENT_CHANGED_DURING_QUERY"));
                 return;
             }
             m_interpretationCache = batch.cache;
