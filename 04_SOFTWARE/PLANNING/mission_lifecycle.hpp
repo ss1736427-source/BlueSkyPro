@@ -37,6 +37,7 @@ struct MissionLifecycleEvidence {
     std::string notam_recheck_snapshot_id;
     std::string regulatory_submission_id;
     std::string authorization_id;
+    std::string authorization_not_required_reason;
     std::string package_id;
     std::string package_route_version;
     std::string package_vehicle_id;
@@ -65,6 +66,8 @@ struct MissionLifecycleEvidence {
     bool regulatory_validation_passed{false};
     bool operator_review_accepted{false};
     bool regulatory_submission_prepared{false};
+    bool authorization_requirement_assessed{false};
+    bool authorization_required{false};
     bool authorization_present{false};
     bool authorization_current{false};
     bool authorization_scope_matches{false};
