@@ -84,5 +84,46 @@ int main() {
                             return error.rfind("GEOMETRY_COORDINATE_INVALID:", 0) == 0;
                         }) != coordinateErrors.end());
 
+    // Mission operations are separate from route waypoints and require
+    // traceable, configuration-specific estimates before trajectory use.
+    Mission withOperation = mission;
+    withOperation.vehicle_assignments.front().vehicle_id = "UAV-01";
+    withOperation.vehicle_assignments.front().configuration_version = "CFG-01";
+    withOperation.operations.push_back({
+        "OP-001", "MT-01", "MAPPING_SWATH", "GEO-001", {"EQUIPMENT-01"},
+        {"VALIDATED", 420.0, 18.5, "EQUIPMENT_MODEL", "PERF-001", "2", "method-3",
+         "UAV-01", "CFG-01", {"EQUIPMENT-PROFILE-01"}}});
+    assert(validateMissionModelStructure(withOperation).empty());
+
+    Mission unresolvedOperation = mission;
+    unresolvedOperation.operations.push_back({
+        "OP-UNRESOLVED", "MT-01", "MAPPING_SWATH", "GEO-001", {},
+        {"UNRESOLVED", std::nullopt, std::nullopt, "", "", "", "", "", "", {}}});
+    assert(validateMissionModelStructure(unresolvedOperation).empty());
+
+    Mission missingOperationProvenance = withOperation;
+    missingOperationProvenance.operations.front().execution_estimate.source_version.clear();
+    const auto missingProvenanceErrors = validateMissionModelStructure(missingOperationProvenance);
+    assert(std::find(missingProvenanceErrors.begin(), missingProvenanceErrors.end(),
+                     "VALIDATED_OPERATION_ESTIMATE_PROVENANCE_REQUIRED:OP-001") != missingProvenanceErrors.end());
+
+    Mission wrongOperationVehicle = withOperation;
+    wrongOperationVehicle.operations.front().execution_estimate.vehicle_configuration_version = "CFG-OLD";
+    const auto wrongVehicleErrors = validateMissionModelStructure(wrongOperationVehicle);
+    assert(std::find(wrongVehicleErrors.begin(), wrongVehicleErrors.end(),
+                     "OPERATION_ESTIMATE_VEHICLE_CONFIGURATION_MISMATCH:OP-001") != wrongVehicleErrors.end());
+
+    Mission unassignedOperationEquipment = withOperation;
+    unassignedOperationEquipment.operations.front().equipment_ids = {"EQUIPMENT-UNKNOWN"};
+    const auto unassignedEquipmentErrors = validateMissionModelStructure(unassignedOperationEquipment);
+    assert(std::find(unassignedEquipmentErrors.begin(), unassignedEquipmentErrors.end(),
+                     "OPERATION_EQUIPMENT_NOT_ASSIGNED:OP-001:EQUIPMENT-UNKNOWN") != unassignedEquipmentErrors.end());
+
+    Mission invalidUnresolvedEstimate = unresolvedOperation;
+    invalidUnresolvedEstimate.operations.front().execution_estimate.duration_s = 30.0;
+    const auto invalidUnresolvedErrors = validateMissionModelStructure(invalidUnresolvedEstimate);
+    assert(std::find(invalidUnresolvedErrors.begin(), invalidUnresolvedErrors.end(),
+                     "UNRESOLVED_OPERATION_ESTIMATE_HAS_VALUES:OP-UNRESOLVED") != invalidUnresolvedErrors.end());
+
     return 0;
 }
