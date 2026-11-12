@@ -81,6 +81,10 @@ private:
     QString m_environment = QStringLiteral("STAGING");
     bool m_requestInProgress = false;
     bool m_queryInProgress = false;
+    bool m_pendingMissionQuery = false;
+    double m_pendingMissionLatitude = 0.0;
+    double m_pendingMissionLongitude = 0.0;
+    double m_pendingMissionRadiusNm = 0.0;
     QVariantList m_notamRecords;
     QVariantList m_missionNotamRecords;
     QString m_missionNotamSnapshotId;
