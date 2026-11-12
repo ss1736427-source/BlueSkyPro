@@ -143,5 +143,49 @@ int main()
     wrongVehicleBinding.mission.equipment_assignments.front().vehicle_id = "OTHER-UAV";
     assert(Mt01MappingPipeline::calculate(wrongVehicleBinding).status == Mt01PipelineStatus::NeedsInput);
 
+    // Full integration fixture: fixed-wing kinematic geometry is checked against
+    // an independently supplied, exact-configuration safety envelope.
+    auto fixedWingRequest = request;
+    auto& assignment = fixedWingRequest.mission.vehicle_assignments.front();
+    assignment.vehicle_id = "TEST-FIXED-WING";
+    assignment.configuration_id = "TEST-FIXED-WING-CFG";
+    assignment.configuration_version = "fixture-1";
+    fixedWingRequest.mission.equipment_assignments.front().vehicle_id = assignment.vehicle_id;
+    fixedWingRequest.vehicle_motion_model.model_id = assignment.vehicle_id;
+    fixedWingRequest.vehicle_motion_model.model_version = assignment.configuration_version;
+    fixedWingRequest.vehicle_motion_model.configuration_id = assignment.configuration_id;
+    fixedWingRequest.vehicle_motion_model.motion_class = MotionClass::FixedWing;
+    fixedWingRequest.vehicle_motion_model.evidence = MotionEvidence::FlightTestValidated;
+    fixedWingRequest.vehicle_motion_model.reference_speed_mps = 10.0;
+    fixedWingRequest.vehicle_motion_model.minimum_speed_mps = 5.0;
+    fixedWingRequest.vehicle_motion_model.maximum_speed_mps = 20.0;
+    fixedWingRequest.vehicle_motion_model.bank_angle_rad =
+        30.0 * 3.14159265358979323846 / 180.0;
+    fixedWingRequest.vehicle_motion_model.speed_reference = "TAS";
+    fixedWingRequest.vehicle_motion_model.source_reference = "controlled integration fixture";
+    auto& safety = fixedWingRequest.flight_safety_envelope;
+    safety.vehicle_model_id = assignment.vehicle_id;
+    safety.model_version = assignment.configuration_version;
+    safety.configuration_id = assignment.configuration_id;
+    safety.source_reference = "controlled integration fixture";
+    safety.speed_reference = "TAS";
+    safety.minimum_speed_basis =
+        "CONFIGURATION_SPECIFIC_STALL_SPEED_WITH_BANK_AND_MARGIN";
+    safety.evidence = FlightSafetyEvidence::FlightTestValidated;
+    safety.motion_class = MotionClass::FixedWing;
+    safety.minimum_speed_mps = 5.0;
+    safety.maximum_speed_mps = 20.0;
+    safety.maximum_bank_angle_rad =
+        fixedWingRequest.vehicle_motion_model.bank_angle_rad;
+    safety.maximum_lateral_acceleration_mps2 = 6.0;
+    const auto fixedWingResult = Mt01MappingPipeline::calculate(fixedWingRequest);
+    assert(fixedWingResult.coverage_candidate_available);
+    assert(fixedWingResult.kinematic_geometry_available);
+    assert(fixedWingResult.kinematic_geometry.segments.size() + 1 ==
+           fixedWingResult.kinematic_geometry.waypoints.size());
+    assert(fixedWingResult.segment_dynamics_validated);
+    assert(fixedWingResult.flight_safety_validation.status == FlightSafetyStatus::Allowed);
+    assert(!fixedWingResult.flight_release_eligible);
+
     return 0;
 }
