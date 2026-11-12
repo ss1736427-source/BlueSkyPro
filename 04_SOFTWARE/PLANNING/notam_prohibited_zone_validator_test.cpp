@@ -20,6 +20,8 @@ static NotamSnapshot snapshot() {
     s.source_id = "AUTH-NOTAM";
     s.source_version = "2026-09-24T12:00Z";
     s.evaluation_epoch_s = 1000;
+    s.planned_mission_start_epoch_s = 1000;
+    s.planned_mission_end_epoch_s = 2000;
      s.zones.push_back({"N-001", NotamRestrictionType::Prohibited, NotamGeometryType::Circle,
                        {60.0, 25.0}, 1000.0, {}, 0.0, 500.0, 900, 1100,
                        NotamAltitudeReference::AGL, "N-001-COMP-01"});
@@ -146,6 +148,7 @@ int main() {
 
     auto timedSnapshot = snapshot();
     timedSnapshot.evaluation_epoch_s = 1000;
+    timedSnapshot.planned_mission_end_epoch_s = 1200;
     timedSnapshot.zones.front().center = {60.0, 25.0};
     timedSnapshot.zones.front().radius_m = 150.0;
     timedSnapshot.zones.front().valid_from_epoch_s = 1100;
