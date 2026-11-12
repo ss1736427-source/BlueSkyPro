@@ -290,54 +290,56 @@ The provider registry must declare discrete levels and its maximum vertical inte
 
 ## 12.2 Route-weather acquisition and assessment boundary
 
-The HMI weather request is formed only after the canonical route is validated. The initial time window uses the selected, validated and approved UAV performance profile, the route's horizontal travel time and climb/descent rates, plus a configurable operational reserve (currently 30 minutes). This reserve is a BlueSky planning margin, not a METAR/TAF regulatory validity period.
+The HMI weather request is formed only after the canonical route candidate set has been validated. The initial time window covers the longest candidate route using the selected, validated and approved UAV performance profile, climb/descent rates and the configured operational reserve (currently 30 minutes). This reserve is a BlueSky planning margin, not a METAR/TAF regulatory validity period.
 
-For GFS 0.25-degree subsetting, the acquisition bounds are expanded by one grid interval around the mission's configured spatial buffer. This is required to retain bracketing grid cells for bilinear interpolation near route and area boundaries.
+For GFS 0.25-degree subsetting, the acquisition bounds are built from the union of the candidate-route coverage and expanded by one grid interval around the mission's configured spatial buffer. This retains bracketing grid cells for bilinear interpolation near route and area boundaries. Map pan/zoom does not trigger acquisition.
 
-The current weather trajectory engine then:
-1. verifies all forecast files belong to one model run and their manifest identity, byte size and SHA-256;
-2. decodes paired U/V fields;
+The current weather trajectory engine:
+1. verifies that forecast files belong to one model run and match their manifest identity, byte size and SHA-256;
+2. decodes paired U/V fields into one immutable wind snapshot;
 3. samples the complete trajectory at no more than 10 km or 5 minutes per subsegment;
-4. interpolates only inside horizontal grid, vertical-level and forecast-time coverage;
-5. iterates wind-dependent segment times and energy until convergence or blocks the assessment.
+4. interpolates only inside horizontal-grid, vertical-level and forecast-time coverage;
+5. iterates wind-dependent segment times and energy until convergence, or blocks the assessment.
 
 This first GFS path currently decodes U/V wind only. It assesses wind impact on route segment speed, time and energy; it is not a complete meteorological hazard assessment and does not yet cover visibility, cloud base, precipitation, icing, turbulence, temperature limits or aviation hazard products. The HMI therefore labels the result as a wind assessment, not a full weather clearance.
 
-The HMI/NOAA service still assesses the selected validated route after the first optimizer result; it is not yet injecting the production forecast snapshot into the live AlgorithmOrchestrator invocation. The planning library now supports pre-ranking weather assessment through an explicit assessor callback, and its candidate ranking uses corrected time/energy metrics. The production A*/Dijkstra path producers still need to attach complete flown geometry before this callback can accept their candidates.
+The application now has a multi-candidate weather reranking path:
+1. `PlanningBridge` publishes the external planning result. When it contains `routeCandidates`, `MainContent.syncPlanningRouteCandidate` passes the set to `RouteController.loadCandidateSet`.
+2. The route controller accepts only candidates with complete canonical geometry, common mission/calculation lineage, route validation and an explicit ALLOWED flight-safety result for the assigned UAV.
+3. `MissionProfileWindow` forms weather coverage from the entire candidate set and calls `WeatherCalculationService.evaluateCandidates`.
+4. The service verifies and decodes the downloaded forecast products, constructs `makeCandidateWeatherAssessor`, and runs the candidate set through `AlgorithmOrchestrator` using a `CandidateSetSolver`.
+5. Wind-corrected time, energy and remaining energy replace nominal metrics before objective ranking. The final time-dependent NOTAM gate is applied to the wind-corrected 4D trajectory. If the selected candidate changes, the HMI restores that candidate through `RouteController.selectCandidate`.
 
-The canonical route waypoint now supports optional task execution duration and energy. Both values must be supplied together from validated mission/aircraft/equipment data; the trajectory calculator adds them to elapsed time and energy, and later forecast samples are shifted by the dwell duration. The mission/task model and HMI route-snapshot producer do not yet populate these fields from mission templates, so operational task dwell is supported by the calculation contract but is not yet automatically supplied end-to-end.
+This is a second-stage optimization over the complete candidate set produced by the first planning stage. It follows the required sequence — generate routes, account for wind, compare corrected candidates, select the best admissible route — without passing a C++ callback across the JSON process boundary. It does not generate new route geometry after weather assessment. If every supplied candidate is rejected, the solve remains blocked; it must not fall back to nominal metrics or an unverified route.
 
-## 12.3 Weather-aware optimizer candidate contract
+The canonical route waypoint supports optional task execution duration and energy. Both values must be supplied together from validated mission/aircraft/equipment data; the trajectory calculator adds them to elapsed time and energy, and later forecast samples are shifted by the dwell duration. The mission/task model and HMI route-snapshot producer do not yet populate these fields from mission templates, so operational task dwell is supported by the calculation contract but is not yet automatically supplied end-to-end.
 
-The planning orchestrator now exposes an optional candidate weather assessor. When configured, it evaluates each structurally valid candidate before objective ranking and replaces nominal time, energy and remaining-energy values with the assessor's verified weather-corrected metrics. A missing, invalid or non-converged assessment blocks that candidate; the optimizer must not rank it using nominal estimates as a fallback.
+## 12.3 Weather-aware candidate contract
 
-The candidate contract carries an optional canonical `trajectory_route`. Weather assessment is permitted only when this route is marked `trajectory_geometry_complete` and contains a consistent waypoint/segment chain. The route must represent the complete flown trajectory, including transitions and turns, with explicit AGL heights and a traceable forecast snapshot. The assessor result must include the snapshot identity/version and finite corrected time, energy and remaining-energy values.
+The planning orchestrator exposes an optional candidate weather assessor. When configured, it evaluates each structurally valid candidate before objective ranking and replaces nominal time, energy and remaining-energy values with the assessor's verified weather-corrected metrics. A missing, invalid or non-converged assessment blocks that candidate; the optimizer must not rank it using nominal estimates as a fallback.
 
-**Current integration boundary:** the generic orchestration hook and its fail-closed contract test are implemented. The current A* and Dijkstra graph solvers still publish node-ID paths only; they do not yet populate complete canonical trajectory geometry. Consequently, enabling the weather assessor against those candidates will reject them until the route-producing stage supplies the full geometry. This is intentional: graph-node polylines must not be represented as complete flown trajectories when turns/transitions are absent.
+The candidate contract carries an optional canonical `trajectory_route`. Weather assessment is permitted only when this route is marked `trajectory_geometry_complete` and contains a consistent waypoint/segment chain. The route must represent the complete flown trajectory, including transitions and turns, with explicit AGL heights. The assessor result must include the immutable forecast snapshot identity/version and finite corrected time, energy and remaining-energy values.
 
-A production bridge, `makeCandidateWeatherAssessor`, now accepts decoded forecast fields, the assigned UAV performance profile and snapshot identity, then invokes `WeatherTrajectoryCalculator` for each candidate. The live HMI/NOAA `WeatherCalculationService` is not yet constructing and injecting this assessor into the production `AlgorithmOrchestrator` path. Together with the current A*/Dijkstra geometry gap, this means end-to-end weather-aware optimization is not yet active in the application.
+The HMI candidate-set contract accepts 1–64 candidates. Every candidate must have unique candidate and route IDs, complete WGS84 geometry, consistent mission/calculation lineage, explicit UAV/safety-envelope identity, route validation and ALLOWED flight-safety validation. Missing geometry is not inferred from a graph-node polyline.
+
+**Known route-generation boundary:** the generic A*/Dijkstra graph solvers still publish node-ID paths only; they do not themselves populate complete canonical flown geometry. Those raw graph candidates cannot be sent directly to the weather assessor. The upstream route-producing stage must publish canonical route candidates with all legs, transitions and turns. The HMI route controller and Python planning bridge validate this contract, but the production source of every candidate geometry still requires operational verification.
+
+A production bridge, `makeCandidateWeatherAssessor`, accepts decoded forecast fields, the assigned UAV performance profile and snapshot identity, then invokes `WeatherTrajectoryCalculator` for each candidate.
+
+A new engine-level integration test, `weather_candidate_reranking_integration_test`, uses the real weather trajectory calculator, candidate assessor and `AlgorithmOrchestrator` with two complete synthetic routes. It verifies that an east-favourable forecast selects the eastbound candidate and a north-favourable forecast selects the northbound candidate. This proves that forecast changes can change the selected candidate in the weather-ranking engine. It does not, by itself, prove live NOAA acquisition, the external planner's route-generation quality or the complete QML/PlanningBridge runtime path.
 
 ## 12.4 HMI / planning-process integration boundary
 
-The current HMI integration has two distinct execution paths:
+The current application has two connected process stages:
 
-- `PlanningBridge` starts a planning executable through `QProcess` and exchanges newline-delimited JSON over standard input/output.
-- `WeatherCalculationService::evaluateRoute` runs in the HMI process and accepts a selected route snapshot, forecast products and a validated UAV performance profile.
+- `PlanningBridge` starts the external planning executable through `QProcess` and exchanges newline-delimited JSON. The planning result may carry one `routeCandidate` or a `routeCandidates` set.
+- `MainContent` loads the validated candidate set into the shared `RouteController`. `MissionProfileWindow` then acquires the mission/candidate-scoped forecast and runs `WeatherCalculationService.evaluateCandidates` in the HMI process.
 
-The candidate assessor is a C++ callback (`std::function`) owned by `AlgorithmOrchestrator`. It cannot be passed through the current JSON process boundary as a callable object. Calling `WeatherCalculationService::evaluateRoute` after receiving the selected route therefore remains a post-optimization assessment; it cannot change which candidate the external optimizer selected.
+The candidate assessor is a C++ callback (`std::function`) owned by `AlgorithmOrchestrator`; it is not serialized through the JSON process boundary. In the current design this is intentional: the first planning stage supplies canonical candidate routes, and the HMI weather stage performs wind correction and ranking over that set. The HMI is not merely assessing the highlighted route; it can select a different candidate from the supplied set.
 
-**Required production ownership:** construct and inject `makeCandidateWeatherAssessor` inside the same process that constructs and invokes `AlgorithmOrchestrator`. Do not create a second, independent optimizer or treat the HMI's post-hoc route assessment as weather-aware candidate ranking.
+This separation does not mean that the external planning executable itself performs weather-aware search. The weather stage cannot change the first-stage search graph or invent a new candidate after the forecast is applied. The external planning stage must provide a sufficiently diverse, fully validated candidate set. If future requirements demand weather-driven route generation beyond reranking, a versioned planning-process contract and an explicit regeneration loop will be required; a callable C++ object must not be passed through JSON.
 
-The process boundary should exchange immutable references, not large decoded GRIB arrays:
-- mission ID/version and route/candidate lineage;
-- forecast snapshot ID/version and calculation-input version;
-- a controlled repository/cache reference resolvable by the planning process;
-- assigned UAV/configuration identity and the validated performance-profile version;
-- the resulting weather-assessment status, corrected time/energy/reserve and structured rejection reason.
-
-The planning process must resolve the exact immutable forecast snapshot, verify its manifest/hash, coverage and validity, and reject missing or mismatched references. It must not silently fetch a newer forecast during a solve or mix model cycles. If the planning process cannot access the shared immutable product repository, a separately versioned bounded IPC transfer contract is required; raw credentials and arbitrary filesystem paths must never cross the interface.
-
-Before activation, add an integration test that runs the actual HMI-to-planning-process request path with at least two candidate routes and proves that changing the forecast snapshot can change the selected candidate. Also prove that missing/stale snapshot references block the solve and that the operator receives the snapshot identity and corrected metrics. Until that test passes, the UI must describe the current function as post-route wind assessment, not weather-aware optimization.
+**Remaining end-to-end verification:** add a test that exercises the actual PlanningBridge result contract through candidate-set loading, weather acquisition/decoding, candidate reranking and HMI selection. It must prove that changing the forecast snapshot can change the selected route, that missing/stale or mismatched forecast products block selection, that post-wind NOTAM validation uses the same snapshot and mission window, and that the operator receives snapshot identity plus corrected metrics. The current engine-level test covers the wind calculation/ranking core, not this complete live HMI-to-planning runtime path. Until the complete runtime scenario passes, the UI must continue to describe the function as wind assessment, not full weather clearance.
 
 ## 13. Implementation sequence
 
