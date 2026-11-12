@@ -165,10 +165,10 @@ int main(int argc, char **argv)
 
     QVariantMap unsupportedDatumParameters = activeNotamParameters;
     QVariantMap unsupportedDatumSource = activeNotamSource;
-    unsupportedDatumSource.insert("lowerLimitRaw", "GND");
+    unsupportedDatumSource.insert("lowerLimitRaw", "50M AMSL");
     unsupportedDatumSource.insert("upperLimitRaw", "150M AMSL");
     unsupportedDatumSource.insert("originalText",
-        "E) AIRSPACE CLSD WI AREA\nF)GND\nG)150M AMSL");
+        "E) AIRSPACE CLSD WI AREA\nF)50M AMSL\nG)150M AMSL");
     const QVariantMap unsupportedDatum =
         NotamGeometryEngine::normalize(unsupportedDatumSource);
     unsupportedDatumParameters.insert("notamRecords", QVariantList{unsupportedDatum});
