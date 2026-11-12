@@ -29,26 +29,22 @@ bool validGeo(const std::vector<GeoPoint>& r){
 void normalizeRing(std::vector<XY>& r){
  if(r.size()>3&&std::hypot(r.front().x-r.back().x,r.front().y-r.back().y)<0.01)r.pop_back();
 }
-bool pointInRing(const std::vector<XY>& r,XY p){
- bool inside=false;
- for(std::size_t i=0,j=r.size()-1;i<r.size();j=i++){
-  const auto a=r[i],b=r[j];
-  if(onSegment(a,b,p))return true;
-  if(((a.y>p.y)!=(b.y>p.y))&&(p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x))inside=!inside;
- }
- return inside;
-}
-bool ringsIntersect(const std::vector<XY>& a,const std::vector<XY>& b){
- for(std::size_t i=0;i<a.size();++i)for(std::size_t j=0;j<b.size();++j)
-  if(intersects(a[i],a[(i+1)%a.size()],b[j],b[(j+1)%b.size()]))return true;
- return false;
-}
 XY project(const GeoPoint&p,double lat,double lon){double c=std::cos(lat*kPi/180);return{kEarthRadiusM*(p.longitude_deg-lon)*kPi/180*c,kEarthRadiusM*(p.latitude_deg-lat)*kPi/180};}
 GeoPoint unproject(XY p,double lat,double lon){double c=std::cos(lat*kPi/180);return{lat+p.y/kEarthRadiusM*180/kPi,lon+p.x/(kEarthRadiusM*c)*180/kPi};}
 std::vector<double> intersectionsAt(const std::vector<XY>&r,double y){
  std::vector<double>x;for(std::size_t i=0,j=r.size()-1;i<r.size();j=i++){auto a=r[j],b=r[i];if((a.y<=y&&b.y>y)||(b.y<=y&&a.y>y))x.push_back(a.x+(y-a.y)*(b.x-a.x)/(b.y-a.y));}std::sort(x.begin(),x.end());return x;
 }
 std::vector<Interval> spansAt(const std::vector<XY>&r,double y){auto x=intersectionsAt(r,y);std::vector<Interval>s;for(std::size_t i=1;i<x.size();i+=2)if(x[i]-x[i-1]>0.01)s.push_back({x[i-1],x[i]});return s;}
+std::vector<Interval> mergeIntervals(std::vector<Interval> values){
+ std::sort(values.begin(),values.end(),[](const Interval&a,const Interval&b){return a.lo<b.lo;});
+ std::vector<Interval> merged;
+ for(const auto& value:values){
+  if(value.hi-value.lo<=0.01)continue;
+  if(merged.empty()||value.lo>merged.back().hi+0.01)merged.push_back(value);
+  else merged.back().hi=std::max(merged.back().hi,value.hi);
+ }
+ return merged;
+}
 std::vector<Interval> subtract(std::vector<Interval>b,const std::vector<Interval>&cuts){
  for(auto c:cuts){std::vector<Interval>n;for(auto s:b){if(c.hi<=s.lo||c.lo>=s.hi){n.push_back(s);continue;}if(c.lo>s.lo)n.push_back({s.lo,std::min(c.lo,s.hi)});if(c.hi<s.hi)n.push_back({std::max(c.hi,s.lo),s.hi});}b=std::move(n);}return b;
 }
@@ -71,12 +67,9 @@ CoveragePlanResult CoveragePathPlanner::generate(const CoverageMissionInput&in){
  std::vector<std::vector<XY>>holes;
  for(const auto&r:in.exclusion_areas){if(!validGeo(r))return fail("Exclusion polygon requires at least three finite vertices.");std::vector<XY>h;for(auto p:r)h.push_back(project(p,lat,lon));normalizeRing(h);
   if(!validRing(h))return fail("An exclusion ring is degenerate or self-intersecting.");
-  if(ringsIntersect(area,h))return fail("An exclusion polygon must not cross or touch the AOI boundary.");
-  for(auto p:h)if(!pointInRing(area,p))return fail("Every exclusion polygon must lie completely inside the AOI.");
-  for(const auto&existing:holes){
-   if(ringsIntersect(existing,h)||pointInRing(existing,h.front())||pointInRing(h,existing.front()))
-    return fail("Exclusion polygons must not overlap or contain one another.");
-  }
+  // Exclusions are intersected with AOI scanline spans below. This naturally
+  // clips boundary-crossing zones and unions overlapping/contained zones without
+  // constructing artificial polygon bridges or rejecting valid restriction sets.
   holes.push_back(std::move(h));
  }
  double gsd=c.target_gsd_cm_px/100,alt=gsd*(c.focal_length_mm*1e-3)/(c.pixel_pitch_um*1e-6);
@@ -92,7 +85,17 @@ CoveragePlanResult CoveragePathPlanner::generate(const CoverageMissionInput&in){
  double length=0;std::size_t lines=0,segments=0,gaps=0;
  for(std::size_t line=0;line<possible;++line){
   double y=minY+spacing*(double(line)+0.5);auto spans=spansAt(area,y);
-  for(const auto&h:holes){auto cuts=spansAt(h,y);if(!cuts.empty()&&!spans.empty())++gaps;spans=subtract(std::move(spans),cuts);}
+  std::vector<Interval> cuts;
+  for(const auto&h:holes){
+   const auto zoneSpans=spansAt(h,y);
+   for(const auto&base:spans)for(const auto&zone:zoneSpans){
+    const double lo=std::max(base.lo,zone.lo),hi=std::min(base.hi,zone.hi);
+    if(hi-lo>0.01)cuts.push_back({lo,hi});
+   }
+  }
+  cuts=mergeIntervals(std::move(cuts));
+  if(!cuts.empty())++gaps;
+  spans=subtract(std::move(spans),cuts);
   spans.erase(std::remove_if(spans.begin(),spans.end(),[](auto s){return s.hi-s.lo<0.1;}),spans.end());if(spans.empty())continue;
   if(line%2)std::reverse(spans.begin(),spans.end());++lines;
   for(auto s:spans){
