@@ -48,6 +48,8 @@ static MissionLifecycleEvidence evidence() {
     e.regulatory_validation_passed = true;
     e.operator_review_accepted = true;
     e.regulatory_submission_prepared = true;
+    e.authorization_requirement_assessed = true;
+    e.authorization_required = true;
     e.authorization_present = true;
     e.authorization_current = true;
     e.authorization_scope_matches = true;
@@ -173,6 +175,40 @@ int main() {
     assert(std::find(completed.history.back().evidence_references.begin(),
                      completed.history.back().evidence_references.end(), "POSTFLIGHT-1")
            != completed.history.back().evidence_references.end());
+
+    MissionLifecycleRecord noAuthorizationRequired{"MISSION-001", "7"};
+    assert(move(noAuthorizationRequired, MissionLifecycleState::Calculating, e).accepted);
+    assert(move(noAuthorizationRequired, MissionLifecycleState::Validating, e).accepted);
+    assert(move(noAuthorizationRequired, MissionLifecycleState::Ready, e).accepted);
+    assert(move(noAuthorizationRequired, MissionLifecycleState::Submitted, e).accepted);
+    auto noAuthEvidence = e;
+    noAuthEvidence.authorization_requirement_assessed = false;
+    noAuthEvidence.authorization_required = false;
+    noAuthEvidence.authorization_present = false;
+    noAuthEvidence.authorization_id.clear();
+    noAuthEvidence.authorization_not_required_reason = "No separate authorization applies";
+    auto unassessedAuthorization = move(noAuthorizationRequired, MissionLifecycleState::Authorized, noAuthEvidence);
+    assert(!unassessedAuthorization.accepted);
+    noAuthEvidence.authorization_requirement_assessed = true;
+    assert(move(noAuthorizationRequired, MissionLifecycleState::Authorized, noAuthEvidence).accepted);
+
+    MissionLifecycleRecord aborted{"MISSION-001", "7"};
+    assert(move(aborted, MissionLifecycleState::Calculating, e).accepted);
+    assert(move(aborted, MissionLifecycleState::Validating, e).accepted);
+    assert(move(aborted, MissionLifecycleState::Ready, e).accepted);
+    assert(move(aborted, MissionLifecycleState::Submitted, e).accepted);
+    assert(move(aborted, MissionLifecycleState::Authorized, e).accepted);
+    assert(move(aborted, MissionLifecycleState::Released, e).accepted);
+    assert(move(aborted, MissionLifecycleState::Executing, e).accepted);
+    auto incompleteAbort = MissionLifecycleController::transition(
+        aborted, MissionLifecycleState::Aborted, e, "OPERATOR-1",
+        "2026-11-12T12:04:00Z", "operator abort");
+    assert(!incompleteAbort.accepted);
+    assert(std::find(incompleteAbort.blockers.begin(), incompleteAbort.blockers.end(),
+                     "ABORTED_EXECUTION_NOT_CLOSED") != incompleteAbort.blockers.end());
+    assert(MissionLifecycleController::transition(
+        aborted, MissionLifecycleState::Aborted, e, "OPERATOR-1",
+        "2026-11-12T12:05:00Z", "operator abort").accepted);
 
     assert(record.next_event_sequence == record.history.size() + 1);
     assert(record.history.front().sequence == 1);
