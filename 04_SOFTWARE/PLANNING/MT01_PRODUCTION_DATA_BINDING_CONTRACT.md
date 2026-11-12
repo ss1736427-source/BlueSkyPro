@@ -1,8 +1,21 @@
 # MT-01 Production Data Binding Contract
 
-Status: engineering gap analysis against `main` at commit `d286f88cefa1280169a9073ca8fc5111f224f8fa`.
+Status: engineering gap analysis; implementation baseline reviewed on `main` at 2026-11-12.
 
 This document records the production inputs that must be bound before MT-01 may promote a structural route candidate to a complete, safety-attested trajectory. It does not grant flight-release eligibility.
+
+## Requirement ownership and duplicate control
+
+This is the MT-01 production integration contract, not a second system-requirements baseline. Existing requirement identities remain controlled by `01_REQUIREMENTS/SYSTEM/MASTER_REQUIREMENTS_REGISTER.md` and the repository requirements traceability process. This document adds no new SYS-REQ or SW-REQ identifiers.
+
+The related documents have distinct responsibilities:
+- `02_SYSTEM_DESIGN/PLANNING/CONSTRAINED_ROUTE_GENERATOR_001.md` owns the constrained spatial-search boundary: only feasible/open-domain edges enter route search.
+- `02_SYSTEM_DESIGN/PLANNING/NOTAM_PROHIBITED_ZONE_VALIDATION_001.md` owns final NOTAM intersection findings, full segment occupancy-time checks after wind timing, and NOTAM boundary presentation semantics.
+- `02_SYSTEM_DESIGN/PLANNING/WIND_PERFORMANCE_4D_TRAJECTORY_001.md` owns the single wind/performance calculation and its time/energy result contract.
+- `02_SYSTEM_DESIGN/PLANNING/CANDIDATE_COMPARISON_OPTIMIZATION_001.md` owns comparison/ranking of candidates that have already passed feasibility gates.
+- `02_SYSTEM_DESIGN/PLANNING/FINAL_PLANNING_INTEGRITY_CHECK_001.md` owns final identity, lineage and dependency-integrity checks.
+
+MT-01-specific responsibility is to bind those contracts into one executable sequence: show/acquire the applicable NOTAM snapshot; generate coverage and connectors in the constrained domain; calculate route performance with wind; re-evaluate NOTAM applicability using the resulting segment occupancy times; then validate and promote only candidates that pass all required gates. The detailed rules remain in their owning documents; they must be referenced, not copied into parallel requirement sets.
 
 ## 1. Current verified pipeline boundary
 
