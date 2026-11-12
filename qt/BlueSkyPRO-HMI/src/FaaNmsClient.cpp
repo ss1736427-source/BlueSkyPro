@@ -279,7 +279,7 @@ void FaaNmsClient::queryNotamsForScope(double latitude, double longitude,
         return;
     }
     if (!m_vault) {
-        emit notamQueryFinished(false, QStringLiteral("Credential vault is unavailable."));
+        finishNotamQuery(false, missionScope, QStringLiteral("Credential vault is unavailable."));
         return;
     }
     const QString clientId = m_vault->readSecret(QStringLiteral("faa_nms_client_id"));
