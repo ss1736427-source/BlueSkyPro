@@ -106,6 +106,7 @@ int main(int argc, char **argv)
     assert(result.value("coverageCandidateAvailable").toBool());
     assert(!result.value("flightReleaseEligible").toBool());
     assert(!result.value("taskExecutionEstimatesReady").toBool());
+    assert(!result.value("taskExecutionEstimatesAppliedToTrajectory").toBool());
     assert(result.value("findings").toStringList().join(";")
                .contains("MT01_OPERATION_EXECUTION_ESTIMATE_UNRESOLVED"));
     assert(result.value("coverageValid").toBool());
@@ -230,6 +231,7 @@ int main(int argc, char **argv)
         validParameters());
     assert(validatedOperationResult.value("status").toString() == "COVERAGE_CANDIDATE_AVAILABLE");
     assert(validatedOperationResult.value("taskExecutionEstimatesReady").toBool());
+    assert(!validatedOperationResult.value("taskExecutionEstimatesAppliedToTrajectory").toBool());
 
     QJsonObject mismatchedOperationMission = validatedOperationMission;
     QJsonObject mismatchedOperation = mismatchedOperationMission.value("operations").toArray().first().toObject();
