@@ -45,6 +45,7 @@ struct MissionLifecycleEvidence {
     std::string route_id;
     std::string route_version;
     std::string calculation_input_version;
+    std::string vehicle_configuration_id;
     std::string terrain_snapshot_id;
     std::string mission_notam_snapshot_id;
     std::string weather_snapshot_id;
