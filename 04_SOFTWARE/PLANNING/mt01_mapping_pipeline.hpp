@@ -24,7 +24,8 @@ struct Mt01MappingRequest {
     double cruise_speed_mps{0.0};
     double line_angle_deg{0.0};
     VehicleMotionModel vehicle_motion_model;
-    // Explicit, independently validated envelope; never inferred from motion estimates.\n    FlightSafetyEnvelope flight_safety_envelope;
+    // Explicit, independently validated envelope; never inferred from motion estimates.
+    FlightSafetyEnvelope flight_safety_envelope;
 };
 
 struct Mt01MappingPipelineResult {
