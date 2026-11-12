@@ -1,4 +1,5 @@
 #include "mt01_kinematic_geometry_builder.hpp"
+#include "model/flight_safety_constraints.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -36,7 +37,53 @@ int main()
     assert(result.connector_count == 1);
     assert(result.minimum_turn_radius_m > 0.0);
     assert(result.waypoints.size() > coverage.waypoints.size());
+    assert(result.segments.size() + 1 == result.waypoints.size());
     assert(result.diagnostics.size() >= 2);
+    bool sawCoverage = false;
+    bool sawTurn = false;
+    std::vector<FlightSafetySegmentState> segmentStates;
+    for (std::size_t i = 0; i < result.segments.size(); ++i) {
+        const auto& segment = result.segments[i];
+        assert(segment.from_waypoint_index == i);
+        assert(segment.to_waypoint_index == i + 1);
+        assert(segment.distance_m > 0.0);
+        assert(segment.nominal_speed_mps == 10.0);
+        sawCoverage = sawCoverage || segment.type == Mt01KinematicSegmentType::Coverage;
+        sawTurn = sawTurn || segment.type == Mt01KinematicSegmentType::ConnectorTurn;
+        segmentStates.push_back({
+            segment.segment_id,
+            segment.nominal_speed_mps,
+            segment.bank_angle_rad,
+            segment.lateral_acceleration_mps2
+        });
+    }
+    assert(sawCoverage);
+    assert(sawTurn);
+
+    FlightSafetyEnvelope envelope;
+    envelope.vehicle_model_id = "TEST-FIXED-WING";
+    envelope.model_version = "fixture-1";
+    envelope.configuration_id = "TEST-CONFIG-1";
+    envelope.source_reference = "controlled test envelope";
+    envelope.speed_reference = "TAS";
+    envelope.minimum_speed_basis =
+        "CONFIGURATION_SPECIFIC_STALL_SPEED_WITH_BANK_AND_MARGIN";
+    envelope.evidence = FlightSafetyEvidence::FlightTestValidated;
+    envelope.motion_class = MotionClass::FixedWing;
+    envelope.minimum_speed_mps = 5.0;
+    envelope.maximum_speed_mps = 20.0;
+    envelope.maximum_bank_angle_rad = vehicle.bank_angle_rad;
+    envelope.maximum_lateral_acceleration_mps2 = 6.0;
+    const auto dynamicsCheck =
+        FlightSafetyConstraintValidator::validate(envelope, segmentStates);
+    assert(dynamicsCheck.status == FlightSafetyStatus::Allowed);
+    assert(!dynamicsCheck.maximum_regime_warning_required);
+
+    auto insufficientEnvelope = envelope;
+    insufficientEnvelope.maximum_bank_angle_rad = vehicle.bank_angle_rad * 0.8;
+    const auto rejectedDynamics =
+        FlightSafetyConstraintValidator::validate(insufficientEnvelope, segmentStates);
+    assert(rejectedDynamics.status == FlightSafetyStatus::Rejected);
 
     auto wrongConfiguration = vehicle;
     wrongConfiguration.configuration_id = "OTHER-CONFIG";
