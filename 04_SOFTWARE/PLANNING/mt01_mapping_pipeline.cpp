@@ -1,4 +1,5 @@
 #include "mt01_mapping_pipeline.hpp"
+#include "mt01_kinematic_geometry_builder.hpp"
 
 #include <algorithm>
 #include <utility>
@@ -154,10 +155,21 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
         addFinding(result,
             "CUSTOM_CONFIGURATION_APPROVAL_PENDING: analysis candidate only; operational use remains blocked until the required approval is completed.");
     }
-    addFinding(result,
-        "COVERAGE_CANDIDATE_ONLY: straight coverage legs are calculated; turns, transitions and total trajectory are not generated.");
-    addFinding(result,
-        "FLIGHT_RELEASE_BLOCKED: DEM terrain following, obstacle clearance, current airspace/NOTAM, weather/wind, validated vehicle dynamics, energy/reserve and independent mission-package checks are not completed by this stage.");
+    const auto& assignedVehicle = mission.vehicle_assignments.front();
+    result.kinematic_geometry = Mt01KinematicGeometryBuilder::build(
+        result.coverage,
+        request.vehicle_motion_model,
+        assignedVehicle.vehicle_id,
+        assignedVehicle.configuration_id,
+        request.cruise_speed_mps,
+        request.exclusion_areas);
+    result.kinematic_geometry_available = result.kinematic_geometry.feasible;
+    for (const auto& diagnostic : result.kinematic_geometry.diagnostics)
+        addFinding(result, diagnostic);
+    if (!result.kinematic_geometry_available) {
+        addFinding(result,
+            "MT01_KINEMATIC_GEOMETRY_BLOCKED: coverage legs remain available for analysis, but a validated fixed-wing turn-connector candidate was not established.");
+    }
     if (!request.camera.intrinsic_calibration_verified)
         addFinding(result,
             "CAMERA_CALIBRATION_UNVERIFIED: manufacturer optical geometry is not an individual camera/lens calibration.");
