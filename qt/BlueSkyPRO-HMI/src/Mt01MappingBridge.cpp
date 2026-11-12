@@ -528,6 +528,82 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
         if (assignedCamera->verification_state != "VERIFIED")
             assignmentFindings.push_back(QStringLiteral("CAMERA_EQUIPMENT_NOT_VERIFIED"));
     }
+    bool taskExecutionEstimatesReady = false;
+    const MissionGeometryObject *mappingAoi = nullptr;
+    for (const auto &geometry : mission.geometry_objects) {
+        if (geometry.geometry_type != "POLYGON_AOI"
+            || std::find(geometry.template_ids.begin(), geometry.template_ids.end(), "MT-01")
+                == geometry.template_ids.end())
+            continue;
+        if (mappingAoi) {
+            assignmentFindings.push_back(QStringLiteral("MT01_REQUIRES_EXACTLY_ONE_POLYGON_AOI"));
+            break;
+        }
+        mappingAoi = &geometry;
+    }
+    const MissionOperation *mappingOperation = nullptr;
+    for (const auto &operation : mission.operations) {
+        if (operation.template_id != "MT-01" || operation.operation_type != "MAPPING_SWATH")
+            continue;
+        if (mappingOperation) {
+            assignmentFindings.push_back(QStringLiteral("MT01_REQUIRES_EXACTLY_ONE_MAPPING_SWATH_OPERATION"));
+            break;
+        }
+        mappingOperation = &operation;
+    }
+    if (!mappingOperation) {
+        assignmentFindings.push_back(QStringLiteral("MT01_MAPPING_SWATH_OPERATION_REQUIRED"));
+    } else {
+        if (!mappingAoi || mappingOperation->geometry_id != mappingAoi->geometry_id)
+            assignmentFindings.push_back(QStringLiteral("MT01_MAPPING_OPERATION_AOI_BINDING_MISMATCH"));
+        if (!assignedCamera
+            || std::find(mappingOperation->equipment_ids.begin(),
+                         mappingOperation->equipment_ids.end(),
+                         assignedCamera->equipment_id) == mappingOperation->equipment_ids.end())
+            assignmentFindings.push_back(QStringLiteral("MT01_MAPPING_OPERATION_CAMERA_BINDING_REQUIRED"));
+
+        const auto &estimate = mappingOperation->execution_estimate;
+        if (estimate.state == "UNRESOLVED") {
+            if (estimate.duration_s || estimate.energy_wh || !estimate.source_type.empty()
+                || !estimate.source_id.empty() || !estimate.source_version.empty()
+                || !estimate.method_version.empty() || !estimate.vehicle_id.empty()
+                || !estimate.vehicle_configuration_version.empty()
+                || !estimate.equipment_profile_ids.empty()) {
+                assignmentFindings.push_back(QStringLiteral("MT01_UNRESOLVED_OPERATION_ESTIMATE_HAS_VALUES"));
+            }
+        } else if (estimate.state == "VALIDATED") {
+            const bool durationValid = estimate.duration_s && std::isfinite(*estimate.duration_s)
+                && *estimate.duration_s >= 0.0;
+            const bool energyValid = estimate.energy_wh && std::isfinite(*estimate.energy_wh)
+                && *estimate.energy_wh >= 0.0;
+            const bool provenanceValid = !estimate.source_id.empty()
+                && !estimate.source_version.empty() && !estimate.method_version.empty()
+                && !estimate.vehicle_id.empty() && !estimate.vehicle_configuration_version.empty()
+                && (estimate.source_type == "VEHICLE_MODEL"
+                    || estimate.source_type == "EQUIPMENT_MODEL"
+                    || estimate.source_type == "MEASURED_PROFILE"
+                    || estimate.source_type == "OPERATOR_APPROVED");
+            if (!durationValid || !energyValid || !provenanceValid) {
+                assignmentFindings.push_back(QStringLiteral("MT01_VALIDATED_OPERATION_ESTIMATE_PROVENANCE_REQUIRED"));
+            } else if (mission.vehicle_assignments.size() != 1
+                       || estimate.vehicle_id != mission.vehicle_assignments.front().vehicle_id
+                       || estimate.vehicle_configuration_version
+                            != mission.vehicle_assignments.front().configuration_version) {
+                assignmentFindings.push_back(QStringLiteral("MT01_OPERATION_ESTIMATE_VEHICLE_CONFIGURATION_MISMATCH"));
+            } else if (estimate.source_type == "EQUIPMENT_MODEL"
+                       && (!assignedCamera
+                           || std::find(estimate.equipment_profile_ids.begin(),
+                                        estimate.equipment_profile_ids.end(),
+                                        assignedCamera->equipment_profile_id)
+                                == estimate.equipment_profile_ids.end())) {
+                assignmentFindings.push_back(QStringLiteral("MT01_OPERATION_ESTIMATE_CAMERA_PROFILE_REQUIRED"));
+            } else {
+                taskExecutionEstimatesReady = true;
+            }
+        } else {
+            assignmentFindings.push_back(QStringLiteral("MT01_OPERATION_ESTIMATE_STATE_INVALID"));
+        }
+    }
     if (!assignmentFindings.isEmpty())
         return blockedFindings(assignmentFindings);
 
@@ -591,6 +667,8 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
     QStringList findings;
     for (const std::string &finding : calculated.findings)
         findings.push_back(QString::fromStdString(finding));
+    if (!taskExecutionEstimatesReady)
+        findings.push_back(QStringLiteral("MT01_OPERATION_EXECUTION_ESTIMATE_UNRESOLVED: coverage geometry is available, but operation time/energy is not yet bound into trajectory assessment."));
 
     QVariantMap metrics{
         {QStringLiteral("targetGsdCmPx"), calculated.coverage.metrics.target_gsd_cm_px},
@@ -628,6 +706,7 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
              ? QStringLiteral("COVERAGE_CANDIDATE_AVAILABLE") : QStringLiteral("NEEDS_INPUT")},
         {QStringLiteral("coverageCandidateAvailable"), calculated.coverage_candidate_available},
         {QStringLiteral("flightReleaseEligible"), false},
+        {QStringLiteral("taskExecutionEstimatesReady"), taskExecutionEstimatesReady},
         {QStringLiteral("coverageValid"), calculated.coverage.valid},
         {QStringLiteral("coverageStatus"), QString::fromStdString(calculated.coverage.status)},
         {QStringLiteral("cameraCalibrationVerified"), calculated.coverage.intrinsic_calibration_verified},
