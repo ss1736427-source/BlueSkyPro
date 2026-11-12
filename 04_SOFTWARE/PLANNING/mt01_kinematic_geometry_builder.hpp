@@ -9,6 +9,19 @@
 
 namespace bluesky::planning {
 
+enum class Mt01KinematicSegmentType { Coverage, ConnectorStraight, ConnectorTurn };
+
+struct Mt01KinematicSegment {
+    std::string segment_id;
+    std::size_t from_waypoint_index{0};
+    std::size_t to_waypoint_index{0};
+    Mt01KinematicSegmentType type{Mt01KinematicSegmentType::Coverage};
+    double distance_m{0.0};
+    double nominal_speed_mps{0.0};
+    double bank_angle_rad{0.0};
+    double lateral_acceleration_mps2{0.0};
+};
+
 struct Mt01KinematicGeometryResult {
     bool feasible{false};
     double minimum_turn_radius_m{0.0};
@@ -16,7 +29,7 @@ struct Mt01KinematicGeometryResult {
     std::string vehicle_model_version;
     std::string vehicle_configuration_id;
     std::size_t connector_count{0};
-    std::vector<GeoPoint> waypoints;
+    std::vector<GeoPoint> waypoints;\n    // One explicit dynamics record for every adjacent waypoint pair.\n    std::vector<Mt01KinematicSegment> segments;
     std::vector<std::string> diagnostics;
 };
 
