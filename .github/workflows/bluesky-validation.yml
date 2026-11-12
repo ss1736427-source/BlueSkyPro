@@ -1,0 +1,99 @@
+name: BlueSky Validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '04_SOFTWARE/PLANNING/**'
+      - '04_SOFTWARE/OPERATIONS/**'
+      - '04_SOFTWARE/AUTOPILOT_ADAPTER/**'
+      - 'schemas/**'
+      - '03_FLEET/BLUESKY_*ADAPTER*'
+      - '.gitignore'
+      - '**/build/**'
+      - '**/build_clean/**'
+      - '.github/workflows/bluesky-validation.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '04_SOFTWARE/PLANNING/**'
+      - '04_SOFTWARE/OPERATIONS/**'
+      - '04_SOFTWARE/AUTOPILOT_ADAPTER/**'
+      - 'schemas/**'
+      - '03_FLEET/BLUESKY_*ADAPTER*'
+      - '.gitignore'
+      - '**/build/**'
+      - '**/build_clean/**'
+      - '.github/workflows/bluesky-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  planning:
+    name: Planning benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Configure planning
+        run: cmake -S 04_SOFTWARE/PLANNING -B build/planning -DCMAKE_BUILD_TYPE=Release
+      - name: Build planning
+        run: cmake --build build/planning --config Release --parallel
+      - name: Test planning
+        run: ctest --test-dir build/planning --output-on-failure
+
+  core-contracts:
+    name: Validator and orchestrator contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install validator dependencies
+        run: python -m pip install -r schemas/validator/requirements.txt
+      - name: Validate adapter repository consistency
+        run: python 04_SOFTWARE/AUTOPILOT_ADAPTER/contract/validate_adapter_chain.py
+      - name: Compile validator sources
+        run: python -m compileall -q schemas/validator
+      - name: Run validator regression scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$PWD/schemas/validator"
+          for test in schemas/validator/test_*.py; do
+            echo "=== RUN $test ==="
+            python "$test"
+          done
+      - name: Configure operational contracts
+        run: cmake -S 04_SOFTWARE/OPERATIONS -B build/operations -DCMAKE_BUILD_TYPE=Release
+      - name: Build operational contracts
+        run: cmake --build build/operations --config Release --parallel
+      - name: Run operational contract tests
+        run: ctest --test-dir build/operations --output-on-failure
+
+  overall:
+    name: Overall acceptance gate
+    if: always()
+    needs:
+      - planning
+      - core-contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all validation suites to pass
+        env:
+          PLANNING_RESULT: ${{ needs.planning.result }}
+          CORE_RESULT: ${{ needs.core-contracts.result }}
+        run: |
+          echo "Planning benchmark: $PLANNING_RESULT"
+          echo "Core contracts: $CORE_RESULT"
+          test "$PLANNING_RESULT" = "success"
+          test "$CORE_RESULT" = "success"
