@@ -220,11 +220,21 @@ int main(int argc, char **argv)
     assert(missingSnapshotResult.value("findings").toStringList().contains(
         "NOTAM_SNAPSHOT_IDENTITY_AND_RECORDS_REQUIRED"));
 
-    QJsonObject missingOperationMission =
+    QJsonObject missingOperationsFieldMission =
         QJsonDocument::fromJson(validMissionJson().toUtf8()).object();
-    missingOperationMission.remove("operations");
+    missingOperationsFieldMission.remove("operations");
+    const QVariantMap missingOperationsField = bridge.calculate(
+        QString::fromUtf8(QJsonDocument(missingOperationsFieldMission).toJson(QJsonDocument::Compact)),
+        validParameters());
+    assert(missingOperationsField.value("status").toString() == "NEEDS_INPUT");
+    assert(missingOperationsField.value("findings").toStringList().contains(
+        "MISSION_OPERATIONS_INVALID"));
+
+    QJsonObject emptyOperationsMission =
+        QJsonDocument::fromJson(validMissionJson().toUtf8()).object();
+    emptyOperationsMission.insert("operations", QJsonArray{});
     const QVariantMap missingOperation = bridge.calculate(
-        QString::fromUtf8(QJsonDocument(missingOperationMission).toJson(QJsonDocument::Compact)),
+        QString::fromUtf8(QJsonDocument(emptyOperationsMission).toJson(QJsonDocument::Compact)),
         validParameters());
     assert(missingOperation.value("status").toString() == "NEEDS_INPUT");
     assert(missingOperation.value("findings").toStringList().contains(
