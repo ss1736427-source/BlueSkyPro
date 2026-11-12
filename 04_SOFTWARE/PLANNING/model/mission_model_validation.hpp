@@ -26,6 +26,11 @@ inline std::vector<std::string> validateMissionModelStructure(const Mission &mis
     std::vector<std::string> errors;
     if (mission.mission_mode != "AUTO" && mission.mission_mode != "MANUAL")
         errors.push_back("MISSION_MODE_INVALID");
+    if ((!mission.lifecycle.mission_id.empty()
+         && mission.lifecycle.mission_id != mission.identity.mission_id)
+        || (!mission.lifecycle.mission_version.empty()
+            && mission.lifecycle.mission_version != mission.identity.mission_version))
+        errors.push_back("MISSION_LIFECYCLE_IDENTITY_MISMATCH");
 
     if (mission.mission_mode != "MANUAL")
         return errors;
