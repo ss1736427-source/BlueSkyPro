@@ -635,6 +635,10 @@ bool missionCoordinateWithinNotamCoverage(double latitude, double longitude,
                                           const bluesky::planning::NotamSnapshot& snapshot,
                                           double safetyBufferM)
 {
+    if (!std::isfinite(latitude) || !std::isfinite(longitude)
+        || latitude < -90.0 || latitude > 90.0
+        || longitude < -180.0 || longitude > 180.0)
+        return false;
     constexpr double earthRadiusM = 6371008.8;
     constexpr double pi = 3.14159265358979323846;
     const double lat1 = snapshot.coverage_center.latitude_deg * pi / 180.0;
