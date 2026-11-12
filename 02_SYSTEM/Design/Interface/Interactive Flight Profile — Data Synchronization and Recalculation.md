@@ -123,3 +123,37 @@ See [Canonical Route Model (PLAN-DATA-001)](../../../02_SYSTEM_DESIGN/PLANNING/F
 - A mandatory point inserted between existing route points becomes a node in the ordered route sequence and receives the corresponding shared route number.
 - Reordering or moving route points must update numbering consistently across all route views.
 - Acceptance: the sequence of point numbers on the map and profile exactly matches the table's `#` column; no view maintains an independent numbering scheme.
+
+## 10. Terrain surface consistency between map and flight profile — mandatory
+
+The map and flight profile MUST display the same terrain surface derived from one authoritative, versioned DEM snapshot. They must not independently derive terrain elevations from unrelated rendering and planning sources.
+
+### 10.1 Single source and common sampling contract
+
+- A shared Terrain Data Service is the sole authority for terrain elevation samples consumed by the map, flight profile and planning/clearance validation.
+- The service exposes the DEM snapshot identity, provider/dataset and version, horizontal CRS, vertical datum, horizontal resolution, vertical accuracy, coverage and sampling/interpolation method.
+- Map terrain rendering and profile terrain plotting must use the same DEM snapshot and the same canonical elevation-sampling/interpolation contract. Renderer-specific resampling may change pixel appearance, but must not change the canonical elevation value returned for a geographic coordinate.
+- The profile samples the complete route corridor, including intermediate points, turns and transitions; sampling only at route waypoints is insufficient.
+- Elevations are compared and displayed in one explicitly declared vertical datum and unit. Any transformation must be explicit, versioned and applied before values are shared between views.
+- A map click/cursor and the profile cursor at the same latitude/longitude must resolve to the same canonical terrain elevation, subject only to the declared numeric tolerance of the sampling implementation. The displayed precision must not imply accuracy finer than the DEM's stated vertical accuracy.
+- DEM snapshot changes invalidate dependent terrain samples and profile validation; map and profile must switch to the same new snapshot atomically or clearly indicate that one view is stale.
+
+### 10.2 Display semantics
+
+- The map may render terrain shading/3D relief, but numeric terrain elevations and profile ground line must come from the shared DEM sampler, not from a separate visual-only terrain source.
+- The flight profile displays the terrain surface as a distinct ground line and the planned aircraft trajectory as a separate line.
+- Terrain elevation, planned AGL target, and any AMSL/ellipsoidal conversion are distinct quantities and must never be conflated.
+- Where DEM coverage, datum conversion or quality is insufficient, both views show an explicit missing/low-confidence state; neither may silently substitute zero, a stale tile, a point probe, or an invented interpolation.
+- If the map uses a lower-detail visual tile at a given zoom, it must still report the canonical sample from the selected DEM snapshot when showing a numeric elevation.
+
+### 10.3 Acceptance criteria
+
+1. Select a coordinate on the map and inspect the same coordinate in the flight profile: both report the same terrain elevation, DEM snapshot and vertical datum within the declared numeric tolerance.
+2. Repeat on ridges, valleys, slopes, route turns and intermediate positions between waypoints.
+3. Move the route or profile cursor: map and profile update from the same coordinate/sample identity without stale values.
+4. Change the DEM snapshot: both views update together; old profile samples/validation are marked stale until regenerated.
+5. Simulate missing coverage, unknown datum and low-quality samples: both views visibly identify the limitation and planning readiness remains blocked where terrain evidence is required.
+6. Verify the aircraft trajectory and terrain ground line remain separate and that clearance is computed from the same terrain sample set.
+7. Record source/dataset version, snapshot ID, datum, resolution, accuracy, sampling method and sample coordinate/value in the test evidence.
+
+The acceptance criterion is data equality and provenance, not merely visual similarity between a 3D map and a drawn profile.

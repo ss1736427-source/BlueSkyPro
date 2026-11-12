@@ -176,3 +176,16 @@ The ADMIN integration console now includes provider configuration nodes for:
 - Added a dedicated contract test and registered it in both standalone Planning CTest and the HMI CTest suite.
 - **Not yet implemented/verified:** provider-backed AOI/tile acquisition for planning, DEM decoding, persistent content-addressed cache, corridor sampling/interpolation, a production terrain-profile/clearance validator, obstacle/DSM integration, and invocation of the terrain adapter from the HMI lifecycle transition path. The new adapter consumes the result of such a validator; it does not itself download or validate DEM elevations.
 - Do not mark terrain integration operational or allow READY/flight release based only on the MapTiler rendering toggle or the Open-Meteo point-elevation probe.
+
+
+### 11.1 Map/profile terrain elevation consistency — mandatory acceptance requirement
+
+- The map, flight profile and terrain validator must use the same canonical DEM snapshot through one shared Terrain Data Service. MapTiler's visual terrain layer is not an independent authority for numeric elevation values.
+- A coordinate queried on the map and the same coordinate sampled on the profile must return the same canonical elevation, vertical datum and snapshot identity within the declared sampler tolerance.
+- The flight profile ground line is generated from the shared sampler along the complete trajectory, including turns and intermediate points; it is not a straight interpolation between route waypoints.
+- Renderer resampling may affect visual appearance, but numeric values must come from the canonical DEM sampler. Display precision must respect source accuracy.
+- Snapshot replacement invalidates both map/profile derived samples and terrain validation; mixed or stale snapshots must be visible and cannot be presented as current.
+- Missing coverage, unknown datum, inadequate resolution/accuracy or failed conversion must be shown explicitly and must block terrain-dependent readiness where applicable. No zero-height or stale-data fallback is allowed.
+- Acceptance evidence must compare map and profile at identical coordinates over ridges, valleys, slopes, turns and between-waypoint positions, and include snapshot ID, dataset version, vertical datum, resolution, accuracy and interpolation method.
+- This is a required design/acceptance contract; it does not claim that the DEM acquisition, shared sampler or HMI wiring is already implemented.
+undefined

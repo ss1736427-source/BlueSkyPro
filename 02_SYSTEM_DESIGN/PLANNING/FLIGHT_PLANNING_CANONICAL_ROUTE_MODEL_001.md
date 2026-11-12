@@ -72,3 +72,16 @@ See the approved [Interactive Flight Profile — Data Synchronization and Recalc
 ## Next block
 
 Implement deterministic Route Constraint Validation against the canonical Route model, followed by terrain/obstacle and airspace adapters.
+
+## Shared terrain surface contract for map and profile
+
+The map, flight profile and terrain/obstacle validators must consume one canonical terrain dataset through a shared Terrain Data Service. They must not maintain independent elevation models or independently infer ground height from visual map tiles.
+
+For a given coordinate and DEM snapshot, the canonical sampler returns one elevation value with explicit vertical datum, units, interpolation method and quality/provenance metadata. The map's terrain renderer may resample for display resolution, but any numeric elevation query and the flight-profile ground line must resolve through the same canonical sampler. Display precision must not exceed the source's stated accuracy.
+
+The route profile must sample the complete trajectory/corridor, including intermediate positions, turns and climb/descent transitions; waypoint-only sampling is not sufficient. The terrain ground line and aircraft trajectory are separate profile series. Target AGL, terrain elevation, AMSL and ellipsoidal height remain distinct quantities.
+
+A DEM snapshot update invalidates derived samples and terrain validation. Map and profile must switch to the same snapshot consistently, or explicitly mark stale data; mixed-snapshot presentation is prohibited. Missing coverage, unknown/unconverted datum or inadequate quality must be represented as missing/uncertain, never as zero, stale terrain or fabricated interpolation. Terrain-dependent planning readiness remains blocked until required coverage and validation evidence are available.
+
+**Acceptance:** at identical coordinates and the same snapshot, map and profile report identical canonical terrain elevation within the sampler's declared numeric tolerance, with matching snapshot ID and vertical datum. Tests must include intermediate route positions, terrain discontinuities/slopes, missing coverage, snapshot replacement and stale-data handling.
+undefined
