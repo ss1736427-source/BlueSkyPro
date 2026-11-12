@@ -206,7 +206,12 @@ add_executable(mission_model_contract_test
 )
 target_link_libraries(mission_model_contract_test PRIVATE bluesky_planning)
 
-add_executable(mission_lifecycle_test mission_lifecycle_test.cpp)
+add_executable(mission_lifecycle_test
+    mission_lifecycle_test.cpp
+    mission_lifecycle_route_adapter.hpp
+    mission_lifecycle_notam_adapter.hpp
+    mission_lifecycle_vehicle_adapter.hpp
+)
 target_link_libraries(mission_lifecycle_test PRIVATE bluesky_planning)
 
 add_executable(vehicle_equipment_capability_contract_test
