@@ -64,14 +64,28 @@ Do not create two independent text parsers. That would allow map and optimizer t
 - Every planning constraint retains NOTAM ID, component ID, source/version and interpretation evidence for audit.
 - The planning gate must fail closed when a potentially applicable restriction cannot be interpreted safely.
 
-## Current implementation findings
+## Implementation status on main
 
-- `FaaNmsClient.cpp` currently calls `NotamGeometryEngine::normalize()` while ingesting each FAA record.
-- `NotamGeometryEngine` is a Qt/QVariant-based HMI implementation that handles source geometry validation and text-derived area/circle geometry.
-- `Mt01MappingBridge.cpp::parseNotamSnapshot()` then parses the normalized JSON geometry again into planning `NotamZone` objects.
-- The bridge currently assigns `NotamRestrictionType::Prohibited` to each accepted area component; this is too broad until restriction semantics are classified explicitly.
-- `MapTilerWebMap.qml` initiates NOTAM requests from viewport changes. A viewport snapshot must not be the authoritative mission-AOI snapshot.
-- Therefore, current code has duplicated interpretation/geometry parsing across the HMI and planning boundary, and couples map-driven acquisition to mission planning inputs.
+### Implemented in the first shared-interpreter stage
+
+- `FaaNmsClient.cpp` invokes `NotamGeometryEngine::normalize()` once for each new or changed FAA source record.
+- The same interpreter now produces two projections in one pass:
+  - `geometryJson` and existing geometry/status fields for the map (kept compatible);
+  - versioned `planningComponents` with typed coordinates, altitude bounds/datum, provenance, restriction class and interpretation state for planning.
+- The planning bridge consumes `planningComponents`; it no longer reparses `geometryJson` or reconstructs polygon components from JSON.
+- Restriction classification is conservative: only explicit closure/prohibition wording is classified `PROHIBITED`; restricted/danger/temporary-reserved wording is `CONDITIONAL`; an area with no explicit class is `AMBIGUOUS`. Conditional and ambiguous applicable records block planning. A polygon alone is never enough to infer prohibition.
+- Unsupported interior rings and missing/incompatible vertical bounds fail closed for planning; they remain available to the map through the unchanged map geometry projection.
+- FAA record interpretation is cached by environment, NOTAM ID and SHA-256 source fingerprint (bounded to 4096 entries). New/changed records are interpreted on a QtConcurrent worker; completed results are published to the map/planner as one batch on the owning thread.
+- The map-facing `geometryJson` generation and existing NOTAM drawing inputs were not replaced by planner-specific structures.
+
+### Remaining work
+
+- The interpreter currently resides in the HMI Qt Core layer. Extracting a Qt-independent domain library is still outstanding; no QML, WebEngine or rendering dependency is introduced into the interpreter.
+- Map viewport acquisition and mission-AOI acquisition are not yet separate result channels. The current FAA result properties are still shared by the map and `MissionProfileWindow`; a viewport refresh can therefore replace the planning input snapshot. This must be separated before treating mission NOTAM coverage as authoritative.
+- Spatial/temporal snapshot indexes and a reusable immutable snapshot repository are not yet implemented. Planning projection currently walks the already interpreted component list.
+- Activation schedules and the full NOTAM condition vocabulary are not yet interpreted. Unknown or unsupported area semantics block planning rather than being silently accepted.
+- The current explicit semantic classifier is intentionally narrow. It must be expanded against a controlled NOTAM corpus with expected classifications before widening automatic `PROHIBITED` recognition.
+
 
 ## Implementation sequence
 
