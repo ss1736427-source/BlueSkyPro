@@ -133,6 +133,69 @@ Item {
                 routeController.clear()
         }
     }
+    function missionNotamQueryArea(geometryJson) {
+        var document
+        try {
+            document = JSON.parse(String(geometryJson || "{}"))
+        } catch (error) {
+            return { valid: false, reason: "MISSION_GEOMETRY_JSON_INVALID" }
+        }
+        var objects = Array.isArray(document.geometryObjects) ? document.geometryObjects : []
+        var points = []
+        objects.forEach(function(item) {
+            var kind = String(item.geometryType || "").toUpperCase()
+            if (kind.indexOf("POLYGON") < 0 || !Array.isArray(item.coordinates))
+                return
+            item.coordinates.forEach(function(point) {
+                if (!Array.isArray(point) || point.length < 2)
+                    return
+                var lon = Number(point[0])
+                var lat = Number(point[1])
+                if (Number.isFinite(lon) && Number.isFinite(lat)
+                        && lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90)
+                    points.push({ lat: lat, lon: lon })
+            })
+        })
+        if (points.length < 3)
+            return { valid: false, reason: "MISSION_AOI_POLYGON_REQUIRED_FOR_NOTAM_QUERY" }
+
+        var latitude = points.reduce(function(sum, point) { return sum + point.lat }, 0) / points.length
+        var longitude = points.reduce(function(sum, point) { return sum + point.lon }, 0) / points.length
+        var earthRadiusM = 6371008.8
+        var maxDistanceM = 0
+        points.forEach(function(point) {
+            var dLat = (point.lat - latitude) * Math.PI / 180
+            var dLon = (point.lon - longitude) * Math.PI / 180
+            var a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                    + Math.cos(latitude * Math.PI / 180) * Math.cos(point.lat * Math.PI / 180)
+                    * Math.sin(dLon / 2) * Math.sin(dLon / 2)
+            var distanceM = 2 * earthRadiusM * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)))
+            maxDistanceM = Math.max(maxDistanceM, distanceM)
+        })
+        // A 2 NM acquisition margin protects the circular source query around the AOI.
+        var radiusNm = Math.max(1, Math.ceil((maxDistanceM + 2 * 1852) / 1852))
+        if (radiusNm > 100)
+            return { valid: false, reason: "MISSION_AOI_EXCEEDS_FAA_NMS_100NM_QUERY_LIMIT" }
+        return { valid: true, latitude: latitude, longitude: longitude,
+                 radiusNm: radiusNm, requiredRadiusM: maxDistanceM + 2 * 1852 }
+    }
+
+    function missionNotamSnapshotCovers(area) {
+        if (!area.valid || typeof faaNmsClient === "undefined" || faaNmsClient === null
+                || !faaNmsClient.missionNotamSnapshotId)
+            return false
+        var snapshotRadius = Number(faaNmsClient.missionNotamQueryRadiusM || 0)
+        var snapshotLatitude = Number(faaNmsClient.missionNotamQueryLatitude || 0)
+        var snapshotLongitude = Number(faaNmsClient.missionNotamQueryLongitude || 0)
+        var dLat = (area.latitude - snapshotLatitude) * Math.PI / 180
+        var dLon = (area.longitude - snapshotLongitude) * Math.PI / 180
+        var a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(snapshotLatitude * Math.PI / 180) * Math.cos(area.latitude * Math.PI / 180)
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        var distanceM = 2 * 6371008.8 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)))
+        return distanceM + area.requiredRadiusM <= snapshotRadius
+    }
+
     readonly property bool is3DMappingProfile: root.missionTemplateIds.indexOf("MT-02") >= 0
     // Example current automatic mission composition; supplied by mission/task aggregation in production.
     property var missionTemplateIndices: [0, 1, 7]
@@ -318,15 +381,15 @@ Item {
             weatherCalculationService: typeof weatherCalculationService !== "undefined" ? weatherCalculationService : null
             notamSnapshotBridge: typeof mt01MappingBridge !== "undefined" ? mt01MappingBridge : null
             notamSnapshotParameters: ({
-                notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : [],
-                notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : "",
+                notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.missionNotamRecords : [],
+                notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.missionNotamSnapshotId : "",
                 notamSourceId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
                     ? "FAA_NMS_" + faaNmsClient.environment : "",
-                notamSourceVersion: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : "",
-                notamSnapshotEpochS: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotEpochS : 0,
-                notamQueryLatitude: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamQueryLatitude : 0,
-                notamQueryLongitude: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamQueryLongitude : 0,
-                notamQueryRadiusM: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamQueryRadiusM : 0
+                notamSourceVersion: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.missionNotamSnapshotId : "",
+                notamSnapshotEpochS: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.missionNotamSnapshotEpochS : 0,
+                notamQueryLatitude: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.missionNotamQueryLatitude : 0,
+                notamQueryLongitude: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.missionNotamQueryLongitude : 0,
+                notamQueryRadiusM: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.missionNotamQueryRadiusM : 0
             })
             routeObjectivePriorities: root.planningResult && root.planningResult.result
                                       ? (root.planningResult.result.objectivePriorities
@@ -548,6 +611,31 @@ Item {
                     return
                 }
 
+                // Acquire NOTAMs for the mission AOI independently of the map viewport.
+                // A map pan/zoom can never satisfy or replace this mission snapshot.
+                var missionNotamArea = root.missionNotamQueryArea(manualGeometryBridge.geometryJson)
+                if (!missionNotamArea.valid) {
+                    root.manualModelValidationStatus = missionNotamArea.reason
+                    root.manualSetRequested = false
+                    root.manualSetBlocked = true
+                    root.missionState = "MANUAL"
+                    return
+                }
+                if (!root.missionNotamSnapshotCovers(missionNotamArea)) {
+                    if (typeof faaNmsClient === "undefined" || faaNmsClient === null) {
+                        root.manualModelValidationStatus = "FAA_NMS_CLIENT_UNAVAILABLE"
+                    } else {
+                        faaNmsClient.queryMissionNotams(missionNotamArea.latitude,
+                                                       missionNotamArea.longitude,
+                                                       missionNotamArea.radiusNm)
+                        root.manualModelValidationStatus = "MISSION_NOTAM_SNAPSHOT_REQUESTED; WAIT FOR QUERY COMPLETION AND PRESS SET AGAIN"
+                    }
+                    root.manualSetRequested = false
+                    root.manualSetBlocked = true
+                    root.missionState = "MANUAL"
+                    return
+                }
+
                 // Invoke the real MT-01 planning bridge with the same v2 mission
                 // aggregate produced by the editor. Missing assignments and
                 // unverified equipment are returned as explicit blockers.
@@ -555,22 +643,14 @@ Item {
                             {}, root.mt01CameraParameters || ({}),
                             missionProfileWindow.notamPlanningInputs(),
                             {
-                                notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
-                                    ? faaNmsClient.notamRecords : [],
-                                notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
-                                    ? faaNmsClient.notamSnapshotId : "",
-                                notamSourceId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
-                                    ? "FAA_NMS_" + faaNmsClient.environment : "",
-                                notamSourceVersion: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
-                                    ? faaNmsClient.notamSnapshotId : "",
-                                notamSnapshotEpochS: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
-                                    ? faaNmsClient.notamSnapshotEpochS : 0,
-                                notamQueryLatitude: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
-                                    ? faaNmsClient.notamQueryLatitude : 0,
-                                notamQueryLongitude: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
-                                    ? faaNmsClient.notamQueryLongitude : 0,
-                                notamQueryRadiusM: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
-                                    ? faaNmsClient.notamQueryRadiusM : 0
+                                notamRecords: faaNmsClient.missionNotamRecords,
+                                notamSnapshotId: faaNmsClient.missionNotamSnapshotId,
+                                notamSourceId: "FAA_NMS_" + faaNmsClient.environment,
+                                notamSourceVersion: faaNmsClient.missionNotamSnapshotId,
+                                notamSnapshotEpochS: faaNmsClient.missionNotamSnapshotEpochS,
+                                notamQueryLatitude: faaNmsClient.missionNotamQueryLatitude,
+                                notamQueryLongitude: faaNmsClient.missionNotamQueryLongitude,
+                                notamQueryRadiusM: faaNmsClient.missionNotamQueryRadiusM
                             })
                 root.manualMt01Result = mt01MappingBridge.calculate(
                             root.manualMissionModelJson,
