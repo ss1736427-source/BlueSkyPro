@@ -128,9 +128,11 @@ NotamGeometryAdapterResult NotamGeometryAdapter::build(
         return fail("NOTAM_SNAPSHOT_REQUIRED: route geometry generation cannot proceed without an authoritative NOTAM snapshot.");
     const auto& snapshot = *input.snapshot;
     result.snapshot_id = snapshot.snapshot_id;
-    if (snapshot.snapshot_id.empty() || snapshot.source_id.empty()
-        || snapshot.source_version.empty() || snapshot.evaluation_epoch_s <= 0)
-        return fail("NOTAM_SNAPSHOT_IDENTITY_INVALID: snapshot ID, source ID/version and evaluation epoch are mandatory.");
+    if (snapshot.snapshot_id.empty())
+        return fail("NOTAM_SNAPSHOT_REQUIRED: an identified authoritative snapshot is mandatory.");
+    if (snapshot.source_id.empty() || snapshot.source_version.empty()
+        || snapshot.evaluation_epoch_s <= 0)
+        return fail("NOTAM_SNAPSHOT_IDENTITY_INVALID: source ID/version and evaluation epoch are mandatory.");
     if (input.mission_start_epoch_s <= 0 ||
         input.mission_end_epoch_s < input.mission_start_epoch_s)
         return fail("NOTAM_MISSION_TIME_WINDOW_INVALID: explicit planned mission start and end UTC epochs are required.");

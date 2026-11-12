@@ -111,6 +111,41 @@ int main()
     assert(futureResult.notam_geometry.valid);
     assert(futureResult.notam_geometry.applicable_zone_count == 0);
 
+    // An active polygon is expanded by the configured buffer into a conservative
+    // union of the source polygon, edge strips and circumscribed vertex disks.
+    auto polygonNotam = request;
+    NotamZone polygonZone;
+    polygonZone.notam_id = "TEST-POLYGON-01";
+    polygonZone.restriction_type = NotamRestrictionType::Prohibited;
+    polygonZone.geometry_type = NotamGeometryType::Polygon;
+    polygonZone.polygon = {
+        {0.0006, 0.0006}, {0.0006, 0.0014},
+        {0.0014, 0.0014}, {0.0014, 0.0006}
+    };
+    polygonZone.lower_altitude_m = 50.0;
+    polygonZone.upper_altitude_m = 150.0;
+    polygonZone.valid_from_epoch_s = polygonNotam.planned_mission_start_epoch_s;
+    polygonZone.valid_to_epoch_s = polygonNotam.planned_mission_end_epoch_s;
+    polygonZone.altitude_reference = NotamAltitudeReference::AGL;
+    polygonNotam.notam_snapshot.zones.push_back(polygonZone);
+    const auto polygonResult = Mt01MappingPipeline::calculate(polygonNotam);
+    assert(polygonResult.notam_geometry.valid);
+    assert(polygonResult.notam_geometry.applicable_zone_count == 1);
+    assert(polygonResult.notam_geometry.exclusion_areas.size() > 1);
+    assert(polygonResult.coverage.valid);
+    assert(polygonResult.coverage.metrics.estimated_coverage_leg_length_m <
+           clearResult.coverage.metrics.estimated_coverage_leg_length_m);
+
+    auto missingBuffer = withNotam;
+    missingBuffer.notam_safety_buffer_m = 0.0;
+    const auto missingBufferResult = Mt01MappingPipeline::calculate(missingBuffer);
+    assert(missingBufferResult.status == Mt01PipelineStatus::NeedsInput);
+    bool bufferRequirementReported = false;
+    for (const auto& finding : missingBufferResult.findings)
+        if (finding.find("NOTAM_SAFETY_BUFFER_REQUIRED") != std::string::npos)
+            bufferRequirementReported = true;
+    assert(bufferRequirementReported);
+
     // An applicable NOTAM with an unsupported vertical datum must fail closed.
     auto unknownDatum = withNotam;
     unknownDatum.notam_snapshot.zones.front().altitude_reference =
@@ -258,6 +293,8 @@ int main()
     assert(fixedWingResult.segment_dynamics_validated);
     assert(fixedWingResult.flight_safety_validation.status == FlightSafetyStatus::Allowed);
     assert(fixedWingResult.route_candidate_available);
+    assert(fixedWingResult.route_candidate.route.environment.airspace_snapshot_id ==
+           fixedWingRequest.notam_snapshot.snapshot_id);
     assert(fixedWingResult.route_candidate.structural_validation.status ==
            RouteValidationStatus::Allowed);
     assert(!fixedWingResult.route_candidate.route.trajectory_geometry_complete);
