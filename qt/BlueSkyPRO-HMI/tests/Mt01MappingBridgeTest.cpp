@@ -2,7 +2,7 @@
 #include "NotamGeometryEngine.h"
 
 #include <QCoreApplication>
-#include <QDebug>
+#include <cstdio>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -134,13 +134,15 @@ int main(int argc, char **argv)
     const QVariantMap activeNotam = NotamGeometryEngine::normalize(activeNotamSource);
     assert(activeNotam.value("notamInterpretationVersion").toInt() == 1);
     assert(activeNotam.value("restrictionClass").toString() == "PROHIBITED");
-    qInfo().noquote() << "NOTAM_DIAGNOSTIC" << activeNotam.value("geometryType").toString()
-        << activeNotam.value("geometryValidated").toBool()
-        << activeNotam.value("lowerLimitRaw").toString()
-        << activeNotam.value("upperLimitRaw").toString()
-        << activeNotam.value("lowerDatum").toString()
-        << activeNotam.value("upperDatum").toString()
-        << activeNotam.value("altitudeReference").toString();
+    std::fprintf(stderr, "NOTAM_DIAGNOSTIC geometryType=%s geometryValidated=%d lowerRaw=%s upperRaw=%s lowerDatum=%s upperDatum=%s altitudeReference=%s\\n",
+        qPrintable(activeNotam.value("geometryType").toString()),
+        activeNotam.value("geometryValidated").toBool() ? 1 : 0,
+        qPrintable(activeNotam.value("lowerLimitRaw").toString()),
+        qPrintable(activeNotam.value("upperLimitRaw").toString()),
+        qPrintable(activeNotam.value("lowerDatum").toString()),
+        qPrintable(activeNotam.value("upperDatum").toString()),
+        qPrintable(activeNotam.value("altitudeReference").toString()));
+    std::fflush(stderr);
     assert(activeNotam.value("interpretationState").toString() == "CONFIRMED");
     assert(activeNotam.value("planningComponents").toList().size() == 1);
     activeNotamParameters.insert("notamRecords", QVariantList{activeNotam});
