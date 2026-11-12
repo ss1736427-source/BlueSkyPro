@@ -100,6 +100,7 @@ if(BLUESKY_ENABLE_ECCODES)
     add_executable(grib2_decoder_contract_test
         tests/grib2_decoder_contract_test.cpp
         ../PLANNING/orchestrator/algorithm_orchestrator.cpp
+        ../PLANNING/notam_prohibited_zone_validator.cpp
         ../PLANNING/flight_safety_constraints.cpp
     )
     target_link_libraries(grib2_decoder_contract_test PRIVATE bluesky_weather)
