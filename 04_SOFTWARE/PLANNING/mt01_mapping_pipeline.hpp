@@ -1,6 +1,7 @@
 #pragma once
 
 #include "coverage_path_planner.hpp"
+#include "mt01_kinematic_geometry_builder.hpp"
 #include "model/mission_model.hpp"
 
 #include <string>
@@ -21,6 +22,7 @@ struct Mt01MappingRequest {
     double maximum_altitude_agl_m{0.0};
     double cruise_speed_mps{0.0};
     double line_angle_deg{0.0};
+    VehicleMotionModel vehicle_motion_model;
 };
 
 struct Mt01MappingPipelineResult {
@@ -28,6 +30,8 @@ struct Mt01MappingPipelineResult {
     bool coverage_candidate_available{false};
     bool flight_release_eligible{false};
     CoveragePlanResult coverage;
+    bool kinematic_geometry_available{false};
+    Mt01KinematicGeometryResult kinematic_geometry;
     std::vector<std::string> findings;
 };
 
