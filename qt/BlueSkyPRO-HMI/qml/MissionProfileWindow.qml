@@ -27,6 +27,9 @@ Item {
     property string weatherCoverageEndUtc: ""
     // Operational reserve for wind-coupled ETA changes; not a regulatory validity period.
     property int weatherForecastMarginSeconds: 1800
+    // GFS model cycles are issued at 00Z/06Z/12Z/18Z. Recheck once per cycle;
+    // immutable GRIB products are reused from the verified SHA-256 cache when unchanged.
+    property int weatherForecastRefreshIntervalMs: 6 * 60 * 60 * 1000
     property string weatherRequestEtdUtc: ""
     property real weatherRequestSpatialBufferM: 0
     property var lastWeatherCoverageResult: ({})
@@ -53,6 +56,18 @@ Item {
                 || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
                 || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE")
             invalidateWeatherAcquisition("MISSION_ID_CHANGED_WEATHER_REQUEST_INVALIDATED")
+    }
+
+    Timer {
+        id: weatherForecastRefreshTimer
+        interval: root.weatherForecastRefreshIntervalMs
+        repeat: false
+        running: root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
+                 || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE"
+        onTriggered: {
+            root.invalidateWeatherAcquisition("GFS_MODEL_CYCLE_REVALIDATION_DUE")
+            root.maybeRequestWeatherAutomatically()
+        }
     }
 
     readonly property string weatherCoverageStatus:
