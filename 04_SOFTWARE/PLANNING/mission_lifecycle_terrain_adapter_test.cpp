@@ -79,7 +79,7 @@ int main()
            == MissionLifecycleValidationStatus::Failed);
 
     auto unknownDatum = snapshot;
-    unknownDatum.vertical_datum.clear();
+    unknownDatum.vertical_datum = "UNKNOWN";
     assert(makeTerrainValidationEvidence(route, unknownDatum, validation).status
            == MissionLifecycleValidationStatus::Failed);
 
@@ -92,10 +92,19 @@ int main()
     sparseProfile.profile_sample_count = 1;
     assert(makeTerrainValidationEvidence(route, snapshot, sparseProfile).status
            == MissionLifecycleValidationStatus::Failed);
+    auto excessiveSampleGap = validation;
+    excessiveSampleGap.maximum_sample_gap_m = 60.1;
+    assert(makeTerrainValidationEvidence(route, snapshot, excessiveSampleGap).status
+           == MissionLifecycleValidationStatus::Failed);
 
     auto clearanceFailure = validation;
     clearanceFailure.minimum_observed_clearance_m = 29.9;
     assert(makeTerrainValidationEvidence(route, snapshot, clearanceFailure).status
+           == MissionLifecycleValidationStatus::Failed);
+
+    auto missingAccuracy = snapshot;
+    missingAccuracy.vertical_accuracy_m = 0.0;
+    assert(makeTerrainValidationEvidence(route, missingAccuracy, validation).status
            == MissionLifecycleValidationStatus::Failed);
 
     auto missingDatumNormalization = validation;
