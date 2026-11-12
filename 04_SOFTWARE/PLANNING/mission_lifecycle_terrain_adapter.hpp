@@ -76,9 +76,11 @@ inline MissionLifecycleValidationEvidence makeTerrainValidationEvidence(
         && !snapshot.dataset_id.empty() && !snapshot.dataset_version.empty()
         && snapshot.horizontal_crs == "EPSG:4326"
         && !snapshot.vertical_datum.empty()
+        && snapshot.vertical_datum != "UNKNOWN"
+        && snapshot.vertical_datum != "UNSPECIFIED"
         && snapshot.horizontal_resolution_m > 0.0
         && std::isfinite(snapshot.horizontal_resolution_m)
-        && snapshot.vertical_accuracy_m >= 0.0
+        && snapshot.vertical_accuracy_m > 0.0
         && std::isfinite(snapshot.vertical_accuracy_m)
         && snapshot.coverage_complete
         && route.environment.terrain_snapshot_id == snapshot.snapshot_id;
@@ -89,6 +91,9 @@ inline MissionLifecycleValidationEvidence makeTerrainValidationEvidence(
         && validation.profile_sample_count >= 2
         && std::isfinite(validation.maximum_sample_gap_m)
         && validation.maximum_sample_gap_m > 0.0
+        && validation.maximum_sample_gap_m <= snapshot.horizontal_resolution_m * 2.0
+        && std::isfinite(route.constraints.minimum_clearance_m)
+        && route.constraints.minimum_clearance_m >= 0.0
         && std::isfinite(validation.minimum_observed_clearance_m)
         && validation.minimum_observed_clearance_m >= route.constraints.minimum_clearance_m
         && validation.snapshot_id == snapshot.snapshot_id
