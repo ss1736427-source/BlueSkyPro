@@ -63,6 +63,23 @@ void requireText(const std::string &value, const char *code,
     require(!value.empty(), code, blockers);
 }
 
+bool hasCurrentValidation(const MissionLifecycleValidationEvidence &validation,
+                          const MissionLifecycleRecord &record,
+                          const MissionLifecycleEvidence &evidence) {
+    return validation.status == MissionLifecycleValidationStatus::Passed
+        && !validation.result_id.empty()
+        && !validation.validator_id.empty()
+        && !validation.validator_version.empty()
+        && validation.mission_id == record.mission_id
+        && validation.mission_version == record.mission_version
+        && validation.route_id == evidence.route_id
+        && validation.route_version == evidence.route_version
+        && validation.calculation_input_version == evidence.calculation_input_version
+        && evidence.route_id == record.current_route_id
+        && evidence.route_version == record.current_route_version
+        && evidence.calculation_input_version == record.current_calculation_input_version;
+}
+
 } // namespace
 
 const char *toString(MissionLifecycleState state) noexcept {
@@ -167,25 +184,46 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         requireText(evidence.calculation_input_version, "CALCULATION_INPUT_VERSION_REQUIRED", result.blockers);
         break;
     case MissionLifecycleState::Ready:
-        require(evidence.complete_trajectory_geometry, "COMPLETE_TRAJECTORY_GEOMETRY_REQUIRED", result.blockers);
-        require(evidence.notam_validation_passed, "NOTAM_VALIDATION_NOT_PASSED", result.blockers);
-        require(evidence.terrain_validation_passed, "TERRAIN_VALIDATION_NOT_PASSED", result.blockers);
-        require(evidence.vehicle_envelope_validation_passed, "VEHICLE_ENVELOPE_VALIDATION_NOT_PASSED", result.blockers);
-        require(evidence.weather_validation_passed, "WEATHER_VALIDATION_NOT_PASSED", result.blockers);
-        require(evidence.energy_reserve_validation_passed, "ENERGY_RESERVE_VALIDATION_NOT_PASSED", result.blockers);
-        require(evidence.task_quality_validation_passed, "TASK_QUALITY_VALIDATION_NOT_PASSED", result.blockers);
-        require(evidence.regulatory_validation_passed, "REGULATORY_VALIDATION_NOT_PASSED", result.blockers);
+        const auto requireValidation = [&](const MissionLifecycleValidationEvidence &validation,
+                                           const char *missingCode, const char *lineageCode) {
+            const bool hasResult = validation.status == MissionLifecycleValidationStatus::Passed
+                && !validation.result_id.empty() && !validation.validator_id.empty()
+                && !validation.validator_version.empty();
+            require(hasResult, missingCode, result.blockers);
+            if (hasResult) {
+                require(validation.mission_id == record.mission_id
+                        && validation.mission_version == record.mission_version
+                        && validation.route_id == evidence.route_id
+                        && validation.route_version == evidence.route_version
+                        && validation.calculation_input_version == evidence.calculation_input_version
+                        && evidence.route_id == record.current_route_id
+                        && evidence.route_version == record.current_route_version
+                        && evidence.calculation_input_version == record.current_calculation_input_version,
+                        lineageCode, result.blockers);
+            }
+        };
+        requireValidation(evidence.trajectory_geometry_validation,
+                          "TRAJECTORY_GEOMETRY_VALIDATION_EVIDENCE_REQUIRED",
+                          "TRAJECTORY_GEOMETRY_VALIDATION_LINEAGE_MISMATCH");
+        requireValidation(evidence.notam_validation,
+                          "NOTAM_VALIDATION_EVIDENCE_REQUIRED", "NOTAM_VALIDATION_LINEAGE_MISMATCH");
+        requireValidation(evidence.terrain_validation,
+                          "TERRAIN_VALIDATION_EVIDENCE_REQUIRED", "TERRAIN_VALIDATION_LINEAGE_MISMATCH");
+        requireValidation(evidence.vehicle_envelope_validation,
+                          "VEHICLE_ENVELOPE_VALIDATION_EVIDENCE_REQUIRED",
+                          "VEHICLE_ENVELOPE_VALIDATION_LINEAGE_MISMATCH");
+        requireValidation(evidence.weather_validation,
+                          "WEATHER_VALIDATION_EVIDENCE_REQUIRED", "WEATHER_VALIDATION_LINEAGE_MISMATCH");
+        requireValidation(evidence.energy_reserve_validation,
+                          "ENERGY_RESERVE_VALIDATION_EVIDENCE_REQUIRED",
+                          "ENERGY_RESERVE_VALIDATION_LINEAGE_MISMATCH");
+        requireValidation(evidence.task_quality_validation,
+                          "TASK_QUALITY_VALIDATION_EVIDENCE_REQUIRED",
+                          "TASK_QUALITY_VALIDATION_LINEAGE_MISMATCH");
+        requireValidation(evidence.regulatory_validation,
+                          "REGULATORY_VALIDATION_EVIDENCE_REQUIRED",
+                          "REGULATORY_VALIDATION_LINEAGE_MISMATCH");
         require(evidence.operator_review_accepted, "OPERATOR_REVIEW_NOT_ACCEPTED", result.blockers);
-        require(evidence.validation_route_version == evidence.route_version,
-                "VALIDATION_ROUTE_VERSION_MISMATCH", result.blockers);
-        require(evidence.validation_input_version == evidence.calculation_input_version,
-                "VALIDATION_INPUT_VERSION_MISMATCH", result.blockers);
-        require(evidence.route_id == record.current_route_id,
-                "VALIDATION_ROUTE_ID_NOT_CURRENT", result.blockers);
-        require(evidence.route_version == record.current_route_version,
-                "VALIDATION_ROUTE_VERSION_NOT_CURRENT", result.blockers);
-        require(evidence.calculation_input_version == record.current_calculation_input_version,
-                "VALIDATION_INPUT_VERSION_NOT_CURRENT", result.blockers);
         break;
     case MissionLifecycleState::Submitted:
         require(evidence.regulatory_submission_prepared, "REGULATORY_SUBMISSION_NOT_PREPARED", result.blockers);
@@ -207,6 +245,9 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
     case MissionLifecycleState::Released:
         require(evidence.package_integrity_verified, "MISSION_PACKAGE_INTEGRITY_NOT_VERIFIED", result.blockers);
         require(evidence.package_matches_selected_route, "MISSION_PACKAGE_ROUTE_MISMATCH", result.blockers);
+        requireText(evidence.package_route_id, "MISSION_PACKAGE_ROUTE_ID_REQUIRED", result.blockers);
+        require(evidence.package_route_id == record.current_route_id,
+                "MISSION_PACKAGE_ROUTE_ID_MISMATCH", result.blockers);
         require(evidence.package_route_version == evidence.route_version,
                 "MISSION_PACKAGE_ROUTE_VERSION_MISMATCH", result.blockers);
         require(evidence.route_id == record.current_route_id,

@@ -6,6 +6,11 @@
 
 using namespace bluesky::planning;
 
+static MissionLifecycleValidationEvidence validation(const std::string &id) {
+    return {id, "MISSION-001", "7", "ROUTE-01", "3", "INPUT-9",
+            "validator-" + id, "1", MissionLifecycleValidationStatus::Passed};
+}
+
 static MissionLifecycleEvidence evidence() {
     MissionLifecycleEvidence e;
     e.mission_id = "MISSION-001";
@@ -13,8 +18,6 @@ static MissionLifecycleEvidence evidence() {
     e.route_id = "ROUTE-01";
     e.route_version = "3";
     e.calculation_input_version = "INPUT-9";
-    e.validation_route_version = "3";
-    e.validation_input_version = "INPUT-9";
     e.terrain_snapshot_id = "TERRAIN-4";
     e.mission_notam_snapshot_id = "NOTAM-5";
     e.weather_snapshot_id = "GFS-20261112-12Z";
@@ -22,6 +25,7 @@ static MissionLifecycleEvidence evidence() {
     e.regulatory_submission_id = "SUBMISSION-1";
     e.authorization_id = "AUTH-1";
     e.package_id = "PACKAGE-1";
+    e.package_route_id = "ROUTE-01";
     e.package_route_version = "3";
     e.package_vehicle_id = "UAV-1";
     e.execution_reference_id = "EXEC-1";
@@ -38,14 +42,14 @@ static MissionLifecycleEvidence evidence() {
     e.weather_aware_route_generated = true;
     e.notam_recheck_complete = true;
     e.route_candidate_selected = true;
-    e.complete_trajectory_geometry = true;
-    e.notam_validation_passed = true;
-    e.terrain_validation_passed = true;
-    e.vehicle_envelope_validation_passed = true;
-    e.weather_validation_passed = true;
-    e.energy_reserve_validation_passed = true;
-    e.task_quality_validation_passed = true;
-    e.regulatory_validation_passed = true;
+    e.trajectory_geometry_validation = validation("GEOMETRY-RESULT");
+    e.notam_validation = validation("NOTAM-RESULT");
+    e.terrain_validation = validation("TERRAIN-RESULT");
+    e.vehicle_envelope_validation = validation("VEHICLE-RESULT");
+    e.weather_validation = validation("WEATHER-RESULT");
+    e.energy_reserve_validation = validation("ENERGY-RESULT");
+    e.task_quality_validation = validation("TASK-QUALITY-RESULT");
+    e.regulatory_validation = validation("REGULATORY-RESULT");
     e.operator_review_accepted = true;
     e.regulatory_submission_prepared = true;
     e.authorization_requirement_assessed = true;
@@ -89,12 +93,18 @@ int main() {
     assert(record.state == MissionLifecycleState::Calculating);
 
     assert(move(record, MissionLifecycleState::Validating, e).accepted);
-    e.validation_route_version = "OLD-ROUTE";
+    e.notam_validation.route_version = "OLD-ROUTE";
     auto staleValidation = move(record, MissionLifecycleState::Ready, e);
     assert(!staleValidation.accepted);
     assert(std::find(staleValidation.blockers.begin(), staleValidation.blockers.end(),
-                     "VALIDATION_ROUTE_VERSION_MISMATCH") != staleValidation.blockers.end());
-    e.validation_route_version = e.route_version;
+                     "NOTAM_VALIDATION_LINEAGE_MISMATCH") != staleValidation.blockers.end());
+    e.notam_validation = validation("NOTAM-RESULT");
+    auto missingValidationId = e;
+    missingValidationId.terrain_validation.result_id.clear();
+    auto missingValidation = move(record, MissionLifecycleState::Ready, missingValidationId);
+    assert(!missingValidation.accepted);
+    assert(std::find(missingValidation.blockers.begin(), missingValidation.blockers.end(),
+                     "TERRAIN_VALIDATION_EVIDENCE_REQUIRED") != missingValidation.blockers.end());
     auto changedRouteIdentity = e;
     changedRouteIdentity.route_id = "ROUTE-OTHER";
     auto wrongRouteIdentity = move(record, MissionLifecycleState::Ready, changedRouteIdentity);
@@ -103,11 +113,10 @@ int main() {
                      "VALIDATION_ROUTE_ID_NOT_CURRENT") != wrongRouteIdentity.blockers.end());
     auto changedInputIdentity = e;
     changedInputIdentity.calculation_input_version = "INPUT-OTHER";
-    changedInputIdentity.validation_input_version = "INPUT-OTHER";
     auto wrongInputIdentity = move(record, MissionLifecycleState::Ready, changedInputIdentity);
     assert(!wrongInputIdentity.accepted);
     assert(std::find(wrongInputIdentity.blockers.begin(), wrongInputIdentity.blockers.end(),
-                     "VALIDATION_INPUT_VERSION_NOT_CURRENT") != wrongInputIdentity.blockers.end());
+                     "NOTAM_VALIDATION_LINEAGE_MISMATCH") != wrongInputIdentity.blockers.end());
     assert(move(record, MissionLifecycleState::Ready, e).accepted);
     assert(move(record, MissionLifecycleState::Submitted, e).accepted);
 
@@ -117,6 +126,12 @@ int main() {
     e.authorization_scope_matches = true;
     assert(move(record, MissionLifecycleState::Authorized, e).accepted);
 
+    e.package_route_id = "ROUTE-OTHER";
+    auto wrongPackageRouteId = move(record, MissionLifecycleState::Released, e);
+    assert(!wrongPackageRouteId.accepted);
+    assert(std::find(wrongPackageRouteId.blockers.begin(), wrongPackageRouteId.blockers.end(),
+                     "MISSION_PACKAGE_ROUTE_ID_MISMATCH") != wrongPackageRouteId.blockers.end());
+    e.package_route_id = "ROUTE-01";
     e.route_id = "ROUTE-OTHER";
     auto changedReleaseRoute = move(record, MissionLifecycleState::Released, e);
     assert(!changedReleaseRoute.accepted);
@@ -163,8 +178,6 @@ int main() {
     replan.mission_version = "8";
     replan.route_version = "4";
     replan.calculation_input_version = "INPUT-10";
-    replan.validation_route_version = "4";
-    replan.validation_input_version = "INPUT-10";
     assert(MissionLifecycleController::transition(
         record, MissionLifecycleState::Calculating, replan, "OPERATOR-1",
         "2026-11-12T12:03:00Z", "replan").accepted);

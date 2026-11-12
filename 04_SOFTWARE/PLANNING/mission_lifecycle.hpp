@@ -23,14 +23,26 @@ enum class MissionLifecycleState {
 
 const char *toString(MissionLifecycleState state) noexcept;
 
+enum class MissionLifecycleValidationStatus { Missing, Passed, Failed };
+
+struct MissionLifecycleValidationEvidence {
+    std::string result_id;
+    std::string mission_id;
+    std::string mission_version;
+    std::string route_id;
+    std::string route_version;
+    std::string calculation_input_version;
+    std::string validator_id;
+    std::string validator_version;
+    MissionLifecycleValidationStatus status{MissionLifecycleValidationStatus::Missing};
+};
+
 struct MissionLifecycleEvidence {
     std::string mission_id;
     std::string mission_version;
     std::string route_id;
     std::string route_version;
     std::string calculation_input_version;
-    std::string validation_route_version;
-    std::string validation_input_version;
     std::string terrain_snapshot_id;
     std::string mission_notam_snapshot_id;
     std::string weather_snapshot_id;
@@ -39,6 +51,7 @@ struct MissionLifecycleEvidence {
     std::string authorization_id;
     std::string authorization_not_required_reason;
     std::string package_id;
+    std::string package_route_id;
     std::string package_route_version;
     std::string package_vehicle_id;
     std::string execution_reference_id;
@@ -56,14 +69,14 @@ struct MissionLifecycleEvidence {
     bool weather_aware_route_generated{false};
     bool notam_recheck_complete{false};
     bool route_candidate_selected{false};
-    bool complete_trajectory_geometry{false};
-    bool notam_validation_passed{false};
-    bool terrain_validation_passed{false};
-    bool vehicle_envelope_validation_passed{false};
-    bool weather_validation_passed{false};
-    bool energy_reserve_validation_passed{false};
-    bool task_quality_validation_passed{false};
-    bool regulatory_validation_passed{false};
+    MissionLifecycleValidationEvidence trajectory_geometry_validation;
+    MissionLifecycleValidationEvidence notam_validation;
+    MissionLifecycleValidationEvidence terrain_validation;
+    MissionLifecycleValidationEvidence vehicle_envelope_validation;
+    MissionLifecycleValidationEvidence weather_validation;
+    MissionLifecycleValidationEvidence energy_reserve_validation;
+    MissionLifecycleValidationEvidence task_quality_validation;
+    MissionLifecycleValidationEvidence regulatory_validation;
     bool operator_review_accepted{false};
     bool regulatory_submission_prepared{false};
     bool authorization_requirement_assessed{false};
