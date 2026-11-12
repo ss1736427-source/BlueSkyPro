@@ -149,6 +149,20 @@ int main(int argc, char **argv)
     assert(notamResult.value("notamApplicableIds").toStringList().contains("N-HMI-001"));
     assert(notamResult.value("notamComponentIds").toStringList().contains("N-HMI-001-COMP-1"));
 
+    QVariantMap conditionalSource = activeNotamSource;
+    conditionalSource.insert("originalText",
+        "E) RESTRICTED AREA WI AREA\nF)GND\nG)150M AGL");
+    const QVariantMap conditionalNotam =
+        NotamGeometryEngine::normalize(conditionalSource);
+    assert(conditionalNotam.value("restrictionClass").toString() == "CONDITIONAL");
+    QVariantMap conditionalParameters = activeNotamParameters;
+    conditionalParameters.insert("notamRecords", QVariantList{conditionalNotam});
+    const QVariantMap conditionalResult =
+        bridge.calculate(validMissionJson(), conditionalParameters);
+    assert(conditionalResult.value("status").toString() == "NEEDS_INPUT");
+    assert(conditionalResult.value("findings").toStringList().join(";")
+               .contains("NOTAM_RESTRICTION_SEMANTICS_UNRESOLVED"));
+
     QVariantMap unsupportedDatumParameters = activeNotamParameters;
     QVariantMap unsupportedDatumSource = activeNotamSource;
     unsupportedDatumSource.insert("lowerLimitRaw", "GND");
@@ -175,7 +189,7 @@ int main(int argc, char **argv)
         bridge.calculate(validMissionJson(), incompleteVerticalParameters);
     assert(incompleteVerticalResult.value("status").toString() == "NEEDS_INPUT");
     assert(incompleteVerticalResult.value("findings").toStringList().join(";")
-               .contains("NOTAM_ALTITUDE_DATUM_UNSUPPORTED"));
+               .contains("NOTAM_RESTRICTION_GEOMETRY_OR_VERTICAL_BOUNDS_UNVALIDATED"));
 
     QVariantMap outsideCoverageParameters = validParameters();
     outsideCoverageParameters.insert("notamQueryRadiusM", 50.0);
