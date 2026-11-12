@@ -170,6 +170,8 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
         addFinding(result,
             "MT01_KINEMATIC_GEOMETRY_BLOCKED: coverage legs remain available for analysis, but a validated fixed-wing turn-connector candidate was not established.");
     }
+    addFinding(result,
+        "FLIGHT_RELEASE_BLOCKED: this geometry stage does not perform wind-ground-track correction, DEM terrain following, obstacle clearance, current airspace/NOTAM validation, segment-level dynamic validation, energy/reserve assessment or independent mission-package checks.");
     if (!request.camera.intrinsic_calibration_verified)
         addFinding(result,
             "CAMERA_CALIBRATION_UNVERIFIED: manufacturer optical geometry is not an individual camera/lens calibration.");
