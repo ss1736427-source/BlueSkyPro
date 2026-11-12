@@ -8,8 +8,16 @@ int main(int argc,char**argv){
  QCoreApplication app(argc,argv);
  QVariantMap p{{"id","V7637/26"},{"originalText","E)AIRSPACE CLSD WI AREA: 433650N0393600E-433539N0394029E-433438N0394038E-433338N0394213E-433020N0393900E-433650N0393600E\nF)GND\nG)6000M AGL"},{"lowerLimitRaw","GND"},{"upperLimitRaw","6000M AGL"}};
  auto a=NotamGeometryEngine::normalize(p);assert(a["geometryValidated"].toBool());auto g=QJsonDocument::fromJson(a["geometryJson"].toString().toUtf8()).object();assert(g["type"].toString()=="Polygon");assert(g["coordinates"].toArray().first().toArray().size()==6);
+ assert(a["notamInterpretationVersion"].toInt()==1);
+ assert(a["restrictionClass"].toString()=="PROHIBITED");
+ assert(a["interpretationState"].toString()=="CONFIRMED");
+ assert(a["planningComponents"].toList().size()==1);
+ assert(a["planningComponents"].toList().first().toMap()["coordinates"].toList().size()==6);
  QVariantMap c{{"originalText","E)RESTRICTED AREA RADIUS 2NM CENTRE 433650N0393600E\nF)GND\nG)3000FT AGL"},{"lowerLimitRaw","GND"},{"upperLimitRaw","3000FT AGL"}};
  auto b=NotamGeometryEngine::normalize(c);assert(b["geometryValidated"].toBool());assert(QJsonDocument::fromJson(b["geometryJson"].toString().toUtf8()).object()["coordinates"].toArray().first().toArray().size()==73);
+ assert(b["restrictionClass"].toString()=="CONDITIONAL");
+ assert(b["interpretationState"].toString()=="AMBIGUOUS");
+ assert(!b["planningComponents"].toList().isEmpty());
  // A raw Polygon with disjoint rings is malformed GeoJSON: the second
  // ring is not a hole, so preserve it as a separate polygon component.
  QVariantMap disjointRings{{"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[39.2,43.0],[39.2,43.2],[39.0,43.0]],[[40.0,43.0],[40.2,43.0],[40.2,43.2],[40.0,43.0]]]})")}};
