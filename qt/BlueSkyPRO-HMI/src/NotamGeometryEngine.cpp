@@ -390,20 +390,20 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
 
     QString restrictionClass = QStringLiteral("AMBIGUOUS");
     QString interpretationEvidence = QStringLiteral("NO_EXPLICIT_RESTRICTION_SEMANTICS");
-    if (!areaGeometry) {
-        restrictionClass = QStringLiteral("DISPLAY_ONLY");
-        interpretationEvidence = QStringLiteral("NON_AREA_GEOMETRY");
-    } else if (explicitlyProhibited) {
+    if (explicitlyProhibited) {
         restrictionClass = QStringLiteral("PROHIBITED");
         interpretationEvidence = QStringLiteral("EXPLICIT_CLOSURE_OR_PROHIBITION_TEXT");
     } else if (explicitlyConditional) {
         restrictionClass = QStringLiteral("CONDITIONAL");
         interpretationEvidence = QStringLiteral("CONDITIONAL_AIRSPACE_CLASS_REQUIRES_RULE_EVALUATION");
+    } else if (!areaGeometry) {
+        restrictionClass = QStringLiteral("DISPLAY_ONLY");
+        interpretationEvidence = QStringLiteral("NON_AREA_GEOMETRY_WITHOUT_EXPLICIT_CLOSURE");
     }
 
-    const QString interpretationState = !areaGeometry
+    const QString interpretationState = restrictionClass == QStringLiteral("DISPLAY_ONLY")
         ? QStringLiteral("CONFIRMED")
-        : (restrictionClass == QStringLiteral("PROHIBITED") && vok
+        : (areaGeometry && restrictionClass == QStringLiteral("PROHIBITED") && vok
             ? QStringLiteral("CONFIRMED") : QStringLiteral("AMBIGUOUS"));
     out["notamInterpretationVersion"] = 1;
     out["restrictionClass"] = restrictionClass;
