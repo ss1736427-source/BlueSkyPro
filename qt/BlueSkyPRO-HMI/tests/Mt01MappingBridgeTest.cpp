@@ -46,7 +46,15 @@ static QString validMissionJson()
             {"verificationState", "VERIFIED"},
             {"calibrationState", "NOT_VERIFIED"}
         }}},
-        {"geometryObjects", QJsonArray{aoi}}
+        {"geometryObjects", QJsonArray{aoi}},
+        {"operations", QJsonArray{QJsonObject{
+            {"operationId", "OP-MT01-AOI-01"},
+            {"templateId", "MT-01"},
+            {"operationType", "MAPPING_SWATH"},
+            {"geometryId", "AOI-01"},
+            {"equipmentIds", QJsonArray{"DJI-MAVIC-3E-WIDE"}},
+            {"executionEstimate", QJsonObject{{"state", "UNRESOLVED"}}}
+        }}}
     };
     return QString::fromUtf8(QJsonDocument(mission).toJson(QJsonDocument::Compact));
 }
@@ -97,6 +105,9 @@ int main(int argc, char **argv)
     assert(result.value("status").toString() == "COVERAGE_CANDIDATE_AVAILABLE");
     assert(result.value("coverageCandidateAvailable").toBool());
     assert(!result.value("flightReleaseEligible").toBool());
+    assert(!result.value("taskExecutionEstimatesReady").toBool());
+    assert(result.value("findings").toStringList().join(";")
+               .contains("MT01_OPERATION_EXECUTION_ESTIMATE_UNRESOLVED"));
     assert(result.value("coverageValid").toBool());
     assert(result.value("waypoints").toList().size() >= 2);
     assert(!result.value("capturePoints").toList().isEmpty());
@@ -187,6 +198,51 @@ int main(int argc, char **argv)
     assert(missingSnapshotResult.value("status").toString() == "NEEDS_INPUT");
     assert(missingSnapshotResult.value("findings").toStringList().contains(
         "NOTAM_SNAPSHOT_IDENTITY_AND_RECORDS_REQUIRED"));
+
+    QJsonObject missingOperationMission =
+        QJsonDocument::fromJson(validMissionJson().toUtf8()).object();
+    missingOperationMission.remove("operations");
+    const QVariantMap missingOperation = bridge.calculate(
+        QString::fromUtf8(QJsonDocument(missingOperationMission).toJson(QJsonDocument::Compact)),
+        validParameters());
+    assert(missingOperation.value("status").toString() == "NEEDS_INPUT");
+    assert(missingOperation.value("findings").toStringList().contains(
+        "MT01_MAPPING_SWATH_OPERATION_REQUIRED"));
+
+    QJsonObject validatedOperationMission =
+        QJsonDocument::fromJson(validMissionJson().toUtf8()).object();
+    QJsonObject validatedOperation = validatedOperationMission.value("operations").toArray().first().toObject();
+    validatedOperation.insert("executionEstimate", QJsonObject{
+        {"state", "VALIDATED"},
+        {"durationS", 600.0},
+        {"energyWh", 24.0},
+        {"sourceType", "EQUIPMENT_MODEL"},
+        {"sourceId", "CAMERA-PERFORMANCE-01"},
+        {"sourceVersion", "2"},
+        {"methodVersion", "method-3"},
+        {"vehicleId", "DJI-MAVIC-3E"},
+        {"vehicleConfigurationVersion", "MAVIC-3E-STANDARD-REFERENCE-001"},
+        {"equipmentProfileIds", QJsonArray{"DJI-MAVIC-3E-WIDE-PROFILE"}}
+    });
+    validatedOperationMission.insert("operations", QJsonArray{validatedOperation});
+    const QVariantMap validatedOperationResult = bridge.calculate(
+        QString::fromUtf8(QJsonDocument(validatedOperationMission).toJson(QJsonDocument::Compact)),
+        validParameters());
+    assert(validatedOperationResult.value("status").toString() == "COVERAGE_CANDIDATE_AVAILABLE");
+    assert(validatedOperationResult.value("taskExecutionEstimatesReady").toBool());
+
+    QJsonObject mismatchedOperationMission = validatedOperationMission;
+    QJsonObject mismatchedOperation = mismatchedOperationMission.value("operations").toArray().first().toObject();
+    QJsonObject mismatchedEstimate = mismatchedOperation.value("executionEstimate").toObject();
+    mismatchedEstimate.insert("vehicleConfigurationVersion", "OLD-CONFIGURATION");
+    mismatchedOperation.insert("executionEstimate", mismatchedEstimate);
+    mismatchedOperationMission.insert("operations", QJsonArray{mismatchedOperation});
+    const QVariantMap rejectedEstimate = bridge.calculate(
+        QString::fromUtf8(QJsonDocument(mismatchedOperationMission).toJson(QJsonDocument::Compact)),
+        validParameters());
+    assert(rejectedEstimate.value("status").toString() == "NEEDS_INPUT");
+    assert(rejectedEstimate.value("findings").toStringList().contains(
+        "MT01_OPERATION_ESTIMATE_VEHICLE_CONFIGURATION_MISMATCH"));
 
     QVariantMap mismatchParameters = validParameters();
     mismatchParameters.insert("cameraConfigurationId", "UNASSIGNED-CAMERA");
