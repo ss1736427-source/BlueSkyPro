@@ -101,8 +101,12 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         result.blockers.emplace_back("MISSION_IDENTITY_REQUIRED");
         return result;
     }
+    const bool startsNewRevision = record.state == MissionLifecycleState::Replanning
+        && target == MissionLifecycleState::Calculating;
     if (evidence.mission_id != record.mission_id
-        || evidence.mission_version != record.mission_version) {
+        || (startsNewRevision
+            ? (evidence.mission_version.empty() || evidence.mission_version == record.mission_version)
+            : evidence.mission_version != record.mission_version)) {
         result.blockers.emplace_back("LIFECYCLE_EVIDENCE_MISSION_LINEAGE_MISMATCH");
         return result;
     }
@@ -138,6 +142,10 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
             requireText(evidence.route_id, "REPLAN_ROUTE_ID_REQUIRED", result.blockers);
             requireText(evidence.route_version, "REPLAN_PARENT_ROUTE_VERSION_REQUIRED", result.blockers);
             requireText(evidence.calculation_input_version, "REPLAN_INPUT_VERSION_REQUIRED", result.blockers);
+            require(evidence.route_version != record.current_route_version,
+                    "REPLAN_ROUTE_VERSION_NOT_ADVANCED", result.blockers);
+            require(evidence.calculation_input_version != record.current_calculation_input_version,
+                    "REPLAN_INPUT_VERSION_NOT_ADVANCED", result.blockers);
         }
         break;
     case MissionLifecycleState::Validating:
@@ -212,7 +220,8 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
     MissionLifecycleEvent event;
     event.sequence = record.next_event_sequence;
     event.mission_id = record.mission_id;
-    event.mission_version = record.mission_version;
+    event.mission_version = startsNewRevision ? evidence.mission_version : record.mission_version;
+    event.parent_mission_version = startsNewRevision ? record.mission_version : record.parent_mission_version;
     event.actor_id = actor_id;
     event.timestamp = timestamp;
     event.reason = reason;
@@ -236,6 +245,16 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
     addEvidence(evidence.postflight_record_id);
     record.history.push_back(std::move(event));
     ++record.next_event_sequence;
+    if (startsNewRevision) {
+        record.parent_mission_version = record.mission_version;
+        record.mission_version = evidence.mission_version;
+    }
+    if (!evidence.route_id.empty())
+        record.current_route_id = evidence.route_id;
+    if (!evidence.route_version.empty())
+        record.current_route_version = evidence.route_version;
+    if (!evidence.calculation_input_version.empty())
+        record.current_calculation_input_version = evidence.calculation_input_version;
     record.state = target;
 
     result.accepted = true;
