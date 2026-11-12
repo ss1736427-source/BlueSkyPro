@@ -180,6 +180,12 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
                 "VALIDATION_ROUTE_VERSION_MISMATCH", result.blockers);
         require(evidence.validation_input_version == evidence.calculation_input_version,
                 "VALIDATION_INPUT_VERSION_MISMATCH", result.blockers);
+        require(evidence.route_id == record.current_route_id,
+                "VALIDATION_ROUTE_ID_NOT_CURRENT", result.blockers);
+        require(evidence.route_version == record.current_route_version,
+                "VALIDATION_ROUTE_VERSION_NOT_CURRENT", result.blockers);
+        require(evidence.calculation_input_version == record.current_calculation_input_version,
+                "VALIDATION_INPUT_VERSION_NOT_CURRENT", result.blockers);
         break;
     case MissionLifecycleState::Submitted:
         require(evidence.regulatory_submission_prepared, "REGULATORY_SUBMISSION_NOT_PREPARED", result.blockers);
@@ -203,6 +209,12 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         require(evidence.package_matches_selected_route, "MISSION_PACKAGE_ROUTE_MISMATCH", result.blockers);
         require(evidence.package_route_version == evidence.route_version,
                 "MISSION_PACKAGE_ROUTE_VERSION_MISMATCH", result.blockers);
+        require(evidence.route_id == record.current_route_id,
+                "RELEASE_ROUTE_ID_NOT_CURRENT", result.blockers);
+        require(evidence.route_version == record.current_route_version,
+                "RELEASE_ROUTE_VERSION_NOT_CURRENT", result.blockers);
+        require(evidence.calculation_input_version == record.current_calculation_input_version,
+                "RELEASE_INPUT_VERSION_NOT_CURRENT", result.blockers);
         requireText(evidence.package_id, "MISSION_PACKAGE_ID_REQUIRED", result.blockers);
         require(evidence.package_vehicle_approved, "PACKAGE_VEHICLE_NOT_APPROVED", result.blockers);
         requireText(evidence.package_vehicle_id, "PACKAGE_VEHICLE_ID_REQUIRED", result.blockers);
@@ -252,6 +264,7 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
     addEvidence(evidence.notam_recheck_snapshot_id);
     addEvidence(evidence.regulatory_submission_id);
     addEvidence(evidence.authorization_id);
+    addEvidence(evidence.authorization_not_required_reason);
     addEvidence(evidence.package_id);
     addEvidence(evidence.execution_reference_id);
     addEvidence(evidence.postflight_record_id);
