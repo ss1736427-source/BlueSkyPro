@@ -165,3 +165,14 @@ The ADMIN integration console now includes provider configuration nodes for:
 - Windows MSVC Qt HMI configure/build/CTest and application-startup smoke test passed for that exact source commit: https://github.com/ss1736427-source/BlueSkyPro/actions/runs/39314035981
 - The current documentation-only HEAD `639cd9ccefdf00560f59f5c13fb2967279294565` has 10/10 reported check runs successful. The HMI build workflows are path-filtered and did not rerun on the later documentation-only commits; the latest successful HMI build evidence therefore remains tied to `3f473b8`, which contains the probe implementation.
 - These CI checks prove compilation, automated contract tests and an 8-second process-startup smoke test. They do **not** prove that the button can fetch the XML from the user's target Windows runtime or that the returned document has a stable, parseable structure. Target-runtime acceptance remains `UNVERIFIED` until the button is exercised and response metadata/sample structure are captured.
+
+
+## 11. Terrain DEM integration boundary — 2026-11-12
+
+- MapTiler Terrain RGB v2 is currently configured in the map renderer as a raster-DEM source for 3D visualization and LOD management. This does not establish that the planning core can acquire, decode, cache or sample those elevation tiles.
+- Open-Meteo Elevation is implemented only as a manual single-point HTTP probe in the ADMIN integration console. It is not an area DEM, route profile, obstacle dataset or planning-core input.
+- The planning route contract already carries `environment.terrain_snapshot_id`; the mission lifecycle gate requires a current terrain snapshot and a terrain validation attestation before READY.
+- Added `mission_lifecycle_terrain_adapter.hpp` to bind an authoritative DEM snapshot/profile-validation result to the exact mission, route and calculation-input lineage. The adapter rejects incomplete route geometry, mismatched snapshot identity, incomplete coverage, missing source/dataset provenance, unknown vertical datum, unnormalized vertical datum, insufficient profile sampling, inadequate clearance, or validator findings.
+- Added a dedicated contract test and registered it in both standalone Planning CTest and the HMI CTest suite.
+- **Not yet implemented/verified:** provider-backed AOI/tile acquisition for planning, DEM decoding, persistent content-addressed cache, corridor sampling/interpolation, a production terrain-profile/clearance validator, obstacle/DSM integration, and invocation of the terrain adapter from the HMI lifecycle transition path. The new adapter consumes the result of such a validator; it does not itself download or validate DEM elevations.
+- Do not mark terrain integration operational or allow READY/flight release based only on the MapTiler rendering toggle or the Open-Meteo point-elevation probe.
