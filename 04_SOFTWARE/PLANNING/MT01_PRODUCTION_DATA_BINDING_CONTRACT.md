@@ -135,7 +135,7 @@ Integration must:
 - block on missing/stale/mismatched snapshots, unsupported altitude references and invalid zone records;
 - retain findings and snapshot provenance in the candidate's validation evidence.
 
-The validator currently requires AGL when zones are present. Until vertical datum conversion is implemented, unsupported NOTAM altitude references must remain blocked rather than being numerically compared.
+The validator currently requires AGL when zones are present. Until vertical datum conversion is implemented, unsupported NOTAM altitude references must remain blocked rather than being numerically compared. A time-aware validator overload now consumes the wind/performance trajectory result and checks NOTAM validity against segment traversal and waypoint dwell intervals; the MT-01 pipeline still must be wired to call this overload.
 
 ## 8. Energy and reserve integration boundary
 

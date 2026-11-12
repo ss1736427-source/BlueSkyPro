@@ -41,6 +41,12 @@ int main(){
     assert(r.total_energy_wh>1.0);
     assert(r.remaining_energy_wh<100.0);
     assert(!r.dependency_identity.empty());
+    auto shiftedStart = in;
+    shiftedStart.mission_start_epoch_s += 1;
+    const auto shiftedResult =
+        WindPerformanceTrajectory::calculate(route, shiftedStart, "CALC1");
+    assert(shiftedResult.status == TrajectoryStatus::Feasible);
+    assert(shiftedResult.dependency_identity != r.dependency_identity);
 
     Route withTaskDwell=route;
     withTaskDwell.waypoints.back().task_execution_duration_s=60.0;

@@ -87,7 +87,8 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
        input.energy_per_horizontal_meter_wh<0.0 ||
        input.energy_per_climb_meter_wh<0.0 ||
        input.energy_per_descent_meter_wh<0.0 ||
-       input.usable_energy_wh<0.0 || input.reserve_requirement_wh<0.0){
+       input.usable_energy_wh<0.0 || input.reserve_requirement_wh<0.0 ||
+       input.mission_start_epoch_s<0){
         fail(r,TrajectoryFindingCode::InvalidPerformance,"","performance inputs must be non-negative and speeds/rates positive");
         return r;
     }

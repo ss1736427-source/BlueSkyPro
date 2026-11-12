@@ -351,7 +351,7 @@ NotamValidationResult NotamProhibitedZoneValidator::validate(
         }
     }
 
-    const auto overlaps_validity = [&snapshot, &trajectory](
+    const auto overlaps_validity = [&trajectory](
         const NotamZone& zone, double elapsedStart, double elapsedEnd) {
         const double absoluteStart =
             static_cast<double>(trajectory.mission_start_epoch_s) + elapsedStart;

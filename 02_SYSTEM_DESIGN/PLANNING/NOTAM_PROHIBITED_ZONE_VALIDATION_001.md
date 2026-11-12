@@ -37,6 +37,8 @@ Circle segment checks use a local tangent-plane distance approximation; polygon 
 
 A prohibited NOTAM zone is a hard planning constraint only when the planned aircraft occupancy of the zone overlaps the NOTAM validity interval. Mission-start time alone is not sufficient to decide whether a route conflicts with a NOTAM.
 
+The two-argument `validate(route, snapshot)` overload is a snapshot-evaluation-instant check and is not sufficient for final mission-time validation. The three-argument `validate(route, snapshot, trajectory)` overload consumes the wind/performance `TrajectoryResult`, requires an explicit UTC mission-start epoch and matching route lineage, and checks each waypoint dwell interval and complete segment traversal interval against inclusive NOTAM validity. The MT-01 production pipeline must call this time-aware overload after wind/performance calculation; the existence of the overload alone does not prove runtime integration.
+
 The combined planning workflow has two distinct NOTAM controls. They are complementary and must not be collapsed into a single post-generation check:
 
 **A. Before candidate optimization — NOTAM-aware geometry generation (upstream prerequisite):**
