@@ -178,15 +178,15 @@ add_test(NAME route_controller_fail_closed_contract COMMAND route_controller_tes
 # Keep the mission lifecycle gate in the HMI CI test set even when the shared
 # planning subdirectory is built with BLUESKY_BUILD_PLANNING_TESTS=OFF.
 add_executable(mission_lifecycle_contract_test
-    ../../04_SOFTWARE/PLANNING/mission_lifecycle.cpp
     ../../04_SOFTWARE/PLANNING/mission_lifecycle.hpp
     ../../04_SOFTWARE/PLANNING/mission_lifecycle_test.cpp
-    ../../04_SOFTWARE/PLANNING/route_constraint_validator.cpp
     ../../04_SOFTWARE/PLANNING/mission_lifecycle_route_adapter.hpp
+    ../../04_SOFTWARE/PLANNING/mission_lifecycle_notam_adapter.hpp
 )
 target_include_directories(mission_lifecycle_contract_test PRIVATE
     ../../04_SOFTWARE/PLANNING
 )
+target_link_libraries(mission_lifecycle_contract_test PRIVATE bluesky_planning)
 target_compile_features(mission_lifecycle_contract_test PRIVATE cxx_std_20)
 target_compile_options(mission_lifecycle_contract_test PRIVATE
     "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"

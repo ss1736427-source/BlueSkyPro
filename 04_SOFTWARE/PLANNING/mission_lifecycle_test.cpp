@@ -1,5 +1,6 @@
 #include "mission_lifecycle.hpp"
 #include "mission_lifecycle_route_adapter.hpp"
+#include "mission_lifecycle_notam_adapter.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -12,6 +13,7 @@ static MissionLifecycleValidationEvidence routeStructureValidation() {
     route.lineage = {"ROUTE-01", "3", "MISSION-001", "7",
                      "test-generator", "1", "INPUT-9"};
     route.constraints = {80.0, 120.0, 30.0, true};
+    route.environment.airspace_snapshot_id = "NOTAM-6";
     route.waypoints = {
         {"WP-1", {60.0, 25.0}, 100.0, true, AltitudeReference::AGL},
         {"WP-2", {60.1, 25.1}, 100.0, false, AltitudeReference::AGL}
@@ -20,6 +22,35 @@ static MissionLifecycleValidationEvidence routeStructureValidation() {
     const auto result = RouteConstraintValidator::validate(route);
     assert(result.status == RouteValidationStatus::Allowed);
     return makeRouteStructureValidationEvidence(route, result);
+}
+
+static MissionLifecycleValidationEvidence notamValidation() {
+    Route route;
+    route.lineage = {"ROUTE-01", "3", "MISSION-001", "7",
+                     "test-generator", "1", "INPUT-9"};
+    route.constraints = {80.0, 120.0, 30.0, true};
+    route.environment.airspace_snapshot_id = "NOTAM-6";
+    route.waypoints = {
+        {"WP-1", {60.0, 25.0}, 100.0, true, AltitudeReference::AGL},
+        {"WP-2", {60.1, 25.1}, 100.0, false, AltitudeReference::AGL}
+    };
+    route.segments = {{"SEG-1", "WP-1", "WP-2", 1000.0, 20.0}};
+    NotamSnapshot snapshot;
+    snapshot.snapshot_id = "NOTAM-6";
+    snapshot.source_id = "TEST-NOTAM-SOURCE";
+    snapshot.source_version = "1";
+    snapshot.evaluation_epoch_s = 1000;
+    const auto result = NotamProhibitedZoneValidator::validate(route, snapshot);
+    assert(result.status == RouteValidationStatus::Allowed);
+    auto evidence = makeNotamValidationEvidence(route, result);
+    assert(evidence.status == MissionLifecycleValidationStatus::Passed);
+
+    auto mismatchedSnapshot = snapshot;
+    mismatchedSnapshot.snapshot_id = "NOTAM-OTHER";
+    const auto rejected = NotamProhibitedZoneValidator::validate(route, mismatchedSnapshot);
+    const auto rejectedEvidence = makeNotamValidationEvidence(route, rejected);
+    assert(rejectedEvidence.status == MissionLifecycleValidationStatus::Failed);
+    return evidence;
 }
 
 static MissionLifecycleValidationEvidence validation(const std::string &id) {
@@ -60,7 +91,7 @@ static MissionLifecycleEvidence evidence() {
     e.route_candidate_selected = true;
     e.route_structure_validation = routeStructureValidation();
     e.trajectory_geometry_validation = validation("GEOMETRY-RESULT");
-    e.notam_validation = validation("NOTAM-RESULT");
+    e.notam_validation = notamValidation();
     e.terrain_validation = validation("TERRAIN-RESULT");
     e.vehicle_envelope_validation = validation("VEHICLE-RESULT");
     e.weather_validation = validation("WEATHER-RESULT");
@@ -115,7 +146,7 @@ int main() {
     assert(!staleValidation.accepted);
     assert(std::find(staleValidation.blockers.begin(), staleValidation.blockers.end(),
                      "NOTAM_VALIDATION_LINEAGE_MISMATCH") != staleValidation.blockers.end());
-    e.notam_validation = validation("NOTAM-RESULT");
+    e.notam_validation = notamValidation();
     auto missingRouteStructure = e;
     missingRouteStructure.route_structure_validation.result_id.clear();
     auto missingRouteStructureResult = move(record, MissionLifecycleState::Ready, missingRouteStructure);
