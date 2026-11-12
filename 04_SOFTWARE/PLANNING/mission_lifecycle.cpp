@@ -208,7 +208,6 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         break;
     case MissionLifecycleState::Paused:
     case MissionLifecycleState::Replanning:
-    case MissionLifecycleState::Completed:
     case MissionLifecycleState::Aborted:
     case MissionLifecycleState::Draft:
         break;
