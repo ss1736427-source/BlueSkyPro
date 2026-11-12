@@ -25,6 +25,7 @@ static MissionLifecycleEvidence evidence() {
     e.package_route_version = "3";
     e.package_vehicle_id = "UAV-1";
     e.execution_reference_id = "EXEC-1";
+    e.postflight_record_id = "POSTFLIGHT-1";
     e.execution_vehicle_id = "UAV-1";
     e.task_definition_complete = true;
     e.mission_geometry_complete = true;
@@ -54,6 +55,8 @@ static MissionLifecycleEvidence evidence() {
     e.package_matches_selected_route = true;
     e.package_vehicle_approved = true;
     e.execution_session_linked = true;
+    e.execution_closed = true;
+    e.postflight_data_archived = true;
     return e;
 }
 
@@ -130,6 +133,27 @@ int main() {
     auto mismatch = move(record, MissionLifecycleState::Validating, wrongMission);
     assert(!mismatch.accepted);
     assert(record.history.size() == eventCount);
+
+    MissionLifecycleRecord completed{"MISSION-001", "7"};
+    assert(move(completed, MissionLifecycleState::Calculating, e).accepted);
+    assert(move(completed, MissionLifecycleState::Validating, e).accepted);
+    assert(move(completed, MissionLifecycleState::Ready, e).accepted);
+    assert(move(completed, MissionLifecycleState::Submitted, e).accepted);
+    assert(move(completed, MissionLifecycleState::Authorized, e).accepted);
+    assert(move(completed, MissionLifecycleState::Released, e).accepted);
+    assert(move(completed, MissionLifecycleState::Executing, e).accepted);
+    e.execution_closed = false;
+    auto prematureCompletion = move(completed, MissionLifecycleState::Completed, e);
+    assert(!prematureCompletion.accepted);
+    assert(std::find(prematureCompletion.blockers.begin(), prematureCompletion.blockers.end(),
+                     "EXECUTION_NOT_CLOSED") != prematureCompletion.blockers.end());
+    e.execution_closed = true;
+    assert(move(completed, MissionLifecycleState::Completed, e).accepted);
+    assert(completed.state == MissionLifecycleState::Completed);
+    assert(!move(completed, MissionLifecycleState::Paused, e).accepted);
+    assert(std::find(completed.history.back().evidence_references.begin(),
+                     completed.history.back().evidence_references.end(), "POSTFLIGHT-1")
+           != completed.history.back().evidence_references.end());
 
     assert(record.next_event_sequence == record.history.size() + 1);
     assert(record.history.front().sequence == 1);
