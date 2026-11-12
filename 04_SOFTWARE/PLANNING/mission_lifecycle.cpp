@@ -22,6 +22,7 @@ bool isKnownState(MissionLifecycleState state) noexcept {
     case MissionLifecycleState::Executing:
     case MissionLifecycleState::Paused:
     case MissionLifecycleState::Replanning:
+    case MissionLifecycleState::Completed:
     case MissionLifecycleState::Aborted:
         return true;
     }
