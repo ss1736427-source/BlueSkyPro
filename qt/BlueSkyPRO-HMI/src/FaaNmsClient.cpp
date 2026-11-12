@@ -12,6 +12,7 @@
 #include <QTimer>
 #include <QJsonArray>
 #include <QDateTime>
+#include <QCryptographicHash>
 #include <QUuid>
 #include <QVariantMap>
 #include <cmath>
@@ -425,7 +426,25 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
                               : QString());
             record.insert(QStringLiteral("geometryAvailable"), geometry.isObject()
                               && !geometry.toObject().isEmpty());
-            record = NotamGeometryEngine::normalize(record);
+            const QByteArray sourceFingerprint = QJsonDocument(
+                QJsonObject::fromVariantMap(record)).toJson(QJsonDocument::Compact);
+            const QString cacheKey = m_environment + QLatin1Char(':') + id + QLatin1Char(':')
+                + QString::fromLatin1(QCryptographicHash::hash(
+                    sourceFingerprint, QCryptographicHash::Sha256).toHex());
+            const auto cached = m_interpretationCache.constFind(cacheKey);
+            if (cached != m_interpretationCache.cend()) {
+                record = cached.value();
+            } else {
+                record = NotamGeometryEngine::normalize(record);
+                constexpr int maximumCachedInterpretations = 4096;
+                while (m_interpretationCache.size() >= maximumCachedInterpretations
+                       && !m_interpretationCacheOrder.isEmpty()) {
+                    const QString oldest = m_interpretationCacheOrder.takeFirst();
+                    m_interpretationCache.remove(oldest);
+                }
+                m_interpretationCache.insert(cacheKey, record);
+                m_interpretationCacheOrder.push_back(cacheKey);
+            }
             const QString normalizedGeometry = record.value(QStringLiteral("geometryJson")).toString();
             const QString geometryStatus = record.value(QStringLiteral("restrictionGeometryStatus")).toString();
             if (!normalizedGeometry.isEmpty()) ++featuresWithGeometry;
