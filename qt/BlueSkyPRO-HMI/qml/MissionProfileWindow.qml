@@ -56,6 +56,14 @@ Item {
         ? "REQUEST_READY" : (lastWeatherCoverageResult && lastWeatherCoverageResult.errors
                             ? "BLOCKED" : "NOT_REQUESTED")
 
+    function notamPlanningInputs() {
+        return {
+            plannedMissionStartUtc: weatherMissionStartInput.text.trim(),
+            plannedMissionEndUtc: notamMissionEndInput.text.trim(),
+            notamSafetyBufferM: Number(notamSafetyBufferInput.text)
+        }
+    }
+
     function currentWeatherCandidateRoutes() {
         if (!root.routeController) return []
         // Weather optimization compares the optimizer's complete validated
@@ -1468,21 +1476,91 @@ Item {
                     }
                 }
 
-                Text {
-                    x: 10
-                    y: 38
-                    width: parent.width - 20
-                    height: 24
-                    text: root.weatherAcquisitionMessage.length > 0
-                          ? root.weatherAcquisitionMessage
-                          : "Погода не запрошена · ETD + профиль БВС + расчётная длительность и временной резерв"
-                    color: root.weatherAcquisitionStatus === "BLOCKED"
-                           || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE"
-                           ? "#FFD36A" : root.muted
-                    font.family: "B612"
-                    font.pixelSize: 10
-                    elide: Text.ElideRight
-                    verticalAlignment: Text.AlignVCenter
+                Row {
+                    x: 8
+                    y: 36
+                    height: 27
+                    spacing: 6
+
+                    Text {
+                        width: 78
+                        height: 27
+                        text: "NOTAM / ОКНО"
+                        color: root.cyan
+                        font.family: "B612"
+                        font.pixelSize: 10
+                        font.bold: true
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    Rectangle {
+                        width: 172
+                        height: 27
+                        color: "#06111D"
+                        border.color: "#35536A"
+                        TextInput {
+                            id: notamMissionEndInput
+                            anchors.fill: parent
+                            anchors.margins: 4
+                            color: root.textColor
+                            font.family: "B612 Mono"
+                            font.pixelSize: 10
+                            verticalAlignment: TextInput.AlignVCenter
+                            selectByMouse: true
+                            inputMethodHints: Qt.ImhDate | Qt.ImhTime
+                            property string placeholder: "PLANNED END UTC"
+                            Text {
+                                anchors.fill: parent
+                                visible: !notamMissionEndInput.text
+                                text: notamMissionEndInput.placeholder
+                                color: "#70879A"
+                                font: notamMissionEndInput.font
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: 76
+                        height: 27
+                        color: "#06111D"
+                        border.color: "#35536A"
+                        TextInput {
+                            id: notamSafetyBufferInput
+                            anchors.fill: parent
+                            anchors.margins: 4
+                            color: root.textColor
+                            font.family: "B612 Mono"
+                            font.pixelSize: 10
+                            verticalAlignment: TextInput.AlignVCenter
+                            selectByMouse: true
+                            inputMethodHints: Qt.ImhDigitsOnly
+                            property string placeholder: "BUFFER m"
+                            Text {
+                                anchors.fill: parent
+                                visible: !notamSafetyBufferInput.text
+                                text: notamSafetyBufferInput.placeholder
+                                color: "#70879A"
+                                font: notamSafetyBufferInput.font
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                    }
+
+                    Text {
+                        height: 27
+                        width: Math.max(120, parent.width - 350)
+                        text: root.weatherAcquisitionMessage.length > 0
+                              ? root.weatherAcquisitionMessage
+                              : "Защитный буфер NOTAM задаётся отдельно от погодного"
+                        color: root.weatherAcquisitionStatus === "BLOCKED"
+                               || root.weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE"
+                               ? "#FFD36A" : root.muted
+                        font.family: "B612"
+                        font.pixelSize: 9
+                        elide: Text.ElideRight
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
             }
 

@@ -539,9 +539,24 @@ Item {
                 // Invoke the real MT-01 planning bridge with the same v2 mission
                 // aggregate produced by the editor. Missing assignments and
                 // unverified equipment are returned as explicit blockers.
+                var planningParameters = Object.assign(
+                            {}, root.mt01CameraParameters || ({}),
+                            missionProfileWindow.notamPlanningInputs(),
+                            {
+                                notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
+                                    ? faaNmsClient.notamRecords : [],
+                                notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
+                                    ? faaNmsClient.notamSnapshotId : "",
+                                notamSourceId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
+                                    ? "FAA_NMS_" + faaNmsClient.environment : "",
+                                notamSourceVersion: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
+                                    ? faaNmsClient.notamSnapshotId : "",
+                                notamSnapshotEpochS: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null)
+                                    ? faaNmsClient.notamSnapshotEpochS : 0
+                            })
                 root.manualMt01Result = mt01MappingBridge.calculate(
                             root.manualMissionModelJson,
-                            root.mt01CameraParameters)
+                            planningParameters)
                 var findings = root.manualMt01Result.findings || []
                 root.manualModelValidationStatus =
                         String(root.manualMt01Result.status || "NEEDS_INPUT")

@@ -67,7 +67,15 @@ static QVariantMap validParameters()
         {"lineAngleDeg", 0.0},
         {"cameraConfigurationId", "DJI-MAVIC-3E-WIDE"},
         {"calibrationSourceReference", "DJI Mavic 3 Enterprise manufacturer specifications"},
-        {"intrinsicCalibrationVerified", false}
+        {"intrinsicCalibrationVerified", false},
+        {"notamSnapshotId", "FAA-NMS-TEST-SNAPSHOT"},
+        {"notamSourceId", "FAA_NMS_TEST"},
+        {"notamSourceVersion", "FAA-NMS-TEST-SNAPSHOT"},
+        {"notamSnapshotEpochS", 1800000000LL},
+        {"plannedMissionStartUtc", "2027-01-15T09:00:00Z"},
+        {"plannedMissionEndUtc", "2027-01-15T10:00:00Z"},
+        {"notamSafetyBufferM", 25.0},
+        {"notamRecords", QVariantList{}}
     };
 }
 
@@ -86,6 +94,47 @@ int main(int argc, char **argv)
     const QVariantMap metrics = result.value("metrics").toMap();
     assert(metrics.value("coverageLineCount").toULongLong() > 0);
     assert(metrics.value("calculatedAltitudeAglM").toDouble() > 100.0);
+
+    assert(result.value("notamSnapshotId").toString() == "FAA-NMS-TEST-SNAPSHOT");
+    assert(result.value("metrics").toMap().value("notamApplicableComponentCount").toULongLong() == 0);
+
+    QVariantMap activeNotamParameters = validParameters();
+    QVariantMap activeNotam{
+        {"id", "N-HMI-001"},
+        {"effectiveStart", "2027-01-15T08:00:00Z"},
+        {"effectiveEnd", "2027-01-15T11:00:00Z"},
+        {"lowerMeters", 50.0},
+        {"upperMeters", 150.0},
+        {"lowerDatum", "AGL"},
+        {"upperDatum", "AGL"},
+        {"restrictionGeometryStatus", "VALIDATED"},
+        {"geometryJson", QStringLiteral(R"({"type":"Polygon","coordinates":[[[0.0008,0.0008],[0.0012,0.0008],[0.0012,0.0012],[0.0008,0.0012],[0.0008,0.0008]]]})")}
+    };
+    activeNotamParameters.insert("notamRecords", QVariantList{activeNotam});
+    const QVariantMap notamResult = bridge.calculate(validMissionJson(), activeNotamParameters);
+    assert(notamResult.value("status").toString() == "COVERAGE_CANDIDATE_AVAILABLE");
+    assert(notamResult.value("metrics").toMap().value("notamApplicableComponentCount").toULongLong() == 1);
+    assert(notamResult.value("notamApplicableIds").toStringList().contains("N-HMI-001"));
+    assert(notamResult.value("notamComponentIds").toStringList().contains("N-HMI-001-COMP-1"));
+
+    QVariantMap unsupportedDatumParameters = activeNotamParameters;
+    QVariantMap unsupportedDatum = activeNotam;
+    unsupportedDatum.insert("lowerDatum", "AMSL");
+    unsupportedDatum.insert("upperDatum", "AMSL");
+    unsupportedDatumParameters.insert("notamRecords", QVariantList{unsupportedDatum});
+    const QVariantMap unsupportedDatumResult =
+        bridge.calculate(validMissionJson(), unsupportedDatumParameters);
+    assert(unsupportedDatumResult.value("status").toString() == "NEEDS_INPUT");
+    assert(unsupportedDatumResult.value("findings").toStringList().join(";")
+               .contains("NOTAM_ALTITUDE_DATUM_UNSUPPORTED"));
+
+    QVariantMap missingNotamSnapshot = validParameters();
+    missingNotamSnapshot.remove("notamSnapshotId");
+    const QVariantMap missingSnapshotResult =
+        bridge.calculate(validMissionJson(), missingNotamSnapshot);
+    assert(missingSnapshotResult.value("status").toString() == "NEEDS_INPUT");
+    assert(missingSnapshotResult.value("findings").toStringList().contains(
+        "NOTAM_SNAPSHOT_IDENTITY_AND_RECORDS_REQUIRED"));
 
     QVariantMap mismatchParameters = validParameters();
     mismatchParameters.insert("cameraConfigurationId", "UNASSIGNED-CAMERA");
