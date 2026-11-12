@@ -489,9 +489,13 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
         m_queryInProgress = true;
         auto *watcher = new QFutureWatcher<NotamInterpretationBatch>(this);
         connect(watcher, &QFutureWatcher<NotamInterpretationBatch>::finished, this,
-                [this, watcher, latitude, longitude, radiusNm]() {
+                [this, watcher, latitude, longitude, radiusNm, environment = m_environment]() {
             const NotamInterpretationBatch batch = watcher->result();
             watcher->deleteLater();
+            if (m_environment != environment) {
+                m_queryInProgress = false;
+                return;
+            }
             m_interpretationCache = batch.cache;
             m_interpretationCacheOrder = batch.cacheOrder;
             m_notamRecords = batch.records;
