@@ -123,9 +123,28 @@ int main() {
     assert(MissionLifecycleController::transition(
         record, MissionLifecycleState::Replanning, e, "OPERATOR-1",
         "2026-11-12T12:02:00Z", "weather deviation").accepted);
+    auto staleReplan = e;
+    staleReplan.mission_version = "8";
+    auto staleReplanResult = MissionLifecycleController::transition(
+        record, MissionLifecycleState::Calculating, staleReplan, "OPERATOR-1",
+        "2026-11-12T12:03:00Z", "replan");
+    assert(!staleReplanResult.accepted);
+    assert(std::find(staleReplanResult.blockers.begin(), staleReplanResult.blockers.end(),
+                     "REPLAN_ROUTE_VERSION_NOT_ADVANCED") != staleReplanResult.blockers.end());
+
+    auto replan = e;
+    replan.mission_version = "8";
+    replan.route_version = "4";
+    replan.calculation_input_version = "INPUT-10";
+    replan.validation_route_version = "4";
+    replan.validation_input_version = "INPUT-10";
     assert(MissionLifecycleController::transition(
-        record, MissionLifecycleState::Calculating, e, "OPERATOR-1",
+        record, MissionLifecycleState::Calculating, replan, "OPERATOR-1",
         "2026-11-12T12:03:00Z", "replan").accepted);
+    assert(record.mission_version == "8");
+    assert(record.parent_mission_version == "7");
+    assert(record.history.back().parent_mission_version == "7");
+    assert(record.history.back().mission_version == "8");
 
     const auto eventCount = record.history.size();
     auto wrongMission = e;
