@@ -13,9 +13,68 @@
 #include <QJsonArray>
 #include <QDateTime>
 #include <QCryptographicHash>
+#include <QFutureWatcher>
+#include <QtConcurrent/QtConcurrentRun>
 #include <QUuid>
 #include <QVariantMap>
 #include <cmath>
+
+namespace {
+struct NotamInterpretationBatch {
+    QVariantList records;
+    QHash<QString, QVariantMap> cache;
+    QList<QString> cacheOrder;
+    int featuresWithGeometry = 0;
+    int areaRestrictions = 0;
+    int displayOnlyGeometry = 0;
+    int recordsWithoutGeometry = 0;
+};
+
+NotamInterpretationBatch interpretNotamBatch(
+    const QVariantList &rawRecords,
+    const QString &environment,
+    QHash<QString, QVariantMap> cache,
+    QList<QString> cacheOrder)
+{
+    NotamInterpretationBatch batch;
+    batch.cache = std::move(cache);
+    batch.cacheOrder = std::move(cacheOrder);
+    batch.records.reserve(rawRecords.size());
+    for (const QVariant &rawValue : rawRecords) {
+        QVariantMap record = rawValue.toMap();
+        const QString id = record.value(QStringLiteral("id")).toString();
+        const QByteArray fingerprint = QJsonDocument(
+            QJsonObject::fromVariantMap(record)).toJson(QJsonDocument::Compact);
+        const QString key = environment + QLatin1Char(':') + id + QLatin1Char(':')
+            + QString::fromLatin1(QCryptographicHash::hash(
+                fingerprint, QCryptographicHash::Sha256).toHex());
+        const auto cached = batch.cache.constFind(key);
+        if (cached != batch.cache.cend()) {
+            record = cached.value();
+        } else {
+            record = NotamGeometryEngine::normalize(record);
+            constexpr int maximumCachedInterpretations = 4096;
+            while (batch.cache.size() >= maximumCachedInterpretations
+                   && !batch.cacheOrder.isEmpty()) {
+                const QString oldest = batch.cacheOrder.takeFirst();
+                batch.cache.remove(oldest);
+            }
+            batch.cache.insert(key, record);
+            batch.cacheOrder.push_back(key);
+        }
+
+        const QString geometry = record.value(QStringLiteral("geometryJson")).toString();
+        const QString status = record.value(QStringLiteral("restrictionGeometryStatus")).toString();
+        if (!geometry.isEmpty()) ++batch.featuresWithGeometry;
+        else ++batch.recordsWithoutGeometry;
+        if (status == QStringLiteral("VALIDATED")) ++batch.areaRestrictions;
+        else if (status == QStringLiteral("DISPLAY_ONLY_NON_AREA_GEOMETRY"))
+            ++batch.displayOnlyGeometry;
+        batch.records.push_back(record);
+    }
+    return batch;
+}
+} // namespace
 
 FaaNmsClient::FaaNmsClient(CredentialVault *vault, QObject *parent)
     : QObject(parent), m_vault(vault), m_network(new QNetworkAccessManager(this))
@@ -377,11 +436,8 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
                      dataKeys.isEmpty() ? QStringLiteral("none") : dataKeys));
             return;
         }
-        QVariantList normalizedRecords;
-        int featuresWithGeometry = 0;
-        int areaRestrictions = 0;
-        int displayOnlyGeometry = 0;
-        int recordsWithoutGeometry = 0;
+        QVariantList rawRecords;
+        rawRecords.reserve(records.size());
         for (const QJsonValue &value : records) {
             if (!value.isObject()) continue;
             const QJsonObject feature = value.toObject();
@@ -402,11 +458,9 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
             record.insert(QStringLiteral("effectiveEnd"), notam.value(QStringLiteral("effectiveEnd")).toString());
             record.insert(QStringLiteral("lowerLimitRaw"), notam.value(QStringLiteral("lowerLimit")).toString());
             record.insert(QStringLiteral("upperLimitRaw"), notam.value(QStringLiteral("upperLimit")).toString());
-            // FAA limits such as SFC, 280M, and FL values require explicit conversion rules.
-            // Preserve raw limits; do not silently assign AGL/AMSL or numeric zero.
             record.insert(QStringLiteral("altitudeReference"), QStringLiteral("UNKNOWN"));
             record.insert(QStringLiteral("text"), notam.value(QStringLiteral("text")).toString());
-            QJsonArray translations = core.value(QStringLiteral("notamTranslation")).toArray();
+            const QJsonArray translations = core.value(QStringLiteral("notamTranslation")).toArray();
             QStringList originalTexts;
             for (const QJsonValue &translationValue : translations) {
                 const QJsonObject translation = translationValue.toObject();
@@ -426,53 +480,49 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
                               : QString());
             record.insert(QStringLiteral("geometryAvailable"), geometry.isObject()
                               && !geometry.toObject().isEmpty());
-            const QByteArray sourceFingerprint = QJsonDocument(
-                QJsonObject::fromVariantMap(record)).toJson(QJsonDocument::Compact);
-            const QString cacheKey = m_environment + QLatin1Char(':') + id + QLatin1Char(':')
-                + QString::fromLatin1(QCryptographicHash::hash(
-                    sourceFingerprint, QCryptographicHash::Sha256).toHex());
-            const auto cached = m_interpretationCache.constFind(cacheKey);
-            if (cached != m_interpretationCache.cend()) {
-                record = cached.value();
-            } else {
-                record = NotamGeometryEngine::normalize(record);
-                constexpr int maximumCachedInterpretations = 4096;
-                while (m_interpretationCache.size() >= maximumCachedInterpretations
-                       && !m_interpretationCacheOrder.isEmpty()) {
-                    const QString oldest = m_interpretationCacheOrder.takeFirst();
-                    m_interpretationCache.remove(oldest);
-                }
-                m_interpretationCache.insert(cacheKey, record);
-                m_interpretationCacheOrder.push_back(cacheKey);
-            }
-            const QString normalizedGeometry = record.value(QStringLiteral("geometryJson")).toString();
-            const QString geometryStatus = record.value(QStringLiteral("restrictionGeometryStatus")).toString();
-            if (!normalizedGeometry.isEmpty()) ++featuresWithGeometry;
-            else ++recordsWithoutGeometry;
-            if (geometryStatus == QStringLiteral("VALIDATED")) ++areaRestrictions;
-            else if (geometryStatus == QStringLiteral("DISPLAY_ONLY_NON_AREA_GEOMETRY")) ++displayOnlyGeometry;
-            normalizedRecords.append(record);
+            rawRecords.push_back(record);
         }
 
-        // Publish a new immutable-by-convention result set only after schema/status checks.
-        m_notamRecords = normalizedRecords;
-        m_notamSnapshotId = QStringLiteral("FAA-NMS-%1-%2")
-            .arg(m_environment, QUuid::createUuid().toString(QUuid::WithoutBraces));
-        m_notamSnapshotEpochS = QDateTime::currentSecsSinceEpoch();
-        m_notamQueryLatitude = std::round(latitude * 1e6) / 1e6;
-        m_notamQueryLongitude = std::round(longitude * 1e6) / 1e6;
-        m_notamQueryRadiusM = std::round(radiusNm * 100.0) / 100.0 * 1852.0;
-        emit notamRecordsChanged();
-        if (normalizedRecords.isEmpty()) {
-            emit notamQueryFinished(true,
-                QStringLiteral("FAA NMS query completed with zero matching records for this radius. This US test source does not establish that the queried airspace is unrestricted. Snapshot %1.")
-                    .arg(m_notamSnapshotId));
-        } else {
-            emit notamQueryFinished(true,
-                QStringLiteral("FAA NMS query succeeded: %1 records; %2 have displayable geometry (%3 area restrictions, %4 point/line only); %5 have no displayable geometry. Snapshot %6. Normalized geometry is available to the MT-01 planning bridge; FAA NMS STAGING/FIT remains a test source and does not establish operational airspace clearance or flight-release eligibility.")
-                    .arg(normalizedRecords.size()).arg(featuresWithGeometry).arg(areaRestrictions)
-                    .arg(displayOnlyGeometry).arg(recordsWithoutGeometry).arg(m_notamSnapshotId));
-        }
+        // Text interpretation and topology validation run away from the UI thread.
+        // The worker receives value copies; the map and planner only see the
+        // completed batch after atomic publication on the owning thread.
+        m_queryInProgress = true;
+        auto *watcher = new QFutureWatcher<NotamInterpretationBatch>(this);
+        connect(watcher, &QFutureWatcher<NotamInterpretationBatch>::finished, this,
+                [this, watcher, latitude, longitude, radiusNm]() {
+            const NotamInterpretationBatch batch = watcher->result();
+            watcher->deleteLater();
+            m_interpretationCache = batch.cache;
+            m_interpretationCacheOrder = batch.cacheOrder;
+            m_notamRecords = batch.records;
+            m_notamSnapshotId = QStringLiteral("FAA-NMS-%1-%2")
+                .arg(m_environment, QUuid::createUuid().toString(QUuid::WithoutBraces));
+            m_notamSnapshotEpochS = QDateTime::currentSecsSinceEpoch();
+            m_notamQueryLatitude = std::round(latitude * 1e6) / 1e6;
+            m_notamQueryLongitude = std::round(longitude * 1e6) / 1e6;
+            m_notamQueryRadiusM = std::round(radiusNm * 100.0) / 100.0 * 1852.0;
+            m_queryInProgress = false;
+            emit notamRecordsChanged();
+            if (batch.records.isEmpty()) {
+                emit notamQueryFinished(true,
+                    QStringLiteral("FAA NMS query completed with zero matching records for this radius. This US test source does not establish that the queried airspace is unrestricted. Snapshot %1.")
+                        .arg(m_notamSnapshotId));
+            } else {
+                emit notamQueryFinished(true,
+                    QStringLiteral("FAA NMS query succeeded: %1 records; %2 have displayable geometry (%3 area restrictions, %4 point/line only); %5 have no displayable geometry. Snapshot %6. Shared interpretation completed off the UI thread; FAA NMS STAGING/FIT remains a test source and does not establish operational airspace clearance or flight-release eligibility.")
+                        .arg(batch.records.size()).arg(batch.featuresWithGeometry)
+                        .arg(batch.areaRestrictions).arg(batch.displayOnlyGeometry)
+                        .arg(batch.recordsWithoutGeometry).arg(m_notamSnapshotId));
+            }
+        });
+        const QString environment = m_environment;
+        const QHash<QString, QVariantMap> cacheSnapshot = m_interpretationCache;
+        const QList<QString> cacheOrderSnapshot = m_interpretationCacheOrder;
+        watcher->setFuture(QtConcurrent::run(
+            [rawRecords, environment, cacheSnapshot, cacheOrderSnapshot]() {
+                return interpretNotamBatch(rawRecords, environment,
+                                           cacheSnapshot, cacheOrderSnapshot);
+            }));
     });
 }
 
