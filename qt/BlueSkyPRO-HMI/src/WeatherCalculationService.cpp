@@ -690,8 +690,12 @@ bool missionGeometryWithinNotamQueryCoverage(const QString& missionModelJson,
     if (parseError.error != QJsonParseError::NoError || !document.isObject())
         return false;
     const QJsonValue geometryValue = document.object().value(QStringLiteral("geometryObjects"));
-    if (!geometryValue.isArray() || geometryValue.toArray().isEmpty())
+    if (!geometryValue.isArray())
         return false;
+    // Point-to-point missions may have no area geometry; their complete route
+    // is checked independently by routeWithinNotamQueryCoverage().
+    if (geometryValue.toArray().isEmpty())
+        return true;
     bool foundCoordinate = false;
     for (const QJsonValue& geometry : geometryValue.toArray()) {
         if (!inspectMissionGeometryCoordinates(geometry, snapshot, safetyBufferM, foundCoordinate))
