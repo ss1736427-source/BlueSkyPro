@@ -1,6 +1,5 @@
 #include "NotamGeometryEngine.h"
 #include <QJsonArray>
-#include <cstdio>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
@@ -152,7 +151,6 @@ QJsonObject sanitiseRawAreaGeometry(const QJsonObject &geometry) {
     for (int polygonIndex = 0; polygonIndex < sourcePolygons.size(); ++polygonIndex) {
         const QJsonArray sourceRings=sourcePolygons.at(polygonIndex).toArray();
         if (sourceRings.isEmpty()) {
-            std::fprintf(stderr, "NOTAM_SANITISE_REJECT=EMPTY_POLYGON polygon=%d\\n", polygonIndex);
             return {};
         }
         QJsonArray rings;
@@ -160,13 +158,9 @@ QJsonObject sanitiseRawAreaGeometry(const QJsonObject &geometry) {
             const QJsonArray rawRing = sourceRings.at(ringIndex).toArray();
             const QJsonArray ring=closedValidRing(rawRing);
             if (ring.isEmpty()) {
-                std::fprintf(stderr, "NOTAM_SANITISE_REJECT=INVALID_RING polygon=%d ring=%d rawPoints=%d\\n",
-                    polygonIndex, ringIndex, rawRing.size());
                 return {};
             }
             if (ringSelfIntersects(ring)) {
-                std::fprintf(stderr, "NOTAM_SANITISE_REJECT=SELF_INTERSECTION polygon=%d ring=%d points=%d\\n",
-                    polygonIndex, ringIndex, ring.size());
                 return {};
             }
             rings.append(ring);
@@ -174,15 +168,12 @@ QJsonObject sanitiseRawAreaGeometry(const QJsonObject &geometry) {
         GeoPoint outerPoint;
         const QJsonArray outerRing = rings.first().toArray();
         if (!toGeoPoint(outerRing.first(), outerPoint)) {
-            std::fprintf(stderr, "NOTAM_SANITISE_REJECT=INVALID_OUTER_POINT polygon=%d\\n", polygonIndex);
             return {};
         }
         bool independentRings=false;
         for (int i=1;i<rings.size();++i) {
             GeoPoint innerPoint;
             if (!toGeoPoint(rings.at(i).toArray().first(), innerPoint)) {
-                std::fprintf(stderr, "NOTAM_SANITISE_REJECT=INVALID_INNER_POINT polygon=%d ring=%d\\n",
-                    polygonIndex, i);
                 return {};
             }
             if (!pointInRing(innerPoint, outerRing)) { independentRings=true; break; }
@@ -194,7 +185,6 @@ QJsonObject sanitiseRawAreaGeometry(const QJsonObject &geometry) {
         }
     }
     if (outputPolygons.isEmpty()) {
-        std::fprintf(stderr, "NOTAM_SANITISE_REJECT=EMPTY_OUTPUT\\n");
         return {};
     }
     return outputPolygons.size()==1
@@ -318,15 +308,6 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     QJsonParseError parseError;
     auto gd=QJsonDocument::fromJson(raw.toUtf8(), &parseError);
     if(gd.isObject())g=gd.object();
-    if (source.value("id").toString() == QStringLiteral("N-HMI-001")) {
-        const QJsonArray rings = g.value("coordinates").toArray();
-        const QJsonArray ring = rings.isEmpty() ? QJsonArray{} : rings.first().toArray();
-        std::fprintf(stderr, "NOTAM_STAGE rawLen=%d rawType=%d parseError=%d parseOffset=%lld object=%d type=%s polygonCount=%d firstRing=%d\\n",
-            raw.size(), int(source.value("geometryJson").metaType().id()), int(parseError.error),
-            static_cast<long long>(parseError.offset), gd.isObject()?1:0,
-            qPrintable(g.value("type").toString()), rings.size(), ring.size());
-        std::fflush(stderr);
-    }
     const QString sourceGeometryType = g.value("type").toString();
     const bool sourceAreaGeometry = sourceGeometryType == QStringLiteral("Polygon")
         || sourceGeometryType == QStringLiteral("MultiPolygon");
@@ -431,11 +412,6 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     }
     const QString preSanitiseType = g.value("type").toString();
     g = sanitiseRawAreaGeometry(g);
-    if (source.value("id").toString() == QStringLiteral("N-HMI-001")) {
-        std::fprintf(stderr, "NOTAM_STAGE preSanitise=%s postSanitise=%s provenanceSourceArea=%d\\n",
-            qPrintable(preSanitiseType), qPrintable(g.value("type").toString()), sourceAreaGeometry?1:0);
-        std::fflush(stderr);
-    }
     QString type=g.value("type").toString();
     const bool areaGeometry=type=="Polygon"||type=="MultiPolygon";
     // Keep valid non-area GeoJSON for map display. Point/line geometry is useful
