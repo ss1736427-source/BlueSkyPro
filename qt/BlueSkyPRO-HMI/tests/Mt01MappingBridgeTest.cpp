@@ -363,7 +363,7 @@ int main(int argc, char **argv)
     assert(equipmentEstimateOperationResult.value("taskExecutionEstimatesReady").toBool());
     assert(!equipmentEstimateOperationResult.value("taskExecutionEstimatesAppliedToTrajectory").toBool());
 
-    QJsonObject mismatchedOperationMission = validatedOperationMission;
+    QJsonObject mismatchedOperationMission = equipmentEstimateOperationMission;
     QJsonObject mismatchedOperation = mismatchedOperationMission.value("operations").toArray().first().toObject();
     QJsonObject mismatchedEstimate = mismatchedOperation.value("executionEstimate").toObject();
     mismatchedEstimate.insert("vehicleConfigurationVersion", "OLD-CONFIGURATION");
