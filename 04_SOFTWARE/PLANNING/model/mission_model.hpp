@@ -186,4 +186,13 @@ struct Mission {
     std::vector<ExecutionReference> execution_references;
 };
 
+// Synchronize lifecycle identity from the canonical mission aggregate. Template
+// identity is copied as a set because one mission may combine multiple templates.
+inline void synchronizeMissionLifecycleIdentity(Mission &mission)
+{
+    mission.lifecycle.mission_id = mission.identity.mission_id;
+    mission.lifecycle.mission_version = mission.identity.mission_version;
+    mission.lifecycle.mission_template_ids = mission.selected_template_ids;
+}
+
 } // namespace bluesky::planning

@@ -113,7 +113,9 @@ int main(int argc, char **argv)
     assert(!result.value("taskExecutionEstimatesAppliedToTrajectory").toBool());
 
     bluesky::planning::MissionLifecycleRecord mt01LifecycleRecord;
-    mt01LifecycleRecord.mission_template_id = "MT-01";
+    mt01LifecycleRecord.mission_id = "MT01-MAVIC3E-HMI-TEST";
+    mt01LifecycleRecord.mission_version = "1";
+    mt01LifecycleRecord.mission_template_ids = {"MT-01"};
     bluesky::planning::MissionLifecycleEvidence mt01LifecycleEvidence;
     mt01LifecycleEvidence.mt01_coverage_candidate_available =
         result.value("coverageCandidateAvailable").toBool();

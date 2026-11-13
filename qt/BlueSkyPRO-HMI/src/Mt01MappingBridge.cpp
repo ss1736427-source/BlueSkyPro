@@ -480,6 +480,7 @@ bool parseMission(const QJsonObject &json, Mission &mission, QStringList &errors
             mission.geometry_objects.push_back(std::move(geometry));
         }
     }
+    synchronizeMissionLifecycleIdentity(mission);
     return errors.isEmpty();
 }
 

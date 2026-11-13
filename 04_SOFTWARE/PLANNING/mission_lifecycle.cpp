@@ -88,7 +88,8 @@ std::vector<std::string> MissionLifecycleController::mt01ReadinessBlockers(
     const MissionLifecycleRecord &record,
     const MissionLifecycleEvidence &evidence) {
     std::vector<std::string> blockers;
-    if (record.mission_template_id != "MT-01")
+    if (std::find(record.mission_template_ids.begin(), record.mission_template_ids.end(), "MT-01")
+        == record.mission_template_ids.end())
         return blockers;
     require(evidence.mt01_coverage_candidate_available,
             "MT01_COVERAGE_CANDIDATE_REQUIRED", blockers);

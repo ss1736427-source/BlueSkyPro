@@ -22,6 +22,10 @@ int main() {
     mission.identity.operator_id = "OP-001";
     mission.identity.mission_type = "survey";
     mission.identity.operational_status = "draft";
+    synchronizeMissionLifecycleIdentity(mission);
+    assert(mission.lifecycle.mission_id == mission.identity.mission_id);
+    assert(mission.lifecycle.mission_version == mission.identity.mission_version);
+    assert(mission.lifecycle.mission_template_ids == mission.selected_template_ids);
 
     mission.intent.objective = "survey an area";
     mission.intent.task_type = "survey";

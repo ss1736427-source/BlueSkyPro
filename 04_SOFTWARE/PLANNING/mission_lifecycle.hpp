@@ -121,7 +121,6 @@ struct MissionLifecycleEvent {
 struct MissionLifecycleRecord {
     std::string mission_id;
     std::string mission_version;
-    std::string mission_template_id;
     MissionLifecycleState state{MissionLifecycleState::Draft};
     std::string parent_mission_version;
     std::string current_route_id;
@@ -129,6 +128,8 @@ struct MissionLifecycleRecord {
     std::string current_calculation_input_version;
     std::uint64_t next_event_sequence{1};
     std::vector<MissionLifecycleEvent> history;
+    // All selected templates are retained; missions may combine task templates.
+    std::vector<std::string> mission_template_ids;
 };
 
 struct MissionLifecycleTransitionResult {
