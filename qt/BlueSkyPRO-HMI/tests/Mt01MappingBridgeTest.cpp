@@ -153,6 +153,24 @@ int main(int argc, char **argv)
     assert(notamResult.value("notamApplicableIds").toStringList().contains("N-HMI-001"));
     assert(notamResult.value("notamComponentIds").toStringList().contains("N-HMI-001-COMP-1"));
 
+    // The map retains the complete source polygon including its hole;
+    // planning must block until the planner supports hole-aware topology.
+    QVariantMap holeParameters = activeNotamParameters;
+    QVariantMap holeSource = activeNotamSource;
+    holeSource.insert("geometryJson", QStringLiteral(
+        R"({"type":"Polygon","coordinates":[[[0.0008,0.0008],[0.0012,0.0008],[0.0012,0.0012],[0.0008,0.0012],[0.0008,0.0008]],[[0.0009,0.0009],[0.0011,0.0009],[0.0011,0.0011],[0.0009,0.0011],[0.0009,0.0009]]]})"));
+    const QVariantMap holeNotam = NotamGeometryEngine::normalize(holeSource);
+    const QJsonObject holeMapGeometry = QJsonDocument::fromJson(
+        holeNotam.value("geometryJson").toString().toUtf8()).object();
+    assert(holeMapGeometry.value("coordinates").toArray().size() == 2);
+    assert(holeNotam.value("planningComponents").toList().first().toMap()
+               .value("interiorRingCount").toInt() == 1);
+    holeParameters.insert("notamRecords", QVariantList{holeNotam});
+    const QVariantMap holeResult = bridge.calculate(validMissionJson(), holeParameters);
+    assert(holeResult.value("status").toString() == "NEEDS_INPUT");
+    assert(holeResult.value("findings").toStringList().join(";")
+               .contains("NOTAM_INTERIOR_RINGS_UNSUPPORTED_FOR_PLANNING"));
+
     QVariantMap conditionalSource = activeNotamSource;
     conditionalSource.insert("originalText",
         "E) RESTRICTED AREA WI AREA\nF)GND\nG)150M AGL");

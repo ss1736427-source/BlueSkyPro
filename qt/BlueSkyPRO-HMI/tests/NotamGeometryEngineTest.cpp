@@ -164,6 +164,31 @@ int main(int argc,char**argv){
    assert(qAbs(mapPoint.at(0).toDouble()-planningPoint.at(0).toDouble())<1e-12);
    assert(qAbs(mapPoint.at(1).toDouble()-planningPoint.at(1).toDouble())<1e-12);
  }
+ // Authoritative MultiPolygon must remain byte-for-coordinate equivalent in
+ // the map projection while each polygon becomes an independent planner component.
+ QVariantMap multiPolygon{{"id","N-MULTI-001"},
+   {"geometryJson",QStringLiteral(R"({"type":"MultiPolygon","coordinates":[[[[10.0,50.0],[10.2,50.0],[10.2,50.2],[10.0,50.0]]],[[[11.0,51.0],[11.2,51.0],[11.2,51.2],[11.0,51.0]]]]})")},
+   {"originalText","E) AIRSPACE CLSD WI AREA\\nF)GND\\nG)150M AGL"},
+   {"lowerLimitRaw","GND"},{"upperLimitRaw","150M AGL"}};
+ auto multiResult=NotamGeometryEngine::normalize(multiPolygon);
+ auto multiGeo=QJsonDocument::fromJson(multiResult["geometryJson"].toString().toUtf8()).object();
+ assert(multiGeo["type"].toString()=="MultiPolygon");
+ assert(multiGeo["coordinates"].toArray().size()==2);
+ assert(multiResult["planningComponents"].toList().size()==2);
+ assert(multiResult["planningComponents"].toList().at(0).toMap()["componentId"].toString()=="N-MULTI-001-COMP-1");
+ assert(multiResult["planningComponents"].toList().at(1).toMap()["componentId"].toString()=="N-MULTI-001-COMP-2");
+ // Interior rings remain intact for map display, but are explicitly marked
+ // unsupported in the planner projection (the bridge must fail closed).
+ QVariantMap polygonWithHole{{"id","N-HOLE-001"},
+   {"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[0.0,0.0],[0.02,0.0],[0.02,0.02],[0.0,0.02],[0.0,0.0]],[[0.005,0.005],[0.015,0.005],[0.015,0.015],[0.005,0.015],[0.005,0.005]]]})")},
+   {"originalText","E) AIRSPACE CLSD WI AREA\\nF)GND\\nG)150M AGL"},
+   {"lowerLimitRaw","GND"},{"upperLimitRaw","150M AGL"}};
+ auto holeResult=NotamGeometryEngine::normalize(polygonWithHole);
+ auto holeGeo=QJsonDocument::fromJson(holeResult["geometryJson"].toString().toUtf8()).object();
+ assert(holeGeo["type"].toString()=="Polygon");
+ assert(holeGeo["coordinates"].toArray().size()==2);
+ assert(holeResult["planningComponents"].toList().size()==1);
+ assert(holeResult["planningComponents"].toList().first().toMap()["interiorRingCount"].toInt()==1);
  QVariantMap bad{{"text","Informational NOTAM only"}};auto d=NotamGeometryEngine::normalize(bad);assert(!d["geometryValidated"].toBool());
  // Non-area GeoJSON must remain available to the map's point/line layers, but
  // must never be reported as a validated airspace polygon.
