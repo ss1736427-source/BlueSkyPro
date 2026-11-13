@@ -150,6 +150,45 @@ int main(int argc, char **argv)
 
     assert(result.value("findings").toStringList().join(";")
                .contains("MT01_OPERATION_EXECUTION_ESTIMATE_UNRESOLVED"));
+
+    QJsonObject validatedEstimateMission = QJsonDocument::fromJson(
+        validMissionJson().toUtf8()).object();
+    QJsonArray validatedOperations = validatedEstimateMission.value("operations").toArray();
+    QJsonObject validatedOperation = validatedOperations.first().toObject();
+    validatedOperation.insert("executionEstimate", QJsonObject{
+        {"state", "VALIDATED"},
+        {"durationS", 120.0},
+        {"energyWh", 8.5},
+        {"sourceType", "OPERATOR_APPROVED"},
+        {"sourceId", "MT01-ESTIMATE-001"},
+        {"sourceVersion", "1"},
+        {"methodVersion", "1"},
+        {"vehicleId", "DJI-MAVIC-3E"},
+        {"vehicleConfigurationVersion", "MAVIC-3E-STANDARD-REFERENCE-001"}
+    });
+    validatedOperations.replace(0, validatedOperation);
+    validatedEstimateMission.insert("operations", validatedOperations);
+    const QVariantMap validatedEstimateResult = bridge.calculate(
+        QString::fromUtf8(QJsonDocument(validatedEstimateMission).toJson(QJsonDocument::Compact)),
+        validParameters());
+    assert(validatedEstimateResult.value("coverageCandidateAvailable").toBool());
+    assert(validatedEstimateResult.value("taskExecutionEstimatesReady").toBool());
+    assert(!validatedEstimateResult.value("taskExecutionEstimatesAppliedToTrajectory").toBool());
+    assert(validatedEstimateResult.value("findings").toStringList().join(";")
+               .contains("MT01_OPERATION_EXECUTION_ESTIMATE_NOT_APPLIED_TO_TRAJECTORY"));
+
+    auto validatedEstimateLifecycleEvidence = mt01LifecycleEvidence;
+    validatedEstimateLifecycleEvidence.mt01_task_execution_estimates_ready =
+        validatedEstimateResult.value("taskExecutionEstimatesReady").toBool();
+    validatedEstimateLifecycleEvidence.mt01_task_execution_estimates_applied_to_trajectory =
+        validatedEstimateResult.value("taskExecutionEstimatesAppliedToTrajectory").toBool();
+    const auto validatedEstimateBlockers =
+        bluesky::planning::MissionLifecycleController::mt01ReadinessBlockers(
+            mt01LifecycleRecord, validatedEstimateLifecycleEvidence);
+    assert(std::find(validatedEstimateBlockers.begin(), validatedEstimateBlockers.end(),
+                     "MT01_TASK_EXECUTION_ESTIMATES_NOT_READY") == validatedEstimateBlockers.end());
+    assert(std::find(validatedEstimateBlockers.begin(), validatedEstimateBlockers.end(),
+                     "MT01_TASK_EXECUTION_ESTIMATES_NOT_APPLIED") != validatedEstimateBlockers.end());
     assert(result.value("coverageValid").toBool());
     assert(result.value("waypoints").toList().size() >= 2);
     assert(!result.value("capturePoints").toList().isEmpty());

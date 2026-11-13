@@ -704,8 +704,14 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
     QStringList findings;
     for (const std::string &finding : calculated.findings)
         findings.push_back(QString::fromStdString(finding));
-    if (calculated.coverage_candidate_available && !taskExecutionEstimatesReady)
+    const bool taskExecutionEstimatesAppliedToTrajectory = false;
+    if (calculated.coverage_candidate_available && !taskExecutionEstimatesReady) {
         findings.push_back(QStringLiteral("MT01_OPERATION_EXECUTION_ESTIMATE_UNRESOLVED: coverage geometry is available, but operation time/energy is not yet applied to trajectory assessment."));
+    } else if (calculated.coverage_candidate_available
+               && taskExecutionEstimatesReady
+               && !taskExecutionEstimatesAppliedToTrajectory) {
+        findings.push_back(QStringLiteral("MT01_OPERATION_EXECUTION_ESTIMATE_NOT_APPLIED_TO_TRAJECTORY: the aggregate operation estimate is validated, but it has not been mapped to capture/route execution events and is excluded from flight-time and energy assessment."));
+    }
 
     QVariantMap metrics{
         {QStringLiteral("targetGsdCmPx"), calculated.coverage.metrics.target_gsd_cm_px},
@@ -754,7 +760,7 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
         {QStringLiteral("coverageCandidateAvailable"), calculated.coverage_candidate_available},
         {QStringLiteral("flightReleaseEligible"), false},
         {QStringLiteral("taskExecutionEstimatesReady"), taskExecutionEstimatesReady},
-        {QStringLiteral("taskExecutionEstimatesAppliedToTrajectory"), false},
+        {QStringLiteral("taskExecutionEstimatesAppliedToTrajectory"), taskExecutionEstimatesAppliedToTrajectory},
         {QStringLiteral("coverageValid"), calculated.coverage.valid},
         {QStringLiteral("coverageStatus"), QString::fromStdString(calculated.coverage.status)},
         {QStringLiteral("cameraCalibrationVerified"), calculated.coverage.intrinsic_calibration_verified},
