@@ -29,7 +29,7 @@ static QString validMissionJson()
         {"missionId", "MT01-MAVIC3E-HMI-TEST"},
         {"missionVersion", "1"},
         {"missionMode", "AUTO"},
-        {"selectedTemplateIds", QJsonArray{"MT-01"}},
+        {"selectedTemplateIds", QJsonArray{"MT-01", "MT-02"}},
         {"task", QJsonObject{{"description", "Photogrammetry test"}}},
         {"intent", QJsonObject{{"objective", "Orthomosaic"}, {"taskType", "MAPPING"}}},
         {"vehicleAssignments", QJsonArray{QJsonObject{
@@ -112,10 +112,18 @@ int main(int argc, char **argv)
     assert(!result.value("taskExecutionEstimatesReady").toBool());
     assert(!result.value("taskExecutionEstimatesAppliedToTrajectory").toBool());
 
+    const QVariantMap lifecycleIdentity = result.value("lifecycleIdentity").toMap();
     bluesky::planning::MissionLifecycleRecord mt01LifecycleRecord;
-    mt01LifecycleRecord.mission_id = "MT01-MAVIC3E-HMI-TEST";
-    mt01LifecycleRecord.mission_version = "1";
-    mt01LifecycleRecord.mission_template_ids = {"MT-01"};
+    mt01LifecycleRecord.mission_id = lifecycleIdentity.value("missionId").toString().toStdString();
+    mt01LifecycleRecord.mission_version = lifecycleIdentity.value("missionVersion").toString().toStdString();
+    for (const QVariant &templateId : lifecycleIdentity.value("templateIds").toList())
+        mt01LifecycleRecord.mission_template_ids.push_back(templateId.toString().toStdString());
+    assert(mt01LifecycleRecord.mission_id == "MT01-MAVIC3E-HMI-TEST");
+    assert(mt01LifecycleRecord.mission_version == "1");
+    assert(mt01LifecycleRecord.mission_template_ids.size() == 2);
+    assert(std::find(mt01LifecycleRecord.mission_template_ids.begin(),
+                     mt01LifecycleRecord.mission_template_ids.end(), "MT-01")
+           != mt01LifecycleRecord.mission_template_ids.end());
     bluesky::planning::MissionLifecycleEvidence mt01LifecycleEvidence;
     mt01LifecycleEvidence.mt01_coverage_candidate_available =
         result.value("coverageCandidateAvailable").toBool();
@@ -126,10 +134,7 @@ int main(int argc, char **argv)
     mt01LifecycleEvidence.mt01_task_execution_estimates_applied_to_trajectory =
         result.value("taskExecutionEstimatesAppliedToTrajectory").toBool();
     mt01LifecycleEvidence.mt01_camera_intrinsic_calibration_verified =
-        validParameters().value("intrinsicCalibrationVerified").toBool()
-        && QJsonDocument::fromJson(validMissionJson().toUtf8()).object()
-               .value("equipmentAssignments").toArray().first().toObject()
-               .value("calibrationState").toString() == "VERIFIED";
+        result.value("cameraCalibrationVerified").toBool();
     const auto mt01ReadinessBlockers =
         bluesky::planning::MissionLifecycleController::mt01ReadinessBlockers(
             mt01LifecycleRecord, mt01LifecycleEvidence);

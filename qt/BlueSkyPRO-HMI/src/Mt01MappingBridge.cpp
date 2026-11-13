@@ -738,7 +738,17 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
             {QStringLiteral("distanceFromSegmentStartM"), point.distance_from_segment_start_m}
         });
 
+    QVariantList lifecycleTemplateIds;
+    for (const auto &templateId : mission.lifecycle.mission_template_ids)
+        lifecycleTemplateIds.push_back(QString::fromStdString(templateId));
+    const QVariantMap lifecycleIdentity{
+        {QStringLiteral("missionId"), QString::fromStdString(mission.lifecycle.mission_id)},
+        {QStringLiteral("missionVersion"), QString::fromStdString(mission.lifecycle.mission_version)},
+        {QStringLiteral("templateIds"), lifecycleTemplateIds}
+    };
+
     return {
+        {QStringLiteral("lifecycleIdentity"), lifecycleIdentity},
         {QStringLiteral("status"), calculated.coverage_candidate_available
              ? QStringLiteral("COVERAGE_CANDIDATE_AVAILABLE") : QStringLiteral("NEEDS_INPUT")},
         {QStringLiteral("coverageCandidateAvailable"), calculated.coverage_candidate_available},
