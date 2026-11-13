@@ -221,6 +221,10 @@ add_executable(notam_geometry_engine_test
     src/NotamGeometryEngine.h
 )
 target_link_libraries(notam_geometry_engine_test PRIVATE Qt6::Core)
+target_compile_options(notam_geometry_engine_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
 add_test(NAME notam_geometry_engine_contract COMMAND notam_geometry_engine_test)
 
 add_executable(manual_mission_model_adapter_test
