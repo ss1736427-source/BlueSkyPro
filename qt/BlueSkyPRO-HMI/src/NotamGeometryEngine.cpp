@@ -221,7 +221,9 @@ void appendUniquePolygon(QJsonArray &polygons, QSet<QString> &seen, QJsonArray r
     const QString signature = ringSignature(ring);
     if (signature.isEmpty() || seen.contains(signature)) return;
     seen.insert(signature);
-    QJsonArray polygon;\n    polygon.append(ring);\n    polygons.append(polygon);
+    QJsonArray polygon;
+    polygon.append(ring);
+    polygons.append(polygon);
 }
 
 QJsonArray explicitRestrictionPolygons(const QString &text) {
@@ -372,10 +374,14 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
                     if(ring.first()!=ring.last())ring.append(ring.first());
                 }
                 // Repeated NOTAM text must not duplicate an area or circle.
-                QJsonArray ringKeyArray;\n                ringKeyArray.append(ring);\n                const QString ringKey=QString::fromUtf8(QJsonDocument(ringKeyArray).toJson(QJsonDocument::Compact));
+                QJsonArray ringKeyArray;
+                ringKeyArray.append(ring);
+                const QString ringKey=QString::fromUtf8(QJsonDocument(ringKeyArray).toJson(QJsonDocument::Compact));
                 if(seenRings.contains(ringKey)) continue;
                 seenRings.insert(ringKey);
-                QJsonArray polygon;\n                polygon.append(ring);\n                polygons.append(polygon);
+                QJsonArray polygon;
+                polygon.append(ring);
+                polygons.append(polygon);
                 ++itemCount;
             }
         }
@@ -403,14 +409,23 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
         static const QRegularExpression cr(QStringLiteral("\\d{4,6}[NS]\\s*\\d{5,7}[EW]"),QRegularExpression::CaseInsensitiveOption);
         QJsonArray ring;auto it=cr.globalMatch(candidate);
         while(it.hasNext()){auto c=coord(it.next().captured());if(c.ok)ring.append(QJsonArray{c.lon,c.lat});}
-        if(ring.size()>=3){\n            if(ring.first()!=ring.last())ring.append(ring.first());\n            QJsonArray polygonCoordinates;\n            polygonCoordinates.append(ring);\n            g=QJsonObject{{"type","Polygon"},{"coordinates",polygonCoordinates}};\n        }
+        if(ring.size()>=3){
+            if(ring.first()!=ring.last())ring.append(ring.first());
+            QJsonArray polygonCoordinates;
+            polygonCoordinates.append(ring);
+            g=QJsonObject{{"type","Polygon"},{"coordinates",polygonCoordinates}};
+        }
         else {
             // Only explicit radius wording builds a circle; the Q-line radius is search metadata.
             static const QRegularExpression rr(QStringLiteral("(?:CIRCLE\\s+)?RADIUS\\s*[-:]?\\s*(\\d+(?:[.,]\\d+)?)\\s*(NM|KM|M)\\s+(?:CENT(?:RE|ER)|OF|AROUND)\\s+(\\d{4,6}[NS]\\s*\\d{5,7}[EW])|(?:WITHIN|WI)\\s+(\\d+(?:[.,]\\d+)?)\\s*(NM|KM|M)\\s+(?:OF|FROM|CENT(?:RE|ER)\\s+OF)\\s+(\\d{4,6}[NS]\\s*\\d{5,7}[EW])"),QRegularExpression::CaseInsensitiveOption);
             auto rm=rr.match(text);if(rm.hasMatch()){
                 bool first=!rm.captured(1).isEmpty();QString n=(first?rm.captured(1):rm.captured(4));n.replace(',','.');QString unit=(first?rm.captured(2):rm.captured(5)).toUpper();
                 auto c=coord(first?rm.captured(3):rm.captured(6));double km=n.toDouble();if(unit=="NM")km*=1.852;else if(unit=="M")km/=1000;
-                if(c.ok&&km>0&&km<=500){\n                    QJsonArray polygonCoordinates;\n                    polygonCoordinates.append(circle(c.lat,c.lon,km));\n                    g=QJsonObject{{"type","Polygon"},{"coordinates",polygonCoordinates}};\n                }
+                if(c.ok&&km>0&&km<=500){
+                    QJsonArray polygonCoordinates;
+                    polygonCoordinates.append(circle(c.lat,c.lon,km));
+                    g=QJsonObject{{"type","Polygon"},{"coordinates",polygonCoordinates}};
+                }
             }
         }
     }
