@@ -275,6 +275,18 @@ int main() {
     assert(std::find(staleValidation.blockers.begin(), staleValidation.blockers.end(),
                      "NOTAM_VALIDATION_LINEAGE_MISMATCH") != staleValidation.blockers.end());
     e.notam_validation = notamValidation();
+    auto mismatchedNotamSnapshot = e;
+    mismatchedNotamSnapshot.notam_recheck_snapshot_id = "NOTAM-STALE";
+    auto mismatchedNotamSnapshotResult = move(record, MissionLifecycleState::Ready, mismatchedNotamSnapshot);
+    assert(!mismatchedNotamSnapshotResult.accepted);
+    assert(std::find(mismatchedNotamSnapshotResult.blockers.begin(), mismatchedNotamSnapshotResult.blockers.end(),
+                     "NOTAM_VALIDATION_SNAPSHOT_MISMATCH") != mismatchedNotamSnapshotResult.blockers.end());
+    auto missingNotamSnapshotEvidence = e;
+    missingNotamSnapshotEvidence.notam_validation.snapshot_id.clear();
+    auto missingNotamSnapshotResult = move(record, MissionLifecycleState::Ready, missingNotamSnapshotEvidence);
+    assert(!missingNotamSnapshotResult.accepted);
+    assert(std::find(missingNotamSnapshotResult.blockers.begin(), missingNotamSnapshotResult.blockers.end(),
+                     "NOTAM_VALIDATION_SNAPSHOT_ID_REQUIRED") != missingNotamSnapshotResult.blockers.end());
     auto missingRouteStructure = e;
     missingRouteStructure.route_structure_validation.result_id.clear();
     auto missingRouteStructureResult = move(record, MissionLifecycleState::Ready, missingRouteStructure);

@@ -25,6 +25,7 @@ inline MissionLifecycleValidationEvidence makeNotamValidationEvidence(
     evidence.validator_id = validation.validator_id;
     evidence.validator_version = validation.validator_version;
     evidence.source_reference = snapshot.source_id + "@" + snapshot.source_version;
+    evidence.snapshot_id = validation.snapshot_id;
     const bool lineageMatches = !route.lineage.mission_id.empty()
         && !route.lineage.mission_version.empty() && !route.lineage.route_id.empty()
         && !route.lineage.route_version.empty()

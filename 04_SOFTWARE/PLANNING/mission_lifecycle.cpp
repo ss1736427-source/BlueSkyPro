@@ -196,6 +196,10 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
                           "TRAJECTORY_GEOMETRY_VALIDATION_LINEAGE_MISMATCH");
         requireValidation(evidence.notam_validation,
                           "NOTAM_VALIDATION_EVIDENCE_REQUIRED", "NOTAM_VALIDATION_LINEAGE_MISMATCH");
+        requireText(evidence.notam_validation.snapshot_id,
+                    "NOTAM_VALIDATION_SNAPSHOT_ID_REQUIRED", result.blockers);
+        require(evidence.notam_validation.snapshot_id == evidence.notam_recheck_snapshot_id,
+                "NOTAM_VALIDATION_SNAPSHOT_MISMATCH", result.blockers);
         requireValidation(evidence.terrain_validation,
                           "TERRAIN_VALIDATION_EVIDENCE_REQUIRED", "TERRAIN_VALIDATION_LINEAGE_MISMATCH");
         requireValidation(evidence.vehicle_envelope_validation,
