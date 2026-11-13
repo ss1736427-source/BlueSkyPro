@@ -297,7 +297,13 @@ QVariantMap NotamGeometryEngine::conservativeUpperPlane(double minTerrainMeters,
 
 QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     QVariantMap out=source;
-    const QString text=source.value("originalText").toString()+"\n"+source.value("text").toString();
+    QString text=source.value("originalText").toString()+"\n"+source.value("text").toString();
+    // Some NOTAM providers and imported fixtures encode line breaks as literal
+    // backslash sequences. Normalize those before section/item parsing so
+    // repeated AS FLW blocks and numbered areas are recognized consistently.
+    text.replace(QStringLiteral("\\r\\n"), QStringLiteral("\n"));
+    text.replace(QStringLiteral("\\n"), QStringLiteral("\n"));
+    text.replace(QStringLiteral("\\r"), QStringLiteral("\n"));
     QString lower=source.value("lowerLimitRaw").toString().trimmed(),upper=source.value("upperLimitRaw").toString().trimmed();
     static const QRegularExpression fr(QStringLiteral("(?:^|\\n)F\\)\\s*([^\\r\\n]+)"),QRegularExpression::CaseInsensitiveOption);
     static const QRegularExpression gr(QStringLiteral("(?:^|\\n)G\\)\\s*([^\\r\\n]+)"),QRegularExpression::CaseInsensitiveOption);

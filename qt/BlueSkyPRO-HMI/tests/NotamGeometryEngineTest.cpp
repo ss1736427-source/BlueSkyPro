@@ -73,7 +73,7 @@ int main(int argc,char**argv){
  assert(compoundResult["restrictionGeometryStatus"].toString()=="MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS");
 
 
- // Full V7687/26 pattern: one AREA and five circles are repeated in a second
+ // The fixture deliberately uses literal escaped \\n sequences rather than actual line breaks.\n // Full V7687/26 pattern: one AREA and five circles are repeated in a second
  // numbered AS FLW block. Keep six unique components, not twelve, and never
  // connect circle centres to the AREA boundary.
  QVariantMap v7687{{"originalText",
