@@ -1,5 +1,6 @@
 #include "NotamGeometryEngine.h"
 #include <QJsonArray>
+#include <cstdio>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
@@ -275,7 +276,18 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     out["lowerLimitRaw"]=lower;out["upperLimitRaw"]=upper;out["lowerMeters"]=lo;out["upperMeters"]=hi;
     out["lowerDatum"]=ld;out["upperDatum"]=hd;
     QJsonObject g;const QString raw=source.value("geometryJson").toString();
-    auto gd=QJsonDocument::fromJson(raw.toUtf8());if(gd.isObject())g=gd.object();
+    QJsonParseError parseError;
+    auto gd=QJsonDocument::fromJson(raw.toUtf8(), &parseError);
+    if(gd.isObject())g=gd.object();
+    if (source.value("id").toString() == QStringLiteral("N-HMI-001")) {
+        const QJsonArray rings = g.value("coordinates").toArray();
+        const QJsonArray ring = rings.isEmpty() ? QJsonArray{} : rings.first().toArray();
+        std::fprintf(stderr, "NOTAM_STAGE rawLen=%d rawType=%d parseError=%d parseOffset=%lld object=%d type=%s polygonCount=%d firstRing=%d\\n",
+            raw.size(), int(source.value("geometryJson").metaType().id()), int(parseError.error),
+            static_cast<long long>(parseError.offset), gd.isObject()?1:0,
+            qPrintable(g.value("type").toString()), rings.size(), ring.size());
+        std::fflush(stderr);
+    }
     const QString sourceGeometryType = g.value("type").toString();
     const bool sourceAreaGeometry = sourceGeometryType == QStringLiteral("Polygon")
         || sourceGeometryType == QStringLiteral("MultiPolygon");
@@ -365,7 +377,13 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
             }
         }
     }
+    const QString preSanitiseType = g.value("type").toString();
     g = sanitiseRawAreaGeometry(g);
+    if (source.value("id").toString() == QStringLiteral("N-HMI-001")) {
+        std::fprintf(stderr, "NOTAM_STAGE preSanitise=%s postSanitise=%s provenanceSourceArea=%d\\n",
+            qPrintable(preSanitiseType), qPrintable(g.value("type").toString()), sourceAreaGeometry?1:0);
+        std::fflush(stderr);
+    }
     QString type=g.value("type").toString();
     const bool areaGeometry=type=="Polygon"||type=="MultiPolygon";
     // Keep valid non-area GeoJSON for map display. Point/line geometry is useful
