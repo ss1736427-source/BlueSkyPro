@@ -41,7 +41,6 @@ struct MissionLifecycleValidationEvidence {
 };
 
 struct MissionLifecycleEvidence {
-    std::string mission_template_id;
     std::string mission_id;
     std::string mission_version;
     std::string route_id;
@@ -122,6 +121,7 @@ struct MissionLifecycleEvent {
 struct MissionLifecycleRecord {
     std::string mission_id;
     std::string mission_version;
+    std::string mission_template_id;
     MissionLifecycleState state{MissionLifecycleState::Draft};
     std::string parent_mission_version;
     std::string current_route_id;
@@ -140,6 +140,7 @@ struct MissionLifecycleTransitionResult {
 class MissionLifecycleController {
 public:
     static std::vector<std::string> mt01ReadinessBlockers(
+        const MissionLifecycleRecord &record,
         const MissionLifecycleEvidence &evidence);
     static MissionLifecycleTransitionResult transition(
         MissionLifecycleRecord &record,

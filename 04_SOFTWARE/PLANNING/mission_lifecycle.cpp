@@ -85,9 +85,10 @@ const char *toString(MissionLifecycleState state) noexcept {
 }
 
 std::vector<std::string> MissionLifecycleController::mt01ReadinessBlockers(
+    const MissionLifecycleRecord &record,
     const MissionLifecycleEvidence &evidence) {
     std::vector<std::string> blockers;
-    if (evidence.mission_template_id != "MT-01")
+    if (record.mission_template_id != "MT-01")
         return blockers;
     require(evidence.mt01_coverage_candidate_available,
             "MT01_COVERAGE_CANDIDATE_REQUIRED", blockers);
@@ -187,7 +188,7 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         requireText(evidence.calculation_input_version, "CALCULATION_INPUT_VERSION_REQUIRED", result.blockers);
         break;
     case MissionLifecycleState::Ready: {
-        const auto mt01Blockers = mt01ReadinessBlockers(evidence);
+        const auto mt01Blockers = mt01ReadinessBlockers(record, evidence);
         result.blockers.insert(result.blockers.end(), mt01Blockers.begin(), mt01Blockers.end());
         const auto requireValidation = [&](const MissionLifecycleValidationEvidence &validation,
                                            const char *missingCode, const char *lineageCode) {

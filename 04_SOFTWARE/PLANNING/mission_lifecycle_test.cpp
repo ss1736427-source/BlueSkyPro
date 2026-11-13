@@ -251,7 +251,7 @@ static MissionLifecycleTransitionResult move(
 int main() {
     MissionLifecycleRecord mt01Record{"MISSION-001", "7"};
     auto mt01Evidence = evidence();
-    mt01Evidence.mission_template_id = "MT-01";
+    mt01Record.mission_template_id = "MT-01";
     assert(move(mt01Record, MissionLifecycleState::Calculating, mt01Evidence).accepted);
     assert(move(mt01Record, MissionLifecycleState::Validating, mt01Evidence).accepted);
     auto mt01BlockedReady = move(mt01Record, MissionLifecycleState::Ready, mt01Evidence);
