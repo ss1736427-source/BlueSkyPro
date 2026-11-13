@@ -31,6 +31,9 @@ struct Mt01KinematicGeometryResult {
     std::string vehicle_configuration_id;
     std::size_t connector_count{0};
     std::vector<GeoPoint> waypoints;
+    // Exact capture-point index -> waypoint index in this geometry candidate.
+    // Empty only when the coverage plan has no capture events.
+    std::vector<std::size_t> capture_point_waypoint_indices;
     // One explicit dynamics record for every adjacent waypoint pair.
     std::vector<Mt01KinematicSegment> segments;
     std::vector<std::string> diagnostics;

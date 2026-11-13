@@ -17,6 +17,14 @@ int main()
         {0.0, 0.0}, {0.0, 0.002},
         {0.001, 0.002}, {0.001, 0.0}
     };
+    coverage.capture_points = {
+        {{0.0, 0.0}, 0, 0.0},
+        {{0.0, 0.001}, 0, 111.195},
+        {{0.0, 0.002}, 0, 222.390},
+        {{0.001, 0.002}, 1, 0.0},
+        {{0.001, 0.001}, 1, 111.195},
+        {{0.001, 0.0}, 1, 222.390}
+    };
 
     VehicleMotionModel vehicle;
     vehicle.model_id = "TEST-FIXED-WING";
@@ -39,6 +47,14 @@ int main()
     assert(result.minimum_turn_radius_m > 0.0);
     assert(result.waypoints.size() > coverage.waypoints.size());
     assert(result.segments.size() + 1 == result.waypoints.size());
+    assert(result.capture_point_waypoint_indices.size() == coverage.capture_points.size());
+    for (std::size_t i = 0; i < result.capture_point_waypoint_indices.size(); ++i) {
+        const auto waypointIndex = result.capture_point_waypoint_indices[i];
+        assert(waypointIndex < result.waypoints.size());
+        const auto& mapped = result.waypoints[waypointIndex];
+        assert(std::abs(mapped.latitude_deg - coverage.capture_points[i].position.latitude_deg) < 1e-9);
+        assert(std::abs(mapped.longitude_deg - coverage.capture_points[i].position.longitude_deg) < 1e-9);
+    }
     assert(result.diagnostics.size() >= 2);
     bool sawCoverage = false;
     bool sawTurn = false;

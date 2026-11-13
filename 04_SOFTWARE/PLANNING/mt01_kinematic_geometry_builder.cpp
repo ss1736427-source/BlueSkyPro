@@ -58,6 +58,7 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
     const auto fail = [&](const std::string& reason) {
         result.feasible = false;
         result.waypoints.clear();
+        result.capture_point_waypoint_indices.clear();
         result.segments.clear();
         result.diagnostics.push_back(reason);
         return result;
@@ -150,7 +151,29 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
         result.segments.push_back(std::move(segment));
     };
 
+    // Validate and index capture events before mutating the route chain. The
+    // planner emits segment indices in coverage-leg order and distances along
+    // each directed leg; do not silently reorder or redistribute these events.
+    std::vector<std::vector<std::size_t>> capturesByLeg(coverage.waypoints.size() / 2);
+    std::vector<double> previousCaptureDistance(capturesByLeg.size(), -1.0);
+    for (std::size_t captureIndex = 0; captureIndex < coverage.capture_points.size(); ++captureIndex) {
+        const auto& capture = coverage.capture_points[captureIndex];
+        if (capture.coverage_segment_index >= capturesByLeg.size()
+            || !validGeo(capture.position)
+            || !finite(capture.distance_from_segment_start_m)
+            || capture.distance_from_segment_start_m < 0.0) {
+            return fail("MT01_CAPTURE_EVENT_INVALID: capture point has invalid segment, position or along-track distance.");
+        }
+        const auto legIndex = capture.coverage_segment_index;
+        if (capture.distance_from_segment_start_m + 0.01 < previousCaptureDistance[legIndex]) {
+            return fail("MT01_CAPTURE_EVENT_ORDER_INVALID: capture distances must be monotonically ordered within each coverage leg.");
+        }
+        previousCaptureDistance[legIndex] = capture.distance_from_segment_start_m;
+        capturesByLeg[legIndex].push_back(captureIndex);
+    }
+
     for (std::size_t leg = 0; leg < coverage.waypoints.size(); leg += 2) {
+        const std::size_t legIndex = leg / 2;
         const auto startXY = project(coverage.waypoints[leg], originLat, originLon);
         const auto finishXY = project(coverage.waypoints[leg + 1], originLat, originLon);
         const double dx = finishXY.x - startXY.x;
@@ -195,8 +218,47 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
             }
             ++result.connector_count;
         }
+        // Capture stations become explicit route waypoints. This preserves
+        // event timing at the actual image trigger position; connector points
+        // are never assigned task execution events.
+        const double legLength = std::hypot(dx, dy);
+        double lastInsertedDistance = -1.0;
+        for (const std::size_t captureIndex : capturesByLeg[legIndex]) {
+            const auto& capture = coverage.capture_points[captureIndex];
+            const double distance = capture.distance_from_segment_start_m;
+            if (distance > legLength + 0.05) {
+                return fail("MT01_CAPTURE_EVENT_OUTSIDE_COVERAGE_LEG: capture distance exceeds its coverage segment.");
+            }
+            const auto captureXY = project(capture.position, originLat, originLon);
+            const double expectedRatio = std::clamp(distance / legLength, 0.0, 1.0);
+            const XY expected{startXY.x + dx * expectedRatio, startXY.y + dy * expectedRatio};
+            if (std::hypot(captureXY.x - expected.x, captureXY.y - expected.y) > 0.10) {
+                return fail("MT01_CAPTURE_EVENT_POSITION_MISMATCH: capture position does not match its along-track distance.");
+            }
+            if (distance <= 0.01) {
+                result.capture_point_waypoint_indices.push_back(result.waypoints.size() - 1);
+                continue;
+            }
+            if (distance >= legLength - 0.01) {
+                appendEdge(coverage.waypoints[leg + 1],
+                           Mt01KinematicSegmentType::Coverage, 0.0, 0.0);
+                result.capture_point_waypoint_indices.push_back(result.waypoints.size() - 1);
+                lastInsertedDistance = legLength;
+                continue;
+            }
+            if (distance <= lastInsertedDistance + 0.01) {
+                return fail("MT01_CAPTURE_EVENT_DUPLICATE_OR_OUT_OF_ORDER: distinct capture events cannot collapse to the same route station.");
+            }
+            appendEdge(capture.position, Mt01KinematicSegmentType::Coverage, 0.0, 0.0);
+            result.capture_point_waypoint_indices.push_back(result.waypoints.size() - 1);
+            lastInsertedDistance = distance;
+        }
         appendEdge(coverage.waypoints[leg + 1],
                    Mt01KinematicSegmentType::Coverage, 0.0, 0.0);
+    }
+
+    if (result.capture_point_waypoint_indices.size() != coverage.capture_points.size()) {
+        return fail("MT01_CAPTURE_EVENT_MAPPING_INCOMPLETE: every coverage capture point must map to exactly one route waypoint.");
     }
 
     if (result.waypoints.size() < 2
