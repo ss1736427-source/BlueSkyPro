@@ -340,10 +340,10 @@ int main(int argc, char **argv)
     assert(missingOperation.value("findings").toStringList().contains(
         "MT01_MAPPING_SWATH_OPERATION_REQUIRED"));
 
-    QJsonObject validatedOperationMission =
+    QJsonObject equipmentEstimateOperationMission =
         QJsonDocument::fromJson(validMissionJson().toUtf8()).object();
-    QJsonObject validatedOperation = validatedOperationMission.value("operations").toArray().first().toObject();
-    validatedOperation.insert("executionEstimate", QJsonObject{
+    QJsonObject equipmentEstimateOperation = equipmentEstimateOperationMission.value("operations").toArray().first().toObject();
+    equipmentEstimateOperation.insert("executionEstimate", QJsonObject{
         {"state", "VALIDATED"},
         {"durationS", 600.0},
         {"energyWh", 24.0},
@@ -355,13 +355,13 @@ int main(int argc, char **argv)
         {"vehicleConfigurationVersion", "MAVIC-3E-STANDARD-REFERENCE-001"},
         {"equipmentProfileIds", QJsonArray{"DJI-MAVIC-3E-WIDE-PROFILE"}}
     });
-    validatedOperationMission.insert("operations", QJsonArray{validatedOperation});
-    const QVariantMap validatedOperationResult = bridge.calculate(
-        QString::fromUtf8(QJsonDocument(validatedOperationMission).toJson(QJsonDocument::Compact)),
+    equipmentEstimateOperationMission.insert("operations", QJsonArray{equipmentEstimateOperation});
+    const QVariantMap equipmentEstimateOperationResult = bridge.calculate(
+        QString::fromUtf8(QJsonDocument(equipmentEstimateOperationMission).toJson(QJsonDocument::Compact)),
         validParameters());
-    assert(validatedOperationResult.value("status").toString() == "COVERAGE_CANDIDATE_AVAILABLE");
-    assert(validatedOperationResult.value("taskExecutionEstimatesReady").toBool());
-    assert(!validatedOperationResult.value("taskExecutionEstimatesAppliedToTrajectory").toBool());
+    assert(equipmentEstimateOperationResult.value("status").toString() == "COVERAGE_CANDIDATE_AVAILABLE");
+    assert(equipmentEstimateOperationResult.value("taskExecutionEstimatesReady").toBool());
+    assert(!equipmentEstimateOperationResult.value("taskExecutionEstimatesAppliedToTrajectory").toBool());
 
     QJsonObject mismatchedOperationMission = validatedOperationMission;
     QJsonObject mismatchedOperation = mismatchedOperationMission.value("operations").toArray().first().toObject();
