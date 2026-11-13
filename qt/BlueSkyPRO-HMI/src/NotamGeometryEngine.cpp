@@ -142,22 +142,43 @@ QJsonObject sanitiseRawAreaGeometry(const QJsonObject &geometry) {
         ? QJsonArray{geometry.value("coordinates").toArray()}
         : geometry.value("coordinates").toArray();
     QJsonArray outputPolygons;
-    for (const QJsonValue &polygonValue : sourcePolygons) {
-        const QJsonArray sourceRings=polygonValue.toArray();
-        if (sourceRings.isEmpty()) return {};
+    for (int polygonIndex = 0; polygonIndex < sourcePolygons.size(); ++polygonIndex) {
+        const QJsonArray sourceRings=sourcePolygons.at(polygonIndex).toArray();
+        if (sourceRings.isEmpty()) {
+            std::fprintf(stderr, "NOTAM_SANITISE_REJECT=EMPTY_POLYGON polygon=%d\\n", polygonIndex);
+            return {};
+        }
         QJsonArray rings;
-        for (const QJsonValue &ringValue : sourceRings) {
-            const QJsonArray ring=closedValidRing(ringValue.toArray());
-            if (ring.isEmpty() || ringSelfIntersects(ring)) return {};
+        for (int ringIndex = 0; ringIndex < sourceRings.size(); ++ringIndex) {
+            const QJsonArray rawRing = sourceRings.at(ringIndex).toArray();
+            const QJsonArray ring=closedValidRing(rawRing);
+            if (ring.isEmpty()) {
+                std::fprintf(stderr, "NOTAM_SANITISE_REJECT=INVALID_RING polygon=%d ring=%d rawPoints=%d\\n",
+                    polygonIndex, ringIndex, rawRing.size());
+                return {};
+            }
+            if (ringSelfIntersects(ring)) {
+                std::fprintf(stderr, "NOTAM_SANITISE_REJECT=SELF_INTERSECTION polygon=%d ring=%d points=%d\\n",
+                    polygonIndex, ringIndex, ring.size());
+                return {};
+            }
             rings.append(ring);
         }
         GeoPoint outerPoint;
-        if (!toGeoPoint(rings.first().toArray().first(), outerPoint)) return {};
+        const QJsonArray outerRing = rings.first().toArray();
+        if (!toGeoPoint(outerRing.first(), outerPoint)) {
+            std::fprintf(stderr, "NOTAM_SANITISE_REJECT=INVALID_OUTER_POINT polygon=%d\\n", polygonIndex);
+            return {};
+        }
         bool independentRings=false;
         for (int i=1;i<rings.size();++i) {
             GeoPoint innerPoint;
-            if (!toGeoPoint(rings.at(i).toArray().first(), innerPoint)) return {};
-            if (!pointInRing(innerPoint, rings.first().toArray())) { independentRings=true; break; }
+            if (!toGeoPoint(rings.at(i).toArray().first(), innerPoint)) {
+                std::fprintf(stderr, "NOTAM_SANITISE_REJECT=INVALID_INNER_POINT polygon=%d ring=%d\\n",
+                    polygonIndex, i);
+                return {};
+            }
+            if (!pointInRing(innerPoint, outerRing)) { independentRings=true; break; }
         }
         if (independentRings) {
             for (const QJsonValue &ringValue : rings) outputPolygons.append(QJsonArray{ringValue});
@@ -165,7 +186,10 @@ QJsonObject sanitiseRawAreaGeometry(const QJsonObject &geometry) {
             outputPolygons.append(rings);
         }
     }
-    if (outputPolygons.isEmpty()) return {};
+    if (outputPolygons.isEmpty()) {
+        std::fprintf(stderr, "NOTAM_SANITISE_REJECT=EMPTY_OUTPUT\\n");
+        return {};
+    }
     return outputPolygons.size()==1
         ? QJsonObject{{"type", "Polygon"}, {"coordinates", outputPolygons.first().toArray()}}
         : QJsonObject{{"type", "MultiPolygon"}, {"coordinates", outputPolygons}};
