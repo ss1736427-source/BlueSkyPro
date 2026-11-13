@@ -41,6 +41,7 @@ struct MissionLifecycleValidationEvidence {
 };
 
 struct MissionLifecycleEvidence {
+    std::string mission_template_id;
     std::string mission_id;
     std::string mission_version;
     std::string route_id;
@@ -62,6 +63,11 @@ struct MissionLifecycleEvidence {
     std::string execution_vehicle_id;
     std::string postflight_record_id;
 
+    bool mt01_coverage_candidate_available{false};
+    bool mt01_flight_release_eligible{false};
+    bool mt01_task_execution_estimates_ready{false};
+    bool mt01_task_execution_estimates_applied_to_trajectory{false};
+    bool mt01_camera_intrinsic_calibration_verified{false};
     bool task_definition_complete{false};
     bool mission_geometry_complete{false};
     bool vehicle_configuration_validated{false};
@@ -133,6 +139,8 @@ struct MissionLifecycleTransitionResult {
 
 class MissionLifecycleController {
 public:
+    static std::vector<std::string> mt01ReadinessBlockers(
+        const MissionLifecycleEvidence &evidence);
     static MissionLifecycleTransitionResult transition(
         MissionLifecycleRecord &record,
         MissionLifecycleState target,

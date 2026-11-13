@@ -249,6 +249,29 @@ static MissionLifecycleTransitionResult move(
 }
 
 int main() {
+    MissionLifecycleRecord mt01Record{"MISSION-001", "7"};
+    auto mt01Evidence = evidence();
+    mt01Evidence.mission_template_id = "MT-01";
+    assert(move(mt01Record, MissionLifecycleState::Calculating, mt01Evidence).accepted);
+    assert(move(mt01Record, MissionLifecycleState::Validating, mt01Evidence).accepted);
+    auto mt01BlockedReady = move(mt01Record, MissionLifecycleState::Ready, mt01Evidence);
+    assert(!mt01BlockedReady.accepted);
+    for (const std::string code : {
+             "MT01_COVERAGE_CANDIDATE_REQUIRED",
+             "MT01_FLIGHT_RELEASE_NOT_ELIGIBLE",
+             "MT01_TASK_EXECUTION_ESTIMATES_NOT_READY",
+             "MT01_TASK_EXECUTION_ESTIMATES_NOT_APPLIED",
+             "MT01_CAMERA_INTRINSIC_CALIBRATION_NOT_VERIFIED"}) {
+        assert(std::find(mt01BlockedReady.blockers.begin(), mt01BlockedReady.blockers.end(), code)
+               != mt01BlockedReady.blockers.end());
+    }
+    mt01Evidence.mt01_coverage_candidate_available = true;
+    mt01Evidence.mt01_flight_release_eligible = true;
+    mt01Evidence.mt01_task_execution_estimates_ready = true;
+    mt01Evidence.mt01_task_execution_estimates_applied_to_trajectory = true;
+    mt01Evidence.mt01_camera_intrinsic_calibration_verified = true;
+    assert(move(mt01Record, MissionLifecycleState::Ready, mt01Evidence).accepted);
+
     MissionLifecycleRecord record{"MISSION-001", "7"};
     auto e = evidence();
     e.task_definition_complete = false;

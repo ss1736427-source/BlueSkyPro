@@ -84,6 +84,24 @@ const char *toString(MissionLifecycleState state) noexcept {
     return "UNKNOWN";
 }
 
+std::vector<std::string> MissionLifecycleController::mt01ReadinessBlockers(
+    const MissionLifecycleEvidence &evidence) {
+    std::vector<std::string> blockers;
+    if (evidence.mission_template_id != "MT-01")
+        return blockers;
+    require(evidence.mt01_coverage_candidate_available,
+            "MT01_COVERAGE_CANDIDATE_REQUIRED", blockers);
+    require(evidence.mt01_flight_release_eligible,
+            "MT01_FLIGHT_RELEASE_NOT_ELIGIBLE", blockers);
+    require(evidence.mt01_task_execution_estimates_ready,
+            "MT01_TASK_EXECUTION_ESTIMATES_NOT_READY", blockers);
+    require(evidence.mt01_task_execution_estimates_applied_to_trajectory,
+            "MT01_TASK_EXECUTION_ESTIMATES_NOT_APPLIED", blockers);
+    require(evidence.mt01_camera_intrinsic_calibration_verified,
+            "MT01_CAMERA_INTRINSIC_CALIBRATION_NOT_VERIFIED", blockers);
+    return blockers;
+}
+
 MissionLifecycleTransitionResult MissionLifecycleController::transition(
     MissionLifecycleRecord &record,
     MissionLifecycleState target,
@@ -169,6 +187,8 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         requireText(evidence.calculation_input_version, "CALCULATION_INPUT_VERSION_REQUIRED", result.blockers);
         break;
     case MissionLifecycleState::Ready: {
+        const auto mt01Blockers = mt01ReadinessBlockers(evidence);
+        result.blockers.insert(result.blockers.end(), mt01Blockers.begin(), mt01Blockers.end());
         const auto requireValidation = [&](const MissionLifecycleValidationEvidence &validation,
                                            const char *missingCode, const char *lineageCode) {
             const bool hasResult = validation.status == MissionLifecycleValidationStatus::Passed

@@ -1,5 +1,6 @@
 #include "Mt01MappingBridge.h"
 #include "NotamGeometryEngine.h"
+#include "mission_lifecycle.hpp"
 
 #include <QCoreApplication>
 #include <cstdio>
@@ -7,6 +8,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+#include <algorithm>
 #include <cassert>
 
 static QString validMissionJson()
@@ -109,6 +111,35 @@ int main(int argc, char **argv)
     assert(!result.value("flightReleaseEligible").toBool());
     assert(!result.value("taskExecutionEstimatesReady").toBool());
     assert(!result.value("taskExecutionEstimatesAppliedToTrajectory").toBool());
+
+    bluesky::planning::MissionLifecycleEvidence mt01LifecycleEvidence;
+    mt01LifecycleEvidence.mission_template_id = "MT-01";
+    mt01LifecycleEvidence.mt01_coverage_candidate_available =
+        result.value("coverageCandidateAvailable").toBool();
+    mt01LifecycleEvidence.mt01_flight_release_eligible =
+        result.value("flightReleaseEligible").toBool();
+    mt01LifecycleEvidence.mt01_task_execution_estimates_ready =
+        result.value("taskExecutionEstimatesReady").toBool();
+    mt01LifecycleEvidence.mt01_task_execution_estimates_applied_to_trajectory =
+        result.value("taskExecutionEstimatesAppliedToTrajectory").toBool();
+    mt01LifecycleEvidence.mt01_camera_intrinsic_calibration_verified =
+        validParameters().value("intrinsicCalibrationVerified").toBool()
+        && QJsonDocument::fromJson(validMissionJson().toUtf8()).object()
+               .value("equipmentAssignments").toArray().first().toObject()
+               .value("calibrationState").toString() == "VERIFIED";
+    const auto mt01ReadinessBlockers =
+        bluesky::planning::MissionLifecycleController::mt01ReadinessBlockers(
+            mt01LifecycleEvidence);
+    assert(mt01ReadinessBlockers.size() == 4);
+    assert(std::find(mt01ReadinessBlockers.begin(), mt01ReadinessBlockers.end(),
+                     "MT01_FLIGHT_RELEASE_NOT_ELIGIBLE") != mt01ReadinessBlockers.end());
+    assert(std::find(mt01ReadinessBlockers.begin(), mt01ReadinessBlockers.end(),
+                     "MT01_TASK_EXECUTION_ESTIMATES_NOT_READY") != mt01ReadinessBlockers.end());
+    assert(std::find(mt01ReadinessBlockers.begin(), mt01ReadinessBlockers.end(),
+                     "MT01_TASK_EXECUTION_ESTIMATES_NOT_APPLIED") != mt01ReadinessBlockers.end());
+    assert(std::find(mt01ReadinessBlockers.begin(), mt01ReadinessBlockers.end(),
+                     "MT01_CAMERA_INTRINSIC_CALIBRATION_NOT_VERIFIED") != mt01ReadinessBlockers.end());
+
     assert(result.value("findings").toStringList().join(";")
                .contains("MT01_OPERATION_EXECUTION_ESTIMATE_UNRESOLVED"));
     assert(result.value("coverageValid").toBool());
