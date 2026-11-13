@@ -138,9 +138,16 @@ bool pointInRing(const GeoPoint &point, const QJsonArray &ring) {
 QJsonObject sanitiseRawAreaGeometry(const QJsonObject &geometry) {
     const QString type=geometry.value("type").toString();
     if (type != QStringLiteral("Polygon") && type != QStringLiteral("MultiPolygon")) return geometry;
-    const QJsonArray sourcePolygons=type == QStringLiteral("Polygon")
-        ? QJsonArray{geometry.value("coordinates").toArray()}
-        : geometry.value("coordinates").toArray();
+    QJsonArray sourcePolygons;
+    if (type == QStringLiteral("Polygon")) {
+        // Append the complete coordinates value as one polygon element.
+        // Avoid nested QJsonArray initializer-list conversion: on the Windows
+        // Qt/MSVC build it was interpreted as an array of coordinate entries,
+        // so each [lon,lat] pair was mistaken for a ring and rejected.
+        sourcePolygons.append(geometry.value("coordinates"));
+    } else {
+        sourcePolygons = geometry.value("coordinates").toArray();
+    }
     QJsonArray outputPolygons;
     for (int polygonIndex = 0; polygonIndex < sourcePolygons.size(); ++polygonIndex) {
         const QJsonArray sourceRings=sourcePolygons.at(polygonIndex).toArray();
