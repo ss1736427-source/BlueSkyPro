@@ -744,12 +744,14 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
             {QStringLiteral("distanceFromSegmentStartM"), point.distance_from_segment_start_m}
         });
 
+    // The canonical mission aggregate is the source of identity. The lifecycle
+    // record is a derived projection and must not become the read source here.
     QVariantList lifecycleTemplateIds;
-    for (const auto &templateId : mission.lifecycle.mission_template_ids)
+    for (const auto &templateId : mission.selected_template_ids)
         lifecycleTemplateIds.push_back(QString::fromStdString(templateId));
     const QVariantMap lifecycleIdentity{
-        {QStringLiteral("missionId"), QString::fromStdString(mission.lifecycle.mission_id)},
-        {QStringLiteral("missionVersion"), QString::fromStdString(mission.lifecycle.mission_version)},
+        {QStringLiteral("missionId"), QString::fromStdString(mission.identity.mission_id)},
+        {QStringLiteral("missionVersion"), QString::fromStdString(mission.identity.mission_version)},
         {QStringLiteral("templateIds"), lifecycleTemplateIds}
     };
 
