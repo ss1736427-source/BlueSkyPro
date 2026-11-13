@@ -139,6 +139,31 @@ int main(int argc,char**argv){
  assert(authoritativeRing.size()==4);
  assert(qAbs(authoritativeRing.at(1).toArray().at(0).toDouble()-41.75)<1e-8);
 
+ // A valid source Polygon remains authoritative even when the formatted
+ // NOTAM text contains a different, independently parseable area. Preserve
+ // its coordinates exactly; the map and planning components share that geometry.
+ QVariantMap sourceWins{{"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[0.0008,0.0008],[0.0012,0.0008],[0.0012,0.0012],[0.0008,0.0012],[0.0008,0.0008]]]})")},
+                        {"originalText","E) AIRSPACE CLSD WI AREA: 0008N00008E-0008N00012E-0012N00012E-0012N00008E-0008N00008E\\nF)GND\\nG)150M AGL"},
+                        {"lowerLimitRaw","GND"},{"upperLimitRaw","150M AGL"}};
+ auto sourceWinsResult=NotamGeometryEngine::normalize(sourceWins);
+ auto sourceWinsGeo=QJsonDocument::fromJson(sourceWinsResult["geometryJson"].toString().toUtf8()).object();
+ assert(sourceWinsResult["geometryType"].toString()=="Polygon");
+ assert(sourceWinsResult["geometryValidated"].toBool());
+ assert(sourceWinsResult["geometryProvenance"].toString()=="SOURCE_GEOJSON");
+ assert(sourceWinsResult["interpretationState"].toString()=="CONFIRMED");
+ const QJsonArray sourceWinsRing=sourceWinsGeo["coordinates"].toArray().first().toArray();
+ assert(sourceWinsRing.size()==5);
+ assert(qAbs(sourceWinsRing.at(0).toArray().at(0).toDouble()-0.0008)<1e-12);
+ assert(qAbs(sourceWinsRing.at(1).toArray().at(0).toDouble()-0.0012)<1e-12);
+ assert(sourceWinsResult["planningComponents"].toList().size()==1);
+ const QVariantList planningRing=sourceWinsResult["planningComponents"].toList().first().toMap()["coordinates"].toList();
+ assert(planningRing.size()==sourceWinsRing.size());
+ for(int i=0;i<sourceWinsRing.size();++i) {
+   const QJsonArray mapPoint=sourceWinsRing.at(i).toArray();
+   const QVariantList planningPoint=planningRing.at(i).toList();
+   assert(qAbs(mapPoint.at(0).toDouble()-planningPoint.at(0).toDouble())<1e-12);
+   assert(qAbs(mapPoint.at(1).toDouble()-planningPoint.at(1).toDouble())<1e-12);
+ }
  QVariantMap bad{{"text","Informational NOTAM only"}};auto d=NotamGeometryEngine::normalize(bad);assert(!d["geometryValidated"].toBool());
  // Non-area GeoJSON must remain available to the map's point/line layers, but
  // must never be reported as a validated airspace polygon.

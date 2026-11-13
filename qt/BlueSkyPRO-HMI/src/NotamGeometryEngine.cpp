@@ -335,7 +335,11 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
             compoundParsed=true;
         }
     }
-    if (!compoundParsed) {
+    if (!compoundParsed && !sourceAreaGeometry) {
+        // A supplied Polygon/MultiPolygon is the authoritative horizontal
+        // geometry. Never replace it with a text-derived approximation: the
+        // formatted NOTAM text may use rounded coordinates or a different
+        // representation. Invalid source areas remain fail-closed below.
         const QJsonArray textualPolygons = explicitRestrictionPolygons(text);
         if (!textualPolygons.isEmpty()) {
             g = textualPolygons.size() == 1

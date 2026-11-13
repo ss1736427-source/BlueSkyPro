@@ -134,15 +134,9 @@ int main(int argc, char **argv)
     const QVariantMap activeNotam = NotamGeometryEngine::normalize(activeNotamSource);
     assert(activeNotam.value("notamInterpretationVersion").toInt() == 1);
     assert(activeNotam.value("restrictionClass").toString() == "PROHIBITED");
-    std::fprintf(stderr, "NOTAM_DIAGNOSTIC geometryType=%s geometryValidated=%d lowerRaw=%s upperRaw=%s lowerDatum=%s upperDatum=%s altitudeReference=%s\\n",
-        qPrintable(activeNotam.value("geometryType").toString()),
-        activeNotam.value("geometryValidated").toBool() ? 1 : 0,
-        qPrintable(activeNotam.value("lowerLimitRaw").toString()),
-        qPrintable(activeNotam.value("upperLimitRaw").toString()),
-        qPrintable(activeNotam.value("lowerDatum").toString()),
-        qPrintable(activeNotam.value("upperDatum").toString()),
-        qPrintable(activeNotam.value("altitudeReference").toString()));
-    std::fflush(stderr);
+    assert(activeNotam.value("geometryType").toString() == "Polygon");
+    assert(activeNotam.value("geometryValidated").toBool());
+    assert(activeNotam.value("geometryProvenance").toString() == "SOURCE_GEOJSON");
     assert(activeNotam.value("interpretationState").toString() == "CONFIRMED");
     assert(activeNotam.value("planningComponents").toList().size() == 1);
     activeNotamParameters.insert("notamRecords", QVariantList{activeNotam});
