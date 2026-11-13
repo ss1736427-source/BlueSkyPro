@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'qt/BlueSkyPRO-HMI/**'
+      - '04_SOFTWARE/PLANNING/**'
       - '04_SOFTWARE/WEATHER/**'
       - '.github/workflows/bluesky-pro-hmi.yml'
       - '.github/workflows/bluesky-pro-windows-map-check.yml'
@@ -14,6 +15,7 @@ on:
       - main
     paths:
       - 'qt/BlueSkyPRO-HMI/**'
+      - '04_SOFTWARE/PLANNING/**'
       - '04_SOFTWARE/WEATHER/**'
       - '.github/workflows/bluesky-pro-hmi.yml'
       - '.github/workflows/bluesky-pro-windows-map-check.yml'
