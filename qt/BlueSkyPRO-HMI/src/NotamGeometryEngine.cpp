@@ -468,9 +468,15 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
 
     QVariantList planningComponents;
     if (areaGeometry) {
-        const QJsonArray sourcePolygons = type == QStringLiteral("Polygon")
-            ? QJsonArray{g.value(QStringLiteral("coordinates")).toArray()}
-            : g.value(QStringLiteral("coordinates")).toArray();
+        QJsonArray sourcePolygons;
+        if (type == QStringLiteral("Polygon")) {
+            // Preserve the complete Polygon coordinates array as one polygon.
+            // This mirrors the sanitizer's explicit append and avoids the
+            // Qt/MSVC nested initializer-list ambiguity.
+            sourcePolygons.append(g.value(QStringLiteral("coordinates")));
+        } else {
+            sourcePolygons = g.value(QStringLiteral("coordinates")).toArray();
+        }
         int componentIndex = 0;
         for (const QJsonValue &polygonValue : sourcePolygons) {
             const QJsonArray rings = polygonValue.toArray();
