@@ -50,7 +50,8 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
     const std::vector<std::vector<GeoPoint>>& exclusionAreas,
     double maximumSampleSpacingM,
     double connectorSpeedMps,
-    double connectorMinimumSpeedMps)
+    double connectorMinimumSpeedMps,
+    double coverageMinimumSpeedMps)
 {
     Mt01KinematicGeometryResult result;
     result.vehicle_model_id = vehicle.model_id;
@@ -94,8 +95,13 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
         connectorSpeedMps = vehicle.reference_speed_mps;
     if (connectorMinimumSpeedMps == 0.0)
         connectorMinimumSpeedMps = vehicle.minimum_speed_mps;
+    if (coverageMinimumSpeedMps == 0.0)
+        coverageMinimumSpeedMps = vehicle.minimum_speed_mps;
     if (!finite(connectorSpeedMps) || !finite(connectorMinimumSpeedMps)
+        || !finite(coverageMinimumSpeedMps)
         || connectorMinimumSpeedMps < vehicle.minimum_speed_mps
+        || coverageMinimumSpeedMps < vehicle.minimum_speed_mps
+        || coverageMinimumSpeedMps > coverageCruiseSpeedMps
         || connectorMinimumSpeedMps > connectorSpeedMps
         || connectorSpeedMps > vehicle.reference_speed_mps) {
         return fail("MT01_CONNECTOR_SPEED_OUTSIDE_ENVELOPE: connector speed range must remain inside the validated aircraft speed envelope.");
@@ -265,7 +271,7 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
             if (distance >= legLength - 0.01) {
                 appendEdge(coverage.waypoints[leg + 1],
                            Mt01KinematicSegmentType::Coverage, 0.0, 0.0,
-                           coverageCruiseSpeedMps, vehicle.minimum_speed_mps);
+                           coverageCruiseSpeedMps, coverageMinimumSpeedMps);
                 result.capture_point_waypoint_indices.push_back(result.waypoints.size() - 1);
                 lastInsertedDistance = legLength;
                 continue;
