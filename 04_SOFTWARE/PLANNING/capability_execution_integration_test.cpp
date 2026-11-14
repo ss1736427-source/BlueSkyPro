@@ -35,6 +35,38 @@ command::CommandRequest command_request()
     return request;
 }
 
+void setReleasedLifecycle(Mission& mission)
+{
+    auto& lifecycle = mission.lifecycle;
+    lifecycle.mission_id = mission.identity.mission_id;
+    lifecycle.mission_version = mission.identity.mission_version;
+    lifecycle.current_route_id = "route-048";
+    lifecycle.current_route_version = "3";
+    lifecycle.current_calculation_input_version = "input-9";
+    lifecycle.state = MissionLifecycleState::Released;
+
+    MissionLifecycleEvent ready;
+    ready.sequence = 1;
+    ready.mission_id = mission.identity.mission_id;
+    ready.mission_version = mission.identity.mission_version;
+    ready.actor_id = "operator-048";
+    ready.timestamp = "2026-11-15T10:00:00Z";
+    ready.from = MissionLifecycleState::Validating;
+    ready.to = MissionLifecycleState::Ready;
+    ready.route_id = lifecycle.current_route_id;
+    ready.route_version = lifecycle.current_route_version;
+    ready.evidence_reference = lifecycle.current_calculation_input_version;
+    lifecycle.history.push_back(ready);
+
+    MissionLifecycleEvent released = ready;
+    released.sequence = 2;
+    released.timestamp = "2026-11-15T10:05:00Z";
+    released.from = MissionLifecycleState::Authorized;
+    released.to = MissionLifecycleState::Released;
+    lifecycle.history.push_back(released);
+    lifecycle.next_event_sequence = 3;
+}
+
 } // namespace
 
 int main()
@@ -74,6 +106,11 @@ int main()
     mission.identity.mission_id = "mission-048";
     mission.identity.mission_version = "1";
     mission.vehicle_assignments.push_back({"veh-048", "cfg-048"});
+    mission.route_candidates.push_back({"candidate-048", "solver-048", "1"});
+    mission.selected_solution.candidate_id = "candidate-048";
+    mission.selected_solution.calculation_input_version = "input-9";
+    mission.selected_solution.algorithm_version = "algorithm-1";
+    mission.selected_solution.model_version = "model-1";
 
     VehicleEquipmentCapabilityProfile profile;
     profile.identity.vehicle_id = "veh-048";
@@ -92,28 +129,45 @@ int main()
     bluesky::autopilot::AutopilotAdapterBaseline adapter(adapter_identity);
     const bool connected = adapter.connect();
     assert(connected);
+
+    const auto unfinalized_mission = CapabilityExecutionIntegration::executeMission(
+        admission, "dev-048", mission, {"mission.upload"}, profile, adapter);
+    assert(unfinalized_mission.admission.state == CapabilityAdmissionState::Admitted);
+    assert(unfinalized_mission.transfer.state == MissionTransferState::Rejected);
+    assert(unfinalized_mission.transfer.reason == "MISSION_LIFECYCLE_RELEASE_EVENT_REQUIRED");
+
+    // READY alone is insufficient: regulatory/authorization/release gates must
+    // also have completed before the autopilot upload path is opened.
+    mission.lifecycle.mission_id = mission.identity.mission_id;
+    mission.lifecycle.mission_version = mission.identity.mission_version;
+    mission.lifecycle.state = MissionLifecycleState::Ready;
+    const auto ready_only_mission = CapabilityExecutionIntegration::executeMission(
+        admission, "dev-048", mission, {"mission.upload"}, profile, adapter);
+    assert(ready_only_mission.transfer.state == MissionTransferState::Rejected);
+    assert(ready_only_mission.transfer.reason == "MISSION_LIFECYCLE_RELEASE_EVENT_REQUIRED");
+
+    setReleasedLifecycle(mission);
     const auto admitted_mission = CapabilityExecutionIntegration::executeMission(
-        admission,
-        "dev-048",
-        mission,
-        {"mission.upload"},
-        profile,
-        adapter);
+        admission, "dev-048", mission, {"mission.upload"}, profile, adapter);
 
     assert(admitted_mission.admission.state == CapabilityAdmissionState::Admitted);
-    assert(admitted_mission.transfer.state != MissionTransferState::Rejected);
+    assert(admitted_mission.transfer.state == MissionTransferState::Verified);
+    assert(admitted_mission.transfer.reason == "MISSION_UPLOADED_READBACK_VERIFIED");
 
     const auto rejected_mission = CapabilityExecutionIntegration::executeMission(
-        admission,
-        "dev-048",
-        mission,
-        {"mission.abort"},
-        profile,
-        adapter);
+        admission, "dev-048", mission, {"mission.abort"}, profile, adapter);
 
     assert(rejected_mission.admission.state == CapabilityAdmissionState::Rejected);
     assert(rejected_mission.transfer.state == MissionTransferState::Rejected);
     assert(rejected_mission.transfer.reason == "REQUIRED_CAPABILITY_MISSING");
+
+    // A lifecycle event from another route revision must never authorize upload.
+    Mission stale_revision = mission;
+    stale_revision.lifecycle.current_route_version = "4";
+    const auto stale_route_mission = CapabilityExecutionIntegration::executeMission(
+        admission, "dev-048", stale_revision, {"mission.upload"}, profile, adapter);
+    assert(stale_route_mission.transfer.state == MissionTransferState::Rejected);
+    assert(stale_route_mission.transfer.reason == "MISSION_LIFECYCLE_RELEASE_EVENT_REQUIRED");
 
     return 0;
 }
