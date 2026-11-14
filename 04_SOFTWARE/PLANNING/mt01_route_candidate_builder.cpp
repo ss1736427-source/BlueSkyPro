@@ -1,5 +1,6 @@
 #include "mt01_route_candidate_builder.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <utility>
@@ -11,7 +12,8 @@ Mt01RouteCandidateResult Mt01RouteCandidateBuilder::build(
     const CoveragePlanResult& coverage,
     const std::string& missionId,
     const std::string& missionVersion,
-    const Mt01RouteCandidateMetadata& metadata)
+    const Mt01RouteCandidateMetadata& metadata,
+    const SpeedProfileResult* speedProfile)
 {
     Mt01RouteCandidateResult result;
     const auto fail = [&](const std::string& reason) {
@@ -75,6 +77,19 @@ Mt01RouteCandidateResult Mt01RouteCandidateBuilder::build(
         route.waypoints.push_back(std::move(waypoint));
     }
 
+    if (speedProfile) {
+        if (speedProfile->status != SpeedProfileStatus::Feasible
+            || speedProfile->vehicle_model_id.empty()
+            || speedProfile->vehicle_model_version.empty()
+            || speedProfile->configuration_id.empty()
+            || speedProfile->dynamics_source.empty()
+            || (speedProfile->speed_reference != "TAS"
+                && speedProfile->speed_reference != "AIR_RELATIVE")
+            || speedProfile->segments.size() != geometry.segments.size()) {
+            return fail("MT01_ROUTE_CANDIDATE_SPEED_PROFILE_INVALID: a feasible, identified profile covering every geometry segment is required.");
+        }
+    }
+
     route.segments.reserve(geometry.segments.size());
     for (std::size_t i = 0; i < geometry.segments.size(); ++i) {
         const auto& source = geometry.segments[i];
@@ -96,6 +111,61 @@ Mt01RouteCandidateResult Mt01RouteCandidateBuilder::build(
         segment.bank_angle_rad = source.bank_angle_rad;
         segment.lateral_acceleration_mps2 = source.lateral_acceleration_mps2;
         route.segments.push_back(std::move(segment));
+    }
+
+    if (speedProfile) {
+        RouteSpeedProfile boundProfile;
+        boundProfile.vehicle_model_id = speedProfile->vehicle_model_id;
+        boundProfile.vehicle_model_version = speedProfile->vehicle_model_version;
+        boundProfile.configuration_id = speedProfile->configuration_id;
+        boundProfile.speed_reference = speedProfile->speed_reference;
+        boundProfile.dynamics_source = speedProfile->dynamics_source;
+        boundProfile.segments.reserve(speedProfile->segments.size());
+        double previousExitSpeed = 0.0;
+        for (std::size_t i = 0; i < speedProfile->segments.size(); ++i) {
+            const auto& profileSegment = speedProfile->segments[i];
+            const auto& routeSegment = route.segments[i];
+            const auto finitePositive = [](double value) {
+                return std::isfinite(value) && value > 0.0;
+            };
+            const double distanceTolerance = std::max(0.5, routeSegment.distance_m * 0.01);
+            const double phaseDistance = profileSegment.acceleration_distance_m
+                + profileSegment.deceleration_distance_m + profileSegment.cruise_distance_m;
+            if (profileSegment.segment_id != routeSegment.segment_id
+                || !finitePositive(profileSegment.distance_m)
+                || std::abs(profileSegment.distance_m - routeSegment.distance_m) > distanceTolerance
+                || !finitePositive(profileSegment.entry_speed_mps)
+                || !finitePositive(profileSegment.exit_speed_mps)
+                || !finitePositive(profileSegment.maximum_reachable_speed_mps)
+                || !finitePositive(profileSegment.maximum_acceleration_mps2)
+                || !finitePositive(profileSegment.maximum_deceleration_mps2)
+                || !std::isfinite(profileSegment.acceleration_distance_m)
+                || !std::isfinite(profileSegment.deceleration_distance_m)
+                || !std::isfinite(profileSegment.cruise_distance_m)
+                || profileSegment.acceleration_distance_m < 0.0
+                || profileSegment.deceleration_distance_m < 0.0
+                || profileSegment.cruise_distance_m < 0.0
+                || std::abs(phaseDistance - routeSegment.distance_m) > distanceTolerance
+                || profileSegment.maximum_reachable_speed_mps
+                    + 1e-9 < std::max(profileSegment.entry_speed_mps,
+                                      profileSegment.exit_speed_mps)
+                || (i > 0 && std::abs(profileSegment.entry_speed_mps
+                                      - previousExitSpeed) > 1e-6)) {
+                return fail("MT01_ROUTE_CANDIDATE_SPEED_PROFILE_BINDING_INVALID: profile segment order, geometry distance, kinematics or boundary continuity does not match the canonical route.");
+            }
+            boundProfile.segments.push_back({
+                profileSegment.segment_id, profileSegment.distance_m,
+                profileSegment.entry_speed_mps, profileSegment.exit_speed_mps,
+                profileSegment.maximum_reachable_speed_mps,
+                profileSegment.acceleration_distance_m,
+                profileSegment.deceleration_distance_m,
+                profileSegment.cruise_distance_m,
+                profileSegment.maximum_acceleration_mps2,
+                profileSegment.maximum_deceleration_mps2
+            });
+            previousExitSpeed = profileSegment.exit_speed_mps;
+        }
+        route.speed_profile = std::move(boundProfile);
     }
 
     result.structural_validation = RouteConstraintValidator::validate(route);
