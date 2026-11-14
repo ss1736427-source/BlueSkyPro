@@ -68,9 +68,9 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
         || coverage.waypoints.size() % 2 != 0) {
         return fail("MT01_KINEMATIC_COVERAGE_INPUT_INVALID: expected valid ordered start/end pairs for every coverage leg.");
     }
-    if (vehicle.motion_class != MotionClass::FixedWing) {
-        return fail("MT01_KINEMATIC_CONNECTOR_UNAVAILABLE: this builder supports fixed-wing Dubins turns only; multirotor transitions require a separately validated dynamics model.");
-    }
+    // Both motion classes use a bounded-curvature connector, but derive its
+    // minimum radius from different validated dynamics: coordinated bank for
+    // fixed-wing, sustained lateral acceleration for multirotor.
     if (vehicle.model_id.empty() || vehicle.model_id != assignedVehicleId
         || vehicle.configuration_id.empty()
         || vehicle.configuration_id != assignedConfigurationId) {
@@ -212,7 +212,8 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
                     unproject(connector.points[i], originLat, originLon),
                     turning ? Mt01KinematicSegmentType::ConnectorTurn
                             : Mt01KinematicSegmentType::ConnectorStraight,
-                    turning ? vehicle.bank_angle_rad : 0.0,
+                    turning && vehicle.motion_class == MotionClass::FixedWing
+                        ? vehicle.bank_angle_rad : 0.0,
                     turning ? (coverageCruiseSpeedMps * coverageCruiseSpeedMps /
                                radius.air_relative_radius_m) : 0.0);
             }
@@ -281,7 +282,9 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
 
     result.feasible = true;
     result.diagnostics.push_back(
-        "MT01_KINEMATIC_AIR_RELATIVE_CANDIDATE: fixed-wing Dubins connectors were built from validated TAS/bank evidence; this is not a ground-track or flight-release validation.");
+        vehicle.motion_class == MotionClass::FixedWing
+            ? "MT01_KINEMATIC_AIR_RELATIVE_CANDIDATE: fixed-wing bounded-curvature connectors were built from validated TAS/bank evidence; this is not a ground-track or flight-release validation."
+            : "MT01_KINEMATIC_AIR_RELATIVE_CANDIDATE: multirotor bounded-curvature connectors were built from validated air-relative speed/lateral-acceleration evidence; this is not a ground-track or flight-release validation.");
     result.diagnostics.push_back(
         "MT01_FLIGHT_RELEASE_STILL_BLOCKED: wind correction, DEM/terrain clearance, obstacle/NOTAM/airspace checks, segment-level dynamics, energy/reserve and complete route attestation remain required.");
     return result;
