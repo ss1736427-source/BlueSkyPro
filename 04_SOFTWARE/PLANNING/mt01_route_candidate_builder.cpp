@@ -80,8 +80,11 @@ Mt01RouteCandidateResult Mt01RouteCandidateBuilder::build(
     if (speedProfile) {
         if (speedProfile->status != SpeedProfileStatus::Feasible
             || speedProfile->vehicle_model_id.empty()
+            || speedProfile->vehicle_model_id != geometry.vehicle_model_id
             || speedProfile->vehicle_model_version.empty()
+            || speedProfile->vehicle_model_version != geometry.vehicle_model_version
             || speedProfile->configuration_id.empty()
+            || speedProfile->configuration_id != geometry.vehicle_configuration_id
             || speedProfile->dynamics_source.empty()
             || (speedProfile->speed_reference != "TAS"
                 && speedProfile->speed_reference != "AIR_RELATIVE")
