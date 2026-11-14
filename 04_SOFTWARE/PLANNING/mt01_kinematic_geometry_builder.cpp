@@ -82,7 +82,7 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
     if (!finite(coverageCruiseSpeedMps) || coverageCruiseSpeedMps <= 0.0
         || !finite(vehicle.reference_speed_mps)
         || std::abs(coverageCruiseSpeedMps - vehicle.reference_speed_mps) > 1e-6) {
-        return fail("MT01_TURN_SPEED_MISMATCH: coverage-leg speed must equal the validated vehicle reference TAS used to derive turn radius.");
+        return fail("MT01_TURN_SPEED_MISMATCH: coverage-leg speed must equal the validated vehicle reference air-relative speed used to derive turn radius.");
     }
     if (!finite(maximumSampleSpacingM) || maximumSampleSpacingM <= 0.0) {
         return fail("MT01_TURN_SAMPLE_SPACING_INVALID: a finite positive sample spacing is required.");
