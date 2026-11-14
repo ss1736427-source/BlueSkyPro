@@ -201,6 +201,13 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
         return result;
     }
     if (request.requested_max_turn_radius_m > 0.0) {
+        if (request.requested_turn_radius_source_reference.empty()
+            || (request.vehicle_motion_model.motion_class == MotionClass::FixedWing
+                && request.fixed_wing_stall_speed_source_reference.empty())) {
+            addFinding(result,
+                "MT01_TURN_SPEED_EVIDENCE_PROVENANCE_MISSING: turn-radius requirement and fixed-wing stall-speed evidence require explicit source references.");
+            return result;
+        }
         const auto turnSpeed = VehicleMotionModelEvaluator::recommendTurnSpeedForRadius(
             request.vehicle_motion_model,
             request.requested_max_turn_radius_m,
