@@ -50,7 +50,7 @@ struct EquipmentCapability {
     std::string sensor_camera_type;
     double mass{};
     double balance_impact{};
-    double electrical_power{};
+    double electrical_power{}; // W: rated electrical draw used for conservative payload energy accounting.
     std::string interface_protocol;
     std::vector<std::string> supported_modes;
     double field_of_view{};
@@ -62,6 +62,8 @@ struct EquipmentCapability {
     bool control_capable{};
     std::vector<std::string> data_output_requirements;
     std::vector<std::string> operational_restrictions;
+    // Exact revisioned profile identity used by the mission equipment assignment.
+    std::string equipment_profile_id;
 };
 
 struct VehicleIdentity {

@@ -59,7 +59,8 @@ Mt01WeatherPerformanceBindingResult Mt01WeatherPerformanceAdapter::bind(
             capability.configuration.equipment.begin(), capability.configuration.equipment.end(),
             [&](const EquipmentCapability& item) {
                 return item.equipment_id == assignment.equipment_id
-                    && item.equipment_version == assignment.configuration_version;
+                    && item.equipment_version == assignment.configuration_version
+                    && item.equipment_profile_id == assignment.equipment_profile_id;
             });
         if (found == capability.configuration.equipment.end()
             || !std::isfinite(found->electrical_power) || found->electrical_power < 0.0) {

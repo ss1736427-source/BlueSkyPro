@@ -18,8 +18,9 @@ int main()
     capability.configuration.valid_for_mission=true;
     EquipmentCapability cam; cam.equipment_id="CAM-01"; cam.equipment_version="CAM-V3";
     cam.sensor_camera_type="RGB"; cam.electrical_power=18.0; cam.triggering_capable=true;
+    cam.equipment_profile_id="CAM-PROFILE-01";
     EquipmentCapability lidar; lidar.equipment_id="LIDAR-01"; lidar.equipment_version="LIDAR-V1";
-    lidar.electrical_power=22.0;
+    lidar.electrical_power=22.0; lidar.equipment_profile_id="LIDAR-PROFILE-01";
     capability.configuration.equipment={cam,lidar};
 
     Mt01MappingPipelineResult pipeline;
@@ -47,6 +48,10 @@ int main()
 
     auto wrongVehicle=capability; wrongVehicle.identity.vehicle_id="OTHER";
     assert(!Mt01WeatherPerformanceAdapter::bind(mission,pipeline,camera,wrongVehicle,base).valid);
+    auto wrongEquipmentProfile=capability;
+    wrongEquipmentProfile.configuration.equipment.front().equipment_profile_id="OTHER-PROFILE";
+    assert(!Mt01WeatherPerformanceAdapter::bind(
+        mission,pipeline,camera,wrongEquipmentProfile,base).valid);
     auto badPower=capability; badPower.configuration.equipment.front().electrical_power=std::numeric_limits<double>::quiet_NaN();
     assert(!Mt01WeatherPerformanceAdapter::bind(mission,pipeline,camera,badPower,base).valid);
     auto noTrigger=capability; noTrigger.configuration.equipment.front().triggering_capable=false;
