@@ -335,11 +335,46 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
                             reason += " " + weatherAssessment.error;
                         violations.push_back(std::move(reason));
                     } else {
-                        // Weather-corrected values replace nominal solver estimates
-                        // before the declared objective priorities are evaluated.
+                        // Weather-corrected values and the solved airspeed profile
+                        // replace nominal estimates before objective ranking.
                         rankedCandidate.estimated_time_s = weatherAssessment.corrected_time_s;
                         rankedCandidate.estimated_energy_wh = weatherAssessment.corrected_energy_wh;
                         rankedCandidate.estimated_reserve_wh = weatherAssessment.remaining_energy_wh;
+                        if (weatherAssessment.corrected_route.has_value()) {
+                            const auto& corrected = *weatherAssessment.corrected_route;
+                            const auto& original = *candidate.trajectory_route;
+                            const bool sameLineage =
+                                corrected.lineage.mission_id == original.lineage.mission_id
+                                && corrected.lineage.mission_version == original.lineage.mission_version
+                                && corrected.lineage.route_id == original.lineage.route_id
+                                && corrected.lineage.route_version == original.lineage.route_version;
+                            const bool completeGeometry = corrected.trajectory_geometry_complete
+                                && corrected.waypoints.size() >= 2
+                                && corrected.segments.size() + 1 == corrected.waypoints.size();
+                            if (!sameLineage || !completeGeometry) {
+                                violations.push_back(
+                                    "WEATHER_ROUTE_FEEDBACK_INVALID: corrected route lost canonical lineage or complete geometry.");
+                            } else {
+                                rankedCandidate.trajectory_route = corrected;
+                                if (context.problem().requires_flight_safety_validation
+                                    && context.problem().flight_safety_envelope.has_value()) {
+                                    const auto profileViolations = validateRouteSpeedProfile(
+                                        corrected, *context.problem().flight_safety_envelope);
+                                    violations.insert(violations.end(), profileViolations.begin(),
+                                                      profileViolations.end());
+                                }
+                                if (constraint_validator_) {
+                                    const auto correctedViolations =
+                                        constraint_validator_(context.problem(), rankedCandidate);
+                                    violations.insert(violations.end(), correctedViolations.begin(),
+                                                      correctedViolations.end());
+                                }
+                                if (!structurally_valid_candidate(rankedCandidate, context.problem())) {
+                                    violations.push_back(
+                                        "WEATHER_ROUTE_FEEDBACK_INVALID: corrected route failed structural candidate validation.");
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -348,16 +383,16 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
                 if (!weather_assessor_) {
                     violations.push_back(
                         "NOTAM_VALIDATION_UNKNOWN: обязательная проверка после ветрового расчёта невозможна без weather assessor.");
-                } else if (!candidate.trajectory_route.has_value() ||
+                } else if (!rankedCandidate.trajectory_route.has_value() ||
                            !weatherAssessment.trajectory.has_value()) {
                     violations.push_back(
                         "NOTAM_VALIDATION_UNKNOWN: отсутствует канонический маршрут или фактический 4D результат ветрового расчёта.");
-                } else if (!candidate.trajectory_route->constraints.avoid_restricted_areas) {
+                } else if (!rankedCandidate.trajectory_route->constraints.avoid_restricted_areas) {
                     violations.push_back(
                         "NOTAM_VALIDATION_UNKNOWN: кандидат отключил обязательное избегание ограниченного воздушного пространства.");
                 } else {
                     const auto notamResult = NotamProhibitedZoneValidator::validate(
-                        *candidate.trajectory_route,
+                        *rankedCandidate.trajectory_route,
                         *context.problem().notam_snapshot,
                         *weatherAssessment.trajectory);
                     if (notamResult.status != RouteValidationStatus::Allowed) {

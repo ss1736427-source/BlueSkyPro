@@ -296,7 +296,7 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
                 }
             }
         }
-        if (!connectorSlowerThanCoverage || speedProfile) {
+        if (!speedProfileRequested || speedProfile) {
             result.route_candidate = Mt01RouteCandidateBuilder::build(
                 result.kinematic_geometry,
                 result.coverage,

@@ -3,6 +3,7 @@
 #include "weather_field.hpp"
 #include "../PLANNING/wind_performance_trajectory.hpp"
 
+#include <optional>
 #include <string>
 #include <vector>
 

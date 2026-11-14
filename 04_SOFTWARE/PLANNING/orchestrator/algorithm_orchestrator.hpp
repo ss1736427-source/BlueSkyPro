@@ -24,6 +24,7 @@ struct CandidateWeatherAssessment {
     double remaining_energy_wh{0.0};
     std::string error;
     std::optional<TrajectoryResult> trajectory;
+    std::optional<Route> corrected_route;
 };
 
 using CandidateWeatherAssessor = std::function<CandidateWeatherAssessment(
