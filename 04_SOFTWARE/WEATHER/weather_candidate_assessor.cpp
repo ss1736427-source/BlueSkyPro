@@ -56,11 +56,9 @@ bluesky::planning::CandidateWeatherAssessor makeCandidateWeatherAssessor(
             result.error = "decoded forecast snapshot, calculation version and vertical policy are required";
             return result;
         }
-        if (!route.environment.wind_snapshot_id.empty()
-            && route.environment.wind_snapshot_id != snapshot_id) {
-            result.error = "candidate route references a different wind snapshot";
-            return result;
-        }
+        // A prior weather profile is a derived dependency, not a geometry lock.
+        // The weather calculator rebuilds it from the retained baseline speed envelope
+        // when a newer immutable forecast snapshot is supplied.
 
         auto input = performance;
         input.wind_snapshot_id = snapshot_id;

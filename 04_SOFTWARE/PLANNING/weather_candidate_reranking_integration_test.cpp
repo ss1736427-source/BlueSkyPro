@@ -1,6 +1,7 @@
 #include "orchestrator/algorithm_orchestrator.hpp"
 #include "../WEATHER/weather_candidate_assessor.hpp"
 #include "../WEATHER/weather_field.hpp"
+#include "../WEATHER/weather_trajectory_calculator.hpp"
 #include <cassert>
 #include <memory>
 #include <string>
@@ -108,6 +109,7 @@ int main() {
     assert(north.selected_candidate_id=="north-route");
     assert(east.weather_corrected_time_s>0.0 && north.weather_corrected_time_s>0.0);
     bool eastCameraCapApplied=false;
+    std::optional<Route> eastCorrectedRoute;
     for(const auto& candidate:east.admissible_candidates) {
         if(candidate.candidate_id!="east-route") continue;
         assert(candidate.trajectory_route.has_value());
@@ -118,8 +120,23 @@ int main() {
         assert(candidate.trajectory_route->speed_profile->wind_snapshot_id=="GFS-EAST-FAVOURABLE");
         assert(candidate.trajectory_route->speed_profile->wind_snapshot_version=="forecast-v1");
         assert(candidate.trajectory_route->speed_profile->camera_configuration_id=="CAMERA-TEST");
+        eastCorrectedRoute=candidate.trajectory_route;
         eastCameraCapApplied=true;
     }
     assert(eastCameraCapApplied);
+
+    // A newer forecast must rebuild the derived profile from the retained
+    // aircraft/geometry envelope, not inherit the previous tailwind cap.
+    const auto refreshed=WeatherTrajectoryCalculator::evaluate(
+        *eastCorrectedRoute,forecast(0.0,8.0),"GFS-REFRESHED","forecast-v2",
+        perf,"weather-rerank-integration-v2");
+    assert(refreshed.weather_ready);
+    assert(refreshed.corrected_route.has_value());
+    assert(refreshed.corrected_route->speed_profile.has_value());
+    assert(refreshed.corrected_route->speed_profile->wind_snapshot_id=="GFS-REFRESHED");
+    assert(refreshed.corrected_route->speed_profile->profile_version
+           !=eastCorrectedRoute->speed_profile->profile_version);
+    assert(refreshed.corrected_route->speed_profile->segments.front().maximum_reachable_speed_mps
+           >eastCorrectedRoute->speed_profile->segments.front().maximum_reachable_speed_mps);
     return 0;
 }

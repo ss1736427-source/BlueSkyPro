@@ -574,7 +574,7 @@ bool buildWindAwareSpeedProfile(
     }
 
     RouteSpeedProfile updated=sourceProfile;
-    updated.profile_id=sourceRoute.lineage.route_id+"-WIND-CAMERA";
+    updated.profile_id=sourceRoute.lineage.route_id+"-WIND-SPEED";
     updated.profile_version=snapshotId+"-"+snapshotVersion+"-"+calculationVersion;
     updated.wind_snapshot_id=snapshotId;
     updated.wind_snapshot_version=snapshotVersion;
@@ -595,7 +595,8 @@ bool buildWindAwareSpeedProfile(
         updated.segments.push_back({p.segment_id,p.distance_m,p.entry_speed_mps,p.exit_speed_mps,
             p.maximum_reachable_speed_mps,p.acceleration_distance_m,p.deceleration_distance_m,
             p.cruise_distance_m,p.maximum_acceleration_mps2,p.maximum_deceleration_mps2,
-            bounds.minimum_speed_mps,bounds.maximum_speed_mps});
+            sourceProfile.segments[i].minimum_speed_mps,
+            sourceProfile.segments[i].maximum_speed_mps});
     }
     correctedRoute=sourceRoute;
     correctedRoute.environment.wind_snapshot_id=snapshotId;
@@ -610,7 +611,8 @@ bool buildWindAwareSpeedProfile(
             p.entry_speed_mps,p.exit_speed_mps,p.maximum_reachable_speed_mps,
             p.acceleration_distance_m,p.deceleration_distance_m,p.cruise_distance_m,
             p.maximum_acceleration_mps2,p.maximum_deceleration_mps2,
-            bounds.minimum_speed_mps,bounds.maximum_speed_mps});
+            sourceProfile.segments[sourceSegmentIndices[i]].minimum_speed_mps,
+            sourceProfile.segments[sourceSegmentIndices[i]].maximum_speed_mps});
     }
     return true;
 }
