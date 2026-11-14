@@ -216,6 +216,15 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         requireValidation(evidence.trajectory_geometry_validation,
                           "TRAJECTORY_GEOMETRY_VALIDATION_EVIDENCE_REQUIRED",
                           "TRAJECTORY_GEOMETRY_VALIDATION_LINEAGE_MISMATCH");
+        requireValidation(evidence.final_planning_integrity_validation,
+                          "FINAL_PLANNING_INTEGRITY_EVIDENCE_REQUIRED",
+                          "FINAL_PLANNING_INTEGRITY_LINEAGE_MISMATCH");
+        require(evidence.final_planning_integrity_validation.result_id
+                    == evidence.final_planning_integrity_validation.source_reference,
+                "FINAL_PLANNING_INTEGRITY_DEPENDENCY_IDENTITY_MISMATCH", result.blockers);
+        require(evidence.final_planning_integrity_validation.vehicle_configuration_id
+                    == evidence.vehicle_configuration_id,
+                "FINAL_PLANNING_INTEGRITY_VEHICLE_CONFIGURATION_MISMATCH", result.blockers);
         requireValidation(evidence.notam_validation,
                           "NOTAM_VALIDATION_EVIDENCE_REQUIRED", "NOTAM_VALIDATION_LINEAGE_MISMATCH");
         requireText(evidence.notam_validation.snapshot_id,

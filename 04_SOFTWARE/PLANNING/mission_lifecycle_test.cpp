@@ -1,4 +1,5 @@
 #include "mission_lifecycle.hpp"
+#include "mission_lifecycle_final_integrity_adapter.hpp"
 #include "mission_lifecycle_route_adapter.hpp"
 #include "mission_lifecycle_notam_adapter.hpp"
 #include "mission_lifecycle_vehicle_adapter.hpp"
@@ -217,6 +218,32 @@ static MissionLifecycleEvidence evidence() {
     e.route_candidate_selected = true;
     e.route_structure_validation = routeStructureValidation();
     e.trajectory_geometry_validation = validation("GEOMETRY-RESULT");
+    FlightProfile finalProfile;
+    finalProfile.mission_id = e.mission_id;
+    finalProfile.mission_version = e.mission_version;
+    finalProfile.profile_id = "PROFILE-READY";
+    finalProfile.profile_version = "1";
+    finalProfile.source_candidate_id = "CANDIDATE-READY";
+    finalProfile.route_version = e.route_version;
+    finalProfile.calculation_input_version = e.calculation_input_version;
+    finalProfile.dependency_identity = "PROFILE-DEPENDENCY-READY";
+    finalProfile.valid = true;
+    finalProfile.points = {
+        {{0.0, 0.0}, 50.0, 0.0, true},
+        {{0.0, 0.001}, 60.0, 10.0, true}
+    };
+    VehicleCompilationInput finalVehicleInput;
+    finalVehicleInput.uav_id = "UAV-1";
+    finalVehicleInput.configuration_version = e.vehicle_configuration_id;
+    finalVehicleInput.performance_version = "PERF-1";
+    finalVehicleInput.maximum_altitude_m = 120.0;
+    finalVehicleInput.minimum_speed_mps = 5.0;
+    finalVehicleInput.maximum_speed_mps = 20.0;
+    finalVehicleInput.cruise_speed_mps = 12.0;
+    const auto compiledFinalProfile = VehicleMissionCompiler::compile(finalProfile, finalVehicleInput);
+    e.final_planning_integrity_validation = makeFinalPlanningIntegrityValidationEvidence(
+        compiledFinalProfile, e.mission_id, e.mission_version, e.route_version,
+        e.calculation_input_version);
     e.notam_validation = notamValidation();
     e.terrain_validation = validation("TERRAIN-RESULT");
     e.vehicle_envelope_validation = vehicleEnvelopeValidation();
@@ -310,6 +337,24 @@ int main() {
     assert(!missingNotamSnapshotResult.accepted);
     assert(std::find(missingNotamSnapshotResult.blockers.begin(), missingNotamSnapshotResult.blockers.end(),
                      "NOTAM_VALIDATION_SNAPSHOT_ID_REQUIRED") != missingNotamSnapshotResult.blockers.end());
+    auto missingFinalIntegrity = e;
+    missingFinalIntegrity.final_planning_integrity_validation.result_id.clear();
+    auto missingFinalIntegrityResult = move(record, MissionLifecycleState::Ready, missingFinalIntegrity);
+    assert(!missingFinalIntegrityResult.accepted);
+    assert(std::find(missingFinalIntegrityResult.blockers.begin(), missingFinalIntegrityResult.blockers.end(),
+                     "FINAL_PLANNING_INTEGRITY_EVIDENCE_REQUIRED") != missingFinalIntegrityResult.blockers.end());
+    auto staleFinalIntegrity = e;
+    staleFinalIntegrity.final_planning_integrity_validation.route_version = "OLD-ROUTE";
+    auto staleFinalIntegrityResult = move(record, MissionLifecycleState::Ready, staleFinalIntegrity);
+    assert(!staleFinalIntegrityResult.accepted);
+    assert(std::find(staleFinalIntegrityResult.blockers.begin(), staleFinalIntegrityResult.blockers.end(),
+                     "FINAL_PLANNING_INTEGRITY_LINEAGE_MISMATCH") != staleFinalIntegrityResult.blockers.end());
+    auto mismatchedFinalIntegrityVehicle = e;
+    mismatchedFinalIntegrityVehicle.final_planning_integrity_validation.vehicle_configuration_id = "CFG-OTHER";
+    auto mismatchedFinalIntegrityVehicleResult = move(record, MissionLifecycleState::Ready, mismatchedFinalIntegrityVehicle);
+    assert(!mismatchedFinalIntegrityVehicleResult.accepted);
+    assert(std::find(mismatchedFinalIntegrityVehicleResult.blockers.begin(), mismatchedFinalIntegrityVehicleResult.blockers.end(),
+                     "FINAL_PLANNING_INTEGRITY_VEHICLE_CONFIGURATION_MISMATCH") != mismatchedFinalIntegrityVehicleResult.blockers.end());
     auto missingRouteStructure = e;
     missingRouteStructure.route_structure_validation.result_id.clear();
     auto missingRouteStructureResult = move(record, MissionLifecycleState::Ready, missingRouteStructure);

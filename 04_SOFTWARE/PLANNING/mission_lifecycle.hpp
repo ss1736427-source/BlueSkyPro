@@ -80,6 +80,7 @@ struct MissionLifecycleEvidence {
     bool route_candidate_selected{false};
     MissionLifecycleValidationEvidence route_structure_validation;
     MissionLifecycleValidationEvidence trajectory_geometry_validation;
+    MissionLifecycleValidationEvidence final_planning_integrity_validation;
     MissionLifecycleValidationEvidence notam_validation;
     MissionLifecycleValidationEvidence terrain_validation;
     MissionLifecycleValidationEvidence vehicle_envelope_validation;
