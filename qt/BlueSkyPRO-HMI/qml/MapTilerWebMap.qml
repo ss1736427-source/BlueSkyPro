@@ -274,22 +274,6 @@ Item {
     // map is hidden/no API key is configured must not touch QObject registrations.
     // The CI-only argument isolates the WebEngineView startup path from WebChannel.
     property bool webChannelEnabled: Qt.application.arguments.indexOf("--ci-disable-webchannel") < 0
-    property string webChannelRegistrationMode: Qt.application.arguments.indexOf("--ci-webchannel-empty") >= 0 ? "empty"
-        : Qt.application.arguments.indexOf("--ci-webchannel-manual-only") >= 0 ? "manual-only"
-        : Qt.application.arguments.indexOf("--ci-webchannel-route-only") >= 0 ? "route-only" : "both"
-
-    Loader {
-        id: mapWebChannelLoader
-        active: root.apiKey.length > 0 && root.webChannelEnabled
-        sourceComponent: Component {
-            WebChannel {
-                registeredObjects: root.webChannelRegistrationMode === "empty" ? []
-                    : root.webChannelRegistrationMode === "manual-only" ? [manualGeometryBridge]
-                    : root.webChannelRegistrationMode === "route-only" ? [routeController]
-                    : [manualGeometryBridge, routeController]
-            }
-        }
-    }
 
     Timer {
         id: notamViewportPoll
@@ -324,7 +308,7 @@ Item {
     WebEngineView {
         id: webMap
         profile: mapWebProfile
-        webChannel: mapWebChannelLoader.item
+        webChannel: root.webChannelEnabled ? mapWebChannel : null
         anchors.fill: parent
         visible: root.apiKey.length > 0
         backgroundColor: "#071321"
