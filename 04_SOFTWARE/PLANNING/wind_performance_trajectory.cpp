@@ -49,7 +49,10 @@ std::string dependency(const Route&r,const TrajectoryPerformanceInput&i,const st
      <<i.cruise_airspeed_mps<<'|'<<i.climb_rate_mps<<'|'<<i.descent_rate_mps
      <<'|'<<i.wind_tolerance_mps<<'|'<<i.energy_per_horizontal_meter_wh
      <<'|'<<i.energy_per_climb_meter_wh<<'|'<<i.energy_per_descent_meter_wh
-     <<'|'<<i.payload_power_w<<'|'<<i.usable_energy_wh<<'|'<<i.reserve_requirement_wh
+     <<'|'<<i.payload_power_w<<'|'<<i.camera_configuration_id
+     <<'|'<<i.camera_gsd_m_px<<'|'<<i.camera_forward_trigger_spacing_m
+     <<'|'<<i.camera_minimum_trigger_interval_s<<'|'<<i.camera_exposure_time_s
+     <<'|'<<i.camera_maximum_motion_blur_px<<'|'<<i.usable_energy_wh<<'|'<<i.reserve_requirement_wh
      <<'|'<<r.trajectory_geometry_complete;
     for (const auto& point : r.waypoints) {
         o << "|WP:" << point.waypoint_id << ':' << std::setprecision(17)
@@ -65,6 +68,7 @@ std::string dependency(const Route&r,const TrajectoryPerformanceInput&i,const st
         o << "|SEG:" << segment.segment_id << ':' << segment.from_waypoint_id
           << '>' << segment.to_waypoint_id << ':' << segment.distance_m
           << ',' << segment.nominal_speed_mps;
+    for (const auto& id : i.camera_capture_segment_ids) o << "|CAMERA_SEG:" << id;
     for(const auto&s:i.wind_samples)
         o<<'|'<<s.segment_id<<':'<<std::setprecision(17)<<s.north_mps<<','<<s.east_mps<<','<<s.up_mps;
     return o.str();
@@ -102,6 +106,39 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
        input.mission_start_epoch_s<0){
         fail(r,TrajectoryFindingCode::InvalidPerformance,"","performance inputs must be non-negative and speeds/rates positive");
         return r;
+    }
+
+    const bool cameraConfigured = !input.camera_configuration_id.empty()
+        || input.camera_gsd_m_px != 0.0 || input.camera_forward_trigger_spacing_m != 0.0
+        || input.camera_minimum_trigger_interval_s != 0.0 || input.camera_exposure_time_s != 0.0
+        || input.camera_maximum_motion_blur_px != 0.0 || !input.camera_capture_segment_ids.empty();
+    if (cameraConfigured) {
+        const bool validCamera = !input.camera_configuration_id.empty()
+            && std::isfinite(input.camera_gsd_m_px) && input.camera_gsd_m_px > 0.0
+            && std::isfinite(input.camera_forward_trigger_spacing_m) && input.camera_forward_trigger_spacing_m > 0.0
+            && std::isfinite(input.camera_minimum_trigger_interval_s) && input.camera_minimum_trigger_interval_s > 0.0
+            && std::isfinite(input.camera_exposure_time_s) && input.camera_exposure_time_s > 0.0
+            && std::isfinite(input.camera_maximum_motion_blur_px) && input.camera_maximum_motion_blur_px > 0.0
+            && !input.camera_capture_segment_ids.empty();
+        if (!validCamera) {
+            fail(r, TrajectoryFindingCode::CameraCaptureConfigurationIncomplete, "",
+                 "camera configuration, GSD, trigger spacing, minimum interval, exposure, blur tolerance and coverage segment identities are all required together");
+            return r;
+        }
+        auto ids = input.camera_capture_segment_ids;
+        std::sort(ids.begin(), ids.end());
+        if (std::adjacent_find(ids.begin(), ids.end()) != ids.end()) {
+            fail(r, TrajectoryFindingCode::CameraCaptureConfigurationIncomplete, "",
+                 "camera coverage segment identities must be unique");
+            return r;
+        }
+        for (const auto& id : ids) {
+            if (std::none_of(route.segments.begin(), route.segments.end(), [&](const auto& segment) { return segment.segment_id == id; })) {
+                fail(r, TrajectoryFindingCode::CameraCaptureConfigurationIncomplete, id,
+                     "camera coverage segment identity does not exist in the canonical route");
+                return r;
+            }
+        }
     }
 
     if(route.waypoints.empty() || route.segments.size()+1!=route.waypoints.size()){
@@ -189,6 +226,29 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
         }
         if(std::abs(dz)>1e-9) duration=std::max(duration,std::abs(dz)/vertical_rate);
         const double climb=std::max(0.0,dz), descent=std::max(0.0,-dz);
+        double cameraTriggerInterval = 0.0;
+        double cameraMotionBlur = 0.0;
+        if (cameraConfigured && std::find(input.camera_capture_segment_ids.begin(),
+                                          input.camera_capture_segment_ids.end(), seg.segment_id)
+                                   != input.camera_capture_segment_ids.end()) {
+            if (horizontal <= 1e-9 || ground_speed <= 1e-9) {
+                fail(r, TrajectoryFindingCode::GroundSpeedUnavailable, seg.segment_id,
+                     "camera capture segment requires a positive horizontal ground speed");
+                return r;
+            }
+            cameraTriggerInterval = input.camera_forward_trigger_spacing_m / ground_speed;
+            cameraMotionBlur = ground_speed * input.camera_exposure_time_s / input.camera_gsd_m_px;
+            if (cameraTriggerInterval + 1e-9 < input.camera_minimum_trigger_interval_s) {
+                fail(r, TrajectoryFindingCode::CameraTriggerIntervalExceeded, seg.segment_id,
+                     "wind-corrected ground speed requires a camera trigger interval shorter than the configured hardware minimum");
+                return r;
+            }
+            if (cameraMotionBlur > input.camera_maximum_motion_blur_px + 1e-9) {
+                fail(r, TrajectoryFindingCode::CameraMotionBlurExceeded, seg.segment_id,
+                     "wind-corrected ground speed and selected exposure exceed the configured motion-blur tolerance");
+                return r;
+            }
+        }
         const double segment_energy=
             horizontal*input.energy_per_horizontal_meter_wh+
             climb*input.energy_per_climb_meter_wh+
@@ -200,7 +260,8 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
             fail(r,TrajectoryFindingCode::InsufficientEnergyReserve,seg.segment_id,"trajectory exceeds usable energy after reserve");
             return r;
         }
-        r.segments.push_back({seg.segment_id,ground_speed,track,duration,segment_energy});
+        r.segments.push_back({seg.segment_id,ground_speed,track,duration,segment_energy,
+                              cameraTriggerInterval,cameraMotionBlur});
         r.points.push_back({to->waypoint_id,to->position,to->altitude_m,time,energy});
     }
 

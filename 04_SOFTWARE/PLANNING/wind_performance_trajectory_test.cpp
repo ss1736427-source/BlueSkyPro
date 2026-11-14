@@ -95,6 +95,41 @@ int main(){
     assert(invalidTaskResult.status==TrajectoryStatus::Infeasible);
     assert(!invalidTaskResult.findings.empty());
 
+    auto cameraQualified = in;
+    cameraQualified.camera_configuration_id = "CAM-01";
+    cameraQualified.camera_gsd_m_px = 0.02;
+    cameraQualified.camera_forward_trigger_spacing_m = 20.0;
+    cameraQualified.camera_minimum_trigger_interval_s = 0.7;
+    cameraQualified.camera_exposure_time_s = 1.0 / 2000.0;
+    cameraQualified.camera_maximum_motion_blur_px = 1.0;
+    cameraQualified.camera_capture_segment_ids = {"S1"};
+    const auto cameraQualifiedResult =
+        WindPerformanceTrajectory::calculate(route, cameraQualified, "CALC1");
+    assert(cameraQualifiedResult.status == TrajectoryStatus::Feasible);
+    assert(cameraQualifiedResult.segments[0].camera_trigger_interval_s >= 0.7);
+    assert(cameraQualifiedResult.segments[0].camera_motion_blur_px <= 1.0);
+
+    auto cameraTriggerViolation = cameraQualified;
+    cameraTriggerViolation.camera_forward_trigger_spacing_m = 10.0;
+    const auto cameraTriggerViolationResult =
+        WindPerformanceTrajectory::calculate(route, cameraTriggerViolation, "CALC1");
+    assert(cameraTriggerViolationResult.status == TrajectoryStatus::Infeasible);
+    assert(cameraTriggerViolationResult.findings.back().code ==
+           TrajectoryFindingCode::CameraTriggerIntervalExceeded);
+
+    auto cameraBlurViolation = cameraQualified;
+    cameraBlurViolation.camera_exposure_time_s = 1.0 / 1000.0;
+    const auto cameraBlurViolationResult =
+        WindPerformanceTrajectory::calculate(route, cameraBlurViolation, "CALC1");
+    assert(cameraBlurViolationResult.status == TrajectoryStatus::Infeasible);
+    assert(cameraBlurViolationResult.findings.back().code ==
+           TrajectoryFindingCode::CameraMotionBlurExceeded);
+
+    auto incompleteCamera = cameraQualified;
+    incompleteCamera.camera_capture_segment_ids.clear();
+    assert(WindPerformanceTrajectory::calculate(route, incompleteCamera, "CALC1").status ==
+           TrajectoryStatus::Infeasible);
+
     auto invalidPayload=in; invalidPayload.payload_power_w=-1.0;
     assert(WindPerformanceTrajectory::calculate(route,invalidPayload,"CALC1").status==TrajectoryStatus::Infeasible);
 

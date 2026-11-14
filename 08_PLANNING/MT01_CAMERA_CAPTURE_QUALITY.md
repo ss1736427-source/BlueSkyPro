@@ -60,6 +60,8 @@ This is separate from propulsion energy and is included in total energy and rese
 
 - The 2D coverage planner computes capture spacing from image footprint and forward overlap.
 - It checks the configured camera trigger interval and motion-blur tolerance at nominal ground speed.
+- The wind trajectory re-evaluates trigger interval and motion blur on each explicitly identified coverage segment using wind-corrected ground speed. Connector, turn and transit segments are not treated as image-capture legs.
+- Camera validation is fail-closed: configuration identity, GSD, trigger spacing, minimum interval, exposure, blur tolerance and coverage-segment identities must be supplied together. A trigger-rate or blur violation makes the trajectory infeasible.
 - The wind trajectory adds continuous payload power over each flown segment.
 - MT-01 rejects the legacy per-capture waypoint-dwell representation. Camera captures must not be represented as `task_execution_duration_s` / `task_execution_energy_wh`.
 - Wind-corrected trigger timing and blur still require a trajectory-stage check using actual segment ground speed. The current static per-segment wind model does not yet provide time-indexed forecast interpolation.

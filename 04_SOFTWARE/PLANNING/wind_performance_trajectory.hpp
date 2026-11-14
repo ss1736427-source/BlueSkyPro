@@ -18,7 +18,10 @@ enum class TrajectoryFindingCode {
     WindExceedsTolerance,
     GroundSpeedUnavailable,
     InvalidPerformance,
-    InsufficientEnergyReserve
+    InsufficientEnergyReserve,
+    CameraCaptureConfigurationIncomplete,
+    CameraTriggerIntervalExceeded,
+    CameraMotionBlurExceeded
 };
 
 struct WindSample {
@@ -47,6 +50,14 @@ struct TrajectoryPerformanceInput {
     double energy_per_descent_meter_wh{0.0};
     // Continuous camera/payload electrical draw while airborne; not per-photo dwell energy.
     double payload_power_w{0.0};
+    // MT-01 camera constraints apply only to explicitly identified coverage segments.
+    std::string camera_configuration_id;
+    double camera_gsd_m_px{0.0};
+    double camera_forward_trigger_spacing_m{0.0};
+    double camera_minimum_trigger_interval_s{0.0};
+    double camera_exposure_time_s{0.0};
+    double camera_maximum_motion_blur_px{0.0};
+    std::vector<std::string> camera_capture_segment_ids;
     double usable_energy_wh{0.0};
     double reserve_requirement_wh{0.0};
     std::vector<WindSample> wind_samples;
@@ -72,6 +83,8 @@ struct TrajectorySegmentResult {
     double track_deg{0.0};
     double traversal_time_s{0.0};
     double energy_wh{0.0};
+    double camera_trigger_interval_s{0.0};
+    double camera_motion_blur_px{0.0};
 };
 
 struct TrajectoryResult {
