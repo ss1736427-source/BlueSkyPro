@@ -114,6 +114,10 @@ int main(int argc, char **argv)
     assert(!result.value("segmentDynamicsValidated").toBool());
     assert(!result.value("routeCandidateAvailable").toBool());
     assert(!result.value("routeCandidate").isValid());
+    const QStringList missingAircraftEvidence = result.value("findings").toStringList();
+    assert(missingAircraftEvidence.contains("MT01_VALIDATED_VEHICLE_MOTION_PROFILE_REQUIRED"));
+    assert(missingAircraftEvidence.contains("MT01_VALIDATED_FLIGHT_SAFETY_ENVELOPE_REQUIRED"));
+    assert(missingAircraftEvidence.contains("MT01_ROUTE_LINEAGE_AND_TERRAIN_SNAPSHOT_REQUIRED"));
     assert(!result.value("flightReleaseEligible").toBool());
     assert(!result.value("taskExecutionEstimatesReady").toBool());
     assert(!result.value("taskExecutionEstimatesAppliedToTrajectory").toBool());
