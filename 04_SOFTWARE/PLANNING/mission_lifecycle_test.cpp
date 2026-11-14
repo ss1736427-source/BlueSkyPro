@@ -193,7 +193,7 @@ static MissionLifecycleEvidence evidence() {
     e.vehicle_configuration_id = "CFG-01";
     e.terrain_snapshot_id = "TERRAIN-4";
     e.mission_notam_snapshot_id = "NOTAM-5";
-    e.weather_snapshot_id = "GFS-20261112-12Z";
+    e.weather_snapshot_id = "WX-SNAP-1";
     e.notam_recheck_snapshot_id = "NOTAM-6";
     e.regulatory_submission_id = "SUBMISSION-1";
     e.authorization_id = "AUTH-1";
@@ -328,6 +328,24 @@ int main() {
     assert(!missingValidation.accepted);
     assert(std::find(missingValidation.blockers.begin(), missingValidation.blockers.end(),
                      "TERRAIN_VALIDATION_EVIDENCE_REQUIRED") != missingValidation.blockers.end());
+    auto mismatchedWeatherSnapshot = e;
+    mismatchedWeatherSnapshot.weather_validation.snapshot_id = "WX-STALE";
+    auto staleWeatherValidation = move(record, MissionLifecycleState::Ready, mismatchedWeatherSnapshot);
+    assert(!staleWeatherValidation.accepted);
+    assert(std::find(staleWeatherValidation.blockers.begin(), staleWeatherValidation.blockers.end(),
+                     "WEATHER_VALIDATION_SNAPSHOT_MISMATCH") != staleWeatherValidation.blockers.end());
+    auto missingWeatherSnapshot = e;
+    missingWeatherSnapshot.weather_validation.snapshot_id.clear();
+    auto missingWeatherValidation = move(record, MissionLifecycleState::Ready, missingWeatherSnapshot);
+    assert(!missingWeatherValidation.accepted);
+    assert(std::find(missingWeatherValidation.blockers.begin(), missingWeatherValidation.blockers.end(),
+                     "WEATHER_VALIDATION_SNAPSHOT_ID_REQUIRED") != missingWeatherValidation.blockers.end());
+    auto mismatchedEnergySnapshot = e;
+    mismatchedEnergySnapshot.energy_reserve_validation.snapshot_id = "WX-OTHER";
+    auto staleEnergyValidation = move(record, MissionLifecycleState::Ready, mismatchedEnergySnapshot);
+    assert(!staleEnergyValidation.accepted);
+    assert(std::find(staleEnergyValidation.blockers.begin(), staleEnergyValidation.blockers.end(),
+                     "ENERGY_RESERVE_VALIDATION_SNAPSHOT_MISMATCH") != staleEnergyValidation.blockers.end());
     auto changedRouteIdentity = e;
     changedRouteIdentity.route_id = "ROUTE-OTHER";
     auto wrongRouteIdentity = move(record, MissionLifecycleState::Ready, changedRouteIdentity);
