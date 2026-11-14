@@ -89,7 +89,7 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
     // Connector speed is independently selectable below coverage cruise speed.
     // Its turn radius is recalculated from the same validated aircraft dynamics;
     // no existing geometry is reused after a speed change.
-    if (connectorSpeedMps <= 0.0)
+    if (connectorSpeedMps == 0.0)
         connectorSpeedMps = vehicle.reference_speed_mps;
     if (!finite(connectorSpeedMps)
         || connectorSpeedMps < vehicle.minimum_speed_mps
