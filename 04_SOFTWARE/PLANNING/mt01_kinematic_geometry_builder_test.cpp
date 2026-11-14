@@ -56,6 +56,36 @@ int main()
         assert(std::abs(mapped.latitude_deg - coverage.capture_points[i].position.latitude_deg) < 1e-9);
         assert(std::abs(mapped.longitude_deg - coverage.capture_points[i].position.longitude_deg) < 1e-9);
     }
+
+    const auto requestedTurnSpeed =
+        VehicleMotionModelEvaluator::recommendTurnSpeedForRadius(vehicle, 15.0);
+    assert(requestedTurnSpeed.valid);
+    const auto slowedConnectorGeometry = Mt01KinematicGeometryBuilder::build(
+        coverage, vehicle, "TEST-FIXED-WING", "TEST-CONFIG-1",
+        10.0, {}, 2.0, requestedTurnSpeed.selected_speed_mps);
+    assert(slowedConnectorGeometry.feasible);
+    assert(std::abs(slowedConnectorGeometry.minimum_turn_radius_m - 15.0) < 1e-6);
+    bool sawSlowedConnector = false;
+    bool sawCruiseCoverage = false;
+    for (const auto& segment : slowedConnectorGeometry.segments) {
+        if (segment.type == Mt01KinematicSegmentType::ConnectorTurn
+            || segment.type == Mt01KinematicSegmentType::ConnectorStraight) {
+            sawSlowedConnector = true;
+            assert(std::abs(segment.nominal_speed_mps
+                            - requestedTurnSpeed.selected_speed_mps) < 1e-9);
+        } else if (segment.type == Mt01KinematicSegmentType::Coverage) {
+            sawCruiseCoverage = true;
+            assert(std::abs(segment.nominal_speed_mps - 10.0) < 1e-9);
+        }
+    }
+    assert(sawSlowedConnector && sawCruiseCoverage);
+    const auto belowMinimumConnector = Mt01KinematicGeometryBuilder::build(
+        coverage, vehicle, "TEST-FIXED-WING", "TEST-CONFIG-1",
+        10.0, {}, 2.0, 4.9);
+    assert(!belowMinimumConnector.feasible);
+    assert(belowMinimumConnector.diagnostics.front().find(
+        "CONNECTOR_SPEED_OUTSIDE_ENVELOPE") != std::string::npos);
+
     assert(result.diagnostics.size() >= 2);
     bool sawCoverage = false;
     bool sawTurn = false;
