@@ -64,5 +64,7 @@ This is separate from propulsion energy and is included in total energy and rese
 - Camera validation is fail-closed: configuration identity, GSD, trigger spacing, minimum interval, exposure, blur tolerance and coverage-segment identities must be supplied together. A trigger-rate or blur violation makes the trajectory infeasible.
 - The wind trajectory adds continuous payload power over each flown segment.
 - MT-01 rejects the legacy per-capture waypoint-dwell representation. Camera captures must not be represented as `task_execution_duration_s` / `task_execution_energy_wh`.
-- Wind-corrected trigger timing and blur are checked in the trajectory stage using actual calculated ground speed on coverage segments. The current wind input remains a static per-segment sample; time-indexed forecast interpolation is still outstanding.
+- The weather trajectory calculator samples forecast wind by route position, AGL altitude and estimated segment midpoint UTC. It iteratively updates traversal times and re-samples forecast wind until the time/trajectory coupling converges or fails closed.
+- Camera coverage-segment identity is propagated to every weather subdivision, so trigger interval and motion blur remain checked after along-track weather sampling.
+- `Mt01WeatherPerformanceAdapter` binds camera constraints and the summed electrical power of all assigned, verified equipment from the exact vehicle capability revision. Missing equipment power, incompatible/unverified assignments or identity mismatches block the binding.
 - Camera latency, rolling-shutter correction, terrain-following GSD variation, image geotag/RTK quality, calibration evidence, image sharpness checks and post-flight coverage validation remain separate readiness requirements.

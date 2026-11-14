@@ -148,7 +148,7 @@ bool interpolateGeoPoint(const bluesky::planning::GeoPoint& a,
 }
 
 bool buildSamplingRoute(const bluesky::planning::Route& source,
-                        bluesky::planning::TrajectoryPerformanceInput& input,
+                        const bluesky::planning::TrajectoryPerformanceInput& input,
                         bluesky::planning::Route& sampled,std::string& error)
 {
     using namespace bluesky::planning;
@@ -164,21 +164,6 @@ bool buildSamplingRoute(const bluesky::planning::Route& source,
     }
     std::vector<double> baseDurations;
     if (!initialDurations(source,input,baseDurations,error)) return false;
-    auto originalCameraIds = input.camera_capture_segment_ids;
-    std::sort(originalCameraIds.begin(), originalCameraIds.end());
-    if (std::adjacent_find(originalCameraIds.begin(), originalCameraIds.end())
-        != originalCameraIds.end()) {
-        error = "camera capture segment identities must be unique before weather sampling";
-        return false;
-    }
-    for (const auto& id : originalCameraIds) {
-        if (std::none_of(source.segments.begin(), source.segments.end(),
-                         [&](const auto& segment) { return segment.segment_id == id; })) {
-            error = "camera capture segment identity is not present in the source route: " + id;
-            return false;
-        }
-    }
-    std::vector<std::string> sampledCameraIds;
     sampled=source;
     sampled.waypoints.clear();
     sampled.segments.clear();
@@ -237,17 +222,11 @@ bool buildSamplingRoute(const bluesky::planning::Route& source,
             subsegment.nominal_speed_mps=original.nominal_speed_mps;
             subsegment.bank_angle_rad=original.bank_angle_rad;
             subsegment.lateral_acceleration_mps2=original.lateral_acceleration_mps2;
-            if (std::binary_search(originalCameraIds.begin(), originalCameraIds.end(),
-                                   original.segment_id)) {
-                sampledCameraIds.push_back(subsegment.segment_id);
-            }
             sampled.segments.push_back(std::move(subsegment));
             sampled.waypoints.push_back(std::move(next));
         }
     }
     sampled.trajectory_geometry_complete=true;
-    // Each weather subdivision inherits the camera-capture role of its source leg.
-    input.camera_capture_segment_ids = std::move(sampledCameraIds);
     return sampled.segments.size()==sampled.waypoints.size()-1;
 }
 

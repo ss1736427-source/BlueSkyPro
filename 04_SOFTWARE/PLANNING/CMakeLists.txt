@@ -20,7 +20,6 @@ add_library(bluesky_planning
     mt01_mapping_pipeline.cpp
     mt01_kinematic_geometry_builder.cpp
     mt01_route_candidate_builder.cpp
-    mt01_weather_performance_adapter.cpp
     orchestrator/algorithm_orchestrator.cpp
     benchmarks/solver_benchmark_runner.cpp
     adapter/universal_adapter_registry.cpp
@@ -86,13 +85,6 @@ target_link_libraries(mt01_mapping_pipeline_test PRIVATE bluesky_planning)
 
 add_executable(mt01_kinematic_geometry_builder_test mt01_kinematic_geometry_builder_test.cpp)
 target_link_libraries(mt01_kinematic_geometry_builder_test PRIVATE bluesky_planning)
-
-add_executable(mt01_weather_performance_adapter_test mt01_weather_performance_adapter_test.cpp)
-target_link_libraries(mt01_weather_performance_adapter_test PRIVATE bluesky_planning)
-target_compile_options(mt01_weather_performance_adapter_test PRIVATE
-    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
-    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
-)
 
 add_executable(astar_dijkstra_benchmark
     tests/astar_dijkstra_benchmark.cpp
@@ -309,7 +301,6 @@ target_link_libraries(capability_execution_integration_test PRIVATE bluesky_plan
     add_test(NAME coverage_path_planner_test COMMAND coverage_path_planner_test)
     add_test(NAME mt01_mapping_pipeline_test COMMAND mt01_mapping_pipeline_test)
     add_test(NAME mt01_kinematic_geometry_builder_test COMMAND mt01_kinematic_geometry_builder_test)
-    add_test(NAME mt01_weather_performance_adapter_test COMMAND mt01_weather_performance_adapter_test)
     add_test(NAME astar_dijkstra_benchmark COMMAND astar_dijkstra_benchmark)
     add_test(NAME orchestrator_integration_test COMMAND orchestrator_integration_test)
     add_test(NAME orchestrator_route_validation_test COMMAND orchestrator_route_validation_test)
@@ -382,6 +373,16 @@ target_compile_options(weather_engine_test PRIVATE
     "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
 )
     add_test(NAME weather_engine_contract_test COMMAND weather_engine_test)
+
+add_executable(weather_camera_sampling_test
+    weather_camera_sampling_test.cpp
+)
+target_link_libraries(weather_camera_sampling_test PRIVATE bluesky_planning)
+target_compile_options(weather_camera_sampling_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME weather_camera_sampling_test COMMAND weather_camera_sampling_test)
 
 add_executable(weather_candidate_reranking_integration_test
     weather_candidate_reranking_integration_test.cpp
