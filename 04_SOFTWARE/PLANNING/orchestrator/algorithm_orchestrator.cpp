@@ -161,6 +161,12 @@ bool sameRouteGeometry(const Route& lhs, const Route& rhs) {
     if (lhs.trajectory_geometry_complete != rhs.trajectory_geometry_complete
         || lhs.waypoints.size() != rhs.waypoints.size()
         || lhs.segments.size() != rhs.segments.size()
+        || !std::isfinite(lhs.constraints.minimum_altitude_m)
+        || !std::isfinite(rhs.constraints.minimum_altitude_m)
+        || !std::isfinite(lhs.constraints.maximum_altitude_m)
+        || !std::isfinite(rhs.constraints.maximum_altitude_m)
+        || !std::isfinite(lhs.constraints.minimum_clearance_m)
+        || !std::isfinite(rhs.constraints.minimum_clearance_m)
         || std::abs(lhs.constraints.minimum_altitude_m-rhs.constraints.minimum_altitude_m)>1e-9
         || std::abs(lhs.constraints.maximum_altitude_m-rhs.constraints.maximum_altitude_m)>1e-9
         || std::abs(lhs.constraints.minimum_clearance_m-rhs.constraints.minimum_clearance_m)>1e-9
@@ -191,6 +197,7 @@ bool sameRouteGeometry(const Route& lhs, const Route& rhs) {
             || a.from_waypoint_id != b.from_waypoint_id
             || a.to_waypoint_id != b.to_waypoint_id
             || std::abs(a.distance_m - b.distance_m) > 1e-4
+            || std::abs(a.nominal_speed_mps - b.nominal_speed_mps) > 1e-6
             || !sameOptional(a.bank_angle_rad, b.bank_angle_rad)
             || !sameOptional(a.lateral_acceleration_mps2, b.lateral_acceleration_mps2))
             return false;
