@@ -44,6 +44,8 @@ struct RouteSpeedProfileSegment {
     double cruise_distance_m{0.0};
     double maximum_acceleration_mps2{0.0};
     double maximum_deceleration_mps2{0.0};
+    double minimum_speed_mps{0.0};
+    double maximum_speed_mps{0.0};
 };
 
 struct RouteSpeedProfile {

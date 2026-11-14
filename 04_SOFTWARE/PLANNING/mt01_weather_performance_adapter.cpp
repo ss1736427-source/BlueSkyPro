@@ -40,6 +40,9 @@ Mt01WeatherPerformanceBindingResult Mt01WeatherPerformanceAdapter::bind(
         || !pipeline.route_candidate.available) {
         reject(result, "MT01_WEATHER_COVERAGE_OR_ROUTE_CANDIDATE_UNAVAILABLE"); return result;
     }
+    if (!pipeline.speed_profile_available || !pipeline.route_candidate.route.speed_profile) {
+        reject(result, "MT01_WEATHER_CAMERA_SPEED_FEEDBACK_REQUIRES_VALIDATED_LONGITUDINAL_PROFILE"); return result;
+    }
     if (pipeline.kinematic_geometry.segments.empty()
         || pipeline.route_candidate.route.segments.size()
             != pipeline.kinematic_geometry.segments.size()) {

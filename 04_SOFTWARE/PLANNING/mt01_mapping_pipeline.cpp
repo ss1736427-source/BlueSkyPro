@@ -247,8 +247,10 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
     } else {
         const bool connectorSlowerThanCoverage =
             connectorSpeedMps + 1e-6 < request.cruise_speed_mps;
+        const bool speedProfileRequested =
+            connectorSlowerThanCoverage || request.longitudinal_dynamics_validated;
         const SpeedProfileResult* speedProfile = nullptr;
-        if (connectorSlowerThanCoverage) {
+        if (speedProfileRequested) {
             if (!request.longitudinal_dynamics_validated
                 || request.longitudinal_dynamics_source.empty()
                 || !std::isfinite(request.maximum_acceleration_mps2)
