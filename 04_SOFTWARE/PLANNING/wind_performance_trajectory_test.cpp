@@ -109,6 +109,18 @@ int main(){
     assert(cameraQualifiedResult.segments[0].camera_trigger_interval_s >= 0.7);
     assert(cameraQualifiedResult.segments[0].camera_motion_blur_px <= 1.0);
 
+    Route routeWithConnector = route;
+    routeWithConnector.waypoints.push_back({"C", {0.0, 0.002}, 100.0, true});
+    routeWithConnector.segments.push_back({"S2", "B", "C", 111.32, 20.0});
+    auto connectorWind = cameraQualified;
+    connectorWind.wind_samples.push_back({"S2", 0.0, 10.0, 0.0});
+    const auto connectorExcludedResult =
+        WindPerformanceTrajectory::calculate(routeWithConnector, connectorWind, "CALC1");
+    assert(connectorExcludedResult.status == TrajectoryStatus::Feasible);
+    assert(connectorExcludedResult.segments.size() == 2);
+    assert(connectorExcludedResult.segments[1].camera_trigger_interval_s == 0.0);
+    assert(connectorExcludedResult.segments[1].camera_motion_blur_px == 0.0);
+
     auto cameraTriggerViolation = cameraQualified;
     cameraTriggerViolation.camera_forward_trigger_spacing_m = 10.0;
     const auto cameraTriggerViolationResult =
