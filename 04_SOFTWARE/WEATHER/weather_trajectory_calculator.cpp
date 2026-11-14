@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <iomanip>
+#include <sstream>
 #include <limits>
 #include <unordered_map>
 #include <utility>
@@ -576,8 +578,16 @@ bool buildWindAwareSpeedProfile(
     }
 
     RouteSpeedProfile updated=sourceProfile;
-    updated.profile_id=sourceRoute.lineage.route_id+"-WIND-SPEED";
-    updated.profile_version=snapshotId+"-"+snapshotVersion+"-"+calculationVersion;
+    updated.profile_id=sourceRoute.lineage.route_id+"-"+sourceRoute.lineage.route_version+"-WIND-SPEED";
+    std::ostringstream profileVersion;
+    profileVersion<<sourceRoute.lineage.mission_id<<'|'<<sourceRoute.lineage.mission_version
+        <<'|'<<sourceRoute.lineage.route_id<<'|'<<sourceRoute.lineage.route_version
+        <<'|'<<snapshotId<<'|'<<snapshotVersion<<'|'<<calculationVersion
+        <<'|'<<input.camera_configuration_id<<'|'<<std::setprecision(17)
+        <<input.camera_gsd_m_px<<'|'<<input.camera_forward_trigger_spacing_m
+        <<'|'<<input.camera_minimum_trigger_interval_s<<'|'<<input.camera_exposure_time_s
+        <<'|'<<input.camera_maximum_motion_blur_px;
+    updated.profile_version=profileVersion.str();
     updated.wind_snapshot_id=snapshotId;
     updated.wind_snapshot_version=snapshotVersion;
     updated.camera_configuration_id=input.camera_configuration_id;
