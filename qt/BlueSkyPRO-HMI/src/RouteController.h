@@ -5,6 +5,7 @@
 #include <QVariantMap>
 
 #include <cmath>
+#include <cstddef>
 #include <set>
 #include <string>
 

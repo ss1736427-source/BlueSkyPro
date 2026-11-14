@@ -169,16 +169,17 @@ int main(int argc, char *argv[])
     middleWaypoint.insert(QStringLiteral("mandatory"), true);
     removablePoints[1] = middleWaypoint;
     removablePoints.push_back(waypoint(QStringLiteral("WP-3"), 60.2, 24.2, 120.0));
+    removablePoints.push_back(waypoint(QStringLiteral("WP-4"), 60.3, 24.3, 130.0));
     removableCandidate.insert(QStringLiteral("waypoints"), removablePoints);
     assert(removalController.loadCandidate(removableCandidate));
-    assert(removalController.waypoints().size() == 3);
+    assert(removalController.waypoints().size() == 4);
     assert(removalController.removeMandatoryWaypoint(QStringLiteral("WP-2")));
-    assert(removalController.waypoints().size() == 2);
+    assert(removalController.waypoints().size() == 3);
     assert(removalController.waypoints()[1].toMap().value(QStringLiteral("waypointId")).toString()
            == QStringLiteral("WP-3"));
     assert(removalController.validationState() == QStringLiteral("RECALCULATION_REQUIRED"));
     assert(removalController.routeSnapshot().value(QStringLiteral("segments")).toList().isEmpty());
-    assert(!removalController.removeMandatoryWaypoint(QStringLiteral("WP-1")));
+    assert(!removalController.removeMandatoryWaypoint(QStringLiteral("WP-3")));
     assert(removalController.validationReason() == QStringLiteral("WAYPOINT_NOT_MANDATORY"));
 
     const QString originalVersion = controller.routeVersion();
