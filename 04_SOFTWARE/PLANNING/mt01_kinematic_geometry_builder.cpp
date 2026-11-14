@@ -237,7 +237,7 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
                     turning ? (connectorSpeedMps * connectorSpeedMps /
                                radius.air_relative_radius_m) : 0.0,
                     connectorSpeedMps,
-                    connectorMinimumSpeedMps);
+                    turning ? connectorSpeedMps : connectorMinimumSpeedMps);
             }
             ++result.connector_count;
         }
