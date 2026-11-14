@@ -211,6 +211,85 @@ public:
         return out;
     }
 
+
+    // Computes the highest air-relative speed that can follow a requested
+    // minimum-radius turn without exceeding the validated lateral-dynamics
+    // envelope. The result is a planning speed cap, not an autopilot command.
+    static TurnSpeedRecommendation recommendTurnSpeedForRadius(
+        const VehicleMotionModel& model,
+        double requested_radius_m) {
+        TurnSpeedRecommendation out;
+        out.requested_radius_m = requested_radius_m;
+        out.evidence = model.evidence;
+        const auto finitePositive = [](double v) {
+            return std::isfinite(v) && v > 0.0;
+        };
+        if (model.model_id.empty() || model.model_version.empty()
+            || model.configuration_id.empty() || model.source_reference.empty()
+            || model.speed_reference.empty()) {
+            out.diagnostic = "Exact vehicle/configuration identity, speed reference and provenance are required.";
+            return out;
+        }
+        if (!finitePositive(requested_radius_m)
+            || !finitePositive(model.reference_speed_mps)
+            || !finitePositive(model.minimum_speed_mps)
+            || !finitePositive(model.maximum_speed_mps)
+            || model.minimum_speed_mps > model.maximum_speed_mps
+            || model.reference_speed_mps < model.minimum_speed_mps
+            || model.reference_speed_mps > model.maximum_speed_mps) {
+            out.diagnostic = "Requested radius and configured air-relative speed envelope must be finite, positive and consistent.";
+            return out;
+        }
+
+        double radius_at_speed_squared = 0.0;
+        switch (model.motion_class) {
+        case MotionClass::FixedWing:
+            if (model.speed_reference != "TAS"
+                || !std::isfinite(model.bank_angle_rad)
+                || model.bank_angle_rad <= 0.0
+                || model.bank_angle_rad >= (pi / 2.0)) {
+                out.diagnostic = "Fixed-wing turn-speed cap requires TAS and a valid coordinated bank angle.";
+                return out;
+            }
+            radius_at_speed_squared = gravity * std::tan(model.bank_angle_rad);
+            break;
+        case MotionClass::Multirotor:
+            if (model.speed_reference != "AIR_RELATIVE"
+                || !finitePositive(model.lateral_acceleration_mps2)) {
+                out.diagnostic = "Multirotor turn-speed cap requires air-relative speed and validated positive sustained lateral acceleration.";
+                return out;
+            }
+            radius_at_speed_squared = model.lateral_acceleration_mps2;
+            break;
+        }
+
+        const double radius_limited_speed =
+            std::sqrt(requested_radius_m * radius_at_speed_squared);
+        out.minimum_safe_turn_speed_mps = model.minimum_speed_mps;
+        out.selected_speed_mps = std::min(model.reference_speed_mps,
+                                          radius_limited_speed);
+        if (out.selected_speed_mps < model.minimum_speed_mps - 1e-9) {
+            out.diagnostic = "Requested turn radius is infeasible at or above the configured minimum safe speed.";
+            return out;
+        }
+        out.achieved_ideal_radius_m =
+            (out.selected_speed_mps * out.selected_speed_mps)
+            / radius_at_speed_squared;
+        out.radius_requirement_met =
+            out.achieved_ideal_radius_m <= requested_radius_m * (1.0 + 1e-9);
+        if (!out.radius_requirement_met) {
+            out.diagnostic = "Requested turn radius cannot be met inside the configured speed envelope.";
+            return out;
+        }
+        out.valid = true;
+        out.may_satisfy_motion_hard_gate =
+            model.evidence == MotionEvidence::OfficialValidated
+            || model.evidence == MotionEvidence::FlightTestValidated;
+        out.diagnostic = out.may_satisfy_motion_hard_gate
+            ? "Air-relative turn-speed cap derived from validated lateral dynamics; longitudinal transition, wind, camera and trajectory checks remain separate."
+            : "Advisory only: unvalidated dynamics cannot satisfy the vehicle-motion hard gate.";
+        return out;
+    }
 };
 
 } // namespace bluesky::planning
