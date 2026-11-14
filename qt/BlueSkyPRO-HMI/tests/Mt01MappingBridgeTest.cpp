@@ -108,6 +108,12 @@ int main(int argc, char **argv)
     const QVariantMap result = bridge.calculate(validMissionJson(), validParameters());
     assert(result.value("status").toString() == "COVERAGE_CANDIDATE_AVAILABLE");
     assert(result.value("coverageCandidateAvailable").toBool());
+    // Coverage availability is not equivalent to a canonical, kinematic route.
+    // The bridge must expose this distinction rather than silently dropping it.
+    assert(!result.value("kinematicGeometryAvailable").toBool());
+    assert(!result.value("segmentDynamicsValidated").toBool());
+    assert(!result.value("routeCandidateAvailable").toBool());
+    assert(!result.value("routeCandidate").isValid());
     assert(!result.value("flightReleaseEligible").toBool());
     assert(!result.value("taskExecutionEstimatesReady").toBool());
     assert(!result.value("taskExecutionEstimatesAppliedToTrajectory").toBool());

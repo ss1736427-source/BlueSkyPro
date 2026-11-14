@@ -43,6 +43,82 @@ bool readNumber(const QVariantMap &map, const QString &key, double &target)
     return true;
 }
 
+QString altitudeReferenceName(AltitudeReference reference)
+{
+    switch (reference) {
+    case AltitudeReference::AGL: return QStringLiteral("AGL");
+    case AltitudeReference::AMSL: return QStringLiteral("AMSL");
+    case AltitudeReference::FlightLevel: return QStringLiteral("FL");
+    case AltitudeReference::Unknown: break;
+    }
+    return QStringLiteral("UNKNOWN");
+}
+
+QVariantMap serializeRouteCandidate(const Route &route)
+{
+    QVariantList waypoints;
+    for (const RouteWaypoint &waypoint : route.waypoints) {
+        QVariantMap item{
+            {QStringLiteral("waypointId"), QString::fromStdString(waypoint.waypoint_id)},
+            {QStringLiteral("latitudeDeg"), waypoint.position.latitude_deg},
+            {QStringLiteral("longitudeDeg"), waypoint.position.longitude_deg},
+            {QStringLiteral("altitudeM"), waypoint.altitude_m},
+            {QStringLiteral("mandatory"), waypoint.mandatory},
+            {QStringLiteral("altitudeReference"), altitudeReferenceName(waypoint.altitude_reference)}
+        };
+        if (waypoint.task_execution_duration_s)
+            item.insert(QStringLiteral("taskExecutionDurationS"), *waypoint.task_execution_duration_s);
+        if (waypoint.task_execution_energy_wh)
+            item.insert(QStringLiteral("taskExecutionEnergyWh"), *waypoint.task_execution_energy_wh);
+        waypoints.push_back(item);
+    }
+
+    QVariantList segments;
+    for (const RouteSegment &segment : route.segments) {
+        QVariantMap item{
+            {QStringLiteral("segmentId"), QString::fromStdString(segment.segment_id)},
+            {QStringLiteral("fromWaypointId"), QString::fromStdString(segment.from_waypoint_id)},
+            {QStringLiteral("toWaypointId"), QString::fromStdString(segment.to_waypoint_id)},
+            {QStringLiteral("distanceM"), segment.distance_m},
+            {QStringLiteral("nominalSpeedMps"), segment.nominal_speed_mps}
+        };
+        if (segment.bank_angle_rad)
+            item.insert(QStringLiteral("bankAngleRad"), *segment.bank_angle_rad);
+        if (segment.lateral_acceleration_mps2)
+            item.insert(QStringLiteral("lateralAccelerationMps2"), *segment.lateral_acceleration_mps2);
+        segments.push_back(item);
+    }
+
+    const RouteLineage &lineage = route.lineage;
+    const RouteConstraints &constraints = route.constraints;
+    const RouteEnvironmentReference &environment = route.environment;
+    return {
+        {QStringLiteral("routeId"), QString::fromStdString(lineage.route_id)},
+        {QStringLiteral("routeVersion"), QString::fromStdString(lineage.route_version)},
+        {QStringLiteral("missionId"), QString::fromStdString(lineage.mission_id)},
+        {QStringLiteral("missionVersion"), QString::fromStdString(lineage.mission_version)},
+        {QStringLiteral("generatorId"), QString::fromStdString(lineage.generator_id)},
+        {QStringLiteral("generatorVersion"), QString::fromStdString(lineage.generator_version)},
+        {QStringLiteral("calculationInputVersion"), QString::fromStdString(lineage.calculation_input_version)},
+        {QStringLiteral("coordinateReferenceSystem"), QStringLiteral("EPSG:4326")},
+        {QStringLiteral("environmentSnapshotRefs"), QVariantMap{
+            {QStringLiteral("terrainSnapshotId"), QString::fromStdString(environment.terrain_snapshot_id)},
+            {QStringLiteral("airspaceSnapshotId"), QString::fromStdString(environment.airspace_snapshot_id)},
+            {QStringLiteral("weatherSnapshotId"), QString::fromStdString(environment.weather_snapshot_id)},
+            {QStringLiteral("windSnapshotId"), QString::fromStdString(environment.wind_snapshot_id)}
+        }},
+        {QStringLiteral("constraints"), QVariantMap{
+            {QStringLiteral("minimumAltitudeM"), constraints.minimum_altitude_m},
+            {QStringLiteral("maximumAltitudeM"), constraints.maximum_altitude_m},
+            {QStringLiteral("minimumClearanceM"), constraints.minimum_clearance_m},
+            {QStringLiteral("avoidRestrictedAreas"), constraints.avoid_restricted_areas}
+        }},
+        {QStringLiteral("waypoints"), waypoints},
+        {QStringLiteral("segments"), segments},
+        {QStringLiteral("trajectoryGeometryComplete"), route.trajectory_geometry_complete}
+    };
+}
+
 QVariantMap blocked(const QString &code)
 {
     return {
@@ -766,6 +842,11 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
         {QStringLiteral("taskExecutionEstimatesAppliedToTrajectory"), taskExecutionEstimatesAppliedToTrajectory},
         {QStringLiteral("coverageValid"), calculated.coverage.valid},
         {QStringLiteral("coverageStatus"), QString::fromStdString(calculated.coverage.status)},
+        {QStringLiteral("kinematicGeometryAvailable"), calculated.kinematic_geometry_available},
+        {QStringLiteral("segmentDynamicsValidated"), calculated.segment_dynamics_validated},
+        {QStringLiteral("routeCandidateAvailable"), calculated.route_candidate_available},
+        {QStringLiteral("routeCandidate"), calculated.route_candidate_available
+             ? QVariant(serializeRouteCandidate(calculated.route_candidate.route)) : QVariant()},
         {QStringLiteral("cameraCalibrationVerified"), calculated.coverage.intrinsic_calibration_verified},
         {QStringLiteral("findings"), findings},
         {QStringLiteral("metrics"), metrics},
