@@ -192,13 +192,41 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
             "CUSTOM_CONFIGURATION_APPROVAL_PENDING: analysis candidate only; operational use remains blocked until the required approval is completed.");
     }
     const auto& assignedVehicle = mission.vehicle_assignments.front();
+    double connectorSpeedMps = request.vehicle_motion_model.reference_speed_mps;
+    double connectorMinimumSpeedMps = request.vehicle_motion_model.minimum_speed_mps;
+    if (!std::isfinite(request.requested_max_turn_radius_m)
+        || request.requested_max_turn_radius_m < 0.0) {
+        addFinding(result, "MT01_TURN_RADIUS_CONSTRAINT_INVALID");
+        return result;
+    }
+    if (request.requested_max_turn_radius_m > 0.0) {
+        const auto turnSpeed = VehicleMotionModelEvaluator::recommendTurnSpeedForRadius(
+            request.vehicle_motion_model,
+            request.requested_max_turn_radius_m,
+            request.fixed_wing_clean_stall_speed_mps,
+            request.fixed_wing_stall_speed_reference,
+            request.fixed_wing_stall_margin_factor);
+        if (!turnSpeed.valid || !turnSpeed.may_satisfy_motion_hard_gate) {
+            addFinding(result, "MT01_TURN_SPEED_CAP_UNAVAILABLE: "
+                + turnSpeed.diagnostic);
+            return result;
+        }
+        connectorSpeedMps = turnSpeed.selected_speed_mps;
+        connectorMinimumSpeedMps = turnSpeed.minimum_safe_turn_speed_mps;
+        result.turn_speed_constraint_applied = true;
+    }
+    result.selected_connector_speed_mps = connectorSpeedMps;
+    result.minimum_safe_connector_speed_mps = connectorMinimumSpeedMps;
     result.kinematic_geometry = Mt01KinematicGeometryBuilder::build(
         result.coverage,
         request.vehicle_motion_model,
         assignedVehicle.vehicle_id,
         assignedVehicle.configuration_id,
         request.cruise_speed_mps,
-        combinedExclusions);
+        combinedExclusions,
+        2.0,
+        connectorSpeedMps,
+        connectorMinimumSpeedMps);
     result.kinematic_geometry_available = result.kinematic_geometry.feasible;
     for (const auto& diagnostic : result.kinematic_geometry.diagnostics)
         addFinding(result, diagnostic);
