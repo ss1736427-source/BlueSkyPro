@@ -165,15 +165,15 @@ int main(int argc, char *argv[])
     RouteController removalController;
     QVariantMap removableCandidate = candidate();
     QVariantList removablePoints = removableCandidate.value(QStringLiteral("waypoints")).toList();
-    QVariantMap middleWaypoint = waypoint(QStringLiteral("WP-2"), 60.1, 24.1, 110.0);
+    QVariantMap middleWaypoint = removablePoints[1].toMap();
     middleWaypoint.insert(QStringLiteral("mandatory"), true);
-    removablePoints.push_back(middleWaypoint);
+    removablePoints[1] = middleWaypoint;
     removablePoints.push_back(waypoint(QStringLiteral("WP-3"), 60.2, 24.2, 120.0));
     removableCandidate.insert(QStringLiteral("waypoints"), removablePoints);
     assert(removalController.loadCandidate(removableCandidate));
-    assert(removalController.waypoints().size() == 4);
-    assert(removalController.removeMandatoryWaypoint(QStringLiteral("WP-2")));
     assert(removalController.waypoints().size() == 3);
+    assert(removalController.removeMandatoryWaypoint(QStringLiteral("WP-2")));
+    assert(removalController.waypoints().size() == 2);
     assert(removalController.waypoints()[1].toMap().value(QStringLiteral("waypointId")).toString()
            == QStringLiteral("WP-3"));
     assert(removalController.validationState() == QStringLiteral("RECALCULATION_REQUIRED"));
