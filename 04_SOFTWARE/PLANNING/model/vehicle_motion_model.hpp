@@ -217,7 +217,10 @@ public:
     // envelope. The result is a planning speed cap, not an autopilot command.
     static TurnSpeedRecommendation recommendTurnSpeedForRadius(
         const VehicleMotionModel& model,
-        double requested_radius_m) {
+        double requested_radius_m,
+        double stall_speed_clean_mps = 0.0,
+        const std::string& stall_speed_reference = {},
+        double stall_margin_factor = 0.0) {
         TurnSpeedRecommendation out;
         out.requested_radius_m = requested_radius_m;
         out.evidence = model.evidence;
@@ -249,10 +252,19 @@ public:
             if (model.speed_reference != "TAS"
                 || !std::isfinite(model.bank_angle_rad)
                 || model.bank_angle_rad <= 0.0
-                || model.bank_angle_rad >= (pi / 2.0)) {
-                out.diagnostic = "Fixed-wing turn-speed cap requires TAS and a valid coordinated bank angle.";
+                || model.bank_angle_rad >= (pi / 2.0)
+                || !finitePositive(stall_speed_clean_mps)
+                || stall_speed_reference != "TAS"
+                || !finitePositive(stall_margin_factor)
+                || stall_margin_factor <= 1.0) {
+                out.diagnostic = "Fixed-wing turn-speed cap requires TAS, a valid bank angle, TAS-referenced clean stall speed and an explicit safety margin greater than 1.";
                 return out;
             }
+            out.stall_speed_at_bank_mps =
+                stall_speed_clean_mps / std::sqrt(std::cos(model.bank_angle_rad));
+            out.minimum_safe_turn_speed_mps = std::max(
+                model.minimum_speed_mps,
+                out.stall_speed_at_bank_mps * stall_margin_factor);
             radius_at_speed_squared = gravity * std::tan(model.bank_angle_rad);
             break;
         case MotionClass::Multirotor:
