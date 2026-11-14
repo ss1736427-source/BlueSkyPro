@@ -20,6 +20,7 @@ struct FlightProfile {
     std::string route_version;
     std::string calculation_input_version;
     std::string dependency_identity;
+    std::string route_id;
     bool valid{false};
     std::string validation_error;
     std::vector<FlightProfilePoint> points;
