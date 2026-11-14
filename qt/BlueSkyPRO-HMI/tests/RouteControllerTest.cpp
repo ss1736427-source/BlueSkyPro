@@ -105,6 +105,18 @@ int main(int argc, char *argv[])
     assert(snapshot.value(QStringLiteral("segments")).toList().isEmpty());
     assert(controller.validationState() == QStringLiteral("CANDIDATE_UNVALIDATED"));
 
+    QVariantMap completeCandidate = candidate();
+    completeCandidate.insert(QStringLiteral("trajectoryGeometryComplete"), true);
+    completeCandidate.insert(QStringLiteral("segments"), QVariantList{
+        QVariantMap{
+            {QStringLiteral("segmentId"), QStringLiteral("SEG-1")},
+            {QStringLiteral("fromWaypointId"), QStringLiteral("WP-1")},
+            {QStringLiteral("toWaypointId"), QStringLiteral("WP-2")},
+            {QStringLiteral("distanceM"), 12400.0},
+            {QStringLiteral("nominalSpeedMps"), 15.0}
+        }
+    });
+
     // Map waypoint edits use stable IDs and invalidate every derived route artifact.
     RouteController positionController;
     assert(positionController.loadCandidate(completeCandidate));
@@ -127,17 +139,6 @@ int main(int argc, char *argv[])
     assert(positionController.validationReason() == QStringLiteral("WAYPOINT_NOT_FOUND"));
 
     // A weather-capable route must carry explicit, ordered segment geometry.
-    QVariantMap completeCandidate = candidate();
-    completeCandidate.insert(QStringLiteral("trajectoryGeometryComplete"), true);
-    completeCandidate.insert(QStringLiteral("segments"), QVariantList{
-        QVariantMap{
-            {QStringLiteral("segmentId"), QStringLiteral("SEG-1")},
-            {QStringLiteral("fromWaypointId"), QStringLiteral("WP-1")},
-            {QStringLiteral("toWaypointId"), QStringLiteral("WP-2")},
-            {QStringLiteral("distanceM"), 12400.0},
-            {QStringLiteral("nominalSpeedMps"), 15.0}
-        }
-    });
     assert(controller.loadCandidate(completeCandidate));
     const QVariantMap completeSnapshot = controller.routeSnapshot();
     assert(completeSnapshot.value(QStringLiteral("trajectoryGeometryComplete")).toBool());
