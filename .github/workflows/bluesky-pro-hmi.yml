@@ -261,32 +261,69 @@ jobs:
           & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --compiler-runtime --qmldir qml build\appBlueSkyPRO.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Windows application startup smoke test with MapTiler path enabled
+      - name: Enable Windows crash dump capture
+        shell: pwsh
+        run: |
+          $dumpDir = Join-Path $env:RUNNER_TEMP "BlueSkyPRO-crash-dumps"
+          New-Item -ItemType Directory -Force -Path $dumpDir | Out-Null
+          $key = "HKCU:\\Software\\Microsoft\\Windows\\Windows Error Reporting\\LocalDumps\\appBlueSkyPRO.exe"
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpFolder -Value $dumpDir -PropertyType ExpandString -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpType -Value 2 -PropertyType DWord -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpCount -Value 5 -PropertyType DWord -Force | Out-Null
+
+      - name: Windows startup isolation matrix
         working-directory: qt/BlueSkyPRO-HMI/build
         shell: pwsh
         run: |
-          # A deliberately invalid test key activates the same QML/WebChannel path without exposing a real API key.
-          $env:BLUESKY_MAPTILER_API_KEY = "CI_SMOKE_TEST_KEY_NOT_VALID"
-          $app = Start-Process -FilePath "appBlueSkyPRO.exe" -PassThru -RedirectStandardOutput app-smoke.stdout.log -RedirectStandardError app-smoke.stderr.log
-          Start-Sleep -Seconds 15
-          $app.Refresh()
-          if ($app.HasExited) {
-            Write-Host "=== stdout ==="
-            Get-Content app-smoke.stdout.log -ErrorAction SilentlyContinue
-            Write-Host "=== stderr ==="
-            Get-Content app-smoke.stderr.log -ErrorAction SilentlyContinue
-            $startupLog = Join-Path $env:TEMP "BlueSkyPRO-startup-diagnostic.log"
-            Write-Host "=== BlueSkyPRO startup diagnostic log ==="
-            if (Test-Path $startupLog) {
-              Get-Content $startupLog
-              Copy-Item $startupLog "app-smoke-startup-diagnostic.log" -Force
+          $startupLog = Join-Path $env:TEMP "BlueSkyPRO-startup-diagnostic.log"
+          $cases = @(
+            @{ Name = "no-api-key"; Args = @(); Key = $false },
+            @{ Name = "map-key-webchannel-disabled"; Args = @("--ci-disable-webchannel"); Key = $true },
+            @{ Name = "map-key-webchannel-enabled"; Args = @(); Key = $true }
+          )
+          $failures = @()
+          foreach ($case in $cases) {
+            if (Test-Path $startupLog) { Remove-Item $startupLog -Force }
+            if (-not $case.Key) { Remove-Item Env:BLUESKY_MAPTILER_API_KEY -ErrorAction SilentlyContinue }
+            else { $env:BLUESKY_MAPTILER_API_KEY = "CI_SMOKE_TEST_KEY_NOT_VALID" }
+            $stdout = "app-smoke-$($case.Name).stdout.log"
+            $stderr = "app-smoke-$($case.Name).stderr.log"
+            Write-Host "=== STARTUP CASE: $($case.Name) ==="
+            $app = Start-Process -FilePath "appBlueSkyPRO.exe" -ArgumentList $case.Args -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+            Start-Sleep -Seconds 12
+            $app.Refresh()
+            if ($app.HasExited) {
+              $detail = "CASE $($case.Name): process exited with code $($app.ExitCode)"
+              $failures += $detail
+              Write-Host $detail
+              Write-Host "=== stdout ==="; Get-Content $stdout -ErrorAction SilentlyContinue
+              Write-Host "=== stderr ==="; Get-Content $stderr -ErrorAction SilentlyContinue
             } else {
-              Write-Host "Startup diagnostic log was not created at $startupLog"
+              Stop-Process -Id $app.Id -Force
+              Write-Host "CASE $($case.Name): process remained alive for 12 seconds"
             }
-            throw "appBlueSkyPRO.exe exited during MapTiler-enabled startup smoke test (code $($app.ExitCode))"
+            if (Test-Path $startupLog) {
+              Copy-Item $startupLog "app-smoke-$($case.Name)-startup.log" -Force
+              Get-Content $startupLog
+            } else {
+              Write-Host "No startup diagnostic log was created for $($case.Name)"
+            }
+            Start-Sleep -Seconds 2
           }
-          Stop-Process -Id $app.Id -Force
-          Write-Host "MapTiler-enabled startup smoke test passed: process remained alive for 15 seconds. This checks startup stability, not successful map tile authorization or visual rendering."
+          if ($failures.Count -gt 0) { throw ($failures -join [Environment]::NewLine) }
+          Write-Host "All Windows startup isolation cases passed. Map tile authorization/rendering is not tested by this smoke check."
+
+      - name: Upload Windows startup diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlueSkyPRO-Windows-startup-diagnostics
+          path: |
+            D:/a/_temp/BlueSkyPRO-crash-dumps/**
+            qt/BlueSkyPRO-HMI/build/app-smoke-*.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Package Windows application ZIP
         working-directory: qt/BlueSkyPRO-HMI
