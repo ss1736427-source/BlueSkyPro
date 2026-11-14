@@ -87,6 +87,20 @@ Item {
         && root.planningResult.verification.finalGateStatus === "PASS"
         && root.planningResult.verification.releaseStatus === "RELEASE_ELIGIBLE"
         && root.planningResult.verification.verified === true
+    // While an operator edit is awaiting recalculation, a late result for the
+    // previous route revision must never replace the edited canonical route.
+    function planningCandidateMatchesCurrentEdit(candidate) {
+        if (!candidate || typeof routeController === "undefined" || routeController === null)
+            return false
+        if (routeController.validationState !== "RECALCULATION_REQUIRED")
+            return true
+        var current = routeController.routeSnapshot()
+        return String(candidate.routeId || "") === String(current.routeId || "")
+                && String(candidate.routeVersion || "") === String(current.routeVersion || "")
+                && String(candidate.calculationInputVersion || "")
+                   === String(current.calculationInputVersion || "")
+    }
+
     function syncPlanningRouteCandidate() {
         var result = root.planningResult
         var resultPayload = result && result.result ? result.result : null
@@ -98,11 +112,21 @@ Item {
                     return String(item.missionId || "") === String(root.missionId)
                 })
                 var selectedId = String(resultPayload.selectedCandidateId || "")
-                // loadCandidateSet rejects incomplete geometry, mixed calculation
-                // inputs, and any candidate lacking its own route/safety validation.
-                if (candidateSetMatchesMission)
+                var selectedCandidate = null
+                for (var i = 0; i < candidates.length; ++i) {
+                    if (String(candidates[i].candidateId || "") === selectedId) {
+                        selectedCandidate = candidates[i]
+                        break
+                    }
+                }
+                if (!selectedCandidate && candidates.length > 0)
+                    selectedCandidate = candidates[0]
+                // Never replace an operator-edited route with a result calculated
+                // for an older route/input revision.
+                if (candidateSetMatchesMission
+                        && root.planningCandidateMatchesCurrentEdit(selectedCandidate))
                     routeController.loadCandidateSet(candidates, selectedId)
-                else
+                else if (!candidateSetMatchesMission)
                     routeController.clear()
             }
             return
@@ -112,6 +136,8 @@ Item {
         if (candidate !== null && candidate !== undefined
                 && String(candidate.missionId) === String(root.missionId)) {
             if (typeof routeController !== "undefined" && routeController !== null) {
+                if (!root.planningCandidateMatchesCurrentEdit(candidate))
+                    return
                 var loaded = routeController.loadCandidate(candidate)
                 if (loaded) {
                     var verification = result.verification || ({})
