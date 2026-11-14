@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtWebEngine
-import QtWebChannel
 
 Item {
     id: root
@@ -268,11 +267,8 @@ Item {
         }
     }
 
-    // Diagnostic step 2: reconnect the Qt WebChannel transport without registering
-    // any QObject. This separates transport hookup from registered-object lookup.
-    // Instantiate WebChannel lazily. On Windows, creating a WebChannel while the
-    // map is hidden/no API key is configured must not touch QObject registrations.
-    // The CI-only argument isolates the WebEngineView startup path from WebChannel.
+    // The C++ application owns the QWebChannel and its QObject registrations.
+    // Keep the map's transport optional for the Windows startup isolation test.
     property bool webChannelEnabled: Qt.application.arguments.indexOf("--ci-disable-webchannel") < 0
 
     Timer {
