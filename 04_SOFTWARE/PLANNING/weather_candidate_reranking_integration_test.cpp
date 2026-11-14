@@ -27,7 +27,16 @@ Route route(const std::string& id,bool eastbound) {
     a.altitude_m=65.0; a.altitude_reference=AltitudeReference::AGL;
     RouteWaypoint b=a; b.waypoint_id=id+"-FINISH";
     b.position=eastbound?GeoPoint{0.25,10.26}:GeoPoint{0.26,10.25};
-    r.waypoints={a,b}; r.segments={{id+"-SEG",a.waypoint_id,b.waypoint_id,1112.0,15.0}};
+    r.waypoints={a,b}; r.segments={{"SEG",a.waypoint_id,b.waypoint_id,1112.0,20.0}};
+    RouteSpeedProfile profile;
+    profile.vehicle_model_id="TEST-UAV-MODEL";
+    profile.vehicle_model_version="MODEL-V1";
+    profile.configuration_id="cfg-1";
+    profile.speed_reference="AIR_RELATIVE";
+    profile.dynamics_source="CONTROLLED-TEST-LONGITUDINAL-DYNAMICS";
+    profile.segments={{"SEG",1112.0,10.0,10.0,20.0,37.5,37.5,1037.0,
+        2.0,2.0,5.0,20.0}};
+    r.speed_profile=profile;
     return r;
 }
 std::vector<CandidateSolution> candidates() {
@@ -78,7 +87,15 @@ int main() {
     TrajectoryPerformanceInput perf; perf.uav_id="uav-1"; perf.configuration_version="cfg-1";
     perf.performance_version="perf-1"; perf.mission_start_utc="2026-11-08T06:00:00Z";
     perf.cruise_airspeed_mps=15.0; perf.climb_rate_mps=3.0; perf.descent_rate_mps=3.0;
-    perf.wind_tolerance_mps=30.0; perf.energy_per_horizontal_meter_wh=0.001;
+    perf.wind_tolerance_mps=30.0;
+    perf.camera_configuration_id="CAMERA-TEST";
+    perf.camera_gsd_m_px=0.02;
+    perf.camera_forward_trigger_spacing_m=10.0;
+    perf.camera_minimum_trigger_interval_s=0.5;
+    perf.camera_exposure_time_s=0.001;
+    perf.camera_maximum_motion_blur_px=10.0;
+    perf.camera_capture_segment_ids={"SEG"};
+    perf.energy_per_horizontal_meter_wh=0.001;
     perf.energy_per_climb_meter_wh=0.01; perf.energy_per_descent_meter_wh=0.01;
     perf.usable_energy_wh=100.0; perf.reserve_requirement_wh=10.0;
     const auto east=rank(p,perf,forecast(8.0,0.0),"GFS-EAST-FAVOURABLE");
@@ -90,5 +107,16 @@ int main() {
     assert(east.selected_candidate_id=="east-route");
     assert(north.selected_candidate_id=="north-route");
     assert(east.weather_corrected_time_s>0.0 && north.weather_corrected_time_s>0.0);
+    bool eastCameraCapApplied=false;
+    for(const auto& candidate:east.admissible_candidates) {
+        if(candidate.candidate_id!="east-route") continue;
+        assert(candidate.trajectory_route.has_value());
+        assert(candidate.trajectory_route->speed_profile.has_value());
+        assert(candidate.trajectory_route->speed_profile->segments.size()==1);
+        assert(candidate.trajectory_route->speed_profile->segments.front().maximum_reachable_speed_mps
+               <=12.0+1e-6);
+        eastCameraCapApplied=true;
+    }
+    assert(eastCameraCapApplied);
     return 0;
 }
