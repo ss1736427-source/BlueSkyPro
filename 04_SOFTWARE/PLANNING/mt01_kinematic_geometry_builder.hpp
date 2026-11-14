@@ -52,7 +52,8 @@ public:
         const std::string& assigned_configuration_id,
         double coverage_cruise_speed_mps,
         const std::vector<std::vector<GeoPoint>>& exclusion_areas,
-        double maximum_sample_spacing_m = 2.0);
+        double maximum_sample_spacing_m = 2.0,
+        double connector_speed_mps = 0.0);
 };
 
 } // namespace bluesky::planning
