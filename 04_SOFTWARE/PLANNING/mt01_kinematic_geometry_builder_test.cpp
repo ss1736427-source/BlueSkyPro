@@ -58,7 +58,8 @@ int main()
     }
 
     const auto requestedTurnSpeed =
-        VehicleMotionModelEvaluator::recommendTurnSpeedForRadius(vehicle, 15.0);
+        VehicleMotionModelEvaluator::recommendTurnSpeedForRadius(
+            vehicle, 15.0, 6.0, "TAS", 1.20);
     assert(requestedTurnSpeed.valid);
     const auto slowedConnectorGeometry = Mt01KinematicGeometryBuilder::build(
         coverage, vehicle, "TEST-FIXED-WING", "TEST-CONFIG-1",
