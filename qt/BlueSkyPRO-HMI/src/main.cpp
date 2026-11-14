@@ -23,6 +23,7 @@
 #include "WeatherCoverageBridge.h"
 #include "gfs_forecast_availability_service.hpp"
 #include <QQmlApplicationEngine>
+#include <QWebChannel>
 #include <QUrl>
 #include <QString>
 
@@ -120,6 +121,36 @@ int main(int argc, char *argv[])
     WeatherCalculationService weatherCalculationService;
     WeatherCoverageBridge weatherCoverageBridge;
     bluesky::weather::GfsForecastAvailabilityService gfsForecastAvailabilityService;
+
+    // Own the WebChannel in C++ rather than constructing the QML WebChannel
+    // wrapper from a Loader. The channel and its registered QObjects now have
+    // explicit, stable lifetimes for the entire QML engine session.
+    QWebChannel mapWebChannel;
+    const QStringList startupArguments = app.arguments();
+    const bool disableWebChannel =
+        startupArguments.contains(QStringLiteral("--ci-disable-webchannel"));
+    const bool registerNoObjects =
+        startupArguments.contains(QStringLiteral("--ci-webchannel-empty"));
+    const bool registerManualGeometryOnly =
+        startupArguments.contains(QStringLiteral("--ci-webchannel-manual-only"));
+    const bool registerRouteControllerOnly =
+        startupArguments.contains(QStringLiteral("--ci-webchannel-route-only"));
+    if (!disableWebChannel && !registerNoObjects) {
+        if (registerManualGeometryOnly) {
+            mapWebChannel.registerObject(QStringLiteral("manualGeometryBridge"),
+                                         &manualGeometryBridge);
+        } else if (registerRouteControllerOnly) {
+            mapWebChannel.registerObject(QStringLiteral("routeController"),
+                                         &routeController);
+        } else {
+            mapWebChannel.registerObject(QStringLiteral("manualGeometryBridge"),
+                                         &manualGeometryBridge);
+            mapWebChannel.registerObject(QStringLiteral("routeController"),
+                                         &routeController);
+        }
+    }
+    engine.rootContext()->setContextProperty(QStringLiteral("mapWebChannel"),
+                                             &mapWebChannel);
 
     engine.rootContext()->setContextProperty(QStringLiteral("planningBridge"), &planningBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("mt01MappingBridge"), &mt01MappingBridge);
