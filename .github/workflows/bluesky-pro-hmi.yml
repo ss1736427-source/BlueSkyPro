@@ -114,8 +114,19 @@ jobs:
           }
           if (-not $insideBuildHtml) { throw "Could not locate MapTilerWebMap.qml buildHtml() source" }
           $source = Get-Content $path -Raw
-          if ($source -notmatch "registeredObjects:\s*\[manualGeometryBridge,\s*routeController\]") {
-            throw "Map WebChannel must register the canonical geometry and route controllers."
+          $mainCpp = Get-Content "qt/BlueSkyPRO-HMI/src/main.cpp" -Raw
+          if ($source -match "import QtWebChannel|registeredObjects:") {
+            throw "QML must not instantiate or register the WebChannel; the C++ application owns it."
+          }
+          if ($mainCpp -notmatch "#include <QWebChannel>" -or
+              $mainCpp -notmatch "QWebChannel mapWebChannel;" -or
+              $mainCpp -notmatch 'registerObject\(QStringLiteral\("manualGeometryBridge"\)' -or
+              $mainCpp -notmatch 'registerObject\(QStringLiteral\("routeController"\)' -or
+              $mainCpp -notmatch 'setContextProperty\(QStringLiteral\("mapWebChannel"\)') {
+            throw "C++ must own the WebChannel, register both canonical bridge objects, and expose the channel to QML."
+          }
+          if ($source -notmatch "webChannel:\s*root\.webChannelEnabled\s*\?\s*mapWebChannel\s*:\s*null") {
+            throw "WebEngineView must use the C++-owned WebChannel with the diagnostic disable switch."
           }
           $mainContent = Get-Content "qt/BlueSkyPRO-HMI/qml/MainContent.qml" -Raw
           $mapSource = Get-Content "qt/BlueSkyPRO-HMI/qml/MapTilerWebMap.qml" -Raw
