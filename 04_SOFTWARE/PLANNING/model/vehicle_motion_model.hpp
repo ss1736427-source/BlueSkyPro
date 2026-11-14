@@ -279,11 +279,14 @@ public:
 
         const double radius_limited_speed =
             std::sqrt(requested_radius_m * radius_at_speed_squared);
-        out.minimum_safe_turn_speed_mps = model.minimum_speed_mps;
+        if (out.minimum_safe_turn_speed_mps > model.maximum_speed_mps) {
+            out.diagnostic = "Minimum safe turn speed exceeds the configured aircraft maximum speed.";
+            return out;
+        }
         out.selected_speed_mps = std::min(model.reference_speed_mps,
                                           radius_limited_speed);
-        if (out.selected_speed_mps < model.minimum_speed_mps - 1e-9) {
-            out.diagnostic = "Requested turn radius is infeasible at or above the configured minimum safe speed.";
+        if (out.selected_speed_mps < out.minimum_safe_turn_speed_mps - 1e-9) {
+            out.diagnostic = "Requested turn radius is infeasible at or above the minimum safe turn speed.";
             return out;
         }
         out.achieved_ideal_radius_m =
