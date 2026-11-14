@@ -19,6 +19,7 @@ struct Mt01KinematicSegment {
     Mt01KinematicSegmentType type{Mt01KinematicSegmentType::Coverage};
     double distance_m{0.0};
     double nominal_speed_mps{0.0};
+    double minimum_speed_mps{0.0};
     double bank_angle_rad{0.0};
     double lateral_acceleration_mps2{0.0};
 };
@@ -56,7 +57,8 @@ public:
         double coverage_cruise_speed_mps,
         const std::vector<std::vector<GeoPoint>>& exclusion_areas,
         double maximum_sample_spacing_m = 2.0,
-        double connector_speed_mps = 0.0);
+        double connector_speed_mps = 0.0,
+        double connector_minimum_speed_mps = 0.0);
 };
 
 } // namespace bluesky::planning
