@@ -573,6 +573,7 @@ bool buildWindAwareSpeedProfile(
         previousProfilePeaks[i]=peak;
     }
 
+    RouteSpeedProfile updated=sourceProfile;
     updated.profile_id=sourceRoute.lineage.route_id+"-WIND-CAMERA";
     updated.profile_version=snapshotId+"-"+snapshotVersion+"-"+calculationVersion;
     updated.wind_snapshot_id=snapshotId;
@@ -586,7 +587,6 @@ bool buildWindAwareSpeedProfile(
     input.speed_profile_speed_reference=sourceProfile.speed_reference;
     input.speed_profile_segments=sampledProfile;
 
-    RouteSpeedProfile updated=sourceProfile;
     updated.segments.clear();
     updated.segments.reserve(solved.segments.size());
     for (std::size_t i=0;i<solved.segments.size();++i) {
