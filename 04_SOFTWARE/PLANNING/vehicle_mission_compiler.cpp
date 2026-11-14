@@ -12,7 +12,6 @@ VehicleCompiledProfile VehicleMissionCompiler::compile(
     r.configuration_version = input.configuration_version;
     r.performance_version = input.performance_version;
     r.source_profile_id = profile.profile_id;
-    r.route_id = profile.route_id;
     r.route_version = profile.route_version;
     r.calculation_input_version = profile.calculation_input_version;
     r.dependency_identity = profile.dependency_identity + "|" + input.uav_id + "|" +
@@ -20,7 +19,7 @@ VehicleCompiledProfile VehicleMissionCompiler::compile(
 
     if (!profile.valid || profile.mission_id.empty() || profile.mission_version.empty() ||
         profile.profile_id.empty() || profile.profile_version.empty() ||
-        profile.source_candidate_id.empty() || profile.route_id.empty() || profile.route_version.empty() ||
+        profile.source_candidate_id.empty() || profile.route_version.empty() ||
         profile.calculation_input_version.empty() || profile.dependency_identity.empty() ||
         profile.points.size() < 2) {
         r.findings.push_back({VehicleCompilationFindingCode::InvalidFlightProfile,

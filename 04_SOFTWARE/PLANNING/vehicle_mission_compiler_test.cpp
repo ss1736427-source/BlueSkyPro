@@ -12,6 +12,7 @@ int main() {
     p.profile_id = "FP";
     p.profile_version = "1.0.0";
     p.source_candidate_id = "C";
+    p.route_id = "ROUTE-1";
     p.route_version = "R1";
     p.calculation_input_version = "ENV1";
     p.dependency_identity = "D";

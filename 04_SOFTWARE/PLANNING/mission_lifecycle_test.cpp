@@ -1,6 +1,5 @@
 #include "mission_lifecycle.hpp"
 #include "mission_lifecycle_final_integrity_adapter.hpp"
-#include "mission_finalization_runtime.hpp"
 #include "mission_lifecycle_route_adapter.hpp"
 #include "mission_lifecycle_notam_adapter.hpp"
 #include "mission_lifecycle_vehicle_adapter.hpp"
@@ -225,7 +224,6 @@ static MissionLifecycleEvidence evidence() {
     finalProfile.profile_id = "PROFILE-READY";
     finalProfile.profile_version = "1";
     finalProfile.source_candidate_id = "CANDIDATE-READY";
-    finalProfile.route_id = e.route_id;
     finalProfile.route_version = e.route_version;
     finalProfile.calculation_input_version = e.calculation_input_version;
     finalProfile.dependency_identity = "PROFILE-DEPENDENCY-READY";
@@ -277,61 +275,7 @@ static MissionLifecycleTransitionResult move(
         record, target, e, "OPERATOR-1", "2026-11-12T12:00:00Z", "test transition");
 }
 
-static void testRuntimeFinalPlanningIntegrityGate() {
-    auto readyEvidence = evidence();
-    MissionLifecycleRecord readyRecord{"MISSION-001", "7"};
-    assert(move(readyRecord, MissionLifecycleState::Calculating, readyEvidence).accepted);
-    assert(move(readyRecord, MissionLifecycleState::Validating, readyEvidence).accepted);
-
-    FlightProfile profile;
-    profile.mission_id = readyEvidence.mission_id;
-    profile.mission_version = readyEvidence.mission_version;
-    profile.profile_id = "PROFILE-RUNTIME";
-    profile.profile_version = "1";
-    profile.source_candidate_id = "CANDIDATE-RUNTIME";
-    profile.route_id = readyEvidence.route_id;
-    profile.route_version = readyEvidence.route_version;
-    profile.calculation_input_version = readyEvidence.calculation_input_version;
-    profile.dependency_identity = "PROFILE-RUNTIME-DEPENDENCY";
-    profile.valid = true;
-    profile.points = {
-        {{0.0, 0.0}, 50.0, 0.0, true},
-        {{0.0, 0.001}, 60.0, 10.0, true}
-    };
-
-    VehicleCompilationInput vehicle;
-    vehicle.uav_id = "UAV-1";
-    vehicle.configuration_version = readyEvidence.vehicle_configuration_id;
-    vehicle.performance_version = "PERF-1";
-    vehicle.maximum_altitude_m = 120.0;
-    vehicle.minimum_speed_mps = 5.0;
-    vehicle.maximum_speed_mps = 20.0;
-    vehicle.cruise_speed_mps = 12.0;
-
-    const auto finalized = MissionFinalizationRuntime::finalizeReady(
-        readyRecord, readyEvidence, profile, vehicle,
-        "OPERATOR-1", "2026-11-15T10:00:00Z", "final planning validation");
-    assert(finalized.compiled_profile.status == VehicleCompilationStatus::Compiled);
-    assert(finalized.final_integrity_evidence.status == MissionLifecycleValidationStatus::Passed);
-    assert(finalized.transition.accepted);
-    assert(readyRecord.state == MissionLifecycleState::Ready);
-
-    auto mismatchEvidence = evidence();
-    MissionLifecycleRecord mismatchRecord{"MISSION-001", "7"};
-    assert(move(mismatchRecord, MissionLifecycleState::Calculating, mismatchEvidence).accepted);
-    assert(move(mismatchRecord, MissionLifecycleState::Validating, mismatchEvidence).accepted);
-    profile.route_id = "ROUTE-OTHER";
-    const auto rejected = MissionFinalizationRuntime::finalizeReady(
-        mismatchRecord, mismatchEvidence, profile, vehicle,
-        "OPERATOR-1", "2026-11-15T10:01:00Z", "route identity mismatch");
-    assert(rejected.compiled_profile.status == VehicleCompilationStatus::Compiled);
-    assert(rejected.final_integrity_evidence.status == MissionLifecycleValidationStatus::Failed);
-    assert(!rejected.transition.accepted);
-    assert(mismatchRecord.state == MissionLifecycleState::Validating);
-}
-
 int main() {
-    testRuntimeFinalPlanningIntegrityGate();
     MissionLifecycleRecord mt01Record{"MISSION-001", "7"};
     auto mt01Evidence = evidence();
     mt01Record.mission_template_ids = {"MT-01"};

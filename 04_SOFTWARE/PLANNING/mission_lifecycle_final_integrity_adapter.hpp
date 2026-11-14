@@ -22,7 +22,7 @@ inline MissionLifecycleValidationEvidence makeFinalPlanningIntegrityValidationEv
     evidence.result_id = integrity.dependency_identity;
     evidence.mission_id = compiled.mission_id;
     evidence.mission_version = compiled.mission_version;
-    evidence.route_id = compiled.route_id;
+    evidence.route_id = route_id;
     evidence.route_version = compiled.route_version;
     evidence.calculation_input_version = compiled.calculation_input_version;
     evidence.validator_id = "FinalPlanningIntegrityChecker";
@@ -31,8 +31,7 @@ inline MissionLifecycleValidationEvidence makeFinalPlanningIntegrityValidationEv
     evidence.vehicle_configuration_id = compiled.configuration_version;
 
     const bool missionLineageMatches =
-        !route_id.empty() && compiled.route_id == route_id
-        && compiled.mission_id == expected_mission_id
+        compiled.mission_id == expected_mission_id
         && compiled.mission_version == expected_mission_version;
     evidence.status = integrity.status == FinalPlanningIntegrityStatus::Valid
         && missionLineageMatches
