@@ -37,6 +37,24 @@ const WindSample* find_wind(const std::vector<WindSample>& samples,const std::st
     return nullptr;
 }
 
+const SpeedProfileSegmentResult* find_profile_segment(
+    const std::vector<SpeedProfileSegmentResult>& segments, const std::string& id) {
+    for (const auto& segment : segments) if (segment.segment_id == id) return &segment;
+    return nullptr;
+}
+
+double profile_airspeed_at(const SpeedProfileSegmentResult& profile, double distance_m) {
+    if (distance_m < profile.acceleration_distance_m) {
+        return std::sqrt(std::max(0.0, profile.entry_speed_mps * profile.entry_speed_mps
+            + 2.0 * profile.maximum_acceleration_mps2 * distance_m));
+    }
+    const double brakingStart = profile.distance_m - profile.deceleration_distance_m;
+    if (distance_m <= brakingStart) return profile.maximum_reachable_speed_mps;
+    const double remaining = std::max(0.0, profile.distance_m - distance_m);
+    return std::sqrt(std::max(0.0, profile.exit_speed_mps * profile.exit_speed_mps
+        + 2.0 * profile.maximum_deceleration_mps2 * remaining));
+}
+
 std::string dependency(const Route&r,const TrajectoryPerformanceInput&i,const std::string&v){
     std::ostringstream o;
     o<<r.lineage.mission_id<<'|'<<r.lineage.mission_version
@@ -45,6 +63,9 @@ std::string dependency(const Route&r,const TrajectoryPerformanceInput&i,const st
      <<'|'<<i.uav_id<<'|'<<i.configuration_version<<'|'<<i.performance_version
      <<'|'<<i.wind_snapshot_id<<'|'<<i.wind_snapshot_version<<'|'<<i.mission_start_utc
      <<'|'<<i.mission_start_epoch_s<<'|'<<v
+     <<'|'<<i.speed_profile_id<<'|'<<i.speed_profile_version<<'|'<<i.speed_profile_vehicle_model_id
+     <<'|'<<i.speed_profile_vehicle_model_version<<'|'<<i.speed_profile_configuration_id
+     <<'|'<<i.speed_profile_speed_reference
      <<'|'<<std::setprecision(17)
      <<i.cruise_airspeed_mps<<'|'<<i.climb_rate_mps<<'|'<<i.descent_rate_mps
      <<'|'<<i.wind_tolerance_mps<<'|'<<i.energy_per_horizontal_meter_wh
@@ -68,6 +89,12 @@ std::string dependency(const Route&r,const TrajectoryPerformanceInput&i,const st
         o << "|SEG:" << segment.segment_id << ':' << segment.from_waypoint_id
           << '>' << segment.to_waypoint_id << ':' << segment.distance_m
           << ',' << segment.nominal_speed_mps;
+    for (const auto& profile : i.speed_profile_segments)
+        o << "|SPEED_PROFILE:" << profile.segment_id << ':' << std::setprecision(17)
+          << profile.distance_m << ',' << profile.entry_speed_mps << ',' << profile.exit_speed_mps
+          << ',' << profile.maximum_reachable_speed_mps << ',' << profile.acceleration_distance_m
+          << ',' << profile.deceleration_distance_m << ',' << profile.cruise_distance_m
+          << ',' << profile.maximum_acceleration_mps2 << ',' << profile.maximum_deceleration_mps2;
     for (const auto& id : i.camera_capture_segment_ids) o << "|CAMERA_SEG:" << id;
     for(const auto&s:i.wind_samples)
         o<<'|'<<s.segment_id<<':'<<std::setprecision(17)<<s.north_mps<<','<<s.east_mps<<','<<s.up_mps;
@@ -96,7 +123,9 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
     r.reserve_requirement_wh=input.reserve_requirement_wh;
     r.dependency_identity=dependency(route,input,calculation_version);
 
-    if(input.cruise_airspeed_mps<=0.0 || input.climb_rate_mps<=0.0 ||
+    const bool variableProfile = !input.speed_profile_segments.empty();
+    if((!variableProfile && input.cruise_airspeed_mps<=0.0)
+       || input.climb_rate_mps<=0.0 ||
        input.descent_rate_mps<=0.0 || input.wind_tolerance_mps<0.0 ||
        input.energy_per_horizontal_meter_wh<0.0 ||
        input.energy_per_climb_meter_wh<0.0 ||
@@ -144,6 +173,42 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
     if(route.waypoints.empty() || route.segments.size()+1!=route.waypoints.size()){
         fail(r,TrajectoryFindingCode::InvalidPerformance,"","route waypoint/segment structure is invalid");
         return r;
+    }
+
+    if (variableProfile) {
+        if (input.speed_profile_id.empty() || input.speed_profile_version.empty()
+            || input.speed_profile_vehicle_model_id.empty()
+            || input.speed_profile_vehicle_model_version.empty()
+            || input.speed_profile_configuration_id.empty()
+            || (input.speed_profile_speed_reference != "TAS"
+                && input.speed_profile_speed_reference != "AIR_RELATIVE")
+            || input.speed_profile_segments.size() != route.segments.size()) {
+            fail(r, TrajectoryFindingCode::InvalidPerformance, "",
+                 "variable speed profile identity, air-relative reference and complete route coverage are mandatory");
+            return r;
+        }
+        for (std::size_t i = 0; i < route.segments.size(); ++i) {
+            const auto& routeSegment = route.segments[i];
+            const auto& profile = input.speed_profile_segments[i];
+            if (profile.segment_id != routeSegment.segment_id
+                || !std::isfinite(profile.distance_m) || profile.distance_m <= 0.0
+                || !std::isfinite(profile.entry_speed_mps) || profile.entry_speed_mps <= 0.0
+                || !std::isfinite(profile.exit_speed_mps) || profile.exit_speed_mps <= 0.0
+                || !std::isfinite(profile.maximum_reachable_speed_mps)
+                || profile.maximum_reachable_speed_mps <= 0.0
+                || !std::isfinite(profile.acceleration_distance_m) || profile.acceleration_distance_m < 0.0
+                || !std::isfinite(profile.deceleration_distance_m) || profile.deceleration_distance_m < 0.0
+                || !std::isfinite(profile.cruise_distance_m) || profile.cruise_distance_m < 0.0
+                || !std::isfinite(profile.maximum_acceleration_mps2) || profile.maximum_acceleration_mps2 <= 0.0
+                || !std::isfinite(profile.maximum_deceleration_mps2) || profile.maximum_deceleration_mps2 <= 0.0
+                || std::abs(profile.distance_m - routeSegment.distance_m) > std::max(0.5, routeSegment.distance_m * 0.01)
+                || std::abs(profile.distance_m - profile.acceleration_distance_m
+                    - profile.deceleration_distance_m - profile.cruise_distance_m) > 1e-5) {
+                fail(r, TrajectoryFindingCode::InvalidPerformance, routeSegment.segment_id,
+                     "variable speed profile segment does not match canonical route geometry or contains invalid dynamics");
+                return r;
+            }
+        }
     }
 
     for (const auto& waypoint : route.waypoints) {
@@ -209,20 +274,53 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
         local_vector(from->position,to->position,north,east);
         const double horizontal=std::hypot(north,east);
         const double dz=to->altitude_m-from->altitude_m;
-        const double vertical_rate=dz>0.0?input.climb_rate_mps:(dz<0.0?input.descent_rate_mps:input.cruise_airspeed_mps);
+        const auto* segmentProfile = variableProfile
+            ? find_profile_segment(input.speed_profile_segments, seg.segment_id) : nullptr;
+        const double fallbackAirspeed = variableProfile
+            ? segmentProfile->maximum_reachable_speed_mps : input.cruise_airspeed_mps;
+        const double vertical_rate=dz>0.0?input.climb_rate_mps:(dz<0.0?input.descent_rate_mps:fallbackAirspeed);
 
-        double duration=0.0, ground_speed=0.0, track=heading_deg(north,east);
+        double duration=0.0, ground_speed=0.0, maximum_ground_speed=0.0, track=heading_deg(north,east);
         if(horizontal>1e-9){
             const double hn=north/horizontal, he=east/horizontal;
-            const double an=input.cruise_airspeed_mps*hn, ae=input.cruise_airspeed_mps*he;
-            const double gn=an+wind->north_mps, ge=ae+wind->east_mps;
-            ground_speed=std::hypot(gn,ge);
-            if(ground_speed<=1e-9){
-                fail(r,TrajectoryFindingCode::GroundSpeedUnavailable,seg.segment_id,"ground speed is unavailable against wind");
-                return r;
+            if (segmentProfile) {
+                // Deterministic distance-domain integration of the validated
+                // acceleration / cruise / braking phases under this segment's wind.
+                constexpr int kIntegrationSteps = 64;
+                double northDisplacement = 0.0, eastDisplacement = 0.0;
+                for (int step = 0; step < kIntegrationSteps; ++step) {
+                    const double ds = horizontal / static_cast<double>(kIntegrationSteps);
+                    const double alongDistance = (static_cast<double>(step) + 0.5)
+                        * segmentProfile->distance_m / static_cast<double>(kIntegrationSteps);
+                    const double airspeed = profile_airspeed_at(*segmentProfile, alongDistance);
+                    const double an = airspeed * hn, ae = airspeed * he;
+                    const double gn = an + wind->north_mps, ge = ae + wind->east_mps;
+                    const double gs = std::hypot(gn, ge);
+                    if (!std::isfinite(gs) || gs <= 1e-9) {
+                        fail(r,TrajectoryFindingCode::GroundSpeedUnavailable,seg.segment_id,
+                             "ground speed becomes unavailable within the variable-speed segment");
+                        return r;
+                    }
+                    const double dt = ds / gs;
+                    duration += dt;
+                    northDisplacement += gn * dt;
+                    eastDisplacement += ge * dt;
+                    maximum_ground_speed = std::max(maximum_ground_speed, gs);
+                }
+                ground_speed = horizontal / duration;
+                track = heading_deg(northDisplacement, eastDisplacement);
+            } else {
+                const double an=input.cruise_airspeed_mps*hn, ae=input.cruise_airspeed_mps*he;
+                const double gn=an+wind->north_mps, ge=ae+wind->east_mps;
+                ground_speed=std::hypot(gn,ge);
+                if(ground_speed<=1e-9){
+                    fail(r,TrajectoryFindingCode::GroundSpeedUnavailable,seg.segment_id,"ground speed is unavailable against wind");
+                    return r;
+                }
+                maximum_ground_speed = ground_speed;
+                duration=horizontal/ground_speed;
+                track=heading_deg(gn,ge);
             }
-            duration=horizontal/ground_speed;
-            track=heading_deg(gn,ge);
         }
         if(std::abs(dz)>1e-9) duration=std::max(duration,std::abs(dz)/vertical_rate);
         const double climb=std::max(0.0,dz), descent=std::max(0.0,-dz);
@@ -236,8 +334,8 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
                      "camera capture segment requires a positive horizontal ground speed");
                 return r;
             }
-            cameraTriggerInterval = input.camera_forward_trigger_spacing_m / ground_speed;
-            cameraMotionBlur = ground_speed * input.camera_exposure_time_s / input.camera_gsd_m_px;
+            cameraTriggerInterval = input.camera_forward_trigger_spacing_m / maximum_ground_speed;
+            cameraMotionBlur = maximum_ground_speed * input.camera_exposure_time_s / input.camera_gsd_m_px;
             if (cameraTriggerInterval + 1e-9 < input.camera_minimum_trigger_interval_s) {
                 fail(r, TrajectoryFindingCode::CameraTriggerIntervalExceeded, seg.segment_id,
                      "wind-corrected ground speed requires a camera trigger interval shorter than the configured hardware minimum");
