@@ -49,7 +49,8 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
     double coverageCruiseSpeedMps,
     const std::vector<std::vector<GeoPoint>>& exclusionAreas,
     double maximumSampleSpacingM,
-    double connectorSpeedMps)
+    double connectorSpeedMps,
+    double connectorMinimumSpeedMps)
 {
     Mt01KinematicGeometryResult result;
     result.vehicle_model_id = vehicle.model_id;
@@ -91,10 +92,13 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
     // no existing geometry is reused after a speed change.
     if (connectorSpeedMps == 0.0)
         connectorSpeedMps = vehicle.reference_speed_mps;
-    if (!finite(connectorSpeedMps)
-        || connectorSpeedMps < vehicle.minimum_speed_mps
+    if (connectorMinimumSpeedMps == 0.0)
+        connectorMinimumSpeedMps = vehicle.minimum_speed_mps;
+    if (!finite(connectorSpeedMps) || !finite(connectorMinimumSpeedMps)
+        || connectorMinimumSpeedMps < vehicle.minimum_speed_mps
+        || connectorMinimumSpeedMps > connectorSpeedMps
         || connectorSpeedMps > vehicle.reference_speed_mps) {
-        return fail("MT01_CONNECTOR_SPEED_OUTSIDE_ENVELOPE: connector speed must be within the validated minimum-to-coverage speed envelope.");
+        return fail("MT01_CONNECTOR_SPEED_OUTSIDE_ENVELOPE: connector speed range must remain inside the validated aircraft speed envelope.");
     }
     VehicleMotionModel connectorVehicle = vehicle;
     connectorVehicle.reference_speed_mps = connectorSpeedMps;
@@ -141,7 +145,8 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
                                 Mt01KinematicSegmentType type,
                                 double bankAngleRad,
                                 double lateralAccelerationMps2,
-                                double nominalSpeedMps) {
+                                double nominalSpeedMps,
+                                double minimumSpeedMps) {
         if (result.waypoints.empty()) {
             result.waypoints.push_back(point);
             return;
@@ -160,6 +165,7 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
         segment.type = type;
         segment.distance_m = distance;
         segment.nominal_speed_mps = nominalSpeedMps;
+        segment.minimum_speed_mps = minimumSpeedMps;
         segment.bank_angle_rad = bankAngleRad;
         segment.lateral_acceleration_mps2 = lateralAccelerationMps2;
         result.segments.push_back(std::move(segment));
@@ -230,7 +236,8 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
                         ? vehicle.bank_angle_rad : 0.0,
                     turning ? (connectorSpeedMps * connectorSpeedMps /
                                radius.air_relative_radius_m) : 0.0,
-                    connectorSpeedMps);
+                    connectorSpeedMps,
+                    connectorMinimumSpeedMps);
             }
             ++result.connector_count;
         }
@@ -258,7 +265,7 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
             if (distance >= legLength - 0.01) {
                 appendEdge(coverage.waypoints[leg + 1],
                            Mt01KinematicSegmentType::Coverage, 0.0, 0.0,
-                           coverageCruiseSpeedMps);
+                           coverageCruiseSpeedMps, vehicle.minimum_speed_mps);
                 result.capture_point_waypoint_indices.push_back(result.waypoints.size() - 1);
                 lastInsertedDistance = legLength;
                 continue;
@@ -267,13 +274,13 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
                 return fail("MT01_CAPTURE_EVENT_DUPLICATE_OR_OUT_OF_ORDER: distinct capture events cannot collapse to the same route station.");
             }
             appendEdge(capture.position, Mt01KinematicSegmentType::Coverage, 0.0, 0.0,
-                       coverageCruiseSpeedMps);
+                       coverageCruiseSpeedMps, vehicle.minimum_speed_mps);
             result.capture_point_waypoint_indices.push_back(result.waypoints.size() - 1);
             lastInsertedDistance = distance;
         }
         appendEdge(coverage.waypoints[leg + 1],
                    Mt01KinematicSegmentType::Coverage, 0.0, 0.0,
-                   coverageCruiseSpeedMps);
+                   coverageCruiseSpeedMps, vehicle.minimum_speed_mps);
     }
 
     if (result.capture_point_waypoint_indices.size() != coverage.capture_points.size()) {
@@ -291,6 +298,9 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
             || segment.to_waypoint_index != i + 1
             || !finite(segment.distance_m) || segment.distance_m <= 0.0
             || !finite(segment.nominal_speed_mps) || segment.nominal_speed_mps <= 0.0
+            || !finite(segment.minimum_speed_mps)
+            || segment.minimum_speed_mps <= 0.0
+            || segment.minimum_speed_mps > segment.nominal_speed_mps
             || !finite(segment.bank_angle_rad) || segment.bank_angle_rad < 0.0
             || !finite(segment.lateral_acceleration_mps2)
             || segment.lateral_acceleration_mps2 < 0.0) {
