@@ -105,6 +105,15 @@ std::vector<std::string> validateRouteSpeedProfile(
         const auto positive = [](double value) {
             return std::isfinite(value) && value > 0.0;
         };
+        const bool hasAppliedEnvelope = p.applied_minimum_speed_mps != 0.0
+            || p.applied_maximum_speed_mps != 0.0;
+        const bool appliedEnvelopeInvalid = hasAppliedEnvelope
+            && (!positive(p.applied_minimum_speed_mps)
+                || !positive(p.applied_maximum_speed_mps)
+                || p.applied_minimum_speed_mps > p.applied_maximum_speed_mps
+                || p.entry_speed_mps < p.applied_minimum_speed_mps - 1e-6
+                || p.exit_speed_mps < p.applied_minimum_speed_mps - 1e-6
+                || p.maximum_reachable_speed_mps > p.applied_maximum_speed_mps + 1e-6);
         if (p.segment_id != s.segment_id || !positive(p.distance_m)
             || !std::isfinite(s.distance_m) || s.distance_m <= 0.0
             || std::abs(p.distance_m - s.distance_m) > tolerance
@@ -123,6 +132,7 @@ std::vector<std::string> validateRouteSpeedProfile(
             || p.entry_speed_mps < *envelope.minimum_speed_mps - 1e-6
             || p.exit_speed_mps < *envelope.minimum_speed_mps - 1e-6
             || p.maximum_reachable_speed_mps > *envelope.maximum_speed_mps + 1e-6
+            || appliedEnvelopeInvalid
             || (i > 0 && std::abs(p.entry_speed_mps - previousExit) > 1e-6)) {
             fail("сегмент " + s.segment_id
                  + " не прошёл проверку порядка, расстояния, непрерывности или скоростных границ.");
