@@ -229,3 +229,23 @@ These are reference examples, not the complete operational fleet. Do not copy va
 5. Derived values must retain input values, units, equation, assumptions, source and model revision.
 6. Unknown or stale motion data blocks the relevant AUTO trajectory candidate.
 7. A motion-feasible candidate still requires constrained-environment, terrain, wind, energy, NOTAM/airspace and independent integrity validation. It is not flight authorization.
+
+## 8. External source audit — 2026-11-14
+
+The reference values above were cross-checked against currently reachable manufacturer-published pages and technical documents. The following links supersede generic or less specific source references where noted. Retrieval date is 2026-11-14; values remain source-qualified references, not configuration validation.
+
+| Aircraft | Primary manufacturer source | Confirmed published values / qualification |
+|---|---|---|
+| DJI Matrice 350 RTK | https://www.dji.com/support/product/matrice-350-rtk ; user manual: https://dl.djicdn.com/downloads/matrice_350_rtk/20250326UM/Matrice_350_RTK_User_Manual_v1.2_en3.pdf | Horizontal speed 23 m/s; max pitch 30° (25° in N mode with forward vision enabled); max yaw angular velocity 100°/s; max pitch angular velocity 300°/s; wind resistance 12 m/s. The angular rates describe body attitude, not horizontal path curvature. Minimum turn radius and sustained lateral acceleration remain UNKNOWN. |
+| DJI Mavic 3E | https://enterprise.dji.com/mavic-3-enterprise/specs | Normal max speed 15 m/s; Sport max forward/side/backward speeds 21/20/19 m/s; max pitch 30° Normal and 35° Sport; max angular velocity 200°/s. DJI's 12 m/s wind-resistance footnote applies during take-off and landing; do not treat it as a cruise limit. Turn radius and sustained lateral acceleration remain UNKNOWN. |
+| WingtraOne GEN II | https://wingtra.com/wingtraone-gen-ii-drone/ ; manufacturer brochure: https://wingtra.com/wp-content/uploads/WingtraOne-Brochure.pdf ; operating guidance: https://knowledge.wingtra.com/en/environmental-conditions | Flight/cruise speed 16 m/s; sustained wind 12 m/s; gusts 18 m/s; ground-measured sustained wind limit 8 m/s per operating guidance. Manufacturer page currently lists MTOW 4.8 kg, while the older brochure lists 4.5 kg: this is a document/revision discrepancy and must be resolved against the actual aircraft variant/serial/configuration before using MTOW. Turn radius, operational bank limit and VTOL transition envelope remain UNKNOWN. |
+| Quantum-Systems Trinity Pro | Manufacturer tech sheet: https://lp.quantum-systems.com/hubfs/Downloadables/QS_INT_Trinity_Pro_Techsheet_241015_Screen.pdf ; product page: https://quantum-systems.com/us/trinity-pro/ | Optimal cruise speed 17 m/s; hover-phase wind tolerance 11 m/s; cruise-phase wind tolerance 14 m/s, subject to export/regional restrictions stated by manufacturer. The tech sheet notes default restrictions may be lower (including 12.8 m/s cruise). Turn radius, operational bank limit and transition envelope remain UNKNOWN. |
+
+### 8.1 Data-ingestion decision
+
+1. Ingest the published numeric values as `OFFICIAL_SPEC` with the exact source URL and the applicable condition/mode. Keep max, nominal/optimal and operational values in separate fields.
+2. Keep manufacturer maximums distinct from configured aircraft limits and from BlueSky planning limits. A published maximum is not automatically an operational setpoint.
+3. Do not populate `minimum_turn_radius`, sustained lateral acceleration, or maximum mission bank from the cited sources: none of these sources establishes a validated value for the named configurations.
+4. Do not mark the MT-01 vehicle-motion model `OFFICIAL_VALIDATED` merely because some scalar specifications are official. The full motion envelope needed by the route connector is not established.
+5. Preserve document conflicts (for example WingtraOne MTOW 4.5 kg vs 4.8 kg) as explicit source discrepancies; do not silently select one.
+6. These external specifications can enrich the aircraft reference catalogue and support preliminary estimates. They do not satisfy the current validated vehicle-profile / flight-safety-envelope hard gate, and must not be passed as validated motion inputs to MT-01.
