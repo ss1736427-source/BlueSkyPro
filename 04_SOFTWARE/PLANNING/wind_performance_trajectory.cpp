@@ -201,9 +201,21 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
                 || !std::isfinite(profile.cruise_distance_m) || profile.cruise_distance_m < 0.0
                 || !std::isfinite(profile.maximum_acceleration_mps2) || profile.maximum_acceleration_mps2 <= 0.0
                 || !std::isfinite(profile.maximum_deceleration_mps2) || profile.maximum_deceleration_mps2 <= 0.0
+                || profile.maximum_reachable_speed_mps + 1e-9
+                    < std::max(profile.entry_speed_mps, profile.exit_speed_mps)
                 || std::abs(profile.distance_m - routeSegment.distance_m) > std::max(0.5, routeSegment.distance_m * 0.01)
                 || std::abs(profile.distance_m - profile.acceleration_distance_m
-                    - profile.deceleration_distance_m - profile.cruise_distance_m) > 1e-5) {
+                    - profile.deceleration_distance_m - profile.cruise_distance_m) > 1e-5
+                || std::abs(profile.acceleration_distance_m
+                    - std::max(0.0, (profile.maximum_reachable_speed_mps * profile.maximum_reachable_speed_mps
+                        - profile.entry_speed_mps * profile.entry_speed_mps)
+                        / (2.0 * profile.maximum_acceleration_mps2))) > std::max(1e-4, profile.distance_m * 1e-6)
+                || std::abs(profile.deceleration_distance_m
+                    - std::max(0.0, (profile.maximum_reachable_speed_mps * profile.maximum_reachable_speed_mps
+                        - profile.exit_speed_mps * profile.exit_speed_mps)
+                        / (2.0 * profile.maximum_deceleration_mps2))) > std::max(1e-4, profile.distance_m * 1e-6)
+                || (i > 0 && std::abs(profile.entry_speed_mps
+                    - input.speed_profile_segments[i - 1].exit_speed_mps) > 1e-6)) {
                 fail(r, TrajectoryFindingCode::InvalidPerformance, routeSegment.segment_id,
                      "variable speed profile segment does not match canonical route geometry or contains invalid dynamics");
                 return r;
