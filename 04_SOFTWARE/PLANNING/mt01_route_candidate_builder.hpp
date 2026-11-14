@@ -2,6 +2,7 @@
 
 #include "mt01_kinematic_geometry_builder.hpp"
 #include "route_constraint_validator.hpp"
+#include "variable_speed_profile.hpp"
 
 #include <string>
 #include <vector>
@@ -36,7 +37,8 @@ public:
         const CoveragePlanResult& coverage,
         const std::string& mission_id,
         const std::string& mission_version,
-        const Mt01RouteCandidateMetadata& metadata);
+        const Mt01RouteCandidateMetadata& metadata,
+        const SpeedProfileResult* speed_profile = nullptr);
 };
 
 } // namespace bluesky::planning
