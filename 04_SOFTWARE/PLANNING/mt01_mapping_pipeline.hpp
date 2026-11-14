@@ -7,6 +7,7 @@
 #include "model/flight_safety_constraints.hpp"
 #include "model/mission_model.hpp"
 #include "mt01_task_execution_event_adapter.hpp"
+#include "variable_speed_profile.hpp"
 
 #include <string>
 #include <vector>
@@ -37,6 +38,13 @@ struct Mt01MappingRequest {
     double fixed_wing_clean_stall_speed_mps{0.0};
     std::string fixed_wing_stall_speed_reference;
     double fixed_wing_stall_margin_factor{0.0};
+    // Required when turn-speed selection differs from coverage cruise speed.
+    bool longitudinal_dynamics_validated{false};
+    std::string longitudinal_dynamics_source;
+    double maximum_acceleration_mps2{0.0};
+    double maximum_deceleration_mps2{0.0};
+    double initial_route_speed_mps{0.0};
+    double final_route_speed_mps{0.0};
     VehicleMotionModel vehicle_motion_model;
     // Explicit, independently validated envelope; never inferred from motion estimates.
     FlightSafetyEnvelope flight_safety_envelope;
@@ -60,6 +68,8 @@ struct Mt01MappingPipelineResult {
     FlightSafetyValidationResult flight_safety_validation;
     bool route_candidate_available{false};
     Mt01RouteCandidateResult route_candidate;
+    SpeedProfileResult speed_profile;
+    bool speed_profile_available{false};
     bool task_execution_events_applied{false};
     Mt01TaskExecutionEventValidation task_execution_event_validation;
     std::vector<std::string> findings;
