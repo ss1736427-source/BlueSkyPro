@@ -403,8 +403,8 @@ Item {
             missionModelJson: root.activeMissionModelJson
             coverageBridge: typeof weatherCoverageBridge !== "undefined" ? weatherCoverageBridge : null
             forecastAvailabilityService: typeof gfsForecastAvailabilityService !== "undefined" ? gfsForecastAvailabilityService : null
-            weatherDataService: typeof weatherDataService !== "undefined" ? weatherDataService : null
-            weatherCalculationService: typeof weatherCalculationService !== "undefined" ? weatherCalculationService : null
+            weatherDataService: typeof weatherDataServiceContext !== "undefined" ? weatherDataServiceContext : null
+            weatherCalculationService: typeof weatherCalculationServiceContext !== "undefined" ? weatherCalculationServiceContext : null
             notamSnapshotBridge: typeof mt01MappingBridge !== "undefined" ? mt01MappingBridge : null
             notamSnapshotParameters: ({
                 notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.missionNotamRecords : [],

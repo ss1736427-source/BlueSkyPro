@@ -135,6 +135,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("faaNmsClient"), &faaNmsClient);
     engine.rootContext()->setContextProperty(QStringLiteral("weatherDataService"), &weatherDataService);
     engine.rootContext()->setContextProperty(QStringLiteral("weatherCalculationService"), &weatherCalculationService);
+    // Explicit aliases prevent MissionProfileWindow properties from shadowing context objects.
+    engine.rootContext()->setContextProperty(QStringLiteral("weatherDataServiceContext"), &weatherDataService);
+    engine.rootContext()->setContextProperty(QStringLiteral("weatherCalculationServiceContext"), &weatherCalculationService);
     engine.rootContext()->setContextProperty(QStringLiteral("weatherCoverageBridge"), &weatherCoverageBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("gfsForecastAvailabilityService"), &gfsForecastAvailabilityService);
     writeStartupLog(QStringLiteral("CHECKPOINT: C++ context properties configured"));
