@@ -30,6 +30,31 @@ struct RouteWaypoint {
     std::optional<double> task_execution_energy_wh;
 };
 
+// Validated longitudinal profile attached to the canonical route. Speeds are
+// air-relative (TAS for fixed-wing, AIR_RELATIVE for multirotor); ground speed
+// is derived later by the wind/performance stage and is never stored here.
+struct RouteSpeedProfileSegment {
+    std::string segment_id;
+    double distance_m{0.0};
+    double entry_speed_mps{0.0};
+    double exit_speed_mps{0.0};
+    double maximum_reachable_speed_mps{0.0};
+    double acceleration_distance_m{0.0};
+    double deceleration_distance_m{0.0};
+    double cruise_distance_m{0.0};
+    double maximum_acceleration_mps2{0.0};
+    double maximum_deceleration_mps2{0.0};
+};
+
+struct RouteSpeedProfile {
+    std::string vehicle_model_id;
+    std::string vehicle_model_version;
+    std::string configuration_id;
+    std::string speed_reference;
+    std::string dynamics_source;
+    std::vector<RouteSpeedProfileSegment> segments;
+};
+
 struct RouteSegment {
     std::string segment_id;
     std::string from_waypoint_id;
@@ -76,6 +101,8 @@ struct Route {
     // Structural waypoint chains alone must leave this false.
     bool trajectory_geometry_complete{false};
     RouteConstraints constraints;
+    // Present only after a validated profile has been bound to every route segment.
+    std::optional<RouteSpeedProfile> speed_profile;
     RouteEnvironmentReference environment;
 };
 
