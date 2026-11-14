@@ -479,6 +479,37 @@ public:
         return reject(QStringLiteral("WAYPOINT_NOT_FOUND"));
     }
 
+    Q_INVOKABLE bool removeMandatoryWaypoint(const QString &waypointId)
+    {
+        if (m_route.waypoints.size() <= 2)
+            return reject(QStringLiteral("MINIMUM_ROUTE_WAYPOINTS_REQUIRED"));
+        for (size_t i = 0; i < m_route.waypoints.size(); ++i) {
+            if (m_route.waypoints[i].waypoint_id != waypointId.toStdString())
+                continue;
+            if (i == 0 || i + 1 == m_route.waypoints.size())
+                return reject(QStringLiteral("ROUTE_ENDPOINT_CANNOT_BE_REMOVED"));
+            if (!m_route.waypoints[i].mandatory)
+                return reject(QStringLiteral("WAYPOINT_NOT_MANDATORY"));
+
+            m_route.waypoints.erase(m_route.waypoints.begin() + static_cast<std::ptrdiff_t>(i));
+            m_waypoints.removeAt(static_cast<int>(i));
+            m_route.segments.clear();
+            m_route.trajectory_geometry_complete = false;
+            ++m_editSequence;
+            m_routeVersion = QString::fromStdString(m_route.lineage.route_version)
+                             + QStringLiteral("-edit-") + QString::number(m_editSequence);
+            m_route.lineage.route_version = m_routeVersion.toStdString();
+            m_validationState = QStringLiteral("RECALCULATION_REQUIRED");
+            m_validationReason = QStringLiteral("ROUTE_EDIT_INVALIDATED_PREVIOUS_VALIDATION");
+            m_candidateSnapshots.clear();
+            emit candidateSetChanged();
+            emit routeChanged();
+            emit validationChanged();
+            return true;
+        }
+        return reject(QStringLiteral("WAYPOINT_NOT_FOUND"));
+    }
+
     // A rejected replacement candidate must not leave the previous route visible.
     bool rejectCandidate(const QString &reason)
     {

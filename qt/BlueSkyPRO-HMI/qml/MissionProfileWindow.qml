@@ -1146,7 +1146,17 @@ Item {
                 energy: "—", note: p.mandatory ? "Обязательная точка" : "Не рассчитано"
             })
         }
-        root.mandatoryPoints = []
+        var canonicalMandatoryPoints = []
+        for (var j = 0; j < points.length; ++j) {
+            if (!points[j].mandatory) continue
+            canonicalMandatoryPoints.push({
+                id: String(points[j].waypointId),
+                routeIndex: j,
+                progress: j / Math.max(1, points.length - 1),
+                altitude: Number(points[j].altitudeM)
+            })
+        }
+        root.mandatoryPoints = canonicalMandatoryPoints
         root.rebuildTableRows()
         profileCanvas.requestPaint()
     }
@@ -2239,10 +2249,10 @@ Item {
                                     }
 
                                     function removeMandatoryPoint(index) {
-                                        if (index < 0 || index >= root.mandatoryPoints.length) return
-                                        var next = root.mandatoryPoints.slice(0)
-                                        next.splice(index, 1)
-                                        root.mandatoryPoints = next
+                                        if (!root.hasCanonicalRoute || index < 0
+                                                || index >= root.mandatoryPoints.length) return
+                                        var selected = root.mandatoryPoints[index]
+                                        root.routeController.removeMandatoryWaypoint(String(selected.id))
                                     }
 
                                     acceptedButtons: Qt.LeftButton | Qt.RightButton
