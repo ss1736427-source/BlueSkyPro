@@ -597,4 +597,4 @@ Required tests:
 - energy/reserve and time recalculation using selected segment speeds;
 - fail-closed behavior when acceleration, deceleration, curvature or evidence is missing.
 
-**Implementation status:** contract established; runtime integration and regression tests remain to be implemented and verified. This section does not claim that variable-speed control is already operational.
+**Implementation status (2026-11-14):** deterministic longitudinal profile solver and the segment-level wind/performance handoff are implemented. The wind/performance stage integrates acceleration, cruise and braking phases against segment wind and applies camera trigger/blur checks to the maximum ground speed. The MT-01 geometry/camera/vehicle speed-cap derivation, geometry-speed regeneration, assigned-vehicle dynamics binding, orchestrator wiring and full CI/build verification remain pending. This partial implementation is not flight-release eligible.
