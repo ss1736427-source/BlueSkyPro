@@ -103,5 +103,43 @@ int main() {
         narrowEnvelope, 60.0, 10.0, "TAS", 1.30);
     assert(!noSafeSpeed.valid);
 
+
+    // A requested fixed-wing radius produces a TAS cap, never a speed below
+    // the configured minimum envelope.
+    const auto fixedTurnCap =
+        VehicleMotionModelEvaluator::recommendTurnSpeedForRadius(speedModel, 60.0);
+    assert(fixedTurnCap.valid);
+    assert(fixedTurnCap.may_satisfy_motion_hard_gate);
+    assert(fixedTurnCap.selected_speed_mps < speedModel.reference_speed_mps);
+    assert(fixedTurnCap.selected_speed_mps >= speedModel.minimum_speed_mps);
+    assert(fixedTurnCap.radius_requirement_met);
+    assert(fixedTurnCap.achieved_ideal_radius_m <= 60.0 + 1e-9);
+
+    // Multirotor uses AIR_RELATIVE speed and sustained lateral acceleration;
+    // it must not inherit fixed-wing bank/stall calculations.
+    multi.evidence = MotionEvidence::FlightTestValidated;
+    const auto multiTurnCap =
+        VehicleMotionModelEvaluator::recommendTurnSpeedForRadius(multi, 100.0);
+    assert(multiTurnCap.valid);
+    assert(multiTurnCap.may_satisfy_motion_hard_gate);
+    assert(std::abs(multiTurnCap.selected_speed_mps - std::sqrt(200.0)) < 1e-9);
+    assert(multiTurnCap.achieved_ideal_radius_m <= 100.0 + 1e-9);
+
+    const auto impossibleMultiTurn =
+        VehicleMotionModelEvaluator::recommendTurnSpeedForRadius(multi, 0.1);
+    assert(!impossibleMultiTurn.valid);
+
+    auto unvalidatedMulti = multi;
+    unvalidatedMulti.evidence = MotionEvidence::DerivedScenario;
+    const auto advisoryMultiTurn =
+        VehicleMotionModelEvaluator::recommendTurnSpeedForRadius(unvalidatedMulti, 100.0);
+    assert(advisoryMultiTurn.valid);
+    assert(!advisoryMultiTurn.may_satisfy_motion_hard_gate);
+
+    auto wrongMultiReference = multi;
+    wrongMultiReference.speed_reference = "GROUND_SPEED";
+    assert(!VehicleMotionModelEvaluator::recommendTurnSpeedForRadius(
+        wrongMultiReference, 100.0).valid);
+
     return 0;
 }
