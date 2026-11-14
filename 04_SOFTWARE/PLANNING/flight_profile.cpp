@@ -12,6 +12,7 @@ FlightProfile FlightProfileBuilder::build(const SelectedRouteSet& selected,
     result.profile_id = profile_id;
     result.profile_version = profile_version;
     result.source_candidate_id = selected.candidate_id;
+    result.route_id = route.lineage.route_id;
     result.route_version = route.lineage.route_version;
     result.calculation_input_version = route.lineage.calculation_input_version;
     result.dependency_identity =
