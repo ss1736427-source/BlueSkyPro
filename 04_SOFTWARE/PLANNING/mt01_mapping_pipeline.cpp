@@ -234,19 +234,72 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
         addFinding(result,
             "MT01_KINEMATIC_GEOMETRY_BLOCKED: coverage legs remain available for analysis, but a validated fixed-wing turn-connector candidate was not established.");
     } else {
-        result.route_candidate = Mt01RouteCandidateBuilder::build(
-            result.kinematic_geometry,
-            result.coverage,
-            mission.identity.mission_id,
-            mission.identity.mission_version,
-            routeMetadata);
-        result.route_candidate_available = result.route_candidate.available;
-        for (const auto& diagnostic : result.route_candidate.diagnostics)
-            addFinding(result, diagnostic);
-        if (!result.route_candidate_available) {
-            addFinding(result,
-                "MT01_CANONICAL_ROUTE_CANDIDATE_BLOCKED: complete route/generator/input lineage and canonical structure are required.");
-        } else if (!request.task_execution_events.empty()) {
+        const bool connectorSlowerThanCoverage =
+            connectorSpeedMps + 1e-6 < request.cruise_speed_mps;
+        const SpeedProfileResult* speedProfile = nullptr;
+        if (connectorSlowerThanCoverage) {
+            if (!request.longitudinal_dynamics_validated
+                || request.longitudinal_dynamics_source.empty()
+                || !std::isfinite(request.maximum_acceleration_mps2)
+                || request.maximum_acceleration_mps2 <= 0.0
+                || !std::isfinite(request.maximum_deceleration_mps2)
+                || request.maximum_deceleration_mps2 <= 0.0
+                || !std::isfinite(request.initial_route_speed_mps)
+                || request.initial_route_speed_mps <= 0.0
+                || !std::isfinite(request.final_route_speed_mps)
+                || request.final_route_speed_mps <= 0.0) {
+                addFinding(result,
+                    "MT01_SPEED_PROFILE_REQUIRED: a slower turn requires validated longitudinal acceleration/deceleration evidence and explicit route boundary speeds before a canonical route can be published.");
+            } else {
+                SpeedProfileInput profileInput;
+                profileInput.vehicle_model_id = request.vehicle_motion_model.model_id;
+                profileInput.vehicle_model_version = request.vehicle_motion_model.model_version;
+                profileInput.configuration_id = request.vehicle_motion_model.configuration_id;
+                profileInput.speed_reference = request.vehicle_motion_model.speed_reference;
+                profileInput.longitudinal_dynamics_validated = true;
+                profileInput.longitudinal_dynamics_source = request.longitudinal_dynamics_source;
+                profileInput.maximum_acceleration_mps2 = request.maximum_acceleration_mps2;
+                profileInput.maximum_deceleration_mps2 = request.maximum_deceleration_mps2;
+                profileInput.initial_speed_mps = request.initial_route_speed_mps;
+                profileInput.final_speed_mps = request.final_route_speed_mps;
+                profileInput.segments.reserve(result.kinematic_geometry.segments.size());
+                for (const auto& segment : result.kinematic_geometry.segments) {
+                    profileInput.segments.push_back({
+                        segment.segment_id,
+                        segment.distance_m,
+                        segment.minimum_speed_mps,
+                        segment.nominal_speed_mps
+                    });
+                }
+                result.speed_profile = VariableSpeedProfileSolver::calculate(profileInput);
+                if (result.speed_profile.status == SpeedProfileStatus::Feasible) {
+                    result.speed_profile_available = true;
+                    speedProfile = &result.speed_profile;
+                } else {
+                    for (const auto& finding : result.speed_profile.findings)
+                        addFinding(result, finding);
+                    addFinding(result,
+                        "MT01_SPEED_PROFILE_INFEASIBLE: the selected turn speed cannot be reached within validated longitudinal dynamics and available segment distances.");
+                }
+            }
+        }
+        if (!connectorSlowerThanCoverage || speedProfile) {
+            result.route_candidate = Mt01RouteCandidateBuilder::build(
+                result.kinematic_geometry,
+                result.coverage,
+                mission.identity.mission_id,
+                mission.identity.mission_version,
+                routeMetadata,
+                speedProfile);
+            result.route_candidate_available = result.route_candidate.available;
+            for (const auto& diagnostic : result.route_candidate.diagnostics)
+                addFinding(result, diagnostic);
+            if (!result.route_candidate_available) {
+                addFinding(result,
+                    "MT01_CANONICAL_ROUTE_CANDIDATE_BLOCKED: complete route/generator/input lineage and canonical structure are required.");
+            }
+        }
+        if (result.route_candidate_available && !request.task_execution_events.empty()) {
             // A camera exposure is not a waypoint dwell or task execution stop.
             // Do not inject per-image duration/energy into RouteWaypoint costs.
             result.task_execution_events_applied = false;
