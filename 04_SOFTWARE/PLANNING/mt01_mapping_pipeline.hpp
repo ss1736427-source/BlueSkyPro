@@ -63,6 +63,7 @@ struct Mt01MappingPipelineResult {
     Mt01KinematicGeometryResult kinematic_geometry;
     double selected_connector_speed_mps{0.0};
     double minimum_safe_connector_speed_mps{0.0};
+    double minimum_safe_coverage_speed_mps{0.0};
     bool turn_speed_constraint_applied{false};
     bool segment_dynamics_validated{false};
     FlightSafetyValidationResult flight_safety_validation;
