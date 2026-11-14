@@ -66,8 +66,11 @@ public:
         const double minimumForWind = std::hypot(
             out.wind_cross_track_mps,
             std::max(0.0, -out.wind_along_track_mps));
+        // A positive tailwind can still provide forward progress at exactly
+        // the crosswind-compensation airspeed; zero/headwind needs a margin.
+        const double progressMargin = out.wind_along_track_mps > 1e-9 ? 0.0 : 1e-6;
         out.minimum_airspeed_mps = std::max(
-            aircraft_minimum_airspeed_mps, minimumForWind + 1e-6);
+            aircraft_minimum_airspeed_mps, minimumForWind + progressMargin);
         out.maximum_airspeed_mps = std::min(aircraft_maximum_airspeed_mps, windAwareCap);
         if (out.maximum_airspeed_mps + 1e-9 < out.minimum_airspeed_mps) {
             out.diagnostic = "CAMERA_GROUND_SPEED_CAP_CONFLICTS_WITH_AIRCRAFT_OR_WIND_MINIMUM_AIRSPEED";

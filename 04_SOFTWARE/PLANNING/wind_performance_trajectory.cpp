@@ -312,10 +312,12 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
             const double windAlong = wind->north_mps * hn + wind->east_mps * he;
             const double windCross = -wind->north_mps * he + wind->east_mps * hn;
             const auto correctedGroundSpeed = [&](double airspeed) {
-                if (!std::isfinite(airspeed) || airspeed <= std::abs(windCross) + 1e-9)
+                if (!std::isfinite(airspeed) || airspeed + 1e-9 < std::abs(windCross))
                     return 0.0;
-                return std::sqrt(std::max(0.0, airspeed * airspeed - windCross * windCross))
+                const double groundSpeed =
+                    std::sqrt(std::max(0.0, airspeed * airspeed - windCross * windCross))
                     + windAlong;
+                return groundSpeed > 1e-9 ? groundSpeed : 0.0;
             };
             if (segmentProfile) {
                 // Integrate acceleration / cruise / braking with crab correction.
