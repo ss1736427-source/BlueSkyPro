@@ -591,6 +591,13 @@ bool buildWindAwareSpeedProfile(
         <<input.camera_gsd_m_px<<'|'<<input.camera_forward_trigger_spacing_m
         <<'|'<<input.camera_minimum_trigger_interval_s<<'|'<<input.camera_exposure_time_s
         <<'|'<<input.camera_maximum_motion_blur_px;
+    for (std::size_t i=0;i<profileInput.segments.size();++i) {
+        profileVersion<<"|SEG:"<<profileInput.segments[i].segment_id<<':'<<std::setprecision(17)
+            <<sourceProfile.segments[i].minimum_speed_mps<<','
+            <<sourceProfile.segments[i].maximum_speed_mps<<','
+            <<profileInput.segments[i].minimum_speed_mps<<','
+            <<profileInput.segments[i].maximum_speed_mps;
+    }
     updated.profile_version=profileVersion.str();
     updated.wind_snapshot_id=snapshotId;
     updated.wind_snapshot_version=snapshotVersion;
