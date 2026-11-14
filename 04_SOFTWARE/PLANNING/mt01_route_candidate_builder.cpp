@@ -95,8 +95,8 @@ Mt01RouteCandidateResult Mt01RouteCandidateBuilder::build(
         const auto& source = geometry.segments[i];
         if (source.from_waypoint_index != i || source.to_waypoint_index != i + 1
             || source.segment_id.empty() || !std::isfinite(source.distance_m)
-            || source.distance_m <= 0.0 || !std::isfinite(routeSegment.nominal_speed_mps)
-            || routeSegment.nominal_speed_mps <= 0.0
+            || source.distance_m <= 0.0 || !std::isfinite(source.nominal_speed_mps)
+            || source.nominal_speed_mps <= 0.0
             || !std::isfinite(source.bank_angle_rad) || source.bank_angle_rad < 0.0
             || !std::isfinite(source.lateral_acceleration_mps2)
             || source.lateral_acceleration_mps2 < 0.0) {
@@ -107,7 +107,7 @@ Mt01RouteCandidateResult Mt01RouteCandidateBuilder::build(
         segment.from_waypoint_id = route.waypoints[i].waypoint_id;
         segment.to_waypoint_id = route.waypoints[i + 1].waypoint_id;
         segment.distance_m = source.distance_m;
-        segment.nominal_speed_mps = routeSegment.nominal_speed_mps;
+        segment.nominal_speed_mps = source.nominal_speed_mps;
         segment.bank_angle_rad = source.bank_angle_rad;
         segment.lateral_acceleration_mps2 = source.lateral_acceleration_mps2;
         route.segments.push_back(std::move(segment));
