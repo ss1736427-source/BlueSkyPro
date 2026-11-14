@@ -183,6 +183,7 @@ add_executable(planning_bridge_readiness_gate_test
     src/PlanningBridge.h
 )
 target_link_libraries(planning_bridge_readiness_gate_test PRIVATE Qt6::Core)
+target_include_directories(planning_bridge_readiness_gate_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_features(planning_bridge_readiness_gate_test PRIVATE cxx_std_20)
 target_compile_options(planning_bridge_readiness_gate_test PRIVATE
     "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
