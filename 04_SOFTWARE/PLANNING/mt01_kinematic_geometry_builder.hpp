@@ -39,8 +39,11 @@ struct Mt01KinematicGeometryResult {
     std::vector<std::string> diagnostics;
 };
 
-// Builds an air-relative fixed-wing geometry candidate from the ordered
-// straight coverage legs. This is not a complete/safety-attested Route:
+// Builds an air-relative geometry candidate for fixed-wing or multirotor
+// aircraft from ordered straight coverage legs. connector_speed_mps may be
+// lower than coverage cruise; connector radius and connector segment speed
+// are regenerated together. Zero selects the vehicle reference speed.
+// This is not a complete/safety-attested Route:
 // DEM, wind-ground-track, NOTAM/airspace, obstacles, energy and route hard gates
 // remain separate requirements.
 class Mt01KinematicGeometryBuilder {
