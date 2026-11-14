@@ -58,7 +58,8 @@ public:
         const std::vector<std::vector<GeoPoint>>& exclusion_areas,
         double maximum_sample_spacing_m = 2.0,
         double connector_speed_mps = 0.0,
-        double connector_minimum_speed_mps = 0.0);
+        double connector_minimum_speed_mps = 0.0,
+        double coverage_minimum_speed_mps = 0.0);
 };
 
 } // namespace bluesky::planning
