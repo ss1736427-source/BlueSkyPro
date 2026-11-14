@@ -442,6 +442,14 @@ bool buildWindAwareSpeedProfile(
     profileInput.initial_speed_mps=first.entry_speed_mps;
     profileInput.final_speed_mps=last.exit_speed_mps;
     profileInput.segments.reserve(sourceRoute.segments.size());
+    std::vector<double> sourceSampleDistances(sourceRoute.segments.size(),0.0);
+    for (std::size_t i=0;i<sourceLengthsM.size();++i) {
+        if (sourceSegmentIndices[i]>=sourceSampleDistances.size()) {
+            error="weather subdivision references an unknown source segment";
+            return false;
+        }
+        sourceSampleDistances[sourceSegmentIndices[i]]+=sourceLengthsM[i];
+    }
 
     for (std::size_t i=0;i<sourceRoute.segments.size();++i) {
         const auto& routeSegment=sourceRoute.segments[i];
@@ -450,12 +458,15 @@ bool buildWindAwareSpeedProfile(
             ||!std::isfinite(profileSegment.minimum_speed_mps)||profileSegment.minimum_speed_mps<=0.0
             ||!std::isfinite(profileSegment.maximum_speed_mps)
             ||profileSegment.maximum_speed_mps<profileSegment.minimum_speed_mps
+            ||!std::isfinite(sourceSampleDistances[i])||sourceSampleDistances[i]<=0.0
+            ||std::abs(profileSegment.distance_m-routeSegment.distance_m)
+                >std::max(0.5,routeSegment.distance_m*0.01)
             ||std::abs(profileSegment.maximum_acceleration_mps2-profileInput.maximum_acceleration_mps2)>1e-6
             ||std::abs(profileSegment.maximum_deceleration_mps2-profileInput.maximum_deceleration_mps2)>1e-6) {
             error="canonical route speed envelope is incomplete, inconsistent or not bound to exact segment identities";
             return false;
         }
-        profileInput.segments.push_back({routeSegment.segment_id,routeSegment.distance_m,
+        profileInput.segments.push_back({routeSegment.segment_id,sourceSampleDistances[i],
             profileSegment.minimum_speed_mps,profileSegment.maximum_speed_mps});
     }
 
@@ -530,10 +541,6 @@ bool buildWindAwareSpeedProfile(
     std::vector<SpeedProfileSegmentResult> sampledProfile;
     sampledProfile.reserve(samplingRoute.segments.size());
     maximumProfileDelta=0.0;
-    std::vector<double> sourceSampleDistances(sourceRoute.segments.size(),0.0);
-    for (std::size_t i=0;i<sourceLengthsM.size();++i)
-        sourceSampleDistances[sourceSegmentIndices[i]]+=sourceLengthsM[i];
-
     for (std::size_t i=0;i<samplingRoute.segments.size();++i) {
         const auto sourceIndex=sourceSegmentIndices[i];
         const auto& original=solved.segments[sourceIndex];
