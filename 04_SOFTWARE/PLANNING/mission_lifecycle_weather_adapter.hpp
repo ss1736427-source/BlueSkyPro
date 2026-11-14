@@ -84,6 +84,7 @@ inline MissionLifecycleValidationEvidence makeWeatherAttestation(
     evidence.calculation_input_version = route.lineage.calculation_input_version;
     evidence.validator_id = validatorId;
     evidence.validator_version = "1";
+    evidence.snapshot_id = trajectory.wind_snapshot_id;
     evidence.source_reference = "forecast:" + trajectory.wind_snapshot_id
         + "@" + trajectory.wind_snapshot_version
         + ";performance:" + trajectory.performance_version
