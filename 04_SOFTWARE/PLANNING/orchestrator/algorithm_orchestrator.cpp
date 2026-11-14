@@ -160,7 +160,11 @@ std::vector<std::string> validateRouteSpeedProfile(
 bool sameRouteGeometry(const Route& lhs, const Route& rhs) {
     if (lhs.trajectory_geometry_complete != rhs.trajectory_geometry_complete
         || lhs.waypoints.size() != rhs.waypoints.size()
-        || lhs.segments.size() != rhs.segments.size())
+        || lhs.segments.size() != rhs.segments.size()
+        || std::abs(lhs.constraints.minimum_altitude_m-rhs.constraints.minimum_altitude_m)>1e-9
+        || std::abs(lhs.constraints.maximum_altitude_m-rhs.constraints.maximum_altitude_m)>1e-9
+        || std::abs(lhs.constraints.minimum_clearance_m-rhs.constraints.minimum_clearance_m)>1e-9
+        || lhs.constraints.avoid_restricted_areas != rhs.constraints.avoid_restricted_areas)
         return false;
     const auto sameOptional = [](const std::optional<double>& a,
                                  const std::optional<double>& b) {
@@ -394,7 +398,10 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
                                 corrected.lineage.mission_id == original.lineage.mission_id
                                 && corrected.lineage.mission_version == original.lineage.mission_version
                                 && corrected.lineage.route_id == original.lineage.route_id
-                                && corrected.lineage.route_version == original.lineage.route_version;
+                                && corrected.lineage.route_version == original.lineage.route_version
+                                && corrected.lineage.generator_id == original.lineage.generator_id
+                                && corrected.lineage.generator_version == original.lineage.generator_version
+                                && corrected.lineage.calculation_input_version == original.lineage.calculation_input_version;
                             const bool completeGeometry = corrected.trajectory_geometry_complete
                                 && corrected.waypoints.size() >= 2
                                 && corrected.segments.size() + 1 == corrected.waypoints.size();
