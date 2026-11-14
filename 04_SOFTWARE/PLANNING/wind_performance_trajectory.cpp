@@ -285,6 +285,12 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
         double north=0.0,east=0.0;
         local_vector(from->position,to->position,north,east);
         const double horizontal=std::hypot(north,east);
+        if (segmentProfile && std::abs(segmentProfile->distance_m - horizontal)
+            > std::max(0.5, horizontal * 0.01)) {
+            fail(r, TrajectoryFindingCode::InvalidPerformance, seg.segment_id,
+                 "speed profile distance does not match the canonical waypoint geometry");
+            return r;
+        }
         const double dz=to->altitude_m-from->altitude_m;
         const auto* segmentProfile = variableProfile
             ? find_profile_segment(input.speed_profile_segments, seg.segment_id) : nullptr;
