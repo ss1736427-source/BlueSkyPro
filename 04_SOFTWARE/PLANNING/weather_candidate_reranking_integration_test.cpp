@@ -115,6 +115,9 @@ int main() {
         assert(candidate.trajectory_route->speed_profile->segments.size()==1);
         assert(candidate.trajectory_route->speed_profile->segments.front().maximum_reachable_speed_mps
                <=12.0+1e-6);
+        assert(candidate.trajectory_route->speed_profile->wind_snapshot_id=="GFS-EAST-FAVOURABLE");
+        assert(candidate.trajectory_route->speed_profile->wind_snapshot_version=="forecast-v1");
+        assert(candidate.trajectory_route->speed_profile->camera_configuration_id=="CAMERA-TEST");
         eastCameraCapApplied=true;
     }
     assert(eastCameraCapApplied);

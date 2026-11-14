@@ -351,9 +351,15 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
                             const bool completeGeometry = corrected.trajectory_geometry_complete
                                 && corrected.waypoints.size() >= 2
                                 && corrected.segments.size() + 1 == corrected.waypoints.size();
-                            if (!sameLineage || !completeGeometry) {
+                            const bool profileSnapshotMatches = corrected.speed_profile.has_value()
+                                && corrected.speed_profile->profile_id.size() > 0
+                                && corrected.speed_profile->profile_version.size() > 0
+                                && corrected.speed_profile->wind_snapshot_id == weatherAssessment.snapshot_id
+                                && corrected.speed_profile->wind_snapshot_version == weatherAssessment.snapshot_version
+                                && corrected.environment.wind_snapshot_id == weatherAssessment.snapshot_id;
+                            if (!sameLineage || !completeGeometry || !profileSnapshotMatches) {
                                 violations.push_back(
-                                    "WEATHER_ROUTE_FEEDBACK_INVALID: corrected route lost canonical lineage or complete geometry.");
+                                    "WEATHER_ROUTE_FEEDBACK_INVALID: corrected route lost canonical lineage, complete geometry or matching wind/profile snapshot identity.");
                             } else {
                                 rankedCandidate.trajectory_route = corrected;
                                 if (context.problem().requires_flight_safety_validation

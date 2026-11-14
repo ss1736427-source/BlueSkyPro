@@ -573,8 +573,13 @@ bool buildWindAwareSpeedProfile(
         previousProfilePeaks[i]=peak;
     }
 
-    input.speed_profile_id=sourceRoute.lineage.route_id+"-WIND-CAMERA";
-    input.speed_profile_version=snapshotId+"-"+snapshotVersion+"-"+calculationVersion;
+    updated.profile_id=sourceRoute.lineage.route_id+"-WIND-CAMERA";
+    updated.profile_version=snapshotId+"-"+snapshotVersion+"-"+calculationVersion;
+    updated.wind_snapshot_id=snapshotId;
+    updated.wind_snapshot_version=snapshotVersion;
+    updated.camera_configuration_id=input.camera_configuration_id;
+    input.speed_profile_id=updated.profile_id;
+    input.speed_profile_version=updated.profile_version;
     input.speed_profile_vehicle_model_id=sourceProfile.vehicle_model_id;
     input.speed_profile_vehicle_model_version=sourceProfile.vehicle_model_version;
     input.speed_profile_configuration_id=sourceProfile.configuration_id;
@@ -593,6 +598,7 @@ bool buildWindAwareSpeedProfile(
             bounds.minimum_speed_mps,bounds.maximum_speed_mps});
     }
     correctedRoute=sourceRoute;
+    correctedRoute.environment.wind_snapshot_id=snapshotId;
     correctedRoute.speed_profile=updated;
     samplingRoute.speed_profile=updated;
     samplingRoute.speed_profile->segments.clear();

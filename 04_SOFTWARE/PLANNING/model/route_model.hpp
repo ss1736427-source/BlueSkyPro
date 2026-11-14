@@ -55,6 +55,11 @@ struct RouteSpeedProfile {
     std::string speed_reference;
     std::string dynamics_source;
     std::vector<RouteSpeedProfileSegment> segments;
+    std::string profile_id;
+    std::string profile_version;
+    std::string wind_snapshot_id;
+    std::string wind_snapshot_version;
+    std::string camera_configuration_id;
 };
 
 struct RouteSegment {
