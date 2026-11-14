@@ -333,6 +333,7 @@ int main()
     assert(fixedWingResult.turn_speed_constraint_applied);
     assert(fixedWingResult.selected_connector_speed_mps < 10.0);
     assert(fixedWingResult.minimum_safe_connector_speed_mps > 5.0);
+    assert(std::abs(fixedWingResult.minimum_safe_coverage_speed_mps - 7.2) < 1e-9);
     assert(std::abs(fixedWingResult.kinematic_geometry.minimum_turn_radius_m
                     - 15.0) < 1e-6);
     for (const auto& segment : fixedWingResult.kinematic_geometry.segments) {
@@ -354,6 +355,13 @@ int main()
     assert(fixedWingResult.speed_profile.status == SpeedProfileStatus::Feasible);
     for (std::size_t i = 0; i < fixedWingResult.kinematic_geometry.segments.size(); ++i) {
         const auto& segment = fixedWingResult.kinematic_geometry.segments[i];
+
+        if (segment.type == Mt01KinematicSegmentType::Coverage) {
+            assert(segment.minimum_speed_mps >= 7.2 - 1e-9);
+            const auto& profile = fixedWingResult.speed_profile.segments[i];
+            assert(profile.entry_speed_mps >= segment.minimum_speed_mps - 1e-6);
+            assert(profile.exit_speed_mps >= segment.minimum_speed_mps - 1e-6);
+        }
         if (segment.type == Mt01KinematicSegmentType::ConnectorTurn) {
             const auto& profile = fixedWingResult.speed_profile.segments[i];
             assert(std::abs(profile.entry_speed_mps - segment.nominal_speed_mps) < 1e-6);
