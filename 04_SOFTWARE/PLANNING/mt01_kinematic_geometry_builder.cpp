@@ -280,13 +280,13 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
                 return fail("MT01_CAPTURE_EVENT_DUPLICATE_OR_OUT_OF_ORDER: distinct capture events cannot collapse to the same route station.");
             }
             appendEdge(capture.position, Mt01KinematicSegmentType::Coverage, 0.0, 0.0,
-                       coverageCruiseSpeedMps, vehicle.minimum_speed_mps);
+                       coverageCruiseSpeedMps, coverageMinimumSpeedMps);
             result.capture_point_waypoint_indices.push_back(result.waypoints.size() - 1);
             lastInsertedDistance = distance;
         }
         appendEdge(coverage.waypoints[leg + 1],
                    Mt01KinematicSegmentType::Coverage, 0.0, 0.0,
-                   coverageCruiseSpeedMps, vehicle.minimum_speed_mps);
+                   coverageCruiseSpeedMps, coverageMinimumSpeedMps);
     }
 
     if (result.capture_point_waypoint_indices.size() != coverage.capture_points.size()) {
