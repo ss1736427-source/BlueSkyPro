@@ -35,7 +35,9 @@ struct Mt01MappingRequest {
     // aircraft reference-speed geometry; positive values activate a validated
     // air-relative turn-speed recommendation.
     double requested_max_turn_radius_m{0.0};
+    std::string requested_turn_radius_source_reference;
     double fixed_wing_clean_stall_speed_mps{0.0};
+    std::string fixed_wing_stall_speed_source_reference;
     std::string fixed_wing_stall_speed_reference;
     double fixed_wing_stall_margin_factor{0.0};
     // Required when turn-speed selection differs from coverage cruise speed.
