@@ -280,7 +280,10 @@ jobs:
           $cases = @(
             @{ Name = "no-api-key"; Args = @(); Key = $false },
             @{ Name = "map-key-webchannel-disabled"; Args = @("--ci-disable-webchannel"); Key = $true },
-            @{ Name = "map-key-webchannel-enabled"; Args = @(); Key = $true }
+            @{ Name = "map-key-webchannel-empty"; Args = @("--ci-webchannel-empty"); Key = $true },
+            @{ Name = "map-key-webchannel-manual-only"; Args = @("--ci-webchannel-manual-only"); Key = $true },
+            @{ Name = "map-key-webchannel-route-only"; Args = @("--ci-webchannel-route-only"); Key = $true },
+            @{ Name = "map-key-webchannel-both"; Args = @(); Key = $true }
           )
           $failures = @()
           foreach ($case in $cases) {
