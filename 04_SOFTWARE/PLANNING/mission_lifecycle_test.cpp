@@ -242,8 +242,8 @@ static MissionLifecycleEvidence evidence() {
     finalVehicleInput.cruise_speed_mps = 12.0;
     const auto compiledFinalProfile = VehicleMissionCompiler::compile(finalProfile, finalVehicleInput);
     e.final_planning_integrity_validation = makeFinalPlanningIntegrityValidationEvidence(
-        compiledFinalProfile, e.mission_id, e.mission_version, e.route_version,
-        e.calculation_input_version);
+        compiledFinalProfile, e.mission_id, e.mission_version, e.route_id,
+        e.route_version, e.calculation_input_version);
     e.notam_validation = notamValidation();
     e.terrain_validation = validation("TERRAIN-RESULT");
     e.vehicle_envelope_validation = vehicleEnvelopeValidation();

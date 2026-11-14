@@ -11,6 +11,7 @@ inline MissionLifecycleValidationEvidence makeFinalPlanningIntegrityValidationEv
     const VehicleCompiledProfile& compiled,
     const std::string& expected_mission_id,
     const std::string& expected_mission_version,
+    const std::string& route_id,
     const std::string& route_version,
     const std::string& calculation_input_version)
 {
@@ -21,7 +22,7 @@ inline MissionLifecycleValidationEvidence makeFinalPlanningIntegrityValidationEv
     evidence.result_id = integrity.dependency_identity;
     evidence.mission_id = compiled.mission_id;
     evidence.mission_version = compiled.mission_version;
-    evidence.route_id = "FINAL-ROUTE";
+    evidence.route_id = route_id;
     evidence.route_version = compiled.route_version;
     evidence.calculation_input_version = compiled.calculation_input_version;
     evidence.validator_id = "FinalPlanningIntegrityChecker";
