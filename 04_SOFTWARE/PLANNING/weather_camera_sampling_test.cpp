@@ -9,10 +9,10 @@ using namespace bluesky::planning;
 using namespace bluesky::weather;
 
 namespace {
-WindField field(int validTime)
+WindField field(int validTime, int level)
 {
     WindField value;
-    value.level_agl_m=50;
+    value.level_agl_m=level;
     value.valid_date_utc=20261108;
     value.valid_time_utc=validTime;
     value.rows=2; value.columns=2;
@@ -58,7 +58,10 @@ int main()
     input.camera_maximum_motion_blur_px=0.5;
     input.camera_capture_segment_ids={"COV-LONG"};
 
-    const std::vector<WindField> fields={field(600),field(700),field(800)};
+    const std::vector<WindField> fields={
+        field(600,50),field(600,80),
+        field(700,50),field(700,80),
+        field(800,50),field(800,80)};
     const auto result=WeatherTrajectoryCalculator::evaluate(
         route,fields,"GFS-SNAPSHOT","GFS-V1",input,"MT01-WEATHER-TEST");
     assert(result.weather_ready);
