@@ -501,7 +501,9 @@ bool buildWindAwareSpeedProfile(
         const auto cap=CameraGroundSpeedConstraint::deriveAirspeedCap(
             trackHeadingDegrees(from.position,to.position),*windIt->second,
             cameraGroundSpeedCap,bounds.minimum_speed_mps,bounds.maximum_speed_mps);
-        if (!cap.feasible||!CameraGroundSpeedConstraint::applyToSegment(cap,bounds)) {
+        auto sourceBoundCap=cap;
+        sourceBoundCap.segment_id=bounds.segment_id;
+        if (!cap.feasible||!CameraGroundSpeedConstraint::applyToSegment(sourceBoundCap,bounds)) {
             error="camera ground-speed envelope is infeasible on source segment "
                 +sourceRoute.segments[sourceIndex].segment_id+": "+cap.diagnostic;
             return false;
