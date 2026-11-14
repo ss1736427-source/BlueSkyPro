@@ -300,6 +300,14 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
                 // acceleration / cruise / braking phases under this segment's wind.
                 constexpr int kIntegrationSteps = 64;
                 double northDisplacement = 0.0, eastDisplacement = 0.0;
+                const auto groundSpeedAt = [&](double airspeed) {
+                    return std::hypot(airspeed * hn + wind->north_mps,
+                                      airspeed * he + wind->east_mps);
+                };
+                maximum_ground_speed = std::max({
+                    groundSpeedAt(segmentProfile->entry_speed_mps),
+                    groundSpeedAt(segmentProfile->maximum_reachable_speed_mps),
+                    groundSpeedAt(segmentProfile->exit_speed_mps)});
                 for (int step = 0; step < kIntegrationSteps; ++step) {
                     const double ds = horizontal / static_cast<double>(kIntegrationSteps);
                     const double alongDistance = (static_cast<double>(step) + 0.5)
