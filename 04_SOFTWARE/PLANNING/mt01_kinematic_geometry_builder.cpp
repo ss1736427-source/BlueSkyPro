@@ -48,7 +48,8 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
     const std::string& assignedConfigurationId,
     double coverageCruiseSpeedMps,
     const std::vector<std::vector<GeoPoint>>& exclusionAreas,
-    double maximumSampleSpacingM)
+    double maximumSampleSpacingM,
+    double connectorSpeedMps)
 {
     Mt01KinematicGeometryResult result;
     result.vehicle_model_id = vehicle.model_id;
@@ -85,7 +86,19 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
         return fail("MT01_TURN_SAMPLE_SPACING_INVALID: a finite positive sample spacing is required.");
     }
 
-    const auto radius = VehicleMotionModelEvaluator::estimateTurnRadius(vehicle);
+    // Connector speed is independently selectable below coverage cruise speed.
+    // Its turn radius is recalculated from the same validated aircraft dynamics;
+    // no existing geometry is reused after a speed change.
+    if (connectorSpeedMps <= 0.0)
+        connectorSpeedMps = vehicle.reference_speed_mps;
+    if (!finite(connectorSpeedMps)
+        || connectorSpeedMps < vehicle.minimum_speed_mps
+        || connectorSpeedMps > vehicle.reference_speed_mps) {
+        return fail("MT01_CONNECTOR_SPEED_OUTSIDE_ENVELOPE: connector speed must be within the validated minimum-to-coverage speed envelope.");
+    }
+    VehicleMotionModel connectorVehicle = vehicle;
+    connectorVehicle.reference_speed_mps = connectorSpeedMps;
+    const auto radius = VehicleMotionModelEvaluator::estimateTurnRadius(connectorVehicle);
     if (!radius.valid || !radius.may_satisfy_motion_hard_gate) {
         return fail("MT01_TURN_RADIUS_NOT_VALIDATED: " + radius.diagnostic);
     }
@@ -127,7 +140,8 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
     const auto appendEdge = [&](const GeoPoint& point,
                                 Mt01KinematicSegmentType type,
                                 double bankAngleRad,
-                                double lateralAccelerationMps2) {
+                                double lateralAccelerationMps2,
+                                double nominalSpeedMps) {
         if (result.waypoints.empty()) {
             result.waypoints.push_back(point);
             return;
@@ -145,7 +159,7 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
         segment.to_waypoint_index = fromIndex + 1;
         segment.type = type;
         segment.distance_m = distance;
-        segment.nominal_speed_mps = coverageCruiseSpeedMps;
+        segment.nominal_speed_mps = nominalSpeedMps;
         segment.bank_angle_rad = bankAngleRad;
         segment.lateral_acceleration_mps2 = lateralAccelerationMps2;
         result.segments.push_back(std::move(segment));
@@ -214,8 +228,9 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
                             : Mt01KinematicSegmentType::ConnectorStraight,
                     turning && vehicle.motion_class == MotionClass::FixedWing
                         ? vehicle.bank_angle_rad : 0.0,
-                    turning ? (coverageCruiseSpeedMps * coverageCruiseSpeedMps /
-                               radius.air_relative_radius_m) : 0.0);
+                    turning ? (connectorSpeedMps * connectorSpeedMps /
+                               radius.air_relative_radius_m) : 0.0,
+                    connectorSpeedMps);
             }
             ++result.connector_count;
         }
@@ -242,7 +257,8 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
             }
             if (distance >= legLength - 0.01) {
                 appendEdge(coverage.waypoints[leg + 1],
-                           Mt01KinematicSegmentType::Coverage, 0.0, 0.0);
+                           Mt01KinematicSegmentType::Coverage, 0.0, 0.0,
+                           coverageCruiseSpeedMps);
                 result.capture_point_waypoint_indices.push_back(result.waypoints.size() - 1);
                 lastInsertedDistance = legLength;
                 continue;
@@ -250,12 +266,14 @@ Mt01KinematicGeometryResult Mt01KinematicGeometryBuilder::build(
             if (distance <= lastInsertedDistance + 0.01) {
                 return fail("MT01_CAPTURE_EVENT_DUPLICATE_OR_OUT_OF_ORDER: distinct capture events cannot collapse to the same route station.");
             }
-            appendEdge(capture.position, Mt01KinematicSegmentType::Coverage, 0.0, 0.0);
+            appendEdge(capture.position, Mt01KinematicSegmentType::Coverage, 0.0, 0.0,
+                       coverageCruiseSpeedMps);
             result.capture_point_waypoint_indices.push_back(result.waypoints.size() - 1);
             lastInsertedDistance = distance;
         }
         appendEdge(coverage.waypoints[leg + 1],
-                   Mt01KinematicSegmentType::Coverage, 0.0, 0.0);
+                   Mt01KinematicSegmentType::Coverage, 0.0, 0.0,
+                   coverageCruiseSpeedMps);
     }
 
     if (result.capture_point_waypoint_indices.size() != coverage.capture_points.size()) {
