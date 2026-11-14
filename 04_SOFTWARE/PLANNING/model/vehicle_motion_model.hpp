@@ -44,6 +44,7 @@ struct TurnSpeedRecommendation {
     double requested_radius_m{0.0};
     double selected_speed_mps{0.0};
     double minimum_safe_turn_speed_mps{0.0};
+    double minimum_safe_straight_speed_mps{0.0};
     double stall_speed_at_bank_mps{0.0};
     double achieved_ideal_radius_m{0.0};
     bool radius_requirement_met{false};
@@ -179,7 +180,8 @@ public:
             model.minimum_speed_mps,
             out.stall_speed_at_bank_mps * stall_margin_factor);
 
-        if (out.minimum_safe_turn_speed_mps > model.maximum_speed_mps) {
+        if (out.minimum_safe_straight_speed_mps > model.maximum_speed_mps
+            || out.minimum_safe_turn_speed_mps > model.maximum_speed_mps) {
             out.diagnostic = "No safe turn speed: stall-margin speed exceeds the validated aircraft speed envelope.";
             return out;
         }
@@ -260,6 +262,9 @@ public:
                 out.diagnostic = "Fixed-wing turn-speed cap requires TAS, a valid bank angle, TAS-referenced clean stall speed and an explicit safety margin greater than 1.";
                 return out;
             }
+            out.minimum_safe_straight_speed_mps = std::max(
+                model.minimum_speed_mps,
+                stall_speed_clean_mps * stall_margin_factor);
             out.stall_speed_at_bank_mps =
                 stall_speed_clean_mps / std::sqrt(std::cos(model.bank_angle_rad));
             out.minimum_safe_turn_speed_mps = std::max(
@@ -275,6 +280,7 @@ public:
             }
             radius_at_speed_squared = model.lateral_acceleration_mps2;
             out.minimum_safe_turn_speed_mps = model.minimum_speed_mps;
+            out.minimum_safe_straight_speed_mps = model.minimum_speed_mps;
             break;
         }
 
