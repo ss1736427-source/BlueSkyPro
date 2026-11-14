@@ -295,7 +295,11 @@ int main()
     fixedWingRequest.vehicle_motion_model.speed_reference = "TAS";
     fixedWingRequest.vehicle_motion_model.source_reference = "controlled integration fixture";
     fixedWingRequest.requested_max_turn_radius_m = 15.0;
+    fixedWingRequest.requested_turn_radius_source_reference =
+        "controlled mission turn-radius requirement";
     fixedWingRequest.fixed_wing_clean_stall_speed_mps = 6.0;
+    fixedWingRequest.fixed_wing_stall_speed_source_reference =
+        "controlled fixed-wing stall-speed evidence";
     fixedWingRequest.fixed_wing_stall_speed_reference = "TAS";
     fixedWingRequest.fixed_wing_stall_margin_factor = 1.20;
     fixedWingRequest.longitudinal_dynamics_validated = true;
@@ -407,6 +411,17 @@ int main()
         if (finding.find("MT01_SPEED_PROFILE_REQUIRED") != std::string::npos)
             longitudinalEvidenceBlocked = true;
     assert(longitudinalEvidenceBlocked);
+    auto missingTurnProvenance = fixedWingRequest;
+    missingTurnProvenance.fixed_wing_stall_speed_source_reference.clear();
+    const auto missingTurnProvenanceResult =
+        Mt01MappingPipeline::calculate(missingTurnProvenance);
+    assert(!missingTurnProvenanceResult.kinematic_geometry_available);
+    bool turnProvenanceBlocked = false;
+    for (const auto& finding : missingTurnProvenanceResult.findings)
+        if (finding.find("MT01_TURN_SPEED_EVIDENCE_PROVENANCE_MISSING") != std::string::npos)
+            turnProvenanceBlocked = true;
+    assert(turnProvenanceBlocked);
+
 
 
 
