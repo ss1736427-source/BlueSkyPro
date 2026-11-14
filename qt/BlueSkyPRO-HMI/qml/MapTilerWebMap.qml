@@ -270,9 +270,19 @@ Item {
 
     // Diagnostic step 2: reconnect the Qt WebChannel transport without registering
     // any QObject. This separates transport hookup from registered-object lookup.
-    WebChannel {
-        id: mapWebChannel
-        registeredObjects: [manualGeometryBridge, routeController]
+    // Instantiate WebChannel lazily. On Windows, creating a WebChannel while the
+    // map is hidden/no API key is configured must not touch QObject registrations.
+    // The CI-only argument isolates the WebEngineView startup path from WebChannel.
+    property bool webChannelEnabled: Qt.application.arguments.indexOf("--ci-disable-webchannel") < 0
+
+    Loader {
+        id: mapWebChannelLoader
+        active: root.apiKey.length > 0 && root.webChannelEnabled
+        sourceComponent: Component {
+            WebChannel {
+                registeredObjects: [manualGeometryBridge, routeController]
+            }
+        }
     }
 
     Timer {
@@ -308,7 +318,7 @@ Item {
     WebEngineView {
         id: webMap
         profile: mapWebProfile
-        webChannel: root.apiKey.length > 0 ? mapWebChannel : null
+        webChannel: mapWebChannelLoader.item
         anchors.fill: parent
         visible: root.apiKey.length > 0
         backgroundColor: "#071321"
