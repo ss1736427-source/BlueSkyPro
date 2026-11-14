@@ -265,6 +265,10 @@ int main(){
     const auto crosswindAboveCameraCap = CameraGroundSpeedConstraint::deriveAirspeedCap(
         90.0, {"S1", 25.0, 0.0, 0.0}, 15.0, 8.0, 30.0);
     assert(crosswindAboveCameraCap.feasible);
+    assert(crosswindAboveCameraCap.minimum_airspeed_mps > 25.0);
+    const auto crosswindBeyondAircraftCapability = CameraGroundSpeedConstraint::deriveAirspeedCap(
+        90.0, {"S1", 25.0, 0.0, 0.0}, 15.0, 8.0, 24.0);
+    assert(!crosswindBeyondAircraftCapability.feasible);
     const auto excessiveTailwind = CameraGroundSpeedConstraint::deriveAirspeedCap(
         90.0, {"S1", 0.0, 22.0, 0.0}, 20.0, 8.0, 30.0);
     assert(!excessiveTailwind.feasible);
