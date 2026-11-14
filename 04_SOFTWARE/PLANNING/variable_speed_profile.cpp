@@ -56,7 +56,7 @@ SpeedProfileResult VariableSpeedProfileSolver::calculate(const SpeedProfileInput
   const double dd=std::max(0.0,(peak*peak-exit*exit)/(2.0*input.maximum_deceleration_mps2));
   const double cd=s.distance_m-ad-dd;
   if(cd < -1e-7) return fail("SPEED_PROFILE_DISTANCE_OVERCOMMITTED: acceleration and braking exceed segment length.");
-  out.segments.push_back({s.segment_id,entry,exit,peak,ad,dd,std::max(0.0,cd)});
+  out.segments.push_back({s.segment_id,s.distance_m,entry,exit,peak,ad,dd,std::max(0.0,cd),input.maximum_acceleration_mps2,input.maximum_deceleration_mps2});
  }
  out.status=SpeedProfileStatus::Feasible; return out;
 }
