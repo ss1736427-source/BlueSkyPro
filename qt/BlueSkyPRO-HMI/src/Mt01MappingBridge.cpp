@@ -776,10 +776,111 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
         }
     }
 
+    // Bind motion, safety and route lineage to explicit validated inputs from
+    // the selected aircraft configuration. This bridge never synthesizes defaults.
+    const auto textValue = [&parameters](const QString &key) {
+        return parameters.value(key).toString().trimmed();
+    };
+    const auto requiredString = [&textValue](const QString &key, std::string &target) {
+        const QString value = textValue(key);
+        if (value.isEmpty()) return false;
+        target = value.toStdString();
+        return true;
+    };
+    const auto requiredOptional = [&parameters](const QString &key, std::optional<double> &target) {
+        bool ok = false;
+        const double value = parameters.value(key).toDouble(&ok);
+        if (!parameters.contains(key) || !ok || !std::isfinite(value)) return false;
+        target = value;
+        return true;
+    };
+    QStringList profileErrors;
+    auto &motion = request.vehicle_motion_model;
+    if (!requiredString(QStringLiteral("vehicleMotionModelId"), motion.model_id)
+        || !requiredString(QStringLiteral("vehicleMotionModelVersion"), motion.model_version)
+        || !requiredString(QStringLiteral("vehicleMotionConfigurationId"), motion.configuration_id)
+        || !requiredString(QStringLiteral("vehicleMotionSourceReference"), motion.source_reference)
+        || !requiredString(QStringLiteral("vehicleMotionSpeedReference"), motion.speed_reference)
+        || !number(QStringLiteral("vehicleMotionReferenceSpeedMps"), motion.reference_speed_mps)
+        || !number(QStringLiteral("vehicleMotionMinimumSpeedMps"), motion.minimum_speed_mps)
+        || !number(QStringLiteral("vehicleMotionMaximumSpeedMps"), motion.maximum_speed_mps)
+        || !number(QStringLiteral("vehicleMotionBankAngleRad"), motion.bank_angle_rad)
+        || !number(QStringLiteral("vehicleMotionLateralAccelerationMps2"), motion.lateral_acceleration_mps2))
+        profileErrors.push_back(QStringLiteral("MT01_VALIDATED_VEHICLE_MOTION_PROFILE_REQUIRED"));
+    const QString motionClass = textValue(QStringLiteral("vehicleMotionClass"));
+    if (motionClass == QLatin1String("FIXED_WING")) motion.motion_class = MotionClass::FixedWing;
+    else if (motionClass == QLatin1String("MULTIROTOR")) motion.motion_class = MotionClass::Multirotor;
+    else profileErrors.push_back(QStringLiteral("MT01_VEHICLE_MOTION_CLASS_INVALID"));
+    const QString motionEvidence = textValue(QStringLiteral("vehicleMotionEvidence"));
+    if (motionEvidence == QLatin1String("OFFICIAL_VALIDATED")) motion.evidence = MotionEvidence::OfficialValidated;
+    else if (motionEvidence == QLatin1String("FLIGHT_TEST_VALIDATED")) motion.evidence = MotionEvidence::FlightTestValidated;
+    else profileErrors.push_back(QStringLiteral("MT01_VEHICLE_MOTION_EVIDENCE_NOT_VALIDATED"));
+
+    const auto &assigned = request.mission.vehicle_assignments.front();
+    if (motion.model_id != assigned.vehicle_id
+        || motion.configuration_id != assigned.configuration_id
+        || motion.evidence == MotionEvidence::Unknown
+        || motion.evidence == MotionEvidence::DerivedScenario)
+        profileErrors.push_back(QStringLiteral("MT01_VEHICLE_MOTION_PROFILE_ASSIGNMENT_MISMATCH"));
+
+    auto &envelope = request.flight_safety_envelope;
+    if (!requiredString(QStringLiteral("flightSafetyVehicleModelId"), envelope.vehicle_model_id)
+        || !requiredString(QStringLiteral("flightSafetyModelVersion"), envelope.model_version)
+        || !requiredString(QStringLiteral("flightSafetyConfigurationId"), envelope.configuration_id)
+        || !requiredString(QStringLiteral("flightSafetySourceReference"), envelope.source_reference)
+        || !requiredString(QStringLiteral("flightSafetySpeedReference"), envelope.speed_reference)
+        || !requiredString(QStringLiteral("flightSafetyMinimumSpeedBasis"), envelope.minimum_speed_basis))
+        profileErrors.push_back(QStringLiteral("MT01_VALIDATED_FLIGHT_SAFETY_ENVELOPE_REQUIRED"));
+    const QString safetyClass = textValue(QStringLiteral("flightSafetyMotionClass"));
+    if (safetyClass == QLatin1String("FIXED_WING")) envelope.motion_class = MotionClass::FixedWing;
+    else if (safetyClass == QLatin1String("MULTIROTOR")) envelope.motion_class = MotionClass::Multirotor;
+    else profileErrors.push_back(QStringLiteral("MT01_FLIGHT_SAFETY_MOTION_CLASS_INVALID"));
+    const QString safetyEvidence = textValue(QStringLiteral("flightSafetyEvidence"));
+    if (safetyEvidence == QLatin1String("OFFICIAL_VALIDATED"))
+        envelope.evidence = FlightSafetyEvidence::OfficialValidated;
+    else if (safetyEvidence == QLatin1String("FLIGHT_TEST_VALIDATED"))
+        envelope.evidence = FlightSafetyEvidence::FlightTestValidated;
+    else profileErrors.push_back(QStringLiteral("MT01_FLIGHT_SAFETY_EVIDENCE_NOT_VALIDATED"));
+    if (!requiredOptional(QStringLiteral("flightSafetyMinimumSpeedMps"), envelope.minimum_speed_mps)
+        || !requiredOptional(QStringLiteral("flightSafetyMaximumSpeedMps"), envelope.maximum_speed_mps))
+        profileErrors.push_back(QStringLiteral("MT01_FLIGHT_SAFETY_SPEED_LIMITS_REQUIRED"));
+    if (envelope.motion_class == MotionClass::FixedWing
+        && !requiredOptional(QStringLiteral("flightSafetyMaximumBankAngleRad"), envelope.maximum_bank_angle_rad))
+        profileErrors.push_back(QStringLiteral("MT01_FLIGHT_SAFETY_MAXIMUM_BANK_LIMIT_REQUIRED"));
+    if (envelope.motion_class == MotionClass::Multirotor
+        && !requiredOptional(QStringLiteral("flightSafetyMaximumLateralAccelerationMps2"), envelope.maximum_lateral_acceleration_mps2))
+        profileErrors.push_back(QStringLiteral("MT01_FLIGHT_SAFETY_LATERAL_ACCELERATION_LIMIT_REQUIRED"));
+    if (envelope.vehicle_model_id != motion.model_id
+        || envelope.model_version != motion.model_version
+        || envelope.configuration_id != motion.configuration_id
+        || envelope.motion_class != motion.motion_class
+        || envelope.speed_reference != motion.speed_reference)
+        profileErrors.push_back(QStringLiteral("MT01_FLIGHT_SAFETY_ENVELOPE_BINDING_MISMATCH"));
+
+    auto &metadata = request.route_candidate_metadata;
+    if (!requiredString(QStringLiteral("routeId"), metadata.route_id)
+        || !requiredString(QStringLiteral("routeVersion"), metadata.route_version)
+        || !requiredString(QStringLiteral("routeGeneratorId"), metadata.generator_id)
+        || !requiredString(QStringLiteral("routeGeneratorVersion"), metadata.generator_version)
+        || !requiredString(QStringLiteral("calculationInputVersion"), metadata.calculation_input_version)
+        || !requiredString(QStringLiteral("terrainSnapshotId"), metadata.environment.terrain_snapshot_id))
+        profileErrors.push_back(QStringLiteral("MT01_ROUTE_LINEAGE_AND_TERRAIN_SNAPSHOT_REQUIRED"));
+    metadata.environment.airspace_snapshot_id = request.notam_snapshot.snapshot_id;
+    metadata.constraints.minimum_altitude_m = request.minimum_altitude_agl_m;
+    metadata.constraints.maximum_altitude_m = request.maximum_altitude_agl_m;
+    metadata.constraints.avoid_restricted_areas = true;
+    if (!number(QStringLiteral("minimumTerrainClearanceM"), metadata.constraints.minimum_clearance_m)
+        || metadata.constraints.minimum_clearance_m <= 0.0)
+        profileErrors.push_back(QStringLiteral("MT01_MINIMUM_TERRAIN_CLEARANCE_REQUIRED"));
+
     const Mt01MappingPipelineResult calculated = Mt01MappingPipeline::calculate(request);
-    QStringList findings;
+    QStringList findings = profileErrors;
     for (const std::string &finding : calculated.findings)
         findings.push_back(QString::fromStdString(finding));
+    const bool routeCandidateExportable = calculated.route_candidate_available
+        && profileErrors.isEmpty()
+        && !metadata.environment.terrain_snapshot_id.empty()
+        && !metadata.environment.airspace_snapshot_id.empty();
     const bool taskExecutionEstimatesAppliedToTrajectory = false;
     if (calculated.coverage_candidate_available && !taskExecutionEstimatesReady) {
         findings.push_back(QStringLiteral("MT01_OPERATION_EXECUTION_ESTIMATE_UNRESOLVED: coverage geometry is available, but operation time/energy is not yet applied to trajectory assessment."));
@@ -844,8 +945,8 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
         {QStringLiteral("coverageStatus"), QString::fromStdString(calculated.coverage.status)},
         {QStringLiteral("kinematicGeometryAvailable"), calculated.kinematic_geometry_available},
         {QStringLiteral("segmentDynamicsValidated"), calculated.segment_dynamics_validated},
-        {QStringLiteral("routeCandidateAvailable"), calculated.route_candidate_available},
-        {QStringLiteral("routeCandidate"), calculated.route_candidate_available
+        {QStringLiteral("routeCandidateAvailable"), routeCandidateExportable},
+        {QStringLiteral("routeCandidate"), routeCandidateExportable
              ? QVariant(serializeRouteCandidate(calculated.route_candidate.route)) : QVariant()},
         {QStringLiteral("cameraCalibrationVerified"), calculated.coverage.intrinsic_calibration_verified},
         {QStringLiteral("findings"), findings},
