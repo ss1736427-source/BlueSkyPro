@@ -203,6 +203,8 @@ bool sameRouteGeometry(const Route& lhs, const Route& rhs) {
         if (a.segment_id != b.segment_id
             || a.from_waypoint_id != b.from_waypoint_id
             || a.to_waypoint_id != b.to_waypoint_id
+            || !std::isfinite(a.distance_m) || !std::isfinite(b.distance_m)
+            || !std::isfinite(a.nominal_speed_mps) || !std::isfinite(b.nominal_speed_mps)
             || std::abs(a.distance_m - b.distance_m) > 1e-4
             || std::abs(a.nominal_speed_mps - b.nominal_speed_mps) > 1e-6
             || !sameOptional(a.bank_angle_rad, b.bank_angle_rad)

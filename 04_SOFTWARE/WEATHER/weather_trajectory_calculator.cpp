@@ -459,6 +459,8 @@ bool buildWindAwareSpeedProfile(
             ||!std::isfinite(profileSegment.maximum_speed_mps)
             ||profileSegment.maximum_speed_mps<profileSegment.minimum_speed_mps
             ||!std::isfinite(sourceSampleDistances[i])||sourceSampleDistances[i]<=0.0
+            ||std::abs(sourceSampleDistances[i]-routeSegment.distance_m)
+                >std::max(0.5,routeSegment.distance_m*0.01)
             ||std::abs(profileSegment.distance_m-routeSegment.distance_m)
                 >std::max(0.5,routeSegment.distance_m*0.01)
             ||std::abs(profileSegment.maximum_acceleration_mps2-profileInput.maximum_acceleration_mps2)>1e-6
