@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - '04_SOFTWARE/PLANNING/**'
+      - '04_SOFTWARE/WEATHER/**'
       - '04_SOFTWARE/OPERATIONS/**'
       - '04_SOFTWARE/AUTOPILOT_ADAPTER/**'
       - 'schemas/**'
@@ -20,6 +21,7 @@ on:
       - main
     paths:
       - '04_SOFTWARE/PLANNING/**'
+      - '04_SOFTWARE/WEATHER/**'
       - '04_SOFTWARE/OPERATIONS/**'
       - '04_SOFTWARE/AUTOPILOT_ADAPTER/**'
       - 'schemas/**'
