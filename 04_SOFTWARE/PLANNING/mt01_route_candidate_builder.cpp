@@ -176,6 +176,8 @@ Mt01RouteCandidateResult Mt01RouteCandidateBuilder::build(
                 profileSegment.maximum_acceleration_mps2,
                 profileSegment.maximum_deceleration_mps2,
                 geometry.segments[i].minimum_speed_mps,
+                routeSegment.nominal_speed_mps,
+                geometry.segments[i].minimum_speed_mps,
                 routeSegment.nominal_speed_mps
             });
             previousExitSpeed = profileSegment.exit_speed_mps;

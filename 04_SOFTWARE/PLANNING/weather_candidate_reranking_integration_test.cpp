@@ -4,6 +4,7 @@
 #include "../WEATHER/weather_trajectory_calculator.hpp"
 #include <cassert>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -117,6 +118,9 @@ int main() {
         assert(candidate.trajectory_route->speed_profile->segments.size()==1);
         assert(candidate.trajectory_route->speed_profile->segments.front().maximum_reachable_speed_mps
                <=12.0+1e-6);
+        assert(candidate.trajectory_route->speed_profile->segments.front().maximum_speed_mps==20.0);
+        assert(candidate.trajectory_route->speed_profile->segments.front().applied_maximum_speed_mps
+               <=12.0+1e-6);
         assert(candidate.trajectory_route->speed_profile->wind_snapshot_id=="GFS-EAST-FAVOURABLE");
         assert(candidate.trajectory_route->speed_profile->wind_snapshot_version=="forecast-v1");
         assert(candidate.trajectory_route->speed_profile->camera_configuration_id=="CAMERA-TEST");
@@ -138,5 +142,7 @@ int main() {
            !=eastCorrectedRoute->speed_profile->profile_version);
     assert(refreshed.corrected_route->speed_profile->segments.front().maximum_reachable_speed_mps
            >eastCorrectedRoute->speed_profile->segments.front().maximum_reachable_speed_mps);
+    assert(refreshed.corrected_route->speed_profile->segments.front().maximum_speed_mps==20.0);
+    assert(refreshed.corrected_route->speed_profile->segments.front().applied_maximum_speed_mps==20.0);
     return 0;
 }
