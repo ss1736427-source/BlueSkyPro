@@ -31,8 +31,19 @@ int main()
         {"COV-01",0,1,Mt01KinematicSegmentType::Coverage,100.0,12.0,0.0,0.0},
         {"TURN-01",1,2,Mt01KinematicSegmentType::ConnectorTurn,20.0,12.0,0.3,2.0}};
     pipeline.route_candidate.available=true;
+    pipeline.speed_profile_available=true;
     pipeline.route_candidate.route.segments={
         {"COV-01","A","B",100.0,12.0},{"TURN-01","B","C",20.0,12.0}};
+    RouteSpeedProfile profile;
+    profile.vehicle_model_id="UAV-MODEL-01";
+    profile.vehicle_model_version="MODEL-V1";
+    profile.configuration_id="CFG-02";
+    profile.speed_reference="AIR_RELATIVE";
+    profile.dynamics_source="CONTROLLED-TEST-DYNAMICS";
+    profile.segments={
+        {"COV-01",100.0,10.0,10.0,12.0,5.0,5.0,90.0,2.0,2.0,8.0,12.0},
+        {"TURN-01",20.0,12.0,12.0,12.0,0.0,0.0,20.0,2.0,2.0,12.0,12.0}};
+    pipeline.route_candidate.route.speed_profile=profile;
     CoverageCameraModel camera; camera.camera_configuration_id="CAM-01";
     camera.calibration_source_reference="manufacturer reference"; camera.target_gsd_cm_px=2.0;
     camera.minimum_trigger_interval_s=0.7; camera.exposure_time_s=1.0/2000.0;
