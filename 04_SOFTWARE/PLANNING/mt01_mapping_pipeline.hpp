@@ -6,6 +6,7 @@
 #include "notam_geometry_adapter.hpp"
 #include "model/flight_safety_constraints.hpp"
 #include "model/mission_model.hpp"
+#include "mt01_task_execution_event_adapter.hpp"
 
 #include <string>
 #include <vector>
@@ -33,6 +34,7 @@ struct Mt01MappingRequest {
     // Explicit, independently validated envelope; never inferred from motion estimates.
     FlightSafetyEnvelope flight_safety_envelope;
     Mt01RouteCandidateMetadata route_candidate_metadata;
+    std::vector<Mt01TaskExecutionEvent> task_execution_events;
 };
 
 struct Mt01MappingPipelineResult {
@@ -47,6 +49,8 @@ struct Mt01MappingPipelineResult {
     FlightSafetyValidationResult flight_safety_validation;
     bool route_candidate_available{false};
     Mt01RouteCandidateResult route_candidate;
+    bool task_execution_events_applied{false};
+    Mt01TaskExecutionEventValidation task_execution_event_validation;
     std::vector<std::string> findings;
 };
 
