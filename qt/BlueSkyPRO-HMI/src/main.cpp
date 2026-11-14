@@ -5,6 +5,9 @@
 #include <QDir>
 #include <QFile>
 #include <QGuiApplication>
+#include <QMutex>
+#include <QMutexLocker>
+#include <QLoggingCategory>
 #include <QQmlContext>
 #include <QQmlError>
 
@@ -26,12 +29,53 @@
 #include <QUrl>
 #include <QString>
 
+namespace {
+QString gStartupDiagnosticLogPath;
+QString gStartupSensitiveValue;
+QMutex gStartupDiagnosticMutex;
+
+void startupDiagnosticMessageHandler(QtMsgType type,
+                                     const QMessageLogContext &context,
+                                     const QString &message)
+{
+    QMutexLocker locker(&gStartupDiagnosticMutex);
+    QString safeMessage = message;
+    if (!gStartupSensitiveValue.isEmpty())
+        safeMessage.replace(gStartupSensitiveValue, QStringLiteral("[REDACTED]"));
+
+    const char *typeName = "unknown";
+    switch (type) {
+    case QtDebugMsg: typeName = "debug"; break;
+    case QtInfoMsg: typeName = "info"; break;
+    case QtWarningMsg: typeName = "warning"; break;
+    case QtCriticalMsg: typeName = "critical"; break;
+    case QtFatalMsg: typeName = "fatal"; break;
+    }
+
+    QFile logFile(gStartupDiagnosticLogPath);
+    if (!logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+        return;
+    const QString category = context.category ? QString::fromUtf8(context.category) : QString();
+    const QString source = context.file ? QString::fromUtf8(context.file) : QString();
+    const QByteArray line =
+        QDateTime::currentDateTime().toString(Qt::ISODateWithMs).toUtf8()
+        + " QT_MESSAGE type=" + QByteArray(typeName)
+        + " category=" + category.toUtf8()
+        + " source=" + source.toUtf8()
+        + ":" + QByteArray::number(context.line)
+        + " " + safeMessage.toUtf8() + "\n";
+    logFile.write(line);
+    logFile.flush();
+}
+} // namespace
+
 int main(int argc, char *argv[])
 {
-    const QString diagnosticLogPath =
+    gStartupDiagnosticLogPath =
         QDir::temp().filePath(QStringLiteral("BlueSkyPRO-startup-diagnostic.log"));
-    const auto writeStartupLog = [&diagnosticLogPath](const QString &message) {
-        QFile logFile(diagnosticLogPath);
+    const auto writeStartupLog = [](const QString &message) {
+        QMutexLocker locker(&gStartupDiagnosticMutex);
+        QFile logFile(gStartupDiagnosticLogPath);
         if (logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
             const QByteArray line =
                 QDateTime::currentDateTime().toString(Qt::ISODateWithMs).toUtf8()
@@ -59,6 +103,8 @@ int main(int argc, char *argv[])
 
     writeStartupLog(QStringLiteral("CHECKPOINT: before QGuiApplication constructor"));
     QGuiApplication app(argc, argv);
+    qInstallMessageHandler(startupDiagnosticMessageHandler);
+    writeStartupLog(QStringLiteral("CHECKPOINT: Qt message handler installed"));
     writeStartupLog(QStringLiteral("CHECKPOINT: after QGuiApplication constructor"));
 
     // Define stable identity before QML components create QSettings instances.
@@ -149,6 +195,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("yandexMapsApiKey"), yandexMapsApiKey);
     QString mapTilerApiKey = qEnvironmentVariable("BLUESKY_MAPTILER_API_KEY");
     if (mapTilerApiKey.isEmpty()) mapTilerApiKey = credentialVault.readSecret(QStringLiteral("maptiler"));
+    gStartupSensitiveValue = mapTilerApiKey;
     engine.rootContext()->setContextProperty(QStringLiteral("mapTilerApiKey"), mapTilerApiKey);
     const QString cartoApiKey = qEnvironmentVariable("BLUESKY_CARTO_API_KEY");
     engine.rootContext()->setContextProperty(QStringLiteral("cartoApiKey"), cartoApiKey);

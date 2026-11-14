@@ -318,7 +318,17 @@ jobs:
               $channelOutput = ((Get-Content $stdout -ErrorAction SilentlyContinue) -join "`n") + "`n" +
                               ((Get-Content $stderr -ErrorAction SilentlyContinue) -join "`n") + "`n" +
                               ((Get-Content $startupLog -ErrorAction SilentlyContinue) -join "`n")
-              foreach ($marker in @("BLUESKY_WEBCHANNEL_MANUAL_OBJECT_OK", "BLUESKY_WEBCHANNEL_ROUTE_OBJECT_OK", "BLUESKY_WEBCHANNEL_ROUNDTRIP_OK", "BLUESKY_WEBCHANNEL_ROUTE_EDIT_ROUNDTRIP_OK")) {
+              foreach ($marker in @(
+                "BLUESKY_MAIN_CONTENT_CREATED",
+                "BLUESKY_FLIGHT_CHART_CREATED",
+                "BLUESKY_MAP_QML_COMPONENT_CREATED",
+                "BLUESKY_WEBENGINE_VIEW_CREATED",
+                "BLUESKY_WEBENGINE_HTML_LOAD_STARTED",
+                "BLUESKY_WEBCHANNEL_MANUAL_OBJECT_OK",
+                "BLUESKY_WEBCHANNEL_ROUTE_OBJECT_OK",
+                "BLUESKY_WEBCHANNEL_ROUNDTRIP_OK",
+                "BLUESKY_WEBCHANNEL_ROUTE_EDIT_ROUNDTRIP_OK"
+              )) {
                 if ($channelOutput -notmatch [regex]::Escape($marker)) {
                   $failures += "CASE $($case.Name): missing WebChannel functional marker $marker"
                 }

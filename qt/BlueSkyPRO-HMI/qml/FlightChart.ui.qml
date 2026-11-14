@@ -3,6 +3,8 @@ import QtQuick
 Item {
     id: root
 
+    Component.onCompleted: console.warn("BLUESKY_FLIGHT_CHART_CREATED useMapTilerWebGL=" + root.useMapTilerWebGL)
+
     // BlueSky PRO — schematic Flight Chart workspace.
     // Visual preview only: not a geographic map or flight-authoritative data.
     property color bg: "#050A12"
