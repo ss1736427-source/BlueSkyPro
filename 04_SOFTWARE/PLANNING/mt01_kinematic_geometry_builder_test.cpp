@@ -219,6 +219,15 @@ int main()
     assert(!overCapRoute.available);
     assert(overCapRoute.diagnostics.front().find("SPEED_PROFILE") !=
            std::string::npos);
+    auto wrongAircraftProfile = slowedProfile;
+    wrongAircraftProfile.vehicle_model_id = "OTHER-AIRCRAFT";
+    const auto wrongAircraftRoute = Mt01RouteCandidateBuilder::build(
+        slowedConnectorGeometry, coverage, "MT01-MISSION-TEST", "1",
+        routeMetadata, &wrongAircraftProfile);
+    assert(!wrongAircraftRoute.available);
+    assert(wrongAircraftRoute.diagnostics.front().find("SPEED_PROFILE") !=
+           std::string::npos);
+
 
     auto incompleteProfile = speedProfile;
     incompleteProfile.segments.pop_back();
