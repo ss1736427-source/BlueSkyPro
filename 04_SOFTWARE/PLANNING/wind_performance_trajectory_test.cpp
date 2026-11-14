@@ -109,6 +109,47 @@ int main(){
     assert(cameraQualifiedResult.segments[0].camera_trigger_interval_s >= 0.7);
     assert(cameraQualifiedResult.segments[0].camera_motion_blur_px <= 1.0);
 
+
+    // Variable airspeed is integrated through acceleration, cruise and braking
+    // phases. Wind is applied at each distance sample; camera limits use the
+    // maximum resulting ground speed, not an average speed.
+    auto variableProfileInput = cameraQualified;
+    variableProfileInput.cruise_airspeed_mps = 0.0;
+    variableProfileInput.speed_profile_id = "MT01-SP-01";
+    variableProfileInput.speed_profile_version = "1";
+    variableProfileInput.speed_profile_vehicle_model_id = "UAV-01";
+    variableProfileInput.speed_profile_vehicle_model_version = "MODEL-1";
+    variableProfileInput.speed_profile_configuration_id = "CFG1";
+    variableProfileInput.speed_profile_speed_reference = "TAS";
+    variableProfileInput.speed_profile_segments = {
+        {"S1", 111.32, 10.0, 10.0, 18.0, 56.0, 37.3333333333,
+         17.9866666667, 2.0, 3.0}
+    };
+    const auto variableProfileResult = WindPerformanceTrajectory::calculate(
+        route, variableProfileInput, "CALC1");
+    assert(variableProfileResult.status == TrajectoryStatus::Feasible);
+    assert(variableProfileResult.segments[0].traversal_time_s > 111.32 / 23.0);
+    assert(variableProfileResult.segments[0].ground_speed_mps > 15.0);
+    assert(variableProfileResult.segments[0].camera_trigger_interval_s >= 0.7);
+    assert(variableProfileResult.segments[0].camera_motion_blur_px <= 1.0);
+    assert(variableProfileResult.dependency_identity != r.dependency_identity);
+
+    auto incompleteProfile = variableProfileInput;
+    incompleteProfile.speed_profile_segments.clear();
+    assert(WindPerformanceTrajectory::calculate(route, incompleteProfile, "CALC1").status ==
+           TrajectoryStatus::Feasible);
+    auto mismatchedProfile = variableProfileInput;
+    mismatchedProfile.speed_profile_segments[0].segment_id = "OTHER";
+    assert(WindPerformanceTrajectory::calculate(route, mismatchedProfile, "CALC1").status ==
+           TrajectoryStatus::Infeasible);
+    auto cameraUnsafeProfile = variableProfileInput;
+    cameraUnsafeProfile.speed_profile_segments[0].maximum_reachable_speed_mps = 25.0;
+    cameraUnsafeProfile.speed_profile_segments[0].acceleration_distance_m = 100.0;
+    cameraUnsafeProfile.speed_profile_segments[0].deceleration_distance_m = 50.0;
+    cameraUnsafeProfile.speed_profile_segments[0].cruise_distance_m = -38.68;
+    assert(WindPerformanceTrajectory::calculate(route, cameraUnsafeProfile, "CALC1").status ==
+           TrajectoryStatus::Infeasible);
+
     Route routeWithConnector = route;
     routeWithConnector.waypoints.push_back({"C", {0.0, 0.002}, 100.0, true});
     routeWithConnector.segments.push_back({"S2", "B", "C", 111.32, 20.0});
