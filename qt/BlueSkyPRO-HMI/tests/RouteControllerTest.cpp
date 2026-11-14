@@ -82,6 +82,7 @@ int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
     RouteController controller;
+    assert(controller.objectName() == QStringLiteral("routeController"));
 
     assert(controller.validationState() == QStringLiteral("EMPTY"));
     assert(!controller.publishValidation(QStringLiteral("v1"), QStringLiteral("input-1"),

@@ -25,7 +25,10 @@ class RouteController final : public QObject
     Q_PROPERTY(QVariantList candidateSnapshots READ candidateSnapshots NOTIFY candidateSetChanged)
 
 public:
-    explicit RouteController(QObject *parent = nullptr) : QObject(parent) {}
+    explicit RouteController(QObject *parent = nullptr) : QObject(parent)
+    {
+        setObjectName(QStringLiteral("routeController"));
+    }
 
     QVariantList waypoints() const { return m_waypoints; }
     QString routeId() const { return m_routeId; }

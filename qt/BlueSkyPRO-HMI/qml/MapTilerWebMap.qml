@@ -270,6 +270,7 @@ Item {
     // any QObject. This separates transport hookup from registered-object lookup.
     WebChannel {
         id: mapWebChannel
+        registeredObjects: [manualGeometryBridge, routeController]
     }
 
     Timer {

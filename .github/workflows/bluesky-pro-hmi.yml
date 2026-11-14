@@ -114,6 +114,9 @@ jobs:
           }
           if (-not $insideBuildHtml) { throw "Could not locate MapTilerWebMap.qml buildHtml() source" }
           $source = Get-Content $path -Raw
+          if ($source -notmatch "registeredObjects:\s*\[manualGeometryBridge,\s*routeController\]") {
+            throw "Map WebChannel must register the canonical geometry and route controllers."
+          }
           if ($source -notmatch "property\s+int\s+notamSearchRadiusNm\s*:\s*20") {
             throw "MapTilerWebMap must declare the NOTAM search-radius property passed by FlightChart.ui.qml."
           }
