@@ -380,3 +380,93 @@ Official source: DJI Mavic 3 Enterprise Specifications — https://enterprise.dj
 **REFERENCE_ONLY — expanded official-data seed.**
 
 This catalog now provides a broader reference population for the Administrator configuration model. Additional UAV families and component records shall be added only when their manufacturer data and compatibility relationships are controlled. No record becomes an approved operational configuration solely by appearing in this reference catalog.
+
+
+## 21. Reference UAV — DJI Mavic 4 Pro
+
+Status: REFERENCE_ONLY. Manufacturer-documented candidate; inclusion does not establish operational approval or photogrammetric suitability.
+
+| Parameter | Manufacturer-declared value | Source class / condition |
+|---|---:|---|
+| Takeoff weight | approx. 1063 g | OFFICIAL_SPEC |
+| Maximum horizontal speed | 25 m/s Sport; 15 m/s tracking status | OFFICIAL_SPEC; sea-level, no-wind reference |
+| Maximum takeoff altitude | 6000 m | OFFICIAL_SPEC; 3000 m with propeller guards |
+| Maximum flight time | 51 min | OFFICIAL_SPEC; controlled no-wind test, not operational endurance |
+| Maximum hovering time | 45 min | OFFICIAL_SPEC; controlled no-wind test |
+| Maximum wind resistance | 12 m/s | OFFICIAL_SPEC |
+| EU class | C2 | OFFICIAL_SPEC |
+| GNSS | GPS + Galileo + BeiDou | OFFICIAL_SPEC |
+| Operating temperature | -10 to +40 °C | OFFICIAL_SPEC |
+| Main camera | Hasselblad 4/3 CMOS, 100 MP | Integrated |
+| Main camera lens | 28 mm equivalent, f/2.0–f/11 | OFFICIAL_SPEC |
+| Medium tele camera | 1/1.3-inch CMOS, 48 MP; 70 mm equivalent | Integrated |
+| Tele camera | 1/1.5-inch CMOS, 50 MP; 168 mm equivalent | Integrated |
+| Maximum main-camera image size | 12288 × 8192 | OFFICIAL_SPEC |
+| Video, main camera | up to 6K/60fps HDR or 4K/120fps | Manufacturer product specification |
+| Obstacle sensing | Omnidirectional sensing with forward-facing LiDAR | Integrated system; sensor-specific conditions apply |
+| Special feature | Infinity Gimbal / dynamic camera movement | Manufacturer product description |
+
+**Configuration rules:** represent all three cameras and obstacle-sensing system as integrated aircraft equipment. Do not create arbitrary detachable-camera or LiDAR compatibility. Battery energy, usable energy, sustained power map, calibrated camera model, trigger latency and validated MT-01 capture interval remain UNKNOWN until supported by exact configuration documentation or measured evidence.
+
+**Planning limitation:** maximum flight time and wind resistance are manufacturer reference maxima, not planning limits. The energy model must use a validated configuration-specific profile; no energy-per-minute coefficient is inferred from 51 minutes.
+
+Official source: https://www.dji.com/uk/mavic-4-pro/specs
+
+## 22. Reference UAV — DJI Air 3S
+
+Status: REFERENCE_ONLY.
+
+| Parameter | Manufacturer-declared value | Source class / condition |
+|---|---:|---|
+| Takeoff weight | 724 g | OFFICIAL_SPEC |
+| Maximum horizontal speed | 21 m/s; 19 m/s in EU region | OFFICIAL_SPEC; sea-level, no-wind, Sport mode |
+| Maximum takeoff altitude | 6000 m | OFFICIAL_SPEC |
+| Maximum flight time | 45 min | OFFICIAL_SPEC; controlled no-wind forward-flight test |
+| Maximum hovering time | 41 min | OFFICIAL_SPEC; controlled no-wind test |
+| Maximum wind resistance | 12 m/s | OFFICIAL_SPEC |
+| EU class | C1 | OFFICIAL_SPEC |
+| GNSS | GPS + Galileo + BeiDou | OFFICIAL_SPEC |
+| Operating temperature | -10 to +40 °C | OFFICIAL_SPEC |
+| Wide camera | 1-inch CMOS, 50 MP; 24 mm equivalent, f/1.8 | Integrated |
+| Medium tele camera | 1/1.3-inch CMOS, 48 MP; 70 mm equivalent, f/2.8 | Integrated |
+| Maximum video | 4K/60fps HDR or 4K/120fps | Manufacturer specification |
+| Obstacle sensing | Omnidirectional binocular vision, forward-facing LiDAR, downward infrared sensor | Integrated system |
+
+**Configuration rules:** wide and medium-tele cameras, forward LiDAR and vision sensing are fixed integrated equipment. Do not model them as interchangeable payloads. Battery usable energy, validated sustained power, camera calibration, capture latency and qualified mapping accuracy remain UNKNOWN until independently evidenced.
+
+**Planning limitation:** reference consumer aircraft profile, not an approved mapping platform. Preliminary/synthetic route and constraint tests only until camera geometry, trigger behaviour, georeferencing accuracy and energy model are validated for the intended mission.
+
+Official source: https://www.dji.com/air-3s/specs
+
+## 23. Reference UAV — DJI Mini 4 Pro
+
+Status: REFERENCE_ONLY. Battery variants must remain distinct.
+
+| Parameter | Manufacturer-declared value | Source class / condition |
+|---|---:|---|
+| Standard takeoff weight | less than 249 g | OFFICIAL_SPEC; standard Intelligent Flight Battery, propellers and microSD |
+| Takeoff weight with Battery Plus | greater than 249 g | OFFICIAL_SPEC; exact mass depends on configuration |
+| Maximum horizontal speed | 16 m/s Sport; 12 m/s Normal/Cine | OFFICIAL_SPEC; sea-level, no-wind |
+| Maximum takeoff altitude, standard battery | 4000 m | OFFICIAL_SPEC |
+| Maximum takeoff altitude, Battery Plus | 3000 m | OFFICIAL_SPEC |
+| Maximum flight time, standard battery | 34 min | OFFICIAL_SPEC; controlled no-wind forward-flight test |
+| Maximum flight time, Battery Plus | 45 min | OFFICIAL_SPEC; controlled no-wind forward-flight test |
+| Maximum wind resistance | 10.7 m/s | OFFICIAL_SPEC |
+| EU class | C0 | OFFICIAL_SPEC; standard configuration |
+| GNSS | GPS + Galileo + BeiDou | OFFICIAL_SPEC |
+| Operating temperature | -10 to +40 °C | OFFICIAL_SPEC |
+| Camera | 1/1.3-inch CMOS, 48 MP; 24 mm equivalent, f/1.7 | Integrated |
+| Maximum image size | 8064 × 6048 | OFFICIAL_SPEC |
+| Maximum video | 4K/60fps HDR or 4K/100fps | Manufacturer specification |
+| Obstacle sensing | Omnidirectional vision sensing | Integrated; no forward LiDAR declared in cited Mini 4 Pro specification |
+| Special features | ActiveTrack 360°, True Vertical Shooting | Manufacturer product specification |
+
+**Configuration rules:** standard battery and Battery Plus shall be separate configuration variants. Do not transfer the standard under-249-g mass/class to Battery Plus. Battery Plus is not sold in Europe according to DJI's specification note; regional availability and regulatory class must be checked per operating jurisdiction. Do not infer external payload support.
+
+**Planning limitation:** preliminary/synthetic use only until camera calibration, trigger/interval behaviour, georeferencing, actual mass and configuration-specific energy are established. Manufacturer maximum flight time is not an operational endurance allowance.
+
+Official source: https://www.dji.com/mini-4-pro/specs
+
+## 24. Reference-catalogue usage rule for the three added models
+
+All three records above are manufacturer reference profiles only. They are not selected as the active test aircraft and do not replace the existing test configuration. The automatic configurator must not mark them READY, VERIFIED, COMPATIBLE for arbitrary equipment, or flight-release eligible merely because the records exist.

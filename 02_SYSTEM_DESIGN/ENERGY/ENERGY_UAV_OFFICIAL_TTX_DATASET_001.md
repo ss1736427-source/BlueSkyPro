@@ -459,3 +459,66 @@ The dataset is sufficient to define the static input schema and to identify the 
 - DJI Matrice 300 RTK — official Download Center / User Manual / Maintenance Manual.
 - DJI Matrice 30 Series — official specifications.
 - DJI Mavic 3 Enterprise Series — official specifications.
+
+
+# 12. Additional compact DJI reference platforms
+
+The following entries extend the static reference dataset. They are not calibrated energy models and are not operationally approved configurations.
+
+## 12.1 DJI Mavic 4 Pro
+
+| Parameter | Official reference value | Condition / qualification |
+|---|---:|---|
+| Takeoff mass | approx. 1.063 kg | Manufacturer value |
+| Max takeoff altitude | 6000 m | 3000 m with propeller guards |
+| Max horizontal speed | 25 m/s Sport; 15 m/s tracking status | Sea-level, no-wind |
+| Max wind resistance | 12 m/s | Manufacturer maximum |
+| Max flight time | 51 min | Controlled no-wind test; not usable endurance |
+| Max hover time | 45 min | Controlled no-wind test |
+| Main camera | 4/3 CMOS, 100 MP | Integrated |
+| Additional cameras | 1/1.3-inch 48 MP; 1/1.5-inch 50 MP | Integrated |
+| Battery energy / usable energy | UNKNOWN | Must be sourced for exact battery/configuration or measured |
+| Dynamic power model | UNKNOWN | Requires telemetry or qualified measurements |
+
+Official source: https://www.dji.com/uk/mavic-4-pro/specs
+
+## 12.2 DJI Air 3S
+
+| Parameter | Official reference value | Condition / qualification |
+|---|---:|---|
+| Takeoff mass | 0.724 kg | Manufacturer value |
+| Max takeoff altitude | 6000 m | Manufacturer maximum |
+| Max horizontal speed | 21 m/s; 19 m/s EU | Sport mode; sea-level, no-wind |
+| Max wind resistance | 12 m/s | Manufacturer maximum |
+| Max flight time | 45 min | Controlled no-wind test; not usable endurance |
+| Max hover time | 41 min | Controlled no-wind test |
+| Main camera | 1-inch CMOS, 50 MP | Integrated |
+| Medium tele camera | 1/1.3-inch CMOS, 48 MP | Integrated |
+| Battery energy / usable energy | UNKNOWN | Must be sourced for exact battery/configuration or measured |
+| Dynamic power model | UNKNOWN | Requires telemetry or qualified measurements |
+
+Official source: https://www.dji.com/air-3s/specs
+
+## 12.3 DJI Mini 4 Pro
+
+| Parameter | Official reference value | Condition / qualification |
+|---|---:|---|
+| Takeoff mass | less than 0.249 kg | Standard battery configuration |
+| Battery Plus mass | greater than 0.249 kg | Exact configuration mass must be established |
+| Max takeoff altitude | 4000 m standard battery; 3000 m Battery Plus | Manufacturer maximum |
+| Max horizontal speed | 16 m/s Sport; 12 m/s Normal/Cine | Sea-level, no-wind |
+| Max wind resistance | 10.7 m/s | Manufacturer maximum |
+| Max flight time | 34 min standard; 45 min Battery Plus | Controlled no-wind test; not usable endurance |
+| Camera | 1/1.3-inch CMOS, 48 MP | Integrated |
+| Battery energy / usable energy | UNKNOWN | Must be sourced for exact battery/configuration or measured |
+| Dynamic power model | UNKNOWN | Requires telemetry or qualified measurements |
+
+Official source: https://www.dji.com/mini-4-pro/specs
+
+## 12.4 Energy-model admission rules
+
+- Keep each aircraft model and battery variant as a separate configuration record.
+- Do not convert manufacturer maximum flight time into an energy coefficient or operational endurance.
+- Do not infer battery usable Wh, discharge curves, SOC reserve, wind power increment or payload power increment from mass and flight time.
+- Until dynamic energy evidence exists, these records are reference-only and cannot pass an operational energy/reserve gate.
+- The existing test aircraft/configuration remains the active test baseline; these additions must not silently change test selection.
