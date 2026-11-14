@@ -219,14 +219,11 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
             addFinding(result,
                 "MT01_CANONICAL_ROUTE_CANDIDATE_BLOCKED: complete route/generator/input lineage and canonical structure are required.");
         } else if (!request.task_execution_events.empty()) {
-            result.task_execution_event_validation = Mt01TaskExecutionEventAdapter::apply(
-                result.route_candidate.route, result.coverage, result.kinematic_geometry,
-                request.task_execution_events, assignedVehicle.vehicle_id,
-                assignedVehicle.configuration_version, camera->equipment_id,
-                camera->equipment_profile_id, request.camera.calibration_source_reference);
-            result.task_execution_events_applied = result.task_execution_event_validation.valid;
-            for (const auto& finding : result.task_execution_event_validation.findings)
-                addFinding(result, finding);
+            // A camera exposure is not a waypoint dwell or task execution stop.
+            // Do not inject per-image duration/energy into RouteWaypoint costs.
+            result.task_execution_events_applied = false;
+            addFinding(result,
+                "MT01_CAMERA_EXPOSURE_DWELL_MODEL_REJECTED: camera captures occur in motion; use camera trigger spacing, shutter/blur constraints and continuous payload power instead of waypoint task duration.");
         }
 
         const auto& envelope = request.flight_safety_envelope;

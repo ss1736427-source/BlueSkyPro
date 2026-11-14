@@ -27,6 +27,7 @@ int main(){
     in.descent_rate_mps=2.0;
     in.wind_tolerance_mps=15.0;
     in.energy_per_horizontal_meter_wh=0.01;
+    in.payload_power_w=12.0;
     in.usable_energy_wh=100.0;
     in.reserve_requirement_wh=10.0;
     in.wind_samples={{"S1",0.0,5.0,0.0}};
@@ -39,6 +40,10 @@ int main(){
     assert(r.segments[0].ground_speed_mps>20.0);
     assert(r.segments[0].traversal_time_s>4.0 && r.segments[0].traversal_time_s<5.0);
     assert(r.total_energy_wh>1.0);
+    auto noPayload = in; noPayload.payload_power_w = 0.0;
+    const auto noPayloadResult = WindPerformanceTrajectory::calculate(route, noPayload, "CALC1");
+    assert(noPayloadResult.status == TrajectoryStatus::Feasible);
+    assert(std::abs(r.total_energy_wh - noPayloadResult.total_energy_wh - in.payload_power_w*r.total_time_s/3600.0) < 1e-9);
     assert(r.remaining_energy_wh<100.0);
     assert(r.performance_version == in.performance_version);
     assert(r.usable_energy_wh == in.usable_energy_wh);
@@ -55,6 +60,11 @@ int main(){
     const auto changedReserveResult =
         WindPerformanceTrajectory::calculate(route, changedReserve, "CALC1");
     assert(changedReserveResult.dependency_identity != r.dependency_identity);
+    auto changedPayloadPower = in;
+    changedPayloadPower.payload_power_w += 1.0;
+    const auto changedPayloadResult = WindPerformanceTrajectory::calculate(route, changedPayloadPower, "CALC1");
+    assert(changedPayloadResult.dependency_identity != r.dependency_identity);
+    assert(changedPayloadResult.total_energy_wh > r.total_energy_wh);
     auto changedPerformance = in;
     changedPerformance.cruise_airspeed_mps += 1.0;
     const auto changedPerformanceResult =
@@ -84,6 +94,9 @@ int main(){
     const auto invalidTaskResult=WindPerformanceTrajectory::calculate(invalidTask,in,"CALC1");
     assert(invalidTaskResult.status==TrajectoryStatus::Infeasible);
     assert(!invalidTaskResult.findings.empty());
+
+    auto invalidPayload=in; invalidPayload.payload_power_w=-1.0;
+    assert(WindPerformanceTrajectory::calculate(route,invalidPayload,"CALC1").status==TrajectoryStatus::Infeasible);
 
     auto missing=in; missing.wind_samples.clear();
     assert(WindPerformanceTrajectory::calculate(route,missing,"CALC1").status==TrajectoryStatus::Infeasible);

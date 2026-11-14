@@ -74,8 +74,20 @@ CoveragePlanResult CoveragePathPlanner::generate(const CoverageMissionInput&in){
  }
  double gsd=c.target_gsd_cm_px/100,alt=gsd*(c.focal_length_mm*1e-3)/(c.pixel_pitch_um*1e-6);
  if(alt<in.minimum_altitude_agl_m||alt>in.maximum_altitude_agl_m)return fail("Camera-derived AGL altitude is outside mission limits.");
+ if(!finite(c.minimum_trigger_interval_s)||c.minimum_trigger_interval_s<0.0)return fail("Camera minimum trigger interval must be finite and non-negative.");
+ if(!finite(c.exposure_time_s)||c.exposure_time_s<0.0||!finite(c.maximum_motion_blur_px)||c.maximum_motion_blur_px<0.0)return fail("Camera exposure and motion-blur tolerance must be finite and non-negative.");
+ const bool triggerLimitConfigured=c.minimum_trigger_interval_s>0.0;
+ const bool blurLimitConfigured=c.exposure_time_s>0.0||c.maximum_motion_blur_px>0.0;
+ if(blurLimitConfigured&&(!finite(c.exposure_time_s)||c.exposure_time_s<=0.0||!finite(c.maximum_motion_blur_px)||c.maximum_motion_blur_px<=0.0))return fail("Motion-blur validation requires a positive selected exposure time and maximum blur tolerance.");
  double fw=gsd*c.image_width_px,fh=gsd*c.image_height_px,spacing=fw*(1-c.side_overlap_percent/100),trigger=fh*(1-c.forward_overlap_percent/100);
  if(!(finite(spacing)&&spacing>0.01&&finite(trigger)&&trigger>0.01))return fail("Calculated coverage or trigger spacing is invalid.");
+ const double nominalTriggerInterval=trigger/in.cruise_speed_mps;
+ const double nominalMotionBlurPx=blurLimitConfigured?in.cruise_speed_mps*c.exposure_time_s/gsd:0.0;
+ double maximumCameraGroundSpeed=std::numeric_limits<double>::infinity();
+ if(triggerLimitConfigured)maximumCameraGroundSpeed=std::min(maximumCameraGroundSpeed,trigger/c.minimum_trigger_interval_s);
+ if(blurLimitConfigured)maximumCameraGroundSpeed=std::min(maximumCameraGroundSpeed,c.maximum_motion_blur_px*gsd/c.exposure_time_s);
+ if(triggerLimitConfigured&&nominalTriggerInterval+1e-9<c.minimum_trigger_interval_s)return fail("Required image spacing exceeds the camera's supported trigger rate at the planned ground speed.");
+ if(blurLimitConfigured&&nominalMotionBlurPx>c.maximum_motion_blur_px+1e-9)return fail("Planned ground speed and selected exposure exceed the configured motion-blur tolerance.");
  double angle=std::remainder(in.line_angle_deg,360.0)*kPi/180;
  auto rot=[&](XY p){return XY{p.x*std::cos(angle)+p.y*std::sin(angle),-p.x*std::sin(angle)+p.y*std::cos(angle)};};
  auto unrot=[&](XY p){return XY{p.x*std::cos(angle)-p.y*std::sin(angle),p.x*std::sin(angle)+p.y*std::cos(angle)};};
@@ -123,10 +135,12 @@ CoveragePlanResult CoveragePathPlanner::generate(const CoverageMissionInput&in){
   }
  }
  if(out.waypoints.size()<2)return fail("No usable coverage strips intersect the AOI after exclusions.");
- out.metrics.target_gsd_cm_px=c.target_gsd_cm_px;out.metrics.calculated_altitude_agl_m=alt;out.metrics.footprint_width_m=fw;out.metrics.footprint_height_m=fh;out.metrics.line_spacing_m=spacing;out.metrics.forward_trigger_spacing_m=trigger;out.metrics.estimated_coverage_leg_length_m=length;out.metrics.estimated_coverage_leg_time_s=length/in.cruise_speed_mps;out.metrics.coverage_line_count=lines;out.metrics.coverage_segment_count=segments;out.metrics.exclusion_intersection_count=gaps;
+ out.metrics.target_gsd_cm_px=c.target_gsd_cm_px;out.metrics.calculated_altitude_agl_m=alt;out.metrics.footprint_width_m=fw;out.metrics.footprint_height_m=fh;out.metrics.line_spacing_m=spacing;out.metrics.forward_trigger_spacing_m=trigger;out.metrics.estimated_coverage_leg_length_m=length;out.metrics.estimated_coverage_leg_time_s=length/in.cruise_speed_mps;out.metrics.nominal_trigger_interval_s=nominalTriggerInterval;out.metrics.nominal_motion_blur_px=nominalMotionBlurPx;out.metrics.maximum_camera_ground_speed_mps=finite(maximumCameraGroundSpeed)?maximumCameraGroundSpeed:0.0;out.metrics.coverage_line_count=lines;out.metrics.coverage_segment_count=segments;out.metrics.exclusion_intersection_count=gaps;
  out.valid=true;out.status="CANDIDATE_2D_COVERAGE_ONLY";out.intrinsic_calibration_verified=c.intrinsic_calibration_verified;
  out.diagnostics.push_back("Coverage-leg length/time exclude transitions, turns and ferry legs; they are not total mission distance or flight time.");
- out.diagnostics.push_back("Capture points are emitted along straight coverage legs; image_height_px is assumed to be the along-track sensor dimension. Turn/transition capture and camera latency compensation are not modeled.");
+ out.diagnostics.push_back("Capture points are emitted along straight coverage legs; image_height_px is assumed to be the along-track sensor dimension. Trigger timing is derived from spacing / planned ground speed; actual wind-corrected timing must be re-evaluated by the trajectory stage.");
+ if(!triggerLimitConfigured||!blurLimitConfigured)out.diagnostics.push_back("CAMERA_CAPTURE_QUALITY_UNVERIFIED: hardware trigger interval, selected shutter exposure and motion-blur tolerance must be supplied before flight release.");
+ else out.diagnostics.push_back("Camera trigger-rate and motion-blur limits are checked at nominal planned ground speed; the wind-corrected trajectory must recheck actual segment ground speed.");
  if(!c.intrinsic_calibration_verified)out.diagnostics.push_back("Camera optical geometry is reference-only; individual camera/lens intrinsics and distortion calibration are not verified.");
  out.diagnostics.push_back("No DEM following, turn kinematics, obstacle routing, wind/energy model, coverage-union proof or regulatory validation.");
  out.diagnostics.push_back("Local equirectangular projection is limited to AOIs no larger than 50 km in either projected dimension.");

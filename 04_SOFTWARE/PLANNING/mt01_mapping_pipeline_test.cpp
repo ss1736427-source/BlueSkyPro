@@ -44,6 +44,9 @@ static Mt01MappingRequest makeRequest()
     request.camera.calibration_source_reference =
         "DJI Mavic 3 Enterprise manufacturer specifications";
     request.camera.intrinsic_calibration_verified = false;
+    request.camera.minimum_trigger_interval_s = 0.7;
+    request.camera.exposure_time_s = 1.0 / 2000.0;
+    request.camera.maximum_motion_blur_px = 0.5;
     request.minimum_altitude_agl_m = 50.0;
     request.maximum_altitude_agl_m = 150.0;
     request.cruise_speed_mps = 10.0;
@@ -186,6 +189,9 @@ int main()
     assert(result.coverage.valid);
     assert(result.coverage.metrics.coverage_segment_count > 0);
     assert(std::abs(result.coverage.metrics.calculated_altitude_agl_m - 111.7272727) < 0.01);
+    assert(result.coverage.metrics.nominal_trigger_interval_s > 0.7);
+    assert(result.coverage.metrics.nominal_motion_blur_px < 0.5);
+
 
     bool blockedReleaseDisclosed = false;
     bool calibrationGapDisclosed = false;
@@ -322,6 +328,16 @@ int main()
            fixedWingRequest.notam_snapshot.snapshot_id);
     assert(fixedWingResult.route_candidate.structural_validation.status ==
            RouteValidationStatus::Allowed);
+
+    auto cameraDwellEvents = fixedWingRequest;
+    cameraDwellEvents.task_execution_events.push_back(Mt01TaskExecutionEvent{});
+    const auto rejectedCameraDwell = Mt01MappingPipeline::calculate(cameraDwellEvents);
+    bool cameraDwellRejected = false;
+    for (const auto& finding : rejectedCameraDwell.findings)
+        if (finding.find("MT01_CAMERA_EXPOSURE_DWELL_MODEL_REJECTED") != std::string::npos)
+            cameraDwellRejected = true;
+    assert(cameraDwellRejected);
+    assert(!rejectedCameraDwell.task_execution_events_applied);
     assert(!fixedWingResult.route_candidate.route.trajectory_geometry_complete);
     assert(!fixedWingResult.flight_release_eligible);
 

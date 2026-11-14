@@ -1,5 +1,4 @@
 #include "mt01_kinematic_geometry_builder.hpp"
-#include "mt01_task_execution_event_adapter.hpp"
 #include "mt01_route_candidate_builder.hpp"
 #include "model/flight_safety_constraints.hpp"
 
@@ -117,35 +116,6 @@ int main()
     assert(routeCandidate.route.waypoints.size() == result.waypoints.size());
     assert(routeCandidate.route.segments.size() == result.segments.size());
     assert(!routeCandidate.route.trajectory_geometry_complete);
-    std::vector<Mt01TaskExecutionEvent> events;
-    for (std::size_t i=0;i<coverage.capture_points.size();++i) {
-        Mt01TaskExecutionEvent e;
-        e.capture_point_index=i; e.coverage_segment_index=coverage.capture_points[i].coverage_segment_index;
-        e.route_waypoint_index=result.capture_point_waypoint_indices[i]; e.duration_s=2.0; e.energy_wh=0.25;
-        e.mission_id=routeCandidate.route.lineage.mission_id; e.mission_version=routeCandidate.route.lineage.mission_version;
-        e.route_id=routeCandidate.route.lineage.route_id; e.route_version=routeCandidate.route.lineage.route_version;
-        e.vehicle_id="TEST-FIXED-WING"; e.vehicle_configuration_version="TEST-CONFIG-V1";
-        e.equipment_id="TEST-CAMERA"; e.equipment_profile_id="TEST-CAMERA-PROFILE";
-        e.calibration_reference="TEST-CALIBRATION"; e.source_reference="controlled per-capture estimate";
-        e.source_version="fixture-1"; e.method_version="capture-cost-v1"; events.push_back(e);
-    }
-    auto eventRoute=routeCandidate.route;
-    const auto eventResult=Mt01TaskExecutionEventAdapter::apply(eventRoute,coverage,result,events,
-        "TEST-FIXED-WING","TEST-CONFIG-V1","TEST-CAMERA","TEST-CAMERA-PROFILE","TEST-CALIBRATION");
-    assert(eventResult.valid);
-    assert(std::abs(eventResult.total_duration_s-2.0*coverage.capture_points.size())<1e-9);
-    assert(std::abs(eventResult.total_energy_wh-0.25*coverage.capture_points.size())<1e-9);
-    auto missingEvents=events; missingEvents.pop_back(); auto missingRoute=routeCandidate.route;
-    assert(!Mt01TaskExecutionEventAdapter::apply(missingRoute,coverage,result,missingEvents,
-        "TEST-FIXED-WING","TEST-CONFIG-V1","TEST-CAMERA","TEST-CAMERA-PROFILE","TEST-CALIBRATION").valid);
-    auto duplicateEvents=events; duplicateEvents.back().capture_point_index=duplicateEvents.front().capture_point_index;
-    auto duplicateRoute=routeCandidate.route;
-    assert(!Mt01TaskExecutionEventAdapter::apply(duplicateRoute,coverage,result,duplicateEvents,
-        "TEST-FIXED-WING","TEST-CONFIG-V1","TEST-CAMERA","TEST-CAMERA-PROFILE","TEST-CALIBRATION").valid);
-    auto wrongLineage=events; wrongLineage.front().vehicle_configuration_version="OTHER-CONFIG";
-    auto wrongRoute=routeCandidate.route;
-    assert(!Mt01TaskExecutionEventAdapter::apply(wrongRoute,coverage,result,wrongLineage,
-        "TEST-FIXED-WING","TEST-CONFIG-V1","TEST-CAMERA","TEST-CAMERA-PROFILE","TEST-CALIBRATION").valid);
     const auto routeDynamics = FlightSafetyConstraintValidator::validateRoute(
         envelope, routeCandidate.route);
     assert(routeDynamics.status == FlightSafetyStatus::Allowed);

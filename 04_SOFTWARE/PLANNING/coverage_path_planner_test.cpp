@@ -61,6 +61,9 @@ int main(){
  mavic.camera.camera_configuration_id="DJI-MAVIC-3E-WIDE-STANDARD";
  mavic.camera.calibration_source_reference="DJI Mavic 3 Enterprise manufacturer specifications";
  mavic.camera.intrinsic_calibration_verified=false;
+ mavic.camera.minimum_trigger_interval_s=0.7; // DJI Mavic 3E JPEG timed-capture minimum.
+ mavic.camera.exposure_time_s=1.0/2000.0; // Selected test setting, not an automatic exposure guarantee.
+ mavic.camera.maximum_motion_blur_px=0.5; // Project quality tolerance.
  mavic.minimum_altitude_agl_m=50.0;
  mavic.maximum_altitude_agl_m=150.0;
  const auto mavicReference=CoveragePathPlanner::generate(mavic);
@@ -69,6 +72,13 @@ int main(){
  assert(std::abs(mavicReference.metrics.calculated_altitude_agl_m-111.7272727)<0.01);
  assert(std::abs(mavicReference.metrics.line_spacing_m-47.52)<0.01);
  assert(std::abs(mavicReference.metrics.forward_trigger_spacing_m-23.736)<0.01);
+ assert(std::abs(mavicReference.metrics.nominal_trigger_interval_s-2.3736)<0.01);
+ assert(mavicReference.metrics.nominal_motion_blur_px<0.5);
+ assert(mavicReference.metrics.maximum_camera_ground_speed_mps>10.0);
+ auto blurLimited=mavic; blurLimited.cruise_speed_mps=31.0;
+ assert(!CoveragePathPlanner::generate(blurLimited).valid);
+ auto triggerLimited=mavic; triggerLimited.cruise_speed_mps=40.0;
+ assert(!CoveragePathPlanner::generate(triggerLimited).valid);
  bool calibrationWarning=false;
  for(const auto& diagnostic:mavicReference.diagnostics)
   if(diagnostic.find("individual camera/lens intrinsics")!=std::string::npos)calibrationWarning=true;

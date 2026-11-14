@@ -34,6 +34,7 @@ struct Mt01MappingRequest {
     // Explicit, independently validated envelope; never inferred from motion estimates.
     FlightSafetyEnvelope flight_safety_envelope;
     Mt01RouteCandidateMetadata route_candidate_metadata;
+    // Legacy waypoint-cost events are rejected for camera captures; exposures occur in motion.
     std::vector<Mt01TaskExecutionEvent> task_execution_events;
 };
 

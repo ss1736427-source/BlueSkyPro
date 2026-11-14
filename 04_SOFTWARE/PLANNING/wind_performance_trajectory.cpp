@@ -49,7 +49,7 @@ std::string dependency(const Route&r,const TrajectoryPerformanceInput&i,const st
      <<i.cruise_airspeed_mps<<'|'<<i.climb_rate_mps<<'|'<<i.descent_rate_mps
      <<'|'<<i.wind_tolerance_mps<<'|'<<i.energy_per_horizontal_meter_wh
      <<'|'<<i.energy_per_climb_meter_wh<<'|'<<i.energy_per_descent_meter_wh
-     <<'|'<<i.usable_energy_wh<<'|'<<i.reserve_requirement_wh
+     <<'|'<<i.payload_power_w<<'|'<<i.usable_energy_wh<<'|'<<i.reserve_requirement_wh
      <<'|'<<r.trajectory_geometry_complete;
     for (const auto& point : r.waypoints) {
         o << "|WP:" << point.waypoint_id << ':' << std::setprecision(17)
@@ -97,6 +97,7 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
        input.energy_per_horizontal_meter_wh<0.0 ||
        input.energy_per_climb_meter_wh<0.0 ||
        input.energy_per_descent_meter_wh<0.0 ||
+       !std::isfinite(input.payload_power_w) || input.payload_power_w<0.0 ||
        input.usable_energy_wh<0.0 || input.reserve_requirement_wh<0.0 ||
        input.mission_start_epoch_s<0){
         fail(r,TrajectoryFindingCode::InvalidPerformance,"","performance inputs must be non-negative and speeds/rates positive");
@@ -191,7 +192,8 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
         const double segment_energy=
             horizontal*input.energy_per_horizontal_meter_wh+
             climb*input.energy_per_climb_meter_wh+
-            descent*input.energy_per_descent_meter_wh;
+            descent*input.energy_per_descent_meter_wh+
+            input.payload_power_w*duration/3600.0;
 
         time+=duration; energy+=segment_energy;
         if(energy+input.reserve_requirement_wh>input.usable_energy_wh){

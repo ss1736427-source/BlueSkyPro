@@ -45,6 +45,8 @@ struct TrajectoryPerformanceInput {
     double energy_per_horizontal_meter_wh{0.0};
     double energy_per_climb_meter_wh{0.0};
     double energy_per_descent_meter_wh{0.0};
+    // Continuous camera/payload electrical draw while airborne; not per-photo dwell energy.
+    double payload_power_w{0.0};
     double usable_energy_wh{0.0};
     double reserve_requirement_wh{0.0};
     std::vector<WindSample> wind_samples;

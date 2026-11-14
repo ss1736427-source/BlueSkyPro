@@ -12,6 +12,10 @@ struct CoverageCameraModel {
  std::string camera_configuration_id;
  std::string calibration_source_reference;
  bool intrinsic_calibration_verified{false};
+ // Camera capability limits and selected exposure; zero means not yet configured.
+ double minimum_trigger_interval_s{0.0};
+ double exposure_time_s{0.0};
+ double maximum_motion_blur_px{0.0};
 };
 struct CoverageMissionInput {
  std::string mission_id; std::string mission_version;
@@ -27,6 +31,9 @@ struct CoverageMetrics {
  double line_spacing_m{0.0}; double forward_trigger_spacing_m{0.0};
  // Coverage legs exclude transitions, turns and ferry legs.
  double estimated_coverage_leg_length_m{0.0}; double estimated_coverage_leg_time_s{0.0};
+ double nominal_trigger_interval_s{0.0};
+ double nominal_motion_blur_px{0.0};
+ double maximum_camera_ground_speed_mps{0.0};
  std::size_t coverage_line_count{0}; std::size_t coverage_segment_count{0};
  std::size_t exclusion_intersection_count{0};
 };

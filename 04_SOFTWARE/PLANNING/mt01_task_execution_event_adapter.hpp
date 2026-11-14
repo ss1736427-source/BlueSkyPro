@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 namespace bluesky::planning {
+// Legacy waypoint-cost adapter. Do not use for camera exposures: captures are in-motion.
 struct Mt01TaskExecutionEvent {
  std::size_t capture_point_index{0}, coverage_segment_index{0}, route_waypoint_index{0};
  double duration_s{0.0}, energy_wh{0.0};
