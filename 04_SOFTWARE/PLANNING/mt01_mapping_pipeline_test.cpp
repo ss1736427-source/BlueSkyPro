@@ -294,6 +294,10 @@ int main()
         30.0 * 3.14159265358979323846 / 180.0;
     fixedWingRequest.vehicle_motion_model.speed_reference = "TAS";
     fixedWingRequest.vehicle_motion_model.source_reference = "controlled integration fixture";
+    fixedWingRequest.requested_max_turn_radius_m = 15.0;
+    fixedWingRequest.fixed_wing_clean_stall_speed_mps = 6.0;
+    fixedWingRequest.fixed_wing_stall_speed_reference = "TAS";
+    fixedWingRequest.fixed_wing_stall_margin_factor = 1.20;
     auto& safety = fixedWingRequest.flight_safety_envelope;
     safety.vehicle_model_id = assignment.vehicle_id;
     safety.model_version = assignment.configuration_version;
@@ -319,6 +323,20 @@ int main()
     const auto fixedWingResult = Mt01MappingPipeline::calculate(fixedWingRequest);
     assert(fixedWingResult.coverage_candidate_available);
     assert(fixedWingResult.kinematic_geometry_available);
+    assert(fixedWingResult.turn_speed_constraint_applied);
+    assert(fixedWingResult.selected_connector_speed_mps < 10.0);
+    assert(fixedWingResult.minimum_safe_connector_speed_mps > 5.0);
+    assert(std::abs(fixedWingResult.kinematic_geometry.minimum_turn_radius_m
+                    - 15.0) < 1e-6);
+    for (const auto& segment : fixedWingResult.kinematic_geometry.segments) {
+        if (segment.type == Mt01KinematicSegmentType::ConnectorTurn) {
+            assert(std::abs(segment.nominal_speed_mps
+                            - fixedWingResult.selected_connector_speed_mps) < 1e-9);
+            assert(std::abs(segment.minimum_speed_mps
+                            - segment.nominal_speed_mps) < 1e-9);
+        }
+    }
+
     assert(fixedWingResult.kinematic_geometry.segments.size() + 1 ==
            fixedWingResult.kinematic_geometry.waypoints.size());
     assert(fixedWingResult.segment_dynamics_validated);
@@ -340,6 +358,18 @@ int main()
     assert(!rejectedCameraDwell.task_execution_events_applied);
     assert(!fixedWingResult.route_candidate.route.trajectory_geometry_complete);
     assert(!fixedWingResult.flight_release_eligible);
+    auto missingStallEvidence = fixedWingRequest;
+    missingStallEvidence.fixed_wing_clean_stall_speed_mps = 0.0;
+    const auto missingStallResult = Mt01MappingPipeline::calculate(missingStallEvidence);
+    assert(missingStallResult.coverage_candidate_available);
+    assert(!missingStallResult.kinematic_geometry_available);
+    assert(!missingStallResult.turn_speed_constraint_applied);
+    bool missingStallBlocked = false;
+    for (const auto& finding : missingStallResult.findings)
+        if (finding.find("MT01_TURN_SPEED_CAP_UNAVAILABLE") != std::string::npos)
+            missingStallBlocked = true;
+    assert(missingStallBlocked);
+
 
     auto missingRouteProvenance = fixedWingRequest;
     missingRouteProvenance.route_candidate_metadata.calculation_input_version.clear();
