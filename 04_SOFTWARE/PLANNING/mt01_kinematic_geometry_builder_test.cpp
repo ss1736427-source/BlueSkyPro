@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "mt01_kinematic_geometry_builder.hpp"
 #include "mt01_route_candidate_builder.hpp"
 #include "model/flight_safety_constraints.hpp"
