@@ -170,6 +170,48 @@ int main()
                         routeCandidate.route.segments[i].distance_m) <=
                std::max(0.5, routeCandidate.route.segments[i].distance_m * 0.01));
     }
+
+    SpeedProfileInput slowedProfileInput;
+    slowedProfileInput.vehicle_model_id = vehicle.model_id;
+    slowedProfileInput.vehicle_model_version = vehicle.model_version;
+    slowedProfileInput.configuration_id = vehicle.configuration_id;
+    slowedProfileInput.speed_reference = "TAS";
+    slowedProfileInput.longitudinal_dynamics_validated = true;
+    slowedProfileInput.longitudinal_dynamics_source = "controlled-test-fixture";
+    slowedProfileInput.maximum_acceleration_mps2 = 2.0;
+    slowedProfileInput.maximum_deceleration_mps2 = 3.0;
+    slowedProfileInput.initial_speed_mps = 10.0;
+    slowedProfileInput.final_speed_mps = 10.0;
+    for (const auto& segment : slowedConnectorGeometry.segments) {
+        slowedProfileInput.segments.push_back({
+            segment.segment_id, segment.distance_m, 5.0,
+            segment.nominal_speed_mps
+        });
+    }
+    const auto slowedProfile =
+        VariableSpeedProfileSolver::calculate(slowedProfileInput);
+    assert(slowedProfile.status == SpeedProfileStatus::Feasible);
+    const auto slowedRoute = Mt01RouteCandidateBuilder::build(
+        slowedConnectorGeometry, coverage, "MT01-MISSION-TEST", "1",
+        routeMetadata, &slowedProfile);
+    assert(slowedRoute.available);
+    assert(slowedRoute.route.speed_profile.has_value());
+
+    auto overCapProfile = slowedProfile;
+    for (std::size_t i = 0; i < slowedConnectorGeometry.segments.size(); ++i) {
+        if (slowedConnectorGeometry.segments[i].type
+            == Mt01KinematicSegmentType::ConnectorTurn) {
+            overCapProfile.segments[i].maximum_reachable_speed_mps += 0.5;
+            break;
+        }
+    }
+    const auto overCapRoute = Mt01RouteCandidateBuilder::build(
+        slowedConnectorGeometry, coverage, "MT01-MISSION-TEST", "1",
+        routeMetadata, &overCapProfile);
+    assert(!overCapRoute.available);
+    assert(overCapRoute.diagnostics.front().find("SPEED_PROFILE") !=
+           std::string::npos);
+
     auto incompleteProfile = speedProfile;
     incompleteProfile.segments.pop_back();
     const auto rejectedProfile = Mt01RouteCandidateBuilder::build(
