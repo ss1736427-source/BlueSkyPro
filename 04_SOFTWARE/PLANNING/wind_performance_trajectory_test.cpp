@@ -136,6 +136,7 @@ int main(){
 
     auto incompleteProfile = variableProfileInput;
     incompleteProfile.speed_profile_segments.clear();
+    incompleteProfile.cruise_airspeed_mps = 20.0;
     assert(WindPerformanceTrajectory::calculate(route, incompleteProfile, "CALC1").status ==
            TrajectoryStatus::Feasible);
     auto mismatchedProfile = variableProfileInput;
@@ -144,11 +145,14 @@ int main(){
            TrajectoryStatus::Infeasible);
     auto cameraUnsafeProfile = variableProfileInput;
     cameraUnsafeProfile.speed_profile_segments[0].maximum_reachable_speed_mps = 25.0;
-    cameraUnsafeProfile.speed_profile_segments[0].acceleration_distance_m = 100.0;
-    cameraUnsafeProfile.speed_profile_segments[0].deceleration_distance_m = 50.0;
-    cameraUnsafeProfile.speed_profile_segments[0].cruise_distance_m = -38.68;
-    assert(WindPerformanceTrajectory::calculate(route, cameraUnsafeProfile, "CALC1").status ==
-           TrajectoryStatus::Infeasible);
+    cameraUnsafeProfile.speed_profile_segments[0].acceleration_distance_m = 23.75;
+    cameraUnsafeProfile.speed_profile_segments[0].deceleration_distance_m = 19.75;
+    cameraUnsafeProfile.speed_profile_segments[0].cruise_distance_m = 67.82;
+    cameraUnsafeProfile.speed_profile_segments[0].maximum_acceleration_mps2 = 10.0;
+    cameraUnsafeProfile.speed_profile_segments[0].maximum_deceleration_mps2 = 10.0;
+    const auto cameraUnsafeResult = WindPerformanceTrajectory::calculate(route, cameraUnsafeProfile, "CALC1");
+    assert(cameraUnsafeResult.status == TrajectoryStatus::Infeasible);
+    assert(cameraUnsafeResult.findings.back().code == TrajectoryFindingCode::CameraTriggerIntervalExceeded);
 
     Route routeWithConnector = route;
     routeWithConnector.waypoints.push_back({"C", {0.0, 0.002}, 100.0, true});
