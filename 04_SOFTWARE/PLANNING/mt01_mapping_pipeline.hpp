@@ -30,6 +30,13 @@ struct Mt01MappingRequest {
     double maximum_altitude_agl_m{0.0};
     double cruise_speed_mps{0.0};
     double line_angle_deg{0.0};
+    // Optional mission-space upper bound for turn radius. Zero preserves the
+    // aircraft reference-speed geometry; positive values activate a validated
+    // air-relative turn-speed recommendation.
+    double requested_max_turn_radius_m{0.0};
+    double fixed_wing_clean_stall_speed_mps{0.0};
+    std::string fixed_wing_stall_speed_reference;
+    double fixed_wing_stall_margin_factor{0.0};
     VehicleMotionModel vehicle_motion_model;
     // Explicit, independently validated envelope; never inferred from motion estimates.
     FlightSafetyEnvelope flight_safety_envelope;
@@ -46,6 +53,9 @@ struct Mt01MappingPipelineResult {
     CoveragePlanResult coverage;
     bool kinematic_geometry_available{false};
     Mt01KinematicGeometryResult kinematic_geometry;
+    double selected_connector_speed_mps{0.0};
+    double minimum_safe_connector_speed_mps{0.0};
+    bool turn_speed_constraint_applied{false};
     bool segment_dynamics_validated{false};
     FlightSafetyValidationResult flight_safety_validation;
     bool route_candidate_available{false};
