@@ -88,5 +88,12 @@ int main()
         route,fields,"GFS-SNAPSHOT","GFS-V1",missingCameraSegment,"MT01-WEATHER-TEST");
     assert(!missing.weather_ready);
     assert(missing.weather_error.find("camera capture segment identity")!=std::string::npos);
+
+    auto noSpeedProfileRoute=route;
+    noSpeedProfileRoute.speed_profile.reset();
+    const auto noSpeedProfile=WeatherTrajectoryCalculator::evaluate(
+        noSpeedProfileRoute,fields,"GFS-SNAPSHOT","GFS-V1",input,"MT01-WEATHER-TEST");
+    assert(!noSpeedProfile.weather_ready);
+    assert(noSpeedProfile.weather_error.find("no validated route speed profile")!=std::string::npos);
     return 0;
 }
