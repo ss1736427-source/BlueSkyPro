@@ -1,6 +1,7 @@
 #pragma once
 
 #include "model/route_model.hpp"
+#include "variable_speed_profile.hpp"
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -42,6 +43,14 @@ struct TrajectoryPerformanceInput {
     // Explicit UTC epoch used by downstream time-dependent airspace validation.
     std::int64_t mission_start_epoch_s{0};
     double cruise_airspeed_mps{0.0};
+    // Optional validated air-relative longitudinal profile; when supplied it must cover every route segment in order.
+    std::string speed_profile_id;
+    std::string speed_profile_version;
+    std::string speed_profile_vehicle_model_id;
+    std::string speed_profile_vehicle_model_version;
+    std::string speed_profile_configuration_id;
+    std::string speed_profile_speed_reference;
+    std::vector<SpeedProfileSegmentResult> speed_profile_segments;
     double climb_rate_mps{0.0};
     double descent_rate_mps{0.0};
     double wind_tolerance_mps{0.0};
