@@ -254,6 +254,9 @@ int main(){
         90.0, {"S1", 0.0, 5.0, 0.0}, 20.0, 8.0, 30.0);
     assert(tailwindCap.feasible);
     assert(std::abs(tailwindCap.maximum_airspeed_mps - 15.0) < 1e-6);
+    SpeedProfileSegmentInput cameraConstrainedSegment{"S1", 111.32, 8.0, 30.0};
+    assert(CameraGroundSpeedConstraint::applyToSegment(tailwindCap, cameraConstrainedSegment));
+    assert(std::abs(cameraConstrainedSegment.maximum_speed_mps - 15.0) < 1e-6);
     const auto headwindCap = CameraGroundSpeedConstraint::deriveAirspeedCap(
         90.0, {"S1", 0.0, -5.0, 0.0}, 20.0, 8.0, 30.0);
     assert(headwindCap.feasible);

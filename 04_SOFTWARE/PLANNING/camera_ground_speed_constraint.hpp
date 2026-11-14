@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wind_performance_trajectory.hpp"
+#include "variable_speed_profile.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -75,6 +76,26 @@ public:
         out.feasible = true;
         out.diagnostic = "CAMERA_AIRSPEED_CAP_DERIVED_WITH_CRAB_CORRECTION";
         return out;
+    }
+
+    // Apply the wind-aware camera envelope directly to one solver segment.
+    // Segment identity is checked so caps cannot be attached to another leg.
+    static bool applyToSegment(
+        const CameraAirspeedCapResult& cap,
+        SpeedProfileSegmentInput& segment)
+    {
+        if (!cap.feasible || cap.segment_id.empty()
+            || cap.segment_id != segment.segment_id
+            || !std::isfinite(segment.minimum_speed_mps)
+            || !std::isfinite(segment.maximum_speed_mps)
+            || segment.minimum_speed_mps <= 0.0
+            || segment.maximum_speed_mps < segment.minimum_speed_mps)
+            return false;
+        segment.minimum_speed_mps = std::max(
+            segment.minimum_speed_mps, cap.minimum_airspeed_mps);
+        segment.maximum_speed_mps = std::min(
+            segment.maximum_speed_mps, cap.maximum_airspeed_mps);
+        return segment.minimum_speed_mps <= segment.maximum_speed_mps + 1e-9;
     }
 };
 
