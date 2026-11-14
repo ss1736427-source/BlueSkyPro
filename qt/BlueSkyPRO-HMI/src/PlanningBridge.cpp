@@ -1,5 +1,6 @@
 #include "PlanningBridge.h"
 
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 
@@ -137,7 +138,31 @@ bool PlanningBridge::publishJson(const QString &json)
         return false;
     }
 
-    publishResult(object.toVariantMap());
+    // Python Planning Core may report its own planning gate, but it does not
+    // execute the C++ MissionFinalizationRuntime or append a READY lifecycle
+    // event. Therefore its positive release claim is never authoritative here.
+    // Preserve the calculated route/candidate payload for map review, while
+    // keeping the mission explicitly blocked until the C++ lifecycle runtime
+    // supplies final-integrity and all other required validation attestations.
+    QJsonObject normalized = object;
+    QJsonObject normalizedVerification = verification;
+    const bool claimsReady = releaseStatus == QLatin1String("RELEASE_ELIGIBLE")
+        || finalGateStatus == QLatin1String("PASS") || verified;
+    normalizedVerification.insert(QStringLiteral("releaseStatus"), QStringLiteral("BLOCKED"));
+    normalizedVerification.insert(QStringLiteral("finalGateStatus"), QStringLiteral("FAIL"));
+    normalizedVerification.insert(QStringLiteral("verified"), false);
+    normalizedVerification.insert(QStringLiteral("finalizationStatus"),
+                                  QStringLiteral("PENDING_CPP_MISSION_LIFECYCLE"));
+    if (claimsReady) {
+        QJsonArray failedChecks = normalizedVerification.value(QStringLiteral("failedChecks")).toArray();
+        const QString blocker = QStringLiteral("CPP_MISSION_FINALIZATION_REQUIRED");
+        if (!failedChecks.contains(blocker))
+            failedChecks.append(blocker);
+        normalizedVerification.insert(QStringLiteral("failedChecks"), failedChecks);
+    }
+    normalized.insert(QStringLiteral("verification"), normalizedVerification);
+
+    publishResult(normalized.toVariantMap());
     return true;
 }
 

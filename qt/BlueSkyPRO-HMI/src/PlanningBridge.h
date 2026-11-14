@@ -22,15 +22,15 @@ public:
     Q_INVOKABLE bool publishJson(const QString &json);
     Q_INVOKABLE void clear();
 
-public slots:
-    void publishResult(const QVariantMap &result);
-
 signals:
     void resultChanged();
     void runningChanged();
     void bridgeError(const QString &code);
 
 private:
+    // Internal publication only; QML must not be able to bypass publishJson's
+    // fail-closed lifecycle gate by injecting an arbitrary QVariantMap.
+    void publishResult(const QVariantMap &result);
     void consumeStdout();
 
     QProcess m_process;

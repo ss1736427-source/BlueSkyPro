@@ -175,6 +175,22 @@ target_include_directories(route_controller_test PRIVATE ${CMAKE_CURRENT_SOURCE_
 target_link_libraries(route_controller_test PRIVATE Qt6::Core)
 add_test(NAME route_controller_fail_closed_contract COMMAND route_controller_test)
 
+# Python Planning Core cannot grant READY: verify the HMI bridge keeps the
+# candidate visible but blocks external release claims pending C++ lifecycle finalization.
+add_executable(planning_bridge_readiness_gate_test
+    tests/PlanningBridgeReadinessGateTest.cpp
+    src/PlanningBridge.cpp
+    src/PlanningBridge.h
+)
+target_link_libraries(planning_bridge_readiness_gate_test PRIVATE Qt6::Core)
+target_compile_features(planning_bridge_readiness_gate_test PRIVATE cxx_std_20)
+target_compile_options(planning_bridge_readiness_gate_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME planning_bridge_readiness_gate_contract
+    COMMAND planning_bridge_readiness_gate_test)
+
 # Keep the mission lifecycle gate in the HMI CI test set even when the shared
 # planning subdirectory is built with BLUESKY_BUILD_PLANNING_TESTS=OFF.
 add_executable(mission_lifecycle_contract_test
