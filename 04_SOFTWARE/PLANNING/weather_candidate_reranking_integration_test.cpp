@@ -34,7 +34,7 @@ Route route(const std::string& id,bool eastbound) {
     profile.configuration_id="cfg-1";
     profile.speed_reference="AIR_RELATIVE";
     profile.dynamics_source="CONTROLLED-TEST-LONGITUDINAL-DYNAMICS";
-    profile.segments={{"SEG",1112.0,10.0,10.0,20.0,37.5,37.5,1037.0,
+    profile.segments={{"SEG",1112.0,10.0,10.0,20.0,75.0,75.0,962.0,
         2.0,2.0,5.0,20.0}};
     r.speed_profile=profile;
     return r;
