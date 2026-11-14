@@ -16,7 +16,47 @@ bluesky::planning::Mission makeMission() {
     mission.selected_solution.candidate_id = "ROUTE-1";
     mission.selected_solution.algorithm_version = "ALG-1";
     mission.selected_solution.model_version = "MODEL-1";
+    mission.selected_solution.calculation_input_version = "INPUT-7";
     return mission;
+}
+
+void setReleasedLifecycle(bluesky::planning::Mission& mission) {
+    using namespace bluesky::planning;
+    auto& lifecycle = mission.lifecycle;
+    lifecycle.mission_id = mission.identity.mission_id;
+    lifecycle.mission_version = mission.identity.mission_version;
+    lifecycle.current_route_id = "ROUTE-1";
+    lifecycle.current_route_version = "4";
+    lifecycle.current_calculation_input_version = "INPUT-7";
+    lifecycle.state = MissionLifecycleState::Released;
+
+    const MissionLifecycleState from[] = {
+        MissionLifecycleState::Validating,
+        MissionLifecycleState::Ready,
+        MissionLifecycleState::Submitted,
+        MissionLifecycleState::Authorized
+    };
+    const MissionLifecycleState to[] = {
+        MissionLifecycleState::Ready,
+        MissionLifecycleState::Submitted,
+        MissionLifecycleState::Authorized,
+        MissionLifecycleState::Released
+    };
+    for (std::size_t i = 0; i < 4; ++i) {
+        MissionLifecycleEvent event;
+        event.sequence = i + 1;
+        event.mission_id = mission.identity.mission_id;
+        event.mission_version = mission.identity.mission_version;
+        event.actor_id = "operator-020";
+        event.timestamp = "2026-11-15T00:00:00Z";
+        event.from = from[i];
+        event.to = to[i];
+        event.route_id = lifecycle.current_route_id;
+        event.route_version = lifecycle.current_route_version;
+        event.evidence_reference = lifecycle.current_calculation_input_version;
+        lifecycle.history.push_back(event);
+    }
+    lifecycle.next_event_sequence = 5;
 }
 
 bluesky::planning::VehicleEquipmentCapabilityProfile makeCapabilities() {
@@ -41,8 +81,39 @@ bluesky::autopilot::AutopilotAdapterBaseline makeAdapter() {
     return bluesky::autopilot::AutopilotAdapterBaseline(identity);
 }
 
+void testRejectsWithoutReleasedLifecycle() {
+    auto mission = makeMission();
+    auto capabilities = makeCapabilities();
+    auto adapter = makeAdapter();
+    assert(adapter.connect());
+
+    const auto result =
+        bluesky::planning::MissionTransferRuntime::execute(mission, capabilities, adapter);
+
+    assert(result.state == bluesky::planning::MissionTransferState::Rejected);
+    assert(result.reason == "MISSION_LIFECYCLE_RELEASE_EVENT_REQUIRED");
+    assert(result.compiled_mission.empty());
+}
+
+void testRejectsReadyOnlyLifecycle() {
+    auto mission = makeMission();
+    mission.lifecycle.mission_id = mission.identity.mission_id;
+    mission.lifecycle.mission_version = mission.identity.mission_version;
+    mission.lifecycle.state = bluesky::planning::MissionLifecycleState::Ready;
+    auto capabilities = makeCapabilities();
+    auto adapter = makeAdapter();
+    assert(adapter.connect());
+
+    const auto result =
+        bluesky::planning::MissionTransferRuntime::execute(mission, capabilities, adapter);
+
+    assert(result.state == bluesky::planning::MissionTransferState::Rejected);
+    assert(result.reason == "MISSION_LIFECYCLE_RELEASE_EVENT_REQUIRED");
+}
+
 void testFullTransfer() {
     auto mission = makeMission();
+    setReleasedLifecycle(mission);
     auto capabilities = makeCapabilities();
     auto adapter = makeAdapter();
     assert(adapter.connect());
@@ -53,6 +124,21 @@ void testFullTransfer() {
     assert(result.state == bluesky::planning::MissionTransferState::Verified);
     assert(result.compiled_mission == result.readback_mission);
     assert(result.reason == "MISSION_UPLOADED_READBACK_VERIFIED");
+}
+
+void testRejectsStaleRouteRevision() {
+    auto mission = makeMission();
+    setReleasedLifecycle(mission);
+    mission.lifecycle.current_route_version = "5";
+    auto capabilities = makeCapabilities();
+    auto adapter = makeAdapter();
+    assert(adapter.connect());
+
+    const auto result =
+        bluesky::planning::MissionTransferRuntime::execute(mission, capabilities, adapter);
+
+    assert(result.state == bluesky::planning::MissionTransferState::Rejected);
+    assert(result.reason == "MISSION_LIFECYCLE_RELEASE_EVENT_REQUIRED");
 }
 
 void testRejectsConfigurationMismatch() {
@@ -83,6 +169,7 @@ void testRejectsInvalidCapabilities() {
 
 void testRejectsWhenDisconnected() {
     auto mission = makeMission();
+    setReleasedLifecycle(mission);
     auto capabilities = makeCapabilities();
     auto adapter = makeAdapter();
 
@@ -109,6 +196,7 @@ void testRejectsReadbackMismatch() {
     identity.protocolVersion = "2";
 
     auto mission = makeMission();
+    setReleasedLifecycle(mission);
     auto capabilities = makeCapabilities();
     MismatchAdapter adapter(identity);
     assert(adapter.connect());
@@ -123,7 +211,10 @@ void testRejectsReadbackMismatch() {
 } // namespace
 
 int main() {
+    testRejectsWithoutReleasedLifecycle();
+    testRejectsReadyOnlyLifecycle();
     testFullTransfer();
+    testRejectsStaleRouteRevision();
     testRejectsConfigurationMismatch();
     testRejectsInvalidCapabilities();
     testRejectsWhenDisconnected();
