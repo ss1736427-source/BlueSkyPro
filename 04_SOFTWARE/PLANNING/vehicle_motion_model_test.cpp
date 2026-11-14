@@ -107,13 +107,18 @@ int main() {
     // A requested fixed-wing radius produces a TAS cap, never a speed below
     // the configured minimum envelope.
     const auto fixedTurnCap =
-        VehicleMotionModelEvaluator::recommendTurnSpeedForRadius(speedModel, 60.0);
+        VehicleMotionModelEvaluator::recommendTurnSpeedForRadius(
+            speedModel, 60.0, 10.0, "TAS", 1.30);
     assert(fixedTurnCap.valid);
     assert(fixedTurnCap.may_satisfy_motion_hard_gate);
     assert(fixedTurnCap.selected_speed_mps < speedModel.reference_speed_mps);
     assert(fixedTurnCap.selected_speed_mps >= speedModel.minimum_speed_mps);
     assert(fixedTurnCap.radius_requirement_met);
     assert(fixedTurnCap.achieved_ideal_radius_m <= 60.0 + 1e-9);
+    assert(fixedTurnCap.selected_speed_mps >= fixedTurnCap.minimum_safe_turn_speed_mps);
+    assert(fixedTurnCap.stall_speed_at_bank_mps > 10.0);
+    assert(!VehicleMotionModelEvaluator::recommendTurnSpeedForRadius(
+        speedModel, 60.0).valid);
 
     // Multirotor uses AIR_RELATIVE speed and sustained lateral acceleration;
     // it must not inherit fixed-wing bank/stall calculations.
