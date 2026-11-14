@@ -221,6 +221,8 @@ public:
         TurnSpeedRecommendation out;
         out.requested_radius_m = requested_radius_m;
         out.evidence = model.evidence;
+        constexpr double gravity = 9.80665;
+        constexpr double pi = 3.14159265358979323846;
         const auto finitePositive = [](double v) {
             return std::isfinite(v) && v > 0.0;
         };
