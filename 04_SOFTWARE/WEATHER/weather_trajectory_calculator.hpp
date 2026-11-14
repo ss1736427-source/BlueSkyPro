@@ -12,6 +12,7 @@ struct WeatherTrajectoryEvaluation {
     bool weather_ready{false};
     std::string weather_error;
     bluesky::planning::TrajectoryResult trajectory;
+    std::optional<bluesky::planning::Route> corrected_route;
 };
 
 // The only supported entry point for a trajectory calculation that consumes

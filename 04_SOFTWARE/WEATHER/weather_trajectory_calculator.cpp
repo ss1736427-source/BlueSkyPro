@@ -1,5 +1,6 @@
 #include "weather_trajectory_calculator.hpp"
 #include "route_wind_adapter.hpp"
+#include "../PLANNING/camera_ground_speed_constraint.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -149,7 +150,11 @@ bool interpolateGeoPoint(const bluesky::planning::GeoPoint& a,
 
 bool buildSamplingRoute(const bluesky::planning::Route& source,
                         bluesky::planning::TrajectoryPerformanceInput& input,
-                        bluesky::planning::Route& sampled,std::string& error)
+                        bluesky::planning::Route& sampled,
+                        std::vector<std::size_t>& sourceSegmentIndices,
+                        std::vector<double>& sourceOffsetsM,
+                        std::vector<double>& sourceLengthsM,
+                        std::string& error)
 {
     using namespace bluesky::planning;
     // Bound samples to 10 km and 5 minutes so a long leg is evaluated along-track,
@@ -179,9 +184,13 @@ bool buildSamplingRoute(const bluesky::planning::Route& source,
         }
     }
     std::vector<std::string> sampledCameraIds;
+    sourceSegmentIndices.clear();
+    sourceOffsetsM.clear();
+    sourceLengthsM.clear();
     sampled=source;
     sampled.waypoints.clear();
     sampled.segments.clear();
+    sampled.speed_profile.reset();
     for (std::size_t i=0;i<source.segments.size();++i) {
         const auto& original=source.segments[i];
         const auto& from=source.waypoints[i];
@@ -213,6 +222,7 @@ bool buildSamplingRoute(const bluesky::planning::Route& source,
             error="canonical route waypoint chain is discontinuous";
             return false;
         }
+        double sourceOffsetM=0.0;
         for (std::size_t piece=1;piece<=pieces;++piece) {
             RouteWaypoint next;
             if (piece==pieces) {
@@ -241,6 +251,10 @@ bool buildSamplingRoute(const bluesky::planning::Route& source,
                                    original.segment_id)) {
                 sampledCameraIds.push_back(subsegment.segment_id);
             }
+            sourceSegmentIndices.push_back(i);
+            sourceOffsetsM.push_back(sourceOffsetM);
+            sourceLengthsM.push_back(subsegment.distance_m);
+            sourceOffsetM+=subsegment.distance_m;
             sampled.segments.push_back(std::move(subsegment));
             sampled.waypoints.push_back(std::move(next));
         }
@@ -331,6 +345,261 @@ bool buildTimeDependentWindSamples(
     input.wind_samples=std::move(samples);
     return true;
 }
+
+
+double trackHeadingDegrees(const bluesky::planning::GeoPoint& from,
+                           const bluesky::planning::GeoPoint& to)
+{
+    constexpr double pi=3.14159265358979323846;
+    const double lat=(from.latitude_deg+to.latitude_deg)*0.5*pi/180.0;
+    const double north=(to.latitude_deg-from.latitude_deg)*pi/180.0*6371000.0;
+    const double east=(to.longitude_deg-from.longitude_deg)*pi/180.0
+                     *std::cos(lat)*6371000.0;
+    double heading=std::atan2(east,north)*180.0/pi;
+    if (heading<0.0) heading+=360.0;
+    return heading;
+}
+
+double profileSpeedAt(const bluesky::planning::SpeedProfileSegmentResult& p,
+                      double distance)
+{
+    if (distance<p.acceleration_distance_m) {
+        return std::sqrt(std::max(0.0,p.entry_speed_mps*p.entry_speed_mps
+            +2.0*p.maximum_acceleration_mps2*distance));
+    }
+    const double brakingStart=p.distance_m-p.deceleration_distance_m;
+    if (distance<=brakingStart) return p.maximum_reachable_speed_mps;
+    const double remaining=std::max(0.0,p.distance_m-distance);
+    return std::sqrt(std::max(0.0,p.exit_speed_mps*p.exit_speed_mps
+        +2.0*p.maximum_deceleration_mps2*remaining));
+}
+
+bool buildWindAwareSpeedProfile(
+    const bluesky::planning::Route& sourceRoute,
+    bluesky::planning::Route& samplingRoute,
+    const std::vector<std::size_t>& sourceSegmentIndices,
+    const std::vector<double>& sourceOffsetsM,
+    const std::vector<double>& sourceLengthsM,
+    bluesky::planning::TrajectoryPerformanceInput& input,
+    const std::string& snapshotId,
+    const std::string& snapshotVersion,
+    const std::string& calculationVersion,
+    bluesky::planning::Route& correctedRoute,
+    std::vector<double>& previousProfilePeaks,
+    double& maximumProfileDelta,
+    std::string& error)
+{
+    using namespace bluesky::planning;
+    const bool cameraConfigured=!input.camera_configuration_id.empty()
+        ||input.camera_gsd_m_px!=0.0||input.camera_forward_trigger_spacing_m!=0.0
+        ||input.camera_minimum_trigger_interval_s!=0.0||input.camera_exposure_time_s!=0.0
+        ||input.camera_maximum_motion_blur_px!=0.0||!input.camera_capture_segment_ids.empty();
+    if (!sourceRoute.speed_profile) {
+        if (cameraConfigured) {
+            error="camera ground-speed feedback requires a canonical route with a validated longitudinal speed envelope";
+            return false;
+        }
+        if (!input.speed_profile_segments.empty()) {
+            error="external speed profile cannot be safely remapped to weather subdivisions without canonical route speed-envelope metadata";
+            return false;
+        }
+        maximumProfileDelta=0.0;
+        return true;
+    }
+
+    const auto& sourceProfile=*sourceRoute.speed_profile;
+    if (sourceProfile.vehicle_model_id.empty()||sourceProfile.vehicle_model_version.empty()
+        ||sourceProfile.configuration_id.empty()||sourceProfile.dynamics_source.empty()
+        ||(sourceProfile.speed_reference!="TAS"&&sourceProfile.speed_reference!="AIR_RELATIVE")
+        ||sourceProfile.segments.size()!=sourceRoute.segments.size()
+        ||sourceProfile.segments.empty()
+        ||sourceSegmentIndices.size()!=samplingRoute.segments.size()
+        ||sourceOffsetsM.size()!=samplingRoute.segments.size()
+        ||sourceLengthsM.size()!=samplingRoute.segments.size()) {
+        error="wind/camera speed feedback requires a complete, identified source speed profile and segment mapping";
+        return false;
+    }
+
+    const auto& first=sourceProfile.segments.front();
+    const auto& last=sourceProfile.segments.back();
+    if (!std::isfinite(first.maximum_acceleration_mps2)||first.maximum_acceleration_mps2<=0.0
+        ||!std::isfinite(first.maximum_deceleration_mps2)||first.maximum_deceleration_mps2<=0.0
+        ||!std::isfinite(first.entry_speed_mps)||first.entry_speed_mps<=0.0
+        ||!std::isfinite(last.exit_speed_mps)||last.exit_speed_mps<=0.0) {
+        error="wind/camera speed feedback is missing validated acceleration, deceleration or route boundary speeds";
+        return false;
+    }
+
+    SpeedProfileInput profileInput;
+    profileInput.vehicle_model_id=sourceProfile.vehicle_model_id;
+    profileInput.vehicle_model_version=sourceProfile.vehicle_model_version;
+    profileInput.configuration_id=sourceProfile.configuration_id;
+    profileInput.speed_reference=sourceProfile.speed_reference;
+    profileInput.longitudinal_dynamics_validated=true;
+    profileInput.longitudinal_dynamics_source=sourceProfile.dynamics_source;
+    profileInput.maximum_acceleration_mps2=first.maximum_acceleration_mps2;
+    profileInput.maximum_deceleration_mps2=first.maximum_deceleration_mps2;
+    profileInput.initial_speed_mps=first.entry_speed_mps;
+    profileInput.final_speed_mps=last.exit_speed_mps;
+    profileInput.segments.reserve(sourceRoute.segments.size());
+
+    for (std::size_t i=0;i<sourceRoute.segments.size();++i) {
+        const auto& routeSegment=sourceRoute.segments[i];
+        const auto& profileSegment=sourceProfile.segments[i];
+        if (profileSegment.segment_id!=routeSegment.segment_id
+            ||!std::isfinite(profileSegment.minimum_speed_mps)||profileSegment.minimum_speed_mps<=0.0
+            ||!std::isfinite(profileSegment.maximum_speed_mps)
+            ||profileSegment.maximum_speed_mps<profileSegment.minimum_speed_mps
+            ||std::abs(profileSegment.maximum_acceleration_mps2-profileInput.maximum_acceleration_mps2)>1e-6
+            ||std::abs(profileSegment.maximum_deceleration_mps2-profileInput.maximum_deceleration_mps2)>1e-6) {
+            error="canonical route speed envelope is incomplete, inconsistent or not bound to exact segment identities";
+            return false;
+        }
+        profileInput.segments.push_back({routeSegment.segment_id,routeSegment.distance_m,
+            profileSegment.minimum_speed_mps,profileSegment.maximum_speed_mps});
+    }
+
+    std::unordered_map<std::string,const WindSample*> windBySegment;
+    for (const auto& wind:input.wind_samples) windBySegment.emplace(wind.segment_id,&wind);
+    const double triggerCap=input.camera_minimum_trigger_interval_s>0.0
+        ?input.camera_forward_trigger_spacing_m/input.camera_minimum_trigger_interval_s
+        :std::numeric_limits<double>::infinity();
+    const double blurCap=input.camera_exposure_time_s>0.0
+        ?input.camera_maximum_motion_blur_px*input.camera_gsd_m_px/input.camera_exposure_time_s
+        :std::numeric_limits<double>::infinity();
+    const double cameraGroundSpeedCap=std::min(triggerCap,blurCap);
+    if (cameraConfigured && (!std::isfinite(cameraGroundSpeedCap)||cameraGroundSpeedCap<=0.0
+        ||!std::isfinite(input.camera_gsd_m_px)||input.camera_gsd_m_px<=0.0
+        ||!std::isfinite(input.camera_forward_trigger_spacing_m)||input.camera_forward_trigger_spacing_m<=0.0
+        ||!std::isfinite(input.camera_minimum_trigger_interval_s)||input.camera_minimum_trigger_interval_s<=0.0
+        ||!std::isfinite(input.camera_exposure_time_s)||input.camera_exposure_time_s<=0.0
+        ||!std::isfinite(input.camera_maximum_motion_blur_px)||input.camera_maximum_motion_blur_px<=0.0
+        ||input.camera_capture_segment_ids.empty())) {
+        error="camera trigger/blur parameters are incomplete for a ground-speed envelope";
+        return false;
+    }
+
+    for (std::size_t i=0;i<samplingRoute.segments.size();++i) {
+        const auto& sampledSegment=samplingRoute.segments[i];
+        if (!cameraConfigured
+            ||std::find(input.camera_capture_segment_ids.begin(),input.camera_capture_segment_ids.end(),
+                        sampledSegment.segment_id)==input.camera_capture_segment_ids.end())
+            continue;
+        const auto sourceIndex=sourceSegmentIndices[i];
+        if (sourceIndex>=profileInput.segments.size()) {
+            error="sampled weather segment has no source route segment";
+            return false;
+        }
+        const auto windIt=windBySegment.find(sampledSegment.segment_id);
+        if (windIt==windBySegment.end()) {
+            error="camera speed feedback has no time-dependent wind sample for segment "+sampledSegment.segment_id;
+            return false;
+        }
+        const auto& from=samplingRoute.waypoints[i];
+        const auto& to=samplingRoute.waypoints[i+1];
+        auto& bounds=profileInput.segments[sourceIndex];
+        const auto cap=CameraGroundSpeedConstraint::deriveAirspeedCap(
+            trackHeadingDegrees(from.position,to.position),*windIt->second,
+            cameraGroundSpeedCap,bounds.minimum_speed_mps,bounds.maximum_speed_mps);
+        if (!cap.feasible||!CameraGroundSpeedConstraint::applyToSegment(cap,bounds)) {
+            error="camera ground-speed envelope is infeasible on source segment "
+                +sourceRoute.segments[sourceIndex].segment_id+": "+cap.diagnostic;
+            return false;
+        }
+    }
+
+    const auto solved=VariableSpeedProfileSolver::calculate(profileInput);
+    if (solved.status!=SpeedProfileStatus::Feasible
+        ||solved.segments.size()!=sourceRoute.segments.size()) {
+        error=solved.findings.empty()?"wind/camera constrained speed profile is infeasible":solved.findings.front();
+        return false;
+    }
+
+    if (previousProfilePeaks.empty()) {
+        previousProfilePeaks.reserve(samplingRoute.segments.size());
+        for (const auto sourceIndex:sourceSegmentIndices)
+            previousProfilePeaks.push_back(sourceProfile.segments[sourceIndex].maximum_reachable_speed_mps);
+    }
+    if (previousProfilePeaks.size()!=samplingRoute.segments.size()) {
+        error="weather profile convergence state does not match sampled route segmentation";
+        return false;
+    }
+
+    std::vector<SpeedProfileSegmentResult> sampledProfile;
+    sampledProfile.reserve(samplingRoute.segments.size());
+    maximumProfileDelta=0.0;
+    std::vector<double> sourceSampleDistances(sourceRoute.segments.size(),0.0);
+    for (std::size_t i=0;i<sourceLengthsM.size();++i)
+        sourceSampleDistances[sourceSegmentIndices[i]]+=sourceLengthsM[i];
+
+    for (std::size_t i=0;i<samplingRoute.segments.size();++i) {
+        const auto sourceIndex=sourceSegmentIndices[i];
+        const auto& original=solved.segments[sourceIndex];
+        const double totalSampleDistance=sourceSampleDistances[sourceIndex];
+        if (totalSampleDistance<=0.0) {
+            error="weather subdivision produced an empty source segment";
+            return false;
+        }
+        const double scale=original.distance_m/totalSampleDistance;
+        const double start=sourceOffsetsM[i]*scale;
+        const double length=sourceLengthsM[i]*scale;
+        const double end=start+length;
+        const double entry=profileSpeedAt(original,start);
+        const double exit=profileSpeedAt(original,end);
+        const double brakingStart=original.distance_m-original.deceleration_distance_m;
+        const double accelDistance=std::max(0.0,std::min(end,original.acceleration_distance_m)-start);
+        const double decelDistance=std::max(0.0,end-std::max(start,brakingStart));
+        const double cruiseDistance=std::max(0.0,length-accelDistance-decelDistance);
+        const bool intersectsPeak=(start<=original.acceleration_distance_m+1e-8
+            &&end>=original.acceleration_distance_m-1e-8)
+            ||(start<=brakingStart+1e-8&&end>=brakingStart-1e-8)
+            ||(start>=original.acceleration_distance_m-1e-8&&end<=brakingStart+1e-8);
+        const double peak=intersectsPeak?original.maximum_reachable_speed_mps:std::max(entry,exit);
+        const double actualLength=samplingRoute.segments[i].distance_m;
+        const double actualScale=actualLength/length;
+        sampledProfile.push_back({samplingRoute.segments[i].segment_id,actualLength,entry,exit,peak,
+            accelDistance*actualScale,decelDistance*actualScale,cruiseDistance*actualScale,
+            original.maximum_acceleration_mps2,original.maximum_deceleration_mps2});
+        maximumProfileDelta=std::max(maximumProfileDelta,std::abs(peak-previousProfilePeaks[i]));
+        previousProfilePeaks[i]=peak;
+    }
+
+    input.speed_profile_id=sourceRoute.lineage.route_id+"-WIND-CAMERA";
+    input.speed_profile_version=snapshotId+"-"+snapshotVersion+"-"+calculationVersion;
+    input.speed_profile_vehicle_model_id=sourceProfile.vehicle_model_id;
+    input.speed_profile_vehicle_model_version=sourceProfile.vehicle_model_version;
+    input.speed_profile_configuration_id=sourceProfile.configuration_id;
+    input.speed_profile_speed_reference=sourceProfile.speed_reference;
+    input.speed_profile_segments=sampledProfile;
+
+    RouteSpeedProfile updated=sourceProfile;
+    updated.segments.clear();
+    updated.segments.reserve(solved.segments.size());
+    for (std::size_t i=0;i<solved.segments.size();++i) {
+        const auto& p=solved.segments[i];
+        const auto& bounds=profileInput.segments[i];
+        updated.segments.push_back({p.segment_id,p.distance_m,p.entry_speed_mps,p.exit_speed_mps,
+            p.maximum_reachable_speed_mps,p.acceleration_distance_m,p.deceleration_distance_m,
+            p.cruise_distance_m,p.maximum_acceleration_mps2,p.maximum_deceleration_mps2,
+            bounds.minimum_speed_mps,bounds.maximum_speed_mps});
+    }
+    correctedRoute=sourceRoute;
+    correctedRoute.speed_profile=updated;
+    samplingRoute.speed_profile=updated;
+    samplingRoute.speed_profile->segments.clear();
+    samplingRoute.speed_profile->segments.reserve(sampledProfile.size());
+    for (std::size_t i=0;i<sampledProfile.size();++i) {
+        const auto& p=sampledProfile[i];
+        const auto& bounds=profileInput.segments[sourceSegmentIndices[i]];
+        samplingRoute.speed_profile->segments.push_back({p.segment_id,p.distance_m,
+            p.entry_speed_mps,p.exit_speed_mps,p.maximum_reachable_speed_mps,
+            p.acceleration_distance_m,p.deceleration_distance_m,p.cruise_distance_m,
+            p.maximum_acceleration_mps2,p.maximum_deceleration_mps2,
+            bounds.minimum_speed_mps,bounds.maximum_speed_mps});
+    }
+    return true;
+}
+
 } // namespace
 
 WeatherTrajectoryEvaluation WeatherTrajectoryCalculator::evaluate(
@@ -357,10 +626,16 @@ WeatherTrajectoryEvaluation WeatherTrajectoryCalculator::evaluate(
         return result;
     }
     bluesky::planning::Route samplingRoute;
-    if (!buildSamplingRoute(route,input,samplingRoute,result.weather_error)) return result;
+    std::vector<std::size_t> sourceSegmentIndices;
+    std::vector<double> sourceOffsetsM,sourceLengthsM;
+    if (!buildSamplingRoute(route,input,samplingRoute,sourceSegmentIndices,
+            sourceOffsetsM,sourceLengthsM,result.weather_error)) return result;
     std::vector<double> estimatedDurations;
     if (!initialDurations(samplingRoute,input,estimatedDurations,result.weather_error)) return result;
 
+    bluesky::planning::Route correctedRoute=route;
+    bool profileApplied=false;
+    std::vector<double> previousProfilePeaks;
     for (int iteration=0;iteration<kMaximumIterations;++iteration) {
         auto iterationInput=input;
         if (!buildTimeDependentWindSamples(samplingRoute,fields,missionStart,
@@ -370,6 +645,18 @@ WeatherTrajectoryEvaluation WeatherTrajectoryCalculator::evaluate(
         iterationInput.wind_snapshot_id=snapshot_id;
         iterationInput.wind_snapshot_version=snapshot_version;
         iterationInput.mission_start_epoch_s=missionStart;
+        double maximumProfileDelta=0.0;
+        if (route.speed_profile) {
+            if (!buildWindAwareSpeedProfile(route,samplingRoute,sourceSegmentIndices,
+                    sourceOffsetsM,sourceLengthsM,iterationInput,snapshot_id,snapshot_version,
+                    calculation_version,correctedRoute,previousProfilePeaks,
+                    maximumProfileDelta,result.weather_error))
+                return result;
+            profileApplied=true;
+        } else if (!iterationInput.camera_capture_segment_ids.empty()) {
+            result.weather_error="camera speed feedback is blocked: no validated route speed profile is attached";
+            return result;
+        }
         auto trajectory=bluesky::planning::WindPerformanceTrajectory::calculate(
             samplingRoute,iterationInput,calculation_version);
         result.trajectory=std::move(trajectory);
@@ -393,9 +680,10 @@ WeatherTrajectoryEvaluation WeatherTrajectoryCalculator::evaluate(
             }
             maximumDelta=std::max(maximumDelta,std::abs(actual-estimatedDurations[i]));
         }
-        if (maximumDelta<=kConvergenceToleranceSeconds) {
+        if (maximumDelta<=kConvergenceToleranceSeconds&&maximumProfileDelta<=0.05) {
             result.weather_ready=true;
             result.weather_error.clear();
+            if (profileApplied) result.corrected_route=correctedRoute;
             return result;
         }
         for (std::size_t i=0;i<estimatedDurations.size();++i) {
