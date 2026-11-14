@@ -232,9 +232,17 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
                 "VEHICLE_ENVELOPE_CONFIGURATION_MISMATCH", result.blockers);
         requireValidation(evidence.weather_validation,
                           "WEATHER_VALIDATION_EVIDENCE_REQUIRED", "WEATHER_VALIDATION_LINEAGE_MISMATCH");
+        requireText(evidence.weather_validation.snapshot_id,
+                    "WEATHER_VALIDATION_SNAPSHOT_ID_REQUIRED", result.blockers);
+        require(evidence.weather_validation.snapshot_id == evidence.weather_snapshot_id,
+                "WEATHER_VALIDATION_SNAPSHOT_MISMATCH", result.blockers);
         requireValidation(evidence.energy_reserve_validation,
                           "ENERGY_RESERVE_VALIDATION_EVIDENCE_REQUIRED",
                           "ENERGY_RESERVE_VALIDATION_LINEAGE_MISMATCH");
+        requireText(evidence.energy_reserve_validation.snapshot_id,
+                    "ENERGY_RESERVE_VALIDATION_SNAPSHOT_ID_REQUIRED", result.blockers);
+        require(evidence.energy_reserve_validation.snapshot_id == evidence.weather_snapshot_id,
+                "ENERGY_RESERVE_VALIDATION_SNAPSHOT_MISMATCH", result.blockers);
         requireValidation(evidence.task_quality_validation,
                           "TASK_QUALITY_VALIDATION_EVIDENCE_REQUIRED",
                           "TASK_QUALITY_VALIDATION_LINEAGE_MISMATCH");
