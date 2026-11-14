@@ -1,4 +1,5 @@
 #include "wind_performance_trajectory.hpp"
+#include "camera_ground_speed_constraint.hpp"
 #include <cassert>
 #include <cmath>
 
@@ -218,6 +219,58 @@ int main(){
     assert(vr.status==TrajectoryStatus::Feasible);
     assert(vr.segments[0].ground_speed_mps==0.0);
     assert(vr.segments[0].traversal_time_s>9.9);
+
+
+    // Ground-track holding: wind changes along-track speed, while crosswind
+    // is compensated by crab angle instead of creating route drift.
+    auto tailwind = in;
+    tailwind.wind_samples = {{"S1", 0.0, 5.0, 0.0}};
+    const auto tailwindResult = WindPerformanceTrajectory::calculate(route, tailwind, "CALC1");
+    assert(tailwindResult.status == TrajectoryStatus::Feasible);
+    assert(std::abs(tailwindResult.segments[0].ground_speed_mps - 25.0) < 1e-6);
+    assert(std::abs(tailwindResult.segments[0].track_deg - 90.0) < 1e-6);
+
+    auto headwind = in;
+    headwind.wind_samples = {{"S1", 0.0, -5.0, 0.0}};
+    const auto headwindResult = WindPerformanceTrajectory::calculate(route, headwind, "CALC1");
+    assert(headwindResult.status == TrajectoryStatus::Feasible);
+    assert(std::abs(headwindResult.segments[0].ground_speed_mps - 15.0) < 1e-6);
+
+    auto crosswind = in;
+    crosswind.wind_samples = {{"S1", 5.0, 0.0, 0.0}};
+    const auto crosswindResult = WindPerformanceTrajectory::calculate(route, crosswind, "CALC1");
+    assert(crosswindResult.status == TrajectoryStatus::Feasible);
+    assert(std::abs(crosswindResult.segments[0].ground_speed_mps - std::sqrt(375.0)) < 1e-6);
+    assert(std::abs(crosswindResult.segments[0].track_deg - 90.0) < 1e-6);
+
+    auto excessiveCrosswind = in;
+    excessiveCrosswind.wind_tolerance_mps = 30.0;
+    excessiveCrosswind.wind_samples = {{"S1", 21.0, 0.0, 0.0}};
+    assert(WindPerformanceTrajectory::calculate(route, excessiveCrosswind, "CALC1").status
+           == TrajectoryStatus::Infeasible);
+
+    // Convert the camera ground-speed ceiling to a segment airspeed cap.
+    const auto tailwindCap = CameraGroundSpeedConstraint::deriveAirspeedCap(
+        90.0, {"S1", 0.0, 5.0, 0.0}, 20.0, 8.0, 30.0);
+    assert(tailwindCap.feasible);
+    assert(std::abs(tailwindCap.maximum_airspeed_mps - 15.0) < 1e-6);
+    const auto headwindCap = CameraGroundSpeedConstraint::deriveAirspeedCap(
+        90.0, {"S1", 0.0, -5.0, 0.0}, 20.0, 8.0, 30.0);
+    assert(headwindCap.feasible);
+    assert(std::abs(headwindCap.maximum_airspeed_mps - 25.0) < 1e-6);
+    const auto crosswindCap = CameraGroundSpeedConstraint::deriveAirspeedCap(
+        90.0, {"S1", 10.0, 0.0, 0.0}, 20.0, 8.0, 30.0);
+    assert(crosswindCap.feasible);
+    assert(std::abs(crosswindCap.maximum_airspeed_mps - std::sqrt(500.0)) < 1e-6);
+    const auto crosswindAboveCameraCap = CameraGroundSpeedConstraint::deriveAirspeedCap(
+        90.0, {"S1", 25.0, 0.0, 0.0}, 15.0, 8.0, 30.0);
+    assert(crosswindAboveCameraCap.feasible);
+    const auto excessiveTailwind = CameraGroundSpeedConstraint::deriveAirspeedCap(
+        90.0, {"S1", 0.0, 22.0, 0.0}, 20.0, 8.0, 30.0);
+    assert(!excessiveTailwind.feasible);
+    const auto aircraftTooSlow = CameraGroundSpeedConstraint::deriveAirspeedCap(
+        90.0, {"S1", 0.0, 0.0, 0.0}, 10.0, 12.0, 30.0);
+    assert(!aircraftTooSlow.feasible);
 
     return 0;
 }

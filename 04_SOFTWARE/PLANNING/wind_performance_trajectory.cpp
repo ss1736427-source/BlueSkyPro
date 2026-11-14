@@ -306,51 +306,47 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
         double duration=0.0, ground_speed=0.0, maximum_ground_speed=0.0, track=heading_deg(north,east);
         if(horizontal>1e-9){
             const double hn=north/horizontal, he=east/horizontal;
+            // Hold the canonical route ground track by crab-correcting the
+            // air-relative velocity against crosswind. This prevents timing a
+            // planned segment while allowing the calculated ground vector to drift.
+            const double windAlong = wind->north_mps * hn + wind->east_mps * he;
+            const double windCross = -wind->north_mps * he + wind->east_mps * hn;
+            const auto correctedGroundSpeed = [&](double airspeed) {
+                if (!std::isfinite(airspeed) || airspeed <= std::abs(windCross) + 1e-9)
+                    return 0.0;
+                return std::sqrt(std::max(0.0, airspeed * airspeed - windCross * windCross))
+                    + windAlong;
+            };
             if (segmentProfile) {
-                // Deterministic distance-domain integration of the validated
-                // acceleration / cruise / braking phases under this segment's wind.
+                // Integrate acceleration / cruise / braking with crab correction.
                 constexpr int kIntegrationSteps = 64;
-                double northDisplacement = 0.0, eastDisplacement = 0.0;
-                const auto groundSpeedAt = [&](double airspeed) {
-                    return std::hypot(airspeed * hn + wind->north_mps,
-                                      airspeed * he + wind->east_mps);
-                };
-                maximum_ground_speed = std::max({
-                    groundSpeedAt(segmentProfile->entry_speed_mps),
-                    groundSpeedAt(segmentProfile->maximum_reachable_speed_mps),
-                    groundSpeedAt(segmentProfile->exit_speed_mps)});
+                maximum_ground_speed = 0.0;
                 for (int step = 0; step < kIntegrationSteps; ++step) {
                     const double ds = horizontal / static_cast<double>(kIntegrationSteps);
                     const double alongDistance = (static_cast<double>(step) + 0.5)
                         * segmentProfile->distance_m / static_cast<double>(kIntegrationSteps);
                     const double airspeed = profile_airspeed_at(*segmentProfile, alongDistance);
-                    const double an = airspeed * hn, ae = airspeed * he;
-                    const double gn = an + wind->north_mps, ge = ae + wind->east_mps;
-                    const double gs = std::hypot(gn, ge);
+                    const double gs = correctedGroundSpeed(airspeed);
                     if (!std::isfinite(gs) || gs <= 1e-9) {
                         fail(r,TrajectoryFindingCode::GroundSpeedUnavailable,seg.segment_id,
-                             "ground speed becomes unavailable within the variable-speed segment");
+                             "airspeed cannot compensate crosswind and maintain positive ground progress on the planned track");
                         return r;
                     }
-                    const double dt = ds / gs;
-                    duration += dt;
-                    northDisplacement += gn * dt;
-                    eastDisplacement += ge * dt;
+                    duration += ds / gs;
                     maximum_ground_speed = std::max(maximum_ground_speed, gs);
                 }
                 ground_speed = horizontal / duration;
-                track = heading_deg(northDisplacement, eastDisplacement);
+                track = heading_deg(north, east);
             } else {
-                const double an=input.cruise_airspeed_mps*hn, ae=input.cruise_airspeed_mps*he;
-                const double gn=an+wind->north_mps, ge=ae+wind->east_mps;
-                ground_speed=std::hypot(gn,ge);
-                if(ground_speed<=1e-9){
-                    fail(r,TrajectoryFindingCode::GroundSpeedUnavailable,seg.segment_id,"ground speed is unavailable against wind");
+                ground_speed = correctedGroundSpeed(input.cruise_airspeed_mps);
+                if (!std::isfinite(ground_speed) || ground_speed <= 1e-9) {
+                    fail(r,TrajectoryFindingCode::GroundSpeedUnavailable,seg.segment_id,
+                         "airspeed cannot compensate crosswind and maintain positive ground progress on the planned track");
                     return r;
                 }
                 maximum_ground_speed = ground_speed;
-                duration=horizontal/ground_speed;
-                track=heading_deg(gn,ge);
+                duration = horizontal / ground_speed;
+                track = heading_deg(north, east);
             }
         }
         if(std::abs(dz)>1e-9) duration=std::max(duration,std::abs(dz)/vertical_rate);

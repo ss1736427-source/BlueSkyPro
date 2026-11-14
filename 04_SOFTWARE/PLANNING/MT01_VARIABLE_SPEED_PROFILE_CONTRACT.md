@@ -72,3 +72,10 @@ Tests must cover camera and curvature speed caps, backward braking, forward acce
 - `AlgorithmOrchestrator` rechecks an attached profile against the assigned flight-safety envelope before ranking: exact aircraft/configuration identity, TAS/AIR_RELATIVE reference, complete segment coverage, continuity, speed envelope and acceleration/braking distance equations.
 - Still pending: deriving camera/turn/aircraft caps automatically; sourcing validated longitudinal dynamics from the assigned vehicle record; regenerating turn geometry when selected speed changes; feeding camera/wind-derived caps into profile input; integration regression test for the full orchestrator path; full CI/build verification.
 - This is not yet flight-release eligible and must not be presented as operational end-to-end variable-speed planning.
+
+
+## Wind-corrected camera ground-speed cap (2026-11-14)
+
+The camera limit is a ground-speed constraint. For a requested ground track, the wind adapter resolves along-track and cross-track wind components and computes the maximum air-relative speed that satisfies the camera limit while holding the planned track. Crosswind is compensated by crab angle; it is not treated as an along-track speed penalty. A camera cap below crosswind magnitude is not automatically infeasible: feasibility depends on the available airspeed envelope and whether positive ground progress can be maintained. Excessive tailwind can make the camera cap impossible even at the lowest permitted airspeed.
+
+The new camera-ground-speed adapter derives a per-segment airspeed cap. Its result can be applied as the segment maximum in SpeedProfileInput before solving the profile. The wind/performance trajectory independently rechecks ground speed and camera trigger/blur constraints after profile selection. The MT-01 geometry pipeline still does not fetch weather or run the weather-dependent feedback loop; full automatic geometry/profile convergence and orchestrator handoff remain pending.
