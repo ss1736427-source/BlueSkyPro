@@ -1,6 +1,6 @@
 # MT-01 variable-speed profile contract
 
-**Status:** CONTRACT BASELINED — runtime integration pending  
+**Status:** PARTIAL RUNTIME IMPLEMENTATION — solver and wind/performance adapter integrated; MT-01 geometry/orchestrator binding and CI verification pending  
 **Scope:** Segment-level air-relative speed planning for coverage and turn transitions.
 
 ## 1. Purpose
@@ -62,4 +62,11 @@ Published DJI speed and camera specifications do not establish sustained lateral
 
 Tests must cover camera and curvature speed caps, backward braking, forward acceleration, insufficient braking distance, minimum-speed conflicts, segment-boundary continuity, wind direction cases, camera-only-on-coverage checks, energy/reserve recalculation, deterministic replay and fail-closed missing evidence.
 
-**Current state:** contract only. Runtime solver, route-model binding, wind/performance integration and tests are pending.
+**Implementation status (2026-11-14):**
+- Deterministic longitudinal envelope solver implemented with backward braking and forward acceleration passes.
+- Each segment result retains distance, entry/exit speed, peak speed, acceleration/braking distances and validated dynamics limits.
+- WindPerformanceTrajectory accepts a complete, ordered, versioned air-relative speed profile and validates segment identity, continuity, kinematic distances and geometry correspondence.
+- Wind/performance integration numerically samples acceleration, cruise and braking phases against the segment wind. Traversal time, payload energy, average ground speed and track are recalculated. Camera trigger interval and motion blur use the maximum sampled/profile-extreme ground speed.
+- Regression tests cover solver-to-wind handoff, variable-speed timing, camera limits and fail-closed profile mismatch.
+- Still pending: deriving speed caps from camera/turn/aircraft limits in the MT-01 candidate pipeline; binding validated acceleration/deceleration evidence from the assigned vehicle configuration; speed-curvature geometry regeneration; orchestrator candidate wiring; full CI/build verification.
+- This is not yet flight-release eligible and must not be presented as operational end-to-end variable-speed planning.
