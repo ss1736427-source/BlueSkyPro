@@ -194,6 +194,7 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
     const auto& assignedVehicle = mission.vehicle_assignments.front();
     double connectorSpeedMps = request.vehicle_motion_model.reference_speed_mps;
     double connectorMinimumSpeedMps = request.vehicle_motion_model.minimum_speed_mps;
+    double coverageMinimumSpeedMps = request.vehicle_motion_model.minimum_speed_mps;
     if (!std::isfinite(request.requested_max_turn_radius_m)
         || request.requested_max_turn_radius_m < 0.0) {
         addFinding(result, "MT01_TURN_RADIUS_CONSTRAINT_INVALID");
@@ -213,10 +214,12 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
         }
         connectorSpeedMps = turnSpeed.selected_speed_mps;
         connectorMinimumSpeedMps = turnSpeed.minimum_safe_turn_speed_mps;
+        coverageMinimumSpeedMps = turnSpeed.minimum_safe_straight_speed_mps;
         result.turn_speed_constraint_applied = true;
     }
     result.selected_connector_speed_mps = connectorSpeedMps;
     result.minimum_safe_connector_speed_mps = connectorMinimumSpeedMps;
+    result.minimum_safe_coverage_speed_mps = coverageMinimumSpeedMps;
     result.kinematic_geometry = Mt01KinematicGeometryBuilder::build(
         result.coverage,
         request.vehicle_motion_model,
@@ -226,7 +229,8 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
         combinedExclusions,
         2.0,
         connectorSpeedMps,
-        connectorMinimumSpeedMps);
+        connectorMinimumSpeedMps,
+        coverageMinimumSpeedMps);
     result.kinematic_geometry_available = result.kinematic_geometry.feasible;
     for (const auto& diagnostic : result.kinematic_geometry.diagnostics)
         addFinding(result, diagnostic);
