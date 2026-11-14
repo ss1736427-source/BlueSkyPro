@@ -530,3 +530,71 @@ After each correction, the continuous 4D conflict detector is run again. The fin
 These corrections are planned on the ground and become part of the versioned execution profile/start schedule. They are not reactive execution commands.
 
 The conflict detector remains detection-only; conflict resolution is a separate deterministic planning component.
+
+## 15. MT-01 variable-speed trajectory profile — integration contract
+
+**Purpose:** coordinate turn geometry, longitudinal speed changes, camera capture constraints and the existing wind/performance calculation. This is an extension of the canonical route/performance pipeline, not a second optimizer.
+
+### 15.1 Ownership and order
+
+COVERAGE LEGS + CONSTRAINED ENVIRONMENT
+→ TURN GEOMETRY CANDIDATES
+→ SEGMENT SPEED CAPS (camera / vehicle envelope / curvature / mission limits)
+→ LONGITUDINAL SPEED PROFILE (forward acceleration + backward braking feasibility)
+→ WIND + VEHICLE PERFORMANCE (existing single calculation boundary)
+→ GROUND SPEED / TIME / ENERGY / CAMERA QUALITY / 4D
+→ HARD FEASIBILITY → CANDIDATE COMPARISON
+
+The speed-profile component owns only segment speed targets and the feasibility of transitions between them. It must not independently calculate wind-adjusted ground speed, energy, camera quality, route ranking or authorization. Those remain with the existing authoritative modules.
+
+### 15.2 Segment-level profile
+
+Every flown segment may carry:
+- selected air-relative speed and explicit reference (TAS for fixed-wing; AIR_RELATIVE for multirotor);
+- lower and upper admissible speed bounds;
+- maximum longitudinal acceleration and deceleration for the assigned configuration;
+- turn radius/curvature and the corresponding validated lateral-dynamics limit, where applicable;
+- speed-profile evidence and version.
+
+The profile is continuous across segment boundaries. The transition from one segment speed to the next must fit the available distance and configured acceleration/deceleration limits. A requested reduction that cannot be completed before turn entry makes that candidate infeasible; the planner may move the braking point upstream or generate another spatial candidate. It must never assume instantaneous speed change.
+
+### 15.3 Deterministic profile solution
+
+For an ordered segment chain:
+1. Derive each segment's speed cap from all applicable hard limits. On coverage segments include camera trigger-interval and motion-blur limits; on turns include the validated curvature/lateral-acceleration envelope.
+2. Apply a backward braking pass so the speed at each segment is low enough to meet the next segment's cap within the available distance.
+3. Apply a forward acceleration pass so every speed increase is reachable within the available distance.
+4. Enforce the configured minimum speed and vehicle speed envelope. If any segment cannot satisfy both its cap and minimum speed, reject the candidate.
+5. Recheck acceleration/deceleration at every boundary and retain a traceable reason for each limiting constraint.
+
+A jerk-limited profile may be added only when the assigned aircraft configuration supplies a validated jerk/response limit. Do not invent a universal value.
+
+### 15.4 Wind coupling
+
+The profile's speed reference is air-relative. The existing wind/performance boundary converts it to ground speed and track per segment, then recalculates traversal time, payload energy, total energy, reserve, camera trigger interval and motion blur. If weather time-indexing changes the wind sample or the profile constraints, invalidate and recalculate only the affected dependent results until the existing convergence rule is met or the candidate fails closed.
+
+A wind-corrected ground speed must not be fed back as if it were airspeed. Ground-speed camera limits and air-relative vehicle limits remain separate checks.
+
+### 15.5 Geometry coupling
+
+Turn geometry and speed profile are coupled. A candidate is accepted only when the generated turn curvature is feasible at the selected turn speed under the assigned aircraft's validated lateral dynamics. The geometry builder may regenerate a candidate with a different turn radius after speed-profile calculation; this is a bounded, versioned candidate-generation step, not an independent route optimizer. If the aircraft class has no validated turn connector or dynamics model, automatic turn generation remains blocked.
+
+### 15.6 Mavic 3E and evidence policy
+
+Mavic 3E manufacturer speed specifications do not establish sustained lateral acceleration, braking/deceleration response or minimum turn radius. Derived scenario values may be used for non-authoritative sensitivity analysis only. They cannot produce a motion-hard-gate pass, a validated speed profile or a flight-release-eligible route. Flight-test/configuration evidence is required for those limits.
+
+### 15.7 Verification
+
+Required tests:
+- speed cap from camera trigger interval and motion blur;
+- speed cap from turn curvature/lateral dynamics;
+- backward braking pass and forward acceleration pass;
+- infeasible braking distance before turn entry;
+- minimum-speed conflict with requested turn radius;
+- segment-boundary continuity and deterministic replay;
+- headwind/tailwind/crosswind conversion without mixing airspeed and ground speed;
+- camera checks on coverage segments only;
+- energy/reserve and time recalculation using selected segment speeds;
+- fail-closed behavior when acceleration, deceleration, curvature or evidence is missing.
+
+**Implementation status:** contract established; runtime integration and regression tests remain to be implemented and verified. This section does not claim that variable-speed control is already operational.
