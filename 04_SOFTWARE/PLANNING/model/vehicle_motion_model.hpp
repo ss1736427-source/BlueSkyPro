@@ -274,6 +274,7 @@ public:
                 return out;
             }
             radius_at_speed_squared = model.lateral_acceleration_mps2;
+            out.minimum_safe_turn_speed_mps = model.minimum_speed_mps;
             break;
         }
 
