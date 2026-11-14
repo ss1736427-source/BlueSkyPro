@@ -436,6 +436,49 @@ public:
         return reject(QStringLiteral("WAYPOINT_NOT_FOUND"));
     }
 
+    Q_INVOKABLE bool editWaypointPosition(const QString &waypointId,
+                                          double latitudeDeg,
+                                          double longitudeDeg)
+    {
+        if (m_route.waypoints.empty())
+            return reject(QStringLiteral("NO_CANDIDATE_ROUTE"));
+        if (!std::isfinite(latitudeDeg) || !std::isfinite(longitudeDeg)
+            || latitudeDeg < -90.0 || latitudeDeg > 90.0
+            || longitudeDeg < -180.0 || longitudeDeg > 180.0)
+            return reject(QStringLiteral("INVALID_WAYPOINT_POSITION"));
+
+        for (size_t i = 0; i < m_route.waypoints.size(); ++i) {
+            auto &waypoint = m_route.waypoints[i];
+            if (waypoint.waypoint_id != waypointId.toStdString())
+                continue;
+            if (waypoint.position.latitude_deg == latitudeDeg
+                && waypoint.position.longitude_deg == longitudeDeg)
+                return true;
+
+            waypoint.position.latitude_deg = latitudeDeg;
+            waypoint.position.longitude_deg = longitudeDeg;
+            // A coordinate edit invalidates all derived segments and prior safety evidence.
+            m_route.segments.clear();
+            m_route.trajectory_geometry_complete = false;
+            QVariantMap point = m_waypoints[i].toMap();
+            point.insert(QStringLiteral("latitudeDeg"), latitudeDeg);
+            point.insert(QStringLiteral("longitudeDeg"), longitudeDeg);
+            m_waypoints[i] = point;
+            ++m_editSequence;
+            m_routeVersion = QString::fromStdString(m_route.lineage.route_version)
+                             + QStringLiteral("-edit-") + QString::number(m_editSequence);
+            m_route.lineage.route_version = m_routeVersion.toStdString();
+            m_validationState = QStringLiteral("RECALCULATION_REQUIRED");
+            m_validationReason = QStringLiteral("ROUTE_EDIT_INVALIDATED_PREVIOUS_VALIDATION");
+            m_candidateSnapshots.clear();
+            emit candidateSetChanged();
+            emit routeChanged();
+            emit validationChanged();
+            return true;
+        }
+        return reject(QStringLiteral("WAYPOINT_NOT_FOUND"));
+    }
+
     // A rejected replacement candidate must not leave the previous route visible.
     bool rejectCandidate(const QString &reason)
     {

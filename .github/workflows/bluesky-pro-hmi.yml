@@ -117,6 +117,18 @@ jobs:
           if ($source -notmatch "registeredObjects:\s*\[manualGeometryBridge,\s*routeController\]") {
             throw "Map WebChannel must register the canonical geometry and route controllers."
           }
+          $mainContent = Get-Content "qt/BlueSkyPRO-HMI/qml/MainContent.qml" -Raw
+          $mapSource = Get-Content "qt/BlueSkyPRO-HMI/qml/MapTilerWebMap.qml" -Raw
+          $routeController = Get-Content "qt/BlueSkyPRO-HMI/src/RouteController.h" -Raw
+          if ($mainContent -notmatch "waypointId:\s*String\(p\.waypointId\)") {
+            throw "Map route projection must preserve canonical waypoint IDs."
+          }
+          if ($mapSource -notmatch "editWaypointPosition\(drag\.id") {
+            throw "Map drag must commit waypoint edits through RouteController."
+          }
+          if ($routeController -notmatch "Q_INVOKABLE bool editWaypointPosition") {
+            throw "RouteController must expose canonical waypoint position editing."
+          }
           if ($source -notmatch "property\s+int\s+notamSearchRadiusNm\s*:\s*20") {
             throw "MapTilerWebMap must declare the NOTAM search-radius property passed by FlightChart.ui.qml."
           }

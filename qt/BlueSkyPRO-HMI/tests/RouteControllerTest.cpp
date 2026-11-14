@@ -105,6 +105,27 @@ int main(int argc, char *argv[])
     assert(snapshot.value(QStringLiteral("segments")).toList().isEmpty());
     assert(controller.validationState() == QStringLiteral("CANDIDATE_UNVALIDATED"));
 
+    // Map waypoint edits use stable IDs and invalidate every derived route artifact.
+    RouteController positionController;
+    assert(positionController.loadCandidate(completeCandidate));
+    const QString positionOriginalVersion = positionController.routeVersion();
+    assert(positionController.publishValidation(positionOriginalVersion, QStringLiteral("input-1"),
+                                                true, QStringLiteral("pre-edit-pass")));
+    assert(positionController.editWaypointPosition(QStringLiteral("WP-2"), 60.2, 24.2));
+    assert(positionController.routeVersion() != positionOriginalVersion);
+    assert(positionController.validationState() == QStringLiteral("RECALCULATION_REQUIRED"));
+    assert(positionController.waypoints()[1].toMap().value(QStringLiteral("latitudeDeg")).toDouble() == 60.2);
+    assert(positionController.waypoints()[1].toMap().value(QStringLiteral("longitudeDeg")).toDouble() == 24.2);
+    assert(!positionController.routeSnapshot().value(QStringLiteral("trajectoryGeometryComplete")).toBool());
+    assert(positionController.routeSnapshot().value(QStringLiteral("segments")).toList().isEmpty());
+    assert(!positionController.publishValidation(positionOriginalVersion, QStringLiteral("input-1"),
+                                                 true, QStringLiteral("stale-position-pass")));
+    assert(positionController.validationState() == QStringLiteral("RECALCULATION_REQUIRED"));
+    assert(!positionController.editWaypointPosition(QStringLiteral("WP-2"), 91.0, 24.2));
+    assert(positionController.validationReason() == QStringLiteral("INVALID_WAYPOINT_POSITION"));
+    assert(!positionController.editWaypointPosition(QStringLiteral("UNKNOWN"), 60.2, 24.2));
+    assert(positionController.validationReason() == QStringLiteral("WAYPOINT_NOT_FOUND"));
+
     // A weather-capable route must carry explicit, ordered segment geometry.
     QVariantMap completeCandidate = candidate();
     completeCandidate.insert(QStringLiteral("trajectoryGeometryComplete"), true);

@@ -345,7 +345,7 @@ Item {
             // Preview route is visible only while its non-authoritative editor is open.
             routeCoordinates: typeof routeController !== "undefined" && routeController !== null
                 && routeController.waypoints !== undefined && routeController.waypoints !== null
-                ? routeController.waypoints.map(function(p) { return [Number(p.longitudeDeg), Number(p.latitudeDeg)] })
+                ? routeController.waypoints.map(function(p) { return { waypointId: String(p.waypointId), longitudeDeg: Number(p.longitudeDeg), latitudeDeg: Number(p.latitudeDeg) } })
                 : []
             manualTemplateIds: root.manualSelectedTemplateIds
             selectedNotamId: rightPanel.selectedNotamId
