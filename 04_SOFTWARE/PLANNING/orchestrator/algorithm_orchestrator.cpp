@@ -157,6 +157,43 @@ std::vector<std::string> validateRouteSpeedProfile(
     return violations;
 }
 
+bool sameRouteGeometry(const Route& lhs, const Route& rhs) {
+    if (lhs.trajectory_geometry_complete != rhs.trajectory_geometry_complete
+        || lhs.waypoints.size() != rhs.waypoints.size()
+        || lhs.segments.size() != rhs.segments.size())
+        return false;
+    const auto sameOptional = [](const std::optional<double>& a,
+                                 const std::optional<double>& b) {
+        if (a.has_value() != b.has_value()) return false;
+        return !a.has_value() || std::abs(*a - *b) <= 1e-9;
+    };
+    for (std::size_t i = 0; i < lhs.waypoints.size(); ++i) {
+        const auto& a = lhs.waypoints[i];
+        const auto& b = rhs.waypoints[i];
+        if (a.waypoint_id != b.waypoint_id
+            || std::abs(a.position.latitude_deg - b.position.latitude_deg) > 1e-10
+            || std::abs(a.position.longitude_deg - b.position.longitude_deg) > 1e-10
+            || std::abs(a.altitude_m - b.altitude_m) > 1e-6
+            || a.altitude_reference != b.altitude_reference
+            || a.mandatory != b.mandatory
+            || !sameOptional(a.task_execution_duration_s, b.task_execution_duration_s)
+            || !sameOptional(a.task_execution_energy_wh, b.task_execution_energy_wh))
+            return false;
+    }
+    for (std::size_t i = 0; i < lhs.segments.size(); ++i) {
+        const auto& a = lhs.segments[i];
+        const auto& b = rhs.segments[i];
+        if (a.segment_id != b.segment_id
+            || a.from_waypoint_id != b.from_waypoint_id
+            || a.to_waypoint_id != b.to_waypoint_id
+            || std::abs(a.distance_m - b.distance_m) > 1e-4
+            || !sameOptional(a.bank_angle_rad, b.bank_angle_rad)
+            || !sameOptional(a.lateral_acceleration_mps2, b.lateral_acceleration_mps2))
+            return false;
+    }
+    return true;
+}
+
 bool accepts_candidates(RunState state) {
     return state == RunState::Candidate || state == RunState::Completed;
 }
@@ -361,15 +398,16 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
                             const bool completeGeometry = corrected.trajectory_geometry_complete
                                 && corrected.waypoints.size() >= 2
                                 && corrected.segments.size() + 1 == corrected.waypoints.size();
+                            const bool geometryUnchanged = sameRouteGeometry(original, corrected);
                             const bool profileSnapshotMatches = corrected.speed_profile.has_value()
                                 && corrected.speed_profile->profile_id.size() > 0
                                 && corrected.speed_profile->profile_version.size() > 0
                                 && corrected.speed_profile->wind_snapshot_id == weatherAssessment.snapshot_id
                                 && corrected.speed_profile->wind_snapshot_version == weatherAssessment.snapshot_version
                                 && corrected.environment.wind_snapshot_id == weatherAssessment.snapshot_id;
-                            if (!sameLineage || !completeGeometry || !profileSnapshotMatches) {
+                            if (!sameLineage || !completeGeometry || !geometryUnchanged || !profileSnapshotMatches) {
                                 violations.push_back(
-                                    "WEATHER_ROUTE_FEEDBACK_INVALID: corrected route lost canonical lineage, complete geometry or matching wind/profile snapshot identity.");
+                                    "WEATHER_ROUTE_FEEDBACK_INVALID: corrected route changed canonical geometry/lineage or lacks matching wind/profile snapshot identity.");
                             } else {
                                 rankedCandidate.trajectory_route = corrected;
                                 if (context.problem().requires_flight_safety_validation
