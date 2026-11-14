@@ -7,6 +7,11 @@ Item {
     id: root
 
     property string apiKey: ""
+
+    Component.onCompleted: {
+        console.warn("BLUESKY_MAP_QML_COMPONENT_CREATED apiKeyLength=" + root.apiKey.length
+                     + " webChannelEnabled=" + root.webChannelEnabled)
+    }
     // Horizontal bounds of the side panels overlaying the full map viewport.
     property real leftPanelWidth: 0
     property real rightPanelWidth: 0
@@ -348,8 +353,14 @@ Item {
             }
         }
         Component.onCompleted: {
-            if (root.apiKey.length > 0)
+            console.warn("BLUESKY_WEBENGINE_VIEW_CREATED apiKeyLength=" + root.apiKey.length
+                         + " webChannelEnabled=" + root.webChannelEnabled)
+            if (root.apiKey.length > 0) {
+                console.warn("BLUESKY_WEBENGINE_HTML_LOAD_STARTED")
                 loadHtml(root.buildHtml(), "qrc:///")
+            } else {
+                console.warn("BLUESKY_WEBENGINE_HTML_LOAD_SKIPPED_NO_API_KEY")
+            }
         }
     }
 

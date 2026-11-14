@@ -313,8 +313,11 @@ jobs:
             $app.Refresh()
             if (-not $app.HasExited -and $case.Name -eq "map-key-webchannel-both") {
               Start-Sleep -Seconds 3
+              # Qt's installed message handler writes QML/JavaScript console messages to
+              # the startup diagnostic file, not the child process stdout/stderr streams.
               $channelOutput = ((Get-Content $stdout -ErrorAction SilentlyContinue) -join "`n") + "`n" +
-                              ((Get-Content $stderr -ErrorAction SilentlyContinue) -join "`n")
+                              ((Get-Content $stderr -ErrorAction SilentlyContinue) -join "`n") + "`n" +
+                              ((Get-Content $startupLog -ErrorAction SilentlyContinue) -join "`n")
               foreach ($marker in @("BLUESKY_WEBCHANNEL_MANUAL_OBJECT_OK", "BLUESKY_WEBCHANNEL_ROUTE_OBJECT_OK", "BLUESKY_WEBCHANNEL_ROUNDTRIP_OK", "BLUESKY_WEBCHANNEL_ROUTE_EDIT_ROUNDTRIP_OK")) {
                 if ($channelOutput -notmatch [regex]::Escape($marker)) {
                   $failures += "CASE $($case.Name): missing WebChannel functional marker $marker"
