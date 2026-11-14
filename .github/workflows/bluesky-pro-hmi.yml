@@ -115,18 +115,22 @@ jobs:
           if (-not $insideBuildHtml) { throw "Could not locate MapTilerWebMap.qml buildHtml() source" }
           $source = Get-Content $path -Raw
           $mainCpp = Get-Content "qt/BlueSkyPRO-HMI/src/main.cpp" -Raw
-          if ($source -match "import QtWebChannel|registeredObjects:") {
-            throw "QML must not instantiate or register the WebChannel; the C++ application owns it."
+          if ($source -notmatch "import QtWebChannel" -or
+              $source -notmatch "qrc:///qtwebchannel/qwebchannel.js" -or
+              $source -notmatch "WebChannel\s*\{" -or
+              $source -notmatch 'registerObject\("manualGeometryBridge",\s*manualGeometryBridge\)' -or
+              $source -notmatch 'registerObject\("routeController",\s*routeController\)') {
+            throw "MapTilerWebMap must create the QQmlWebChannel wrapper and register the canonical C++ bridge objects."
           }
-          if ($mainCpp -notmatch "#include <QWebChannel>" -or
-              $mainCpp -notmatch "QWebChannel mapWebChannel;" -or
-              $mainCpp -notmatch 'registerObject\(QStringLiteral\("manualGeometryBridge"\)' -or
-              $mainCpp -notmatch 'registerObject\(QStringLiteral\("routeController"\)' -or
-              $mainCpp -notmatch 'setContextProperty\(QStringLiteral\("mapWebChannel"\)') {
-            throw "C++ must own the WebChannel, register both canonical bridge objects, and expose the channel to QML."
+          if ($mainCpp -match 'QWebChannel mapWebChannel|setContextProperty\(QStringLiteral\("mapWebChannel"\)') {
+            throw "The native QWebChannel must not be assigned to WebEngineView; use the QML QQmlWebChannel wrapper."
           }
           if ($source -notmatch "webChannel:\s*root\.webChannelEnabled\s*\?\s*mapWebChannel\s*:\s*null") {
-            throw "WebEngineView must use the C++-owned WebChannel with the diagnostic disable switch."
+            throw "WebEngineView must use the QQmlWebChannel wrapper with the diagnostic disable switch."
+          }
+          if ($source -notmatch "BLUESKY_WEBCHANNEL_ROUNDTRIP_OK" -or
+              $source -notmatch "routeControllerBridge\.routeSnapshot") {
+            throw "The WebChannel bootstrap must verify a JavaScript-to-C++ routeSnapshot round trip."
           }
           $mainContent = Get-Content "qt/BlueSkyPRO-HMI/qml/MainContent.qml" -Raw
           $mapSource = Get-Content "qt/BlueSkyPRO-HMI/qml/MapTilerWebMap.qml" -Raw
@@ -294,7 +298,7 @@ jobs:
             @{ Name = "map-key-webchannel-empty"; Args = @("--ci-webchannel-empty"); Key = $true },
             @{ Name = "map-key-webchannel-manual-only"; Args = @("--ci-webchannel-manual-only"); Key = $true },
             @{ Name = "map-key-webchannel-route-only"; Args = @("--ci-webchannel-route-only"); Key = $true },
-            @{ Name = "map-key-webchannel-both"; Args = @(); Key = $true }
+            @{ Name = "map-key-webchannel-both"; Args = @("--ci-webchannel-probe"); Key = $true }
           )
           $failures = @()
           foreach ($case in $cases) {
@@ -307,6 +311,16 @@ jobs:
             $app = Start-Process -FilePath "appBlueSkyPRO.exe" -ArgumentList $case.Args -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
             Start-Sleep -Seconds 12
             $app.Refresh()
+            if (-not $app.HasExited -and $case.Name -eq "map-key-webchannel-both") {
+              Start-Sleep -Seconds 3
+              $channelOutput = ((Get-Content $stdout -ErrorAction SilentlyContinue) -join "`n") + "`n" +
+                              ((Get-Content $stderr -ErrorAction SilentlyContinue) -join "`n")
+              foreach ($marker in @("BLUESKY_WEBCHANNEL_MANUAL_OBJECT_OK", "BLUESKY_WEBCHANNEL_ROUTE_OBJECT_OK", "BLUESKY_WEBCHANNEL_ROUNDTRIP_OK", "BLUESKY_WEBCHANNEL_ROUTE_EDIT_ROUNDTRIP_OK")) {
+                if ($channelOutput -notmatch [regex]::Escape($marker)) {
+                  $failures += "CASE $($case.Name): missing WebChannel functional marker $marker"
+                }
+              }
+            }
             if ($app.HasExited) {
               $detail = "CASE $($case.Name): process exited with code $($app.ExitCode)"
               $failures += $detail

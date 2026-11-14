@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtWebEngine
+import QtWebChannel
 
 Item {
     id: root
@@ -83,6 +84,7 @@ Item {
             " <script src='qrc:///maplibre-gl.js'></script>",
             "<script>",
             "const apiKey=" + keyLiteral + ";",
+            "const webChannelProbeEnabled=" + JSON.stringify(Qt.application.arguments.indexOf("--ci-webchannel-probe") >= 0) + ";",
             "let qtNotamDiagnostics={state:'NOT_RECEIVED_FROM_QML'};window.blueskySetQtNotamDiagnostics=function(value){qtNotamDiagnostics=value&&typeof value==='object'?value:{state:'INVALID_QML_DIAGNOSTICS'};};",
             "const statusEl=document.getElementById('map-status');",
             "let geometryBridge=null;let selectedTemplates=[];let activeTemplate='';let capturing=false;let settingOrigin=false;let origin=null;let draft=[];let objects=[];let geometryVersion=1;",
@@ -90,7 +92,7 @@ Item {
             "const geometryControls=document.getElementById('geometry-controls');const geometrySelect=document.getElementById('geometry-template');const geometryStatus=document.getElementById('geometry-status');",
             "function publishGeometry(complete){if(geometryBridge)geometryBridge.publishGeometry(JSON.stringify({origin:origin,objects:objects}),complete);}",
             "function syncGeometryTemplates(ids){selectedTemplates=Array.isArray(ids)?ids.filter(id=>geometryTypes[id]):[];geometrySelect.replaceChildren();selectedTemplates.forEach(id=>{const option=document.createElement('option');option.value=id;option.textContent=id+' · '+geometryTypes[id];geometrySelect.appendChild(option);});activeTemplate=selectedTemplates.includes(activeTemplate)?activeTemplate:(selectedTemplates[0]||'');geometrySelect.value=activeTemplate;geometryControls.style.display=selectedTemplates.length?'flex':'none';publishGeometry(false);}",
-            "if(window.qt&&qt.webChannelTransport){new QWebChannel(qt.webChannelTransport,channel=>{geometryBridge=channel.objects.manualGeometryBridge;routeControllerBridge=channel.objects.routeController;publishGeometry(false);});}",
+            "if(window.qt&&qt.webChannelTransport){new QWebChannel(qt.webChannelTransport,channel=>{geometryBridge=channel.objects.manualGeometryBridge;routeControllerBridge=channel.objects.routeController;publishGeometry(false);if(geometryBridge&&typeof geometryBridge.publishGeometry==='function')console.log('BLUESKY_WEBCHANNEL_MANUAL_OBJECT_OK');if(routeControllerBridge&&typeof routeControllerBridge.routeSnapshot==='function'){console.log('BLUESKY_WEBCHANNEL_ROUTE_OBJECT_OK');routeControllerBridge.routeSnapshot(snapshot=>{if(snapshot&&Object.prototype.hasOwnProperty.call(snapshot,'validationState'))console.log('BLUESKY_WEBCHANNEL_ROUNDTRIP_OK');else console.error('BLUESKY_WEBCHANNEL_ROUNDTRIP_FAILED');});if(webChannelProbeEnabled){const candidate={routeId:'ci-webchannel-route',routeVersion:'1',missionId:'ci-webchannel-mission',missionVersion:'1',generatorId:'ci-webchannel-generator',generatorVersion:'1',calculationInputVersion:'ci-webchannel-input',coordinateReferenceSystem:'EPSG:4326',environmentSnapshotRefs:{terrainSnapshotId:'ci-terrain',airspaceSnapshotId:'ci-airspace',weatherSnapshotId:'',windSnapshotId:''},waypoints:[{waypointId:'ci-wp-1',latitudeDeg:0,longitudeDeg:0,altitudeM:40,mandatory:true,altitudeReference:'AGL'},{waypointId:'ci-wp-2',latitudeDeg:0.1,longitudeDeg:0.1,altitudeM:40,mandatory:true,altitudeReference:'AGL'}]};routeControllerBridge.loadCandidate(candidate,accepted=>{if(!accepted){console.error('BLUESKY_WEBCHANNEL_ROUTE_LOAD_FAILED');return;}routeControllerBridge.editWaypointPosition('ci-wp-2',0.2,0.3,edited=>{if(!edited){console.error('BLUESKY_WEBCHANNEL_ROUTE_EDIT_FAILED');return;}routeControllerBridge.routeSnapshot(editedSnapshot=>{const point=(editedSnapshot.waypoints||[]).find(item=>item.waypointId==='ci-wp-2');if(editedSnapshot.validationState==='RECALCULATION_REQUIRED'&&point&&Math.abs(point.latitudeDeg-0.2)<1e-9&&Math.abs(point.longitudeDeg-0.3)<1e-9)console.log('BLUESKY_WEBCHANNEL_ROUTE_EDIT_ROUNDTRIP_OK');else console.error('BLUESKY_WEBCHANNEL_ROUTE_EDIT_ROUNDTRIP_FAILED');});});});}}});}",
             "if(!apiKey){statusEl.textContent='BLUESKY_MAPTILER_API_KEY NOT SET';}",
             "else{",
             "",
@@ -267,9 +269,28 @@ Item {
         }
     }
 
-    // The C++ application owns the QWebChannel and its QObject registrations.
-    // Keep the map's transport optional for the Windows startup isolation test.
+    // WebEngineView requires QQmlWebChannel, not the native QWebChannel C++ type.
+    // The QML wrapper supplies the WebEngine transport and publishes the C++ bridge objects.
     property bool webChannelEnabled: Qt.application.arguments.indexOf("--ci-disable-webchannel") < 0
+
+    WebChannel {
+        id: mapWebChannel
+        Component.onCompleted: {
+            const args = Qt.application.arguments
+            if (args.indexOf("--ci-webchannel-empty") >= 0)
+                return
+            if (args.indexOf("--ci-webchannel-manual-only") >= 0) {
+                registerObject("manualGeometryBridge", manualGeometryBridge)
+                return
+            }
+            if (args.indexOf("--ci-webchannel-route-only") >= 0) {
+                registerObject("routeController", routeController)
+                return
+            }
+            registerObject("manualGeometryBridge", manualGeometryBridge)
+            registerObject("routeController", routeController)
+        }
+    }
 
     Timer {
         id: notamViewportPoll
