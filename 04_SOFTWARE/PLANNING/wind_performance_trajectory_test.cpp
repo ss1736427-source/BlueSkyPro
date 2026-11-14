@@ -121,10 +121,21 @@ int main(){
     variableProfileInput.speed_profile_vehicle_model_version = "MODEL-1";
     variableProfileInput.speed_profile_configuration_id = "CFG1";
     variableProfileInput.speed_profile_speed_reference = "TAS";
-    variableProfileInput.speed_profile_segments = {
-        {"S1", 111.32, 10.0, 10.0, 18.0, 56.0, 37.3333333333,
-         17.9866666667, 2.0, 3.0}
-    };
+    SpeedProfileInput longitudinalInput;
+    longitudinalInput.vehicle_model_id = "UAV-01";
+    longitudinalInput.vehicle_model_version = "MODEL-1";
+    longitudinalInput.configuration_id = "CFG1";
+    longitudinalInput.speed_reference = "TAS";
+    longitudinalInput.longitudinal_dynamics_validated = true;
+    longitudinalInput.longitudinal_dynamics_source = "verified-test:LONG-01";
+    longitudinalInput.maximum_acceleration_mps2 = 2.0;
+    longitudinalInput.maximum_deceleration_mps2 = 3.0;
+    longitudinalInput.initial_speed_mps = 10.0;
+    longitudinalInput.final_speed_mps = 10.0;
+    longitudinalInput.segments = {{"S1", 111.32, 10.0, 18.0}};
+    const auto solvedProfile = VariableSpeedProfileSolver::calculate(longitudinalInput);
+    assert(solvedProfile.status == SpeedProfileStatus::Feasible);
+    variableProfileInput.speed_profile_segments = solvedProfile.segments;
     const auto variableProfileResult = WindPerformanceTrajectory::calculate(
         route, variableProfileInput, "CALC1");
     assert(variableProfileResult.status == TrajectoryStatus::Feasible);
