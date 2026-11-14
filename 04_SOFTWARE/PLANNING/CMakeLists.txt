@@ -19,6 +19,7 @@ add_library(bluesky_planning
     notam_geometry_adapter.cpp
     mt01_mapping_pipeline.cpp
     mt01_kinematic_geometry_builder.cpp
+    variable_speed_profile.cpp
     mt01_route_candidate_builder.cpp
     mt01_weather_performance_adapter.cpp
     mt01_weather_candidate_assessor.cpp
@@ -167,6 +168,9 @@ target_link_libraries(multi_uav_zonal_planning_test PRIVATE bluesky_planning)
 
 add_executable(zonal_route_graph_test zonal_route_graph_test.cpp)
 target_link_libraries(zonal_route_graph_test PRIVATE bluesky_planning)
+
+add_executable(variable_speed_profile_test variable_speed_profile_test.cpp)
+target_link_libraries(variable_speed_profile_test PRIVATE bluesky_planning)
 
 add_executable(wind_performance_trajectory_test
     wind_performance_trajectory_test.cpp
@@ -329,6 +333,7 @@ target_link_libraries(capability_execution_integration_test PRIVATE bluesky_plan
     add_test(NAME multi_uav_zonal_planning_test COMMAND multi_uav_zonal_planning_test)
     add_test(NAME zonal_route_graph_test COMMAND zonal_route_graph_test)
     add_test(NAME wind_performance_trajectory_test COMMAND wind_performance_trajectory_test)
+    add_test(NAME variable_speed_profile_test COMMAND variable_speed_profile_test)
     add_test(NAME route_constraint_validator_test COMMAND route_constraint_validator_test)
     add_test(NAME notam_prohibited_zone_validator_test COMMAND notam_prohibited_zone_validator_test)
     add_test(NAME authorization_readiness_gate_test COMMAND authorization_readiness_gate_test)
