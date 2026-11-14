@@ -582,6 +582,10 @@ bool buildWindAwareSpeedProfile(
     std::ostringstream profileVersion;
     profileVersion<<sourceRoute.lineage.mission_id<<'|'<<sourceRoute.lineage.mission_version
         <<'|'<<sourceRoute.lineage.route_id<<'|'<<sourceRoute.lineage.route_version
+        <<'|'<<sourceRoute.lineage.calculation_input_version
+        <<'|'<<sourceProfile.vehicle_model_id<<'|'<<sourceProfile.vehicle_model_version
+        <<'|'<<sourceProfile.configuration_id<<'|'<<sourceProfile.speed_reference
+        <<'|'<<sourceProfile.dynamics_source
         <<'|'<<snapshotId<<'|'<<snapshotVersion<<'|'<<calculationVersion
         <<'|'<<input.camera_configuration_id<<'|'<<std::setprecision(17)
         <<input.camera_gsd_m_px<<'|'<<input.camera_forward_trigger_spacing_m
