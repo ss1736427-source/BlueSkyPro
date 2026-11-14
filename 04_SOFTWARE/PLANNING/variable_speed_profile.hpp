@@ -12,9 +12,11 @@ struct SpeedProfileInput {
  std::vector<SpeedProfileSegmentInput> segments;
 };
 struct SpeedProfileSegmentResult {
- std::string segment_id; double entry_speed_mps{0.0}, exit_speed_mps{0.0};
+ std::string segment_id; double distance_m{0.0};
+ double entry_speed_mps{0.0}, exit_speed_mps{0.0};
  double maximum_reachable_speed_mps{0.0}, acceleration_distance_m{0.0};
  double deceleration_distance_m{0.0}, cruise_distance_m{0.0};
+ double maximum_acceleration_mps2{0.0}, maximum_deceleration_mps2{0.0};
 };
 struct SpeedProfileResult {
  SpeedProfileStatus status{SpeedProfileStatus::Infeasible};
