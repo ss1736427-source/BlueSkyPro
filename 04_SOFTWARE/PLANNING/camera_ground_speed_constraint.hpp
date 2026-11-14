@@ -14,6 +14,7 @@ struct CameraAirspeedCapResult {
     double wind_along_track_mps{0.0};
     double wind_cross_track_mps{0.0};
     double camera_maximum_ground_speed_mps{0.0};
+    double minimum_airspeed_mps{0.0};
     double maximum_airspeed_mps{0.0};
     std::string diagnostic;
 };
@@ -59,9 +60,16 @@ public:
         const double capSquared = availableAlongGroundSpeed * availableAlongGroundSpeed
             + out.wind_cross_track_mps * out.wind_cross_track_mps;
         const double windAwareCap = std::sqrt(capSquared);
+        // The profile lower bound must also guarantee crosswind compensation
+        // and positive progress against a headwind.
+        const double minimumForWind = std::hypot(
+            out.wind_cross_track_mps,
+            std::max(0.0, -out.wind_along_track_mps));
+        out.minimum_airspeed_mps = std::max(
+            aircraft_minimum_airspeed_mps, minimumForWind + 1e-6);
         out.maximum_airspeed_mps = std::min(aircraft_maximum_airspeed_mps, windAwareCap);
-        if (out.maximum_airspeed_mps + 1e-9 < aircraft_minimum_airspeed_mps) {
-            out.diagnostic = "CAMERA_GROUND_SPEED_CAP_CONFLICTS_WITH_AIRCRAFT_MINIMUM_AIRSPEED";
+        if (out.maximum_airspeed_mps + 1e-9 < out.minimum_airspeed_mps) {
+            out.diagnostic = "CAMERA_GROUND_SPEED_CAP_CONFLICTS_WITH_AIRCRAFT_OR_WIND_MINIMUM_AIRSPEED";
             return out;
         }
         out.feasible = true;
