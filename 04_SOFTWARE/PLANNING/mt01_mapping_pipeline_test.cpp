@@ -298,6 +298,13 @@ int main()
     fixedWingRequest.fixed_wing_clean_stall_speed_mps = 6.0;
     fixedWingRequest.fixed_wing_stall_speed_reference = "TAS";
     fixedWingRequest.fixed_wing_stall_margin_factor = 1.20;
+    fixedWingRequest.longitudinal_dynamics_validated = true;
+    fixedWingRequest.longitudinal_dynamics_source =
+        "controlled fixed-wing integration fixture";
+    fixedWingRequest.maximum_acceleration_mps2 = 2.0;
+    fixedWingRequest.maximum_deceleration_mps2 = 3.0;
+    fixedWingRequest.initial_route_speed_mps = 10.0;
+    fixedWingRequest.final_route_speed_mps = 10.0;
     auto& safety = fixedWingRequest.flight_safety_envelope;
     safety.vehicle_model_id = assignment.vehicle_id;
     safety.model_version = assignment.configuration_version;
@@ -342,6 +349,17 @@ int main()
     assert(fixedWingResult.segment_dynamics_validated);
     assert(fixedWingResult.flight_safety_validation.status == FlightSafetyStatus::Allowed);
     assert(fixedWingResult.route_candidate_available);
+    assert(fixedWingResult.speed_profile_available);
+    assert(fixedWingResult.route_candidate.route.speed_profile.has_value());
+    assert(fixedWingResult.speed_profile.status == SpeedProfileStatus::Feasible);
+    for (std::size_t i = 0; i < fixedWingResult.kinematic_geometry.segments.size(); ++i) {
+        const auto& segment = fixedWingResult.kinematic_geometry.segments[i];
+        if (segment.type == Mt01KinematicSegmentType::ConnectorTurn) {
+            const auto& profile = fixedWingResult.speed_profile.segments[i];
+            assert(std::abs(profile.entry_speed_mps - segment.nominal_speed_mps) < 1e-6);
+            assert(std::abs(profile.exit_speed_mps - segment.nominal_speed_mps) < 1e-6);
+        }
+    }
     assert(fixedWingResult.route_candidate.route.environment.airspace_snapshot_id ==
            fixedWingRequest.notam_snapshot.snapshot_id);
     assert(fixedWingResult.route_candidate.structural_validation.status ==
@@ -369,6 +387,19 @@ int main()
         if (finding.find("MT01_TURN_SPEED_CAP_UNAVAILABLE") != std::string::npos)
             missingStallBlocked = true;
     assert(missingStallBlocked);
+    auto missingLongitudinalEvidence = fixedWingRequest;
+    missingLongitudinalEvidence.longitudinal_dynamics_validated = false;
+    const auto missingLongitudinalResult =
+        Mt01MappingPipeline::calculate(missingLongitudinalEvidence);
+    assert(missingLongitudinalResult.kinematic_geometry_available);
+    assert(!missingLongitudinalResult.speed_profile_available);
+    assert(!missingLongitudinalResult.route_candidate_available);
+    bool longitudinalEvidenceBlocked = false;
+    for (const auto& finding : missingLongitudinalResult.findings)
+        if (finding.find("MT01_SPEED_PROFILE_REQUIRED") != std::string::npos)
+            longitudinalEvidenceBlocked = true;
+    assert(longitudinalEvidenceBlocked);
+
 
 
     auto missingRouteProvenance = fixedWingRequest;
