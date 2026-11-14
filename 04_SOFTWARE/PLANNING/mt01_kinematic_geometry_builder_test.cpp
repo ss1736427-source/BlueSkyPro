@@ -63,7 +63,8 @@ int main()
     assert(requestedTurnSpeed.valid);
     const auto slowedConnectorGeometry = Mt01KinematicGeometryBuilder::build(
         coverage, vehicle, "TEST-FIXED-WING", "TEST-CONFIG-1",
-        10.0, {}, 2.0, requestedTurnSpeed.selected_speed_mps);
+        10.0, {}, 2.0, requestedTurnSpeed.selected_speed_mps,
+        requestedTurnSpeed.minimum_safe_turn_speed_mps);
     assert(slowedConnectorGeometry.feasible);
     assert(std::abs(slowedConnectorGeometry.minimum_turn_radius_m - 15.0) < 1e-6);
     bool sawSlowedConnector = false;
@@ -192,7 +193,7 @@ int main()
     slowedProfileInput.final_speed_mps = 10.0;
     for (const auto& segment : slowedConnectorGeometry.segments) {
         slowedProfileInput.segments.push_back({
-            segment.segment_id, segment.distance_m, 5.0,
+            segment.segment_id, segment.distance_m, segment.minimum_speed_mps,
             segment.nominal_speed_mps
         });
     }
@@ -227,6 +228,22 @@ int main()
     assert(!wrongAircraftRoute.available);
     assert(wrongAircraftRoute.diagnostics.front().find("SPEED_PROFILE") !=
            std::string::npos);
+    auto belowMinimumProfile = slowedProfile;
+    for (std::size_t i = 0; i < slowedConnectorGeometry.segments.size(); ++i) {
+        if (slowedConnectorGeometry.segments[i].type
+            == Mt01KinematicSegmentType::ConnectorTurn) {
+            belowMinimumProfile.segments[i].entry_speed_mps =
+                slowedConnectorGeometry.segments[i].minimum_speed_mps - 0.5;
+            break;
+        }
+    }
+    const auto belowMinimumRoute = Mt01RouteCandidateBuilder::build(
+        slowedConnectorGeometry, coverage, "MT01-MISSION-TEST", "1",
+        routeMetadata, &belowMinimumProfile);
+    assert(!belowMinimumRoute.available);
+    assert(belowMinimumRoute.diagnostics.front().find("SPEED_PROFILE") !=
+           std::string::npos);
+
 
 
     auto incompleteProfile = speedProfile;
