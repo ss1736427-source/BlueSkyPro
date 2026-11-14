@@ -21,6 +21,7 @@ add_library(bluesky_planning
     mt01_kinematic_geometry_builder.cpp
     mt01_route_candidate_builder.cpp
     mt01_weather_performance_adapter.cpp
+    mt01_weather_candidate_assessor.cpp
     orchestrator/algorithm_orchestrator.cpp
     benchmarks/solver_benchmark_runner.cpp
     adapter/universal_adapter_registry.cpp
