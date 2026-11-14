@@ -285,6 +285,13 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
         double north=0.0,east=0.0;
         local_vector(from->position,to->position,north,east);
         const double horizontal=std::hypot(north,east);
+        const auto* segmentProfile = variableProfile
+            ? find_profile_segment(input.speed_profile_segments, seg.segment_id) : nullptr;
+        if (variableProfile && !segmentProfile) {
+            fail(r, TrajectoryFindingCode::InvalidPerformance, seg.segment_id,
+                 "speed profile segment is missing for the canonical route segment");
+            return r;
+        }
         if (segmentProfile && std::abs(segmentProfile->distance_m - horizontal)
             > std::max(0.5, horizontal * 0.01)) {
             fail(r, TrajectoryFindingCode::InvalidPerformance, seg.segment_id,
@@ -292,8 +299,6 @@ TrajectoryResult WindPerformanceTrajectory::calculate(
             return r;
         }
         const double dz=to->altitude_m-from->altitude_m;
-        const auto* segmentProfile = variableProfile
-            ? find_profile_segment(input.speed_profile_segments, seg.segment_id) : nullptr;
         const double fallbackAirspeed = variableProfile
             ? segmentProfile->maximum_reachable_speed_mps : input.cruise_airspeed_mps;
         const double vertical_rate=dz>0.0?input.climb_rate_mps:(dz<0.0?input.descent_rate_mps:fallbackAirspeed);
