@@ -75,6 +75,10 @@ int main()
             sawSlowedConnector = true;
             assert(std::abs(segment.nominal_speed_mps
                             - requestedTurnSpeed.selected_speed_mps) < 1e-9);
+            if (segment.type == Mt01KinematicSegmentType::ConnectorTurn) {
+                assert(std::abs(segment.minimum_speed_mps
+                                - segment.nominal_speed_mps) < 1e-9);
+            }
         } else if (segment.type == Mt01KinematicSegmentType::Coverage) {
             sawCruiseCoverage = true;
             assert(std::abs(segment.nominal_speed_mps - 10.0) < 1e-9);
@@ -200,6 +204,18 @@ int main()
     const auto slowedProfile =
         VariableSpeedProfileSolver::calculate(slowedProfileInput);
     assert(slowedProfile.status == SpeedProfileStatus::Feasible);
+    for (std::size_t i = 0; i < slowedConnectorGeometry.segments.size(); ++i) {
+        if (slowedConnectorGeometry.segments[i].type
+            == Mt01KinematicSegmentType::ConnectorTurn) {
+            assert(std::abs(slowedProfile.segments[i].entry_speed_mps
+                            - slowedConnectorGeometry.segments[i].nominal_speed_mps) < 1e-6);
+            assert(std::abs(slowedProfile.segments[i].exit_speed_mps
+                            - slowedConnectorGeometry.segments[i].nominal_speed_mps) < 1e-6);
+            assert(std::abs(slowedProfile.segments[i].maximum_reachable_speed_mps
+                            - slowedConnectorGeometry.segments[i].nominal_speed_mps) < 1e-6);
+        }
+    }
+
     const auto slowedRoute = Mt01RouteCandidateBuilder::build(
         slowedConnectorGeometry, coverage, "MT01-MISSION-TEST", "1",
         routeMetadata, &slowedProfile);
