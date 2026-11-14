@@ -145,9 +145,9 @@ int main(){
            TrajectoryStatus::Infeasible);
     auto cameraUnsafeProfile = variableProfileInput;
     cameraUnsafeProfile.speed_profile_segments[0].maximum_reachable_speed_mps = 25.0;
-    cameraUnsafeProfile.speed_profile_segments[0].acceleration_distance_m = 23.75;
-    cameraUnsafeProfile.speed_profile_segments[0].deceleration_distance_m = 19.75;
-    cameraUnsafeProfile.speed_profile_segments[0].cruise_distance_m = 67.82;
+    cameraUnsafeProfile.speed_profile_segments[0].acceleration_distance_m = 26.25;
+    cameraUnsafeProfile.speed_profile_segments[0].deceleration_distance_m = 26.25;
+    cameraUnsafeProfile.speed_profile_segments[0].cruise_distance_m = 58.82;
     cameraUnsafeProfile.speed_profile_segments[0].maximum_acceleration_mps2 = 10.0;
     cameraUnsafeProfile.speed_profile_segments[0].maximum_deceleration_mps2 = 10.0;
     const auto cameraUnsafeResult = WindPerformanceTrajectory::calculate(route, cameraUnsafeProfile, "CALC1");
