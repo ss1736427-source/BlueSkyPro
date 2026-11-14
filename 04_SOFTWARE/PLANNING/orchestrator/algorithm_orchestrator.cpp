@@ -69,6 +69,84 @@ bool structurally_valid_candidate(const CandidateSolution& candidate,
     return route_matches_graph(candidate, problem);
 }
 
+std::vector<std::string> validateRouteSpeedProfile(
+    const Route& route, const FlightSafetyEnvelope& envelope) {
+    std::vector<std::string> violations;
+    if (!route.speed_profile) return violations; // Legacy constant-speed candidates remain supported.
+    const auto& profile = *route.speed_profile;
+    const auto fail = [&](const std::string& detail) {
+        violations.push_back("SPEED_PROFILE_VALIDATION: " + detail);
+    };
+    const std::string requiredReference =
+        envelope.motion_class == MotionClass::FixedWing ? "TAS" : "AIR_RELATIVE";
+    if (profile.vehicle_model_id != envelope.vehicle_model_id
+        || profile.vehicle_model_version != envelope.model_version
+        || profile.configuration_id != envelope.configuration_id
+        || profile.speed_reference != requiredReference
+        || profile.dynamics_source.empty()) {
+        fail("профиль не привязан к точной модели, версии, конфигурации и системе отсчёта назначенного БВС.");
+        return violations;
+    }
+    if (profile.segments.size() != route.segments.size() || profile.segments.empty()) {
+        fail("профиль не покрывает все сегменты канонического маршрута.");
+        return violations;
+    }
+    if (!envelope.minimum_speed_mps || !envelope.maximum_speed_mps) {
+        fail("для проверки профиля отсутствуют подтверждённые нижняя и верхняя границы скорости БВС.");
+        return violations;
+    }
+    double previousExit = 0.0;
+    for (std::size_t i = 0; i < profile.segments.size(); ++i) {
+        const auto& p = profile.segments[i];
+        const auto& s = route.segments[i];
+        const double tolerance = std::max(0.5, s.distance_m * 0.01);
+        const double phaseDistance = p.acceleration_distance_m
+            + p.deceleration_distance_m + p.cruise_distance_m;
+        const auto positive = [](double value) {
+            return std::isfinite(value) && value > 0.0;
+        };
+        if (p.segment_id != s.segment_id || !positive(p.distance_m)
+            || !std::isfinite(s.distance_m) || s.distance_m <= 0.0
+            || std::abs(p.distance_m - s.distance_m) > tolerance
+            || !positive(p.entry_speed_mps) || !positive(p.exit_speed_mps)
+            || !positive(p.maximum_reachable_speed_mps)
+            || !positive(p.maximum_acceleration_mps2)
+            || !positive(p.maximum_deceleration_mps2)
+            || !std::isfinite(p.acceleration_distance_m)
+            || !std::isfinite(p.deceleration_distance_m)
+            || !std::isfinite(p.cruise_distance_m)
+            || p.acceleration_distance_m < 0.0 || p.deceleration_distance_m < 0.0
+            || p.cruise_distance_m < 0.0
+            || std::abs(phaseDistance - s.distance_m) > tolerance
+            || p.maximum_reachable_speed_mps + 1e-9
+                < std::max(p.entry_speed_mps, p.exit_speed_mps)
+            || p.entry_speed_mps < *envelope.minimum_speed_mps - 1e-6
+            || p.exit_speed_mps < *envelope.minimum_speed_mps - 1e-6
+            || p.maximum_reachable_speed_mps > *envelope.maximum_speed_mps + 1e-6
+            || (i > 0 && std::abs(p.entry_speed_mps - previousExit) > 1e-6)) {
+            fail("сегмент " + s.segment_id
+                 + " не прошёл проверку порядка, расстояния, непрерывности или скоростных границ.");
+            return violations;
+        }
+        const double expectedAccelerationDistance = std::max(0.0,
+            (p.maximum_reachable_speed_mps * p.maximum_reachable_speed_mps
+             - p.entry_speed_mps * p.entry_speed_mps)
+            / (2.0 * p.maximum_acceleration_mps2));
+        const double expectedDecelerationDistance = std::max(0.0,
+            (p.maximum_reachable_speed_mps * p.maximum_reachable_speed_mps
+             - p.exit_speed_mps * p.exit_speed_mps)
+            / (2.0 * p.maximum_deceleration_mps2));
+        if (std::abs(expectedAccelerationDistance - p.acceleration_distance_m) > tolerance
+            || std::abs(expectedDecelerationDistance - p.deceleration_distance_m) > tolerance) {
+            fail("сегмент " + s.segment_id
+                 + " содержит ускорение/торможение, не соответствующее заявленным динамическим пределам.");
+            return violations;
+        }
+        previousExit = p.exit_speed_mps;
+    }
+    return violations;
+}
+
 bool accepts_candidates(RunState state) {
     return state == RunState::Candidate || state == RunState::Completed;
 }
@@ -201,6 +279,16 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
                     }
                 }
             }
+            if (context.problem().requires_flight_safety_validation
+                && context.problem().flight_safety_envelope.has_value()
+                && candidate.trajectory_route.has_value()) {
+                const auto profileViolations = validateRouteSpeedProfile(
+                    *candidate.trajectory_route,
+                    *context.problem().flight_safety_envelope);
+                violations.insert(violations.end(), profileViolations.begin(),
+                                  profileViolations.end());
+            }
+
             if (constraint_validator_) {
                 const auto validated_violations =
                     constraint_validator_(context.problem(), candidate);
