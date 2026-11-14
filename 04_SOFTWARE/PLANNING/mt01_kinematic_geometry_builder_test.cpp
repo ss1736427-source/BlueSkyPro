@@ -182,14 +182,25 @@ int main()
     assert(noEvidence.diagnostics.front().find("NOT_VALIDATED") != std::string::npos);
 
     auto multirotor = vehicle;
+    multirotor.model_id = "TEST-MULTIROTOR";
     multirotor.motion_class = MotionClass::Multirotor;
     multirotor.speed_reference = "AIR_RELATIVE";
     multirotor.lateral_acceleration_mps2 = 2.0;
-    const auto unsupported = Mt01KinematicGeometryBuilder::build(
-        coverage, multirotor, "TEST-FIXED-WING", "TEST-CONFIG-1",
+    multirotor.bank_angle_rad = 0.0; // Bank is not a multirotor turn constraint.
+    const auto multirotorGeometry = Mt01KinematicGeometryBuilder::build(
+        coverage, multirotor, "TEST-MULTIROTOR", "TEST-CONFIG-1",
         10.0, {});
-    assert(!unsupported.feasible);
-    assert(unsupported.diagnostics.front().find("supports fixed-wing") != std::string::npos);
+    assert(multirotorGeometry.feasible);
+    assert(multirotorGeometry.minimum_turn_radius_m > 0.0);
+    bool sawMultirotorTurn = false;
+    for (const auto& segment : multirotorGeometry.segments) {
+        if (segment.type == Mt01KinematicSegmentType::ConnectorTurn) {
+            sawMultirotorTurn = true;
+            assert(segment.bank_angle_rad == 0.0);
+            assert(std::abs(segment.lateral_acceleration_mps2 - 2.0) < 1e-6);
+        }
+    }
+    assert(sawMultirotorTurn);
 
     const std::vector<std::vector<GeoPoint>> blockingArea{{
         {-0.01, -0.01}, {-0.01, 0.01}, {0.01, 0.01}, {0.01, -0.01}
