@@ -109,12 +109,42 @@ int main()
     routeMetadata.generator_version = "1";
     routeMetadata.calculation_input_version = "INPUT-TEST-1";
     routeMetadata.constraints = {50.0, 150.0, 30.0, true};
+    SpeedProfileInput profileInput;
+    profileInput.vehicle_model_id = vehicle.model_id;
+    profileInput.vehicle_model_version = vehicle.model_version;
+    profileInput.configuration_id = vehicle.configuration_id;
+    profileInput.speed_reference = "TAS";
+    profileInput.longitudinal_dynamics_validated = true;
+    profileInput.longitudinal_dynamics_source = "controlled-test-fixture";
+    profileInput.maximum_acceleration_mps2 = 2.0;
+    profileInput.maximum_deceleration_mps2 = 3.0;
+    profileInput.initial_speed_mps = 10.0;
+    profileInput.final_speed_mps = 10.0;
+    for (const auto& segment : result.segments)
+        profileInput.segments.push_back({segment.segment_id, segment.distance_m, 5.0, 10.0});
+    const auto speedProfile = VariableSpeedProfileSolver::calculate(profileInput);
+    assert(speedProfile.status == SpeedProfileStatus::Feasible);
     const auto routeCandidate = Mt01RouteCandidateBuilder::build(
-        result, coverage, "MT01-MISSION-TEST", "1", routeMetadata);
+        result, coverage, "MT01-MISSION-TEST", "1", routeMetadata, &speedProfile);
     assert(routeCandidate.available);
+    assert(routeCandidate.route.speed_profile.has_value());
+    assert(routeCandidate.route.speed_profile->segments.size() == result.segments.size());
     assert(routeCandidate.structural_validation.status == RouteValidationStatus::Allowed);
     assert(routeCandidate.route.waypoints.size() == result.waypoints.size());
     assert(routeCandidate.route.segments.size() == result.segments.size());
+    for (std::size_t i = 0; i < result.segments.size(); ++i) {
+        assert(routeCandidate.route.speed_profile->segments[i].segment_id ==
+               routeCandidate.route.segments[i].segment_id);
+        assert(std::abs(routeCandidate.route.speed_profile->segments[i].distance_m -
+                        routeCandidate.route.segments[i].distance_m) <=
+               std::max(0.5, routeCandidate.route.segments[i].distance_m * 0.01));
+    }
+    auto incompleteProfile = speedProfile;
+    incompleteProfile.segments.pop_back();
+    const auto rejectedProfile = Mt01RouteCandidateBuilder::build(
+        result, coverage, "MT01-MISSION-TEST", "1", routeMetadata, &incompleteProfile);
+    assert(!rejectedProfile.available);
+    assert(rejectedProfile.diagnostics.front().find("SPEED_PROFILE") != std::string::npos);
     assert(!routeCandidate.route.trajectory_geometry_complete);
     const auto routeDynamics = FlightSafetyConstraintValidator::validateRoute(
         envelope, routeCandidate.route);
