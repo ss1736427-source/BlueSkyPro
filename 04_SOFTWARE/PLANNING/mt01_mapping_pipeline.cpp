@@ -236,7 +236,7 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
         addFinding(result, diagnostic);
     if (!result.kinematic_geometry_available) {
         addFinding(result,
-            "MT01_KINEMATIC_GEOMETRY_BLOCKED: coverage legs remain available for analysis, but a validated fixed-wing turn-connector candidate was not established.");
+            "MT01_KINEMATIC_GEOMETRY_BLOCKED: coverage legs remain available for analysis, but a validated aircraft-motion-class turn-connector candidate was not established.");
     } else {
         const bool connectorSlowerThanCoverage =
             connectorSpeedMps + 1e-6 < request.cruise_speed_mps;
