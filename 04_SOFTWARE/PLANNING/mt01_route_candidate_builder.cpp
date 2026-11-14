@@ -144,6 +144,12 @@ Mt01RouteCandidateResult Mt01RouteCandidateBuilder::build(
                     > routeSegment.nominal_speed_mps + 1e-6
                 || profileSegment.entry_speed_mps > routeSegment.nominal_speed_mps + 1e-6
                 || profileSegment.exit_speed_mps > routeSegment.nominal_speed_mps + 1e-6
+                || profileSegment.entry_speed_mps
+                    < geometry.segments[i].minimum_speed_mps - 1e-6
+                || profileSegment.exit_speed_mps
+                    < geometry.segments[i].minimum_speed_mps - 1e-6
+                || profileSegment.maximum_reachable_speed_mps
+                    < geometry.segments[i].minimum_speed_mps - 1e-6
                 || !finitePositive(profileSegment.maximum_acceleration_mps2)
                 || !finitePositive(profileSegment.maximum_deceleration_mps2)
                 || !std::isfinite(profileSegment.acceleration_distance_m)
