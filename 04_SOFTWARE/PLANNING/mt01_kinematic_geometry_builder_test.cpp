@@ -85,6 +85,13 @@ int main()
     assert(!belowMinimumConnector.feasible);
     assert(belowMinimumConnector.diagnostics.front().find(
         "CONNECTOR_SPEED_OUTSIDE_ENVELOPE") != std::string::npos);
+    const auto negativeConnectorSpeed = Mt01KinematicGeometryBuilder::build(
+        coverage, vehicle, "TEST-FIXED-WING", "TEST-CONFIG-1",
+        10.0, {}, 2.0, -1.0);
+    assert(!negativeConnectorSpeed.feasible);
+    assert(negativeConnectorSpeed.diagnostics.front().find(
+        "CONNECTOR_SPEED_OUTSIDE_ENVELOPE") != std::string::npos);
+
 
     assert(result.diagnostics.size() >= 2);
     bool sawCoverage = false;
