@@ -18,6 +18,7 @@ add_library(bluesky_weather
     weather_coverage_request.cpp
     weather_provider_registry.cpp
     ../PLANNING/wind_performance_trajectory.cpp
+    ../PLANNING/variable_speed_profile.cpp
 )
 target_include_directories(bluesky_weather PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
