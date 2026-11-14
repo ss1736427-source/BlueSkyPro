@@ -54,7 +54,8 @@ public:
         // Vg = sqrt(Va^2 - Wcross^2) + Walong for a crab-corrected track.
         const double availableAlongGroundSpeed =
             camera_maximum_ground_speed_mps - out.wind_along_track_mps;
-        if (availableAlongGroundSpeed <= 0.0) {
+        if (availableAlongGroundSpeed < -1e-9
+            || (availableAlongGroundSpeed <= 1e-9 && out.wind_along_track_mps <= 1e-9)) {
             out.diagnostic = "CAMERA_GROUND_SPEED_CAP_UNACHIEVABLE_UNDER_TAILWIND";
             return out;
         }
