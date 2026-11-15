@@ -543,3 +543,14 @@ The operational lifecycle shall use only admitted physical vehicles for physical
 No UI, vendor adapter, AI model or external intelligence source may redefine a canonical domain contract. If a new requirement crosses an existing boundary, the corresponding interface contract and traceability are updated before dependent implementation proceeds.
 
 The additions in this revision are orchestration relationships and lifecycle gates only; they do not delete or replace existing domain responsibilities.
+
+## 27. Shared physical and virtual mission lifecycle
+
+Physical flight and Virtual Flight use the same canonical mission lifecycle, domain services, algorithm orchestration, validation gates, readiness logic, authorization/release contracts, mission package semantics, lifecycle controller and result/evidence model. Only the aircraft/execution endpoint differs: a verified physical UAV adapter in physical mode, or a versioned catalogue aircraft model and simulator adapter in Virtual Flight.
+
+The binding implementation contract is:
+
+`02_ARCHITECTURE/VIRTUAL_FLIGHT_SHARED_MISSION_LIFECYCLE_CONTRACT_001.md`.
+
+Virtual Flight does not require a physical aircraft, but it must not use a parallel abbreviated planning or validation workflow. SIL provenance remains explicit and cannot satisfy physical fleet admission or be represented as real-flight evidence. Virtual READY means ready for simulated execution, not physical flight authorization. The existing `VirtualFlightAssessmentBridge` route/NOTAM fixture is diagnostic only and cannot grant lifecycle READY or release eligibility.
+
