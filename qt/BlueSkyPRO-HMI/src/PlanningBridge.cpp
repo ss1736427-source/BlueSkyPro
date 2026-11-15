@@ -193,6 +193,78 @@ bool PlanningBridge::publishLifecycleReadiness(
     return true;
 }
 
+bool PlanningBridge::publishLifecycleAssessment(
+    const bluesky::planning::MissionLifecycleRecord &record,
+    const bluesky::planning::MissionLifecycleTransitionResult &assessment,
+    const QVariantList &pilotActions)
+{
+    using namespace bluesky::planning;
+    const auto invalidate = [this]() {
+        invalidateLifecycleReadiness(QStringLiteral("CPP_LIFECYCLE_ASSESSMENT_INVALID"));
+        return false;
+    };
+
+    // This path is deliberately separate from publishLifecycleReadiness:
+    // it can publish blockers and pilot actions, but can never grant READY.
+    if (record.state != MissionLifecycleState::Validating
+        || assessment.state != record.state
+        || assessment.accepted
+        || record.mission_id.empty() || record.mission_version.empty()
+        || record.current_route_id.empty() || record.current_route_version.empty()
+        || record.current_calculation_input_version.empty() || record.history.empty())
+        return invalidate();
+
+    const auto &lastEvent = record.history.back();
+    if (lastEvent.sequence == 0
+        || record.next_event_sequence != lastEvent.sequence + 1
+        || lastEvent.mission_id != record.mission_id
+        || lastEvent.mission_version != record.mission_version
+        || lastEvent.from != MissionLifecycleState::Calculating
+        || lastEvent.to != MissionLifecycleState::Validating
+        || lastEvent.route_id != record.current_route_id
+        || lastEvent.route_version != record.current_route_version
+        || lastEvent.evidence_reference != record.current_calculation_input_version
+        || lastEvent.actor_id.empty() || lastEvent.timestamp.empty())
+        return invalidate();
+
+    QVariantList filteredPilotActions;
+    for (const QVariant &value : pilotActions) {
+        const QVariantMap action = value.toMap();
+        if (!action.value(QStringLiteral("requiresHuman")).toBool())
+            continue;
+        const QString actionId = action.value(QStringLiteral("actionId")).toString().trimmed();
+        const QString label = action.value(QStringLiteral("label")).toString().trimmed();
+        if (actionId.isEmpty() || label.isEmpty())
+            continue;
+        filteredPilotActions.push_back(action);
+    }
+
+    QVariantList blockers;
+    for (const std::string &blocker : assessment.blockers)
+        blockers.push_back(QString::fromStdString(blocker));
+    if (blockers.isEmpty())
+        blockers.push_back(QStringLiteral("MISSION_READY_FINALIZATION_NOT_ACCEPTED"));
+
+    QVariantMap snapshot{
+        {QStringLiteral("status"), QStringLiteral("VALIDATING")},
+        {QStringLiteral("lifecycleState"), QStringLiteral("VALIDATING")},
+        {QStringLiteral("ready"), false},
+        {QStringLiteral("released"), false},
+        {QStringLiteral("missionId"), QString::fromStdString(record.mission_id)},
+        {QStringLiteral("missionVersion"), QString::fromStdString(record.mission_version)},
+        {QStringLiteral("routeId"), QString::fromStdString(record.current_route_id)},
+        {QStringLiteral("routeVersion"), QString::fromStdString(record.current_route_version)},
+        {QStringLiteral("calculationInputVersion"), QString::fromStdString(record.current_calculation_input_version)},
+        {QStringLiteral("blockers"), blockers},
+        {QStringLiteral("pilotActions"), filteredPilotActions}
+    };
+    if (m_readinessSnapshot != snapshot) {
+        m_readinessSnapshot = snapshot;
+        emit readinessSnapshotChanged();
+    }
+    return true;
+}
+
 bool PlanningBridge::startProcess(const QString &program, const QStringList &arguments)
 {
     if (program.isEmpty()) {

@@ -26,6 +26,12 @@ public:
         const bluesky::planning::MissionLifecycleRecord &record,
         const bluesky::planning::MissionLifecycleTransitionResult &transition,
         const QVariantList &pilotActions);
+    // Publishes a fail-closed assessment while the mission is still VALIDATING,
+    // so pilot-owned actions are visible before READY can be granted.
+    bool publishLifecycleAssessment(
+        const bluesky::planning::MissionLifecycleRecord &record,
+        const bluesky::planning::MissionLifecycleTransitionResult &assessment,
+        const QVariantList &pilotActions);
 
     Q_INVOKABLE bool startProcess(const QString &program, const QStringList &arguments = {});
     Q_INVOKABLE void stopProcess();

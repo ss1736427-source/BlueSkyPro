@@ -149,6 +149,65 @@ static void testStaleLifecycleLineageCannotPublishReady()
         QStringLiteral("CPP_LIFECYCLE_SNAPSHOT_INVALID")));
 }
 
+static void testValidatingAssessmentShowsOnlyPilotActionsWithoutGrantingReady()
+{
+    using namespace bluesky::planning;
+    PlanningBridge bridge;
+    auto record = readyRecord();
+    record.state = MissionLifecycleState::Validating;
+    record.history.back().from = MissionLifecycleState::Calculating;
+    record.history.back().to = MissionLifecycleState::Validating;
+
+    MissionLifecycleTransitionResult assessment;
+    assessment.accepted = false;
+    assessment.state = MissionLifecycleState::Validating;
+    assessment.blockers = {"NOTAM_VALIDATION_EVIDENCE_REQUIRED",
+                           "OPERATOR_REVIEW_NOT_ACCEPTED"};
+
+    const QVariantList actions{
+        QVariantMap{{QStringLiteral("actionId"), QStringLiteral("automatic_notam_check")},
+                    {QStringLiteral("label"), QStringLiteral("Автоматически проверить NOTAM")},
+                    {QStringLiteral("requiresHuman"), false}},
+        QVariantMap{{QStringLiteral("actionId"), QStringLiteral("pilot_review")},
+                    {QStringLiteral("label"), QStringLiteral("Подтвердить проверку пилотом")},
+                    {QStringLiteral("requiresHuman"), true}}
+    };
+    assert(bridge.publishLifecycleAssessment(record, assessment, actions));
+
+    const QVariantMap snapshot = bridge.readinessSnapshot();
+    assert(snapshot.value(QStringLiteral("lifecycleState")).toString()
+           == QStringLiteral("VALIDATING"));
+    assert(!snapshot.value(QStringLiteral("ready")).toBool());
+    assert(!snapshot.value(QStringLiteral("released")).toBool());
+    assert(snapshot.value(QStringLiteral("blockers")).toList().size() == 2);
+    const QVariantList pilotActions = snapshot.value(QStringLiteral("pilotActions")).toList();
+    assert(pilotActions.size() == 1);
+    assert(pilotActions.front().toMap().value(QStringLiteral("actionId")).toString()
+           == QStringLiteral("pilot_review"));
+}
+
+static void testValidatingAssessmentRejectsStaleLineage()
+{
+    using namespace bluesky::planning;
+    PlanningBridge bridge;
+    auto record = readyRecord();
+    record.state = MissionLifecycleState::Validating;
+    record.history.back().from = MissionLifecycleState::Calculating;
+    record.history.back().to = MissionLifecycleState::Validating;
+    record.history.back().route_version = "stale-route";
+
+    MissionLifecycleTransitionResult assessment;
+    assessment.accepted = false;
+    assessment.state = MissionLifecycleState::Validating;
+    assessment.blockers = {"OPERATOR_REVIEW_NOT_ACCEPTED"};
+
+    assert(!bridge.publishLifecycleAssessment(record, assessment, {}));
+    const QVariantMap snapshot = bridge.readinessSnapshot();
+    assert(!snapshot.value(QStringLiteral("ready")).toBool());
+    assert(snapshot.value(QStringLiteral("blockers")).toList().contains(
+        QStringLiteral("CPP_LIFECYCLE_ASSESSMENT_INVALID")));
+}
+
 static void testExternalPlanningResultInvalidatesLifecycleSnapshot()
 {
     using namespace bluesky::planning;
@@ -174,6 +233,8 @@ int main(int argc, char **argv)
     testExistingBlockersArePreserved();
     testChecklistContainsOnlyPilotActions();
     testStaleLifecycleLineageCannotPublishReady();
+    testValidatingAssessmentShowsOnlyPilotActionsWithoutGrantingReady();
+    testValidatingAssessmentRejectsStaleLineage();
     testExternalPlanningResultInvalidatesLifecycleSnapshot();
     return 0;
 }
