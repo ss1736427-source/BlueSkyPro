@@ -45,7 +45,6 @@ struct MissionLifecycleValidationEvidence {
 };
 
 struct MissionLifecycleEvidence {
-    MissionExecutionMode execution_mode{MissionExecutionMode::Physical};
     std::string mission_id;
     std::string mission_version;
     std::string route_id;
@@ -118,10 +117,10 @@ struct MissionLifecycleEvidence {
     bool execution_session_linked{false};
     bool execution_closed{false};
     bool postflight_data_archived{false};
+    MissionExecutionMode execution_mode{MissionExecutionMode::Physical};
 };
 
 struct MissionLifecycleEvent {
-    MissionExecutionMode execution_mode{MissionExecutionMode::Physical};
     std::uint64_t sequence{0};
     std::string mission_id;
     std::string mission_version;
@@ -144,10 +143,10 @@ struct MissionLifecycleEvent {
     std::string performance_profile_id;
     std::string performance_profile_revision;
     std::vector<std::string> evidence_references;
+    MissionExecutionMode execution_mode{MissionExecutionMode::Physical};
 };
 
 struct MissionLifecycleRecord {
-    MissionExecutionMode execution_mode{MissionExecutionMode::Physical};
     std::string mission_id;
     std::string mission_version;
     MissionLifecycleState state{MissionLifecycleState::Draft};
@@ -169,6 +168,7 @@ struct MissionLifecycleRecord {
     std::string fleet_assignment_snapshot_id;
     std::string performance_profile_id;
     std::string performance_profile_revision;
+    MissionExecutionMode execution_mode{MissionExecutionMode::Physical};
 };
 
 struct MissionLifecycleTransitionResult {
