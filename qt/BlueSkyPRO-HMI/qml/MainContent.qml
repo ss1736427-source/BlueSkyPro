@@ -863,7 +863,31 @@ Item {
                     root.missionState = "MANUAL"
                     return
                 }
-                var findings = root.manualMt01Result.findings || []
+                // Hand the MT-01 output to the canonical typed RouteController.
+                // This is candidate ingestion only: it deliberately remains
+                // CANDIDATE_UNVALIDATED until the optimizer and safety validators
+                // attest the exact route/input lineage.
+                var findings = (root.manualMt01Result.findings || []).slice()
+                var mt01RouteCandidate = root.manualMt01Result.routeCandidate
+                if (root.manualMt01Result.routeCandidateAvailable === true
+                        && mt01RouteCandidate !== undefined
+                        && mt01RouteCandidate !== null) {
+                    if (typeof routeController === "undefined" || routeController === null) {
+                        findings.push("MT01_CANONICAL_ROUTE_CONTROLLER_UNAVAILABLE")
+                    } else if (String(mt01RouteCandidate.missionId || "") !== String(root.missionId)
+                               || String(mt01RouteCandidate.missionVersion || "")
+                                  !== String(root.manualMissionVersion)) {
+                        routeController.clear()
+                        findings.push("MT01_ROUTE_CANDIDATE_MISSION_LINEAGE_MISMATCH")
+                    } else if (!routeController.loadCandidate(mt01RouteCandidate)) {
+                        findings.push("MT01_ROUTE_CANDIDATE_HANDOFF_REJECTED: "
+                                       + String(routeController.validationReason || "UNKNOWN"))
+                    }
+                } else if (typeof routeController !== "undefined" && routeController !== null) {
+                    // Do not leave a previous route attached to a newly assessed
+                    // MT-01 mission when the current calculation has no candidate.
+                    routeController.clear()
+                }
                 root.manualModelValidationStatus =
                         String(root.manualMt01Result.status || "NEEDS_INPUT")
                         + (findings.length > 0 ? ": " + findings.join("; ") : "")
