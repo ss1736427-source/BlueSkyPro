@@ -151,6 +151,44 @@ static void testChecklistContainsOnlyPilotActions()
            == QStringLiteral("pilot_review"));
 }
 
+static void testVirtualReadinessPublishesDirectSandboxRelease()
+{
+    using namespace bluesky::planning;
+    PlanningBridge bridge;
+    auto record = readyRecord();
+    MissionLifecycleEvent released;
+    released.execution_mode = MissionExecutionMode::Virtual;
+    released.sequence = 2;
+    released.mission_id = record.mission_id;
+    released.mission_version = record.mission_version;
+    released.actor_id = "operator-1";
+    released.timestamp = "2026-11-15T00:01:00Z";
+    released.from = MissionLifecycleState::Ready;
+    released.to = MissionLifecycleState::Released;
+    released.route_id = record.current_route_id;
+    released.route_version = record.current_route_version;
+    released.evidence_reference = record.current_calculation_input_version;
+    released.vehicle_id = record.vehicle_id;
+    released.vehicle_source_provenance = record.vehicle_source_provenance;
+    released.reference_model_id = record.reference_model_id;
+    released.vehicle_configuration_id = record.vehicle_configuration_id;
+    released.vehicle_configuration_revision = record.vehicle_configuration_revision;
+    released.performance_profile_id = record.performance_profile_id;
+    released.performance_profile_revision = record.performance_profile_revision;
+    record.history.push_back(released);
+    record.next_event_sequence = 3;
+    record.state = MissionLifecycleState::Released;
+
+    MissionLifecycleTransitionResult transition;
+    transition.accepted = true;
+    transition.state = MissionLifecycleState::Released;
+    assert(bridge.publishLifecycleReadiness(record, transition, {}));
+    const QVariantMap snapshot = bridge.readinessSnapshot();
+    assert(snapshot.value(QStringLiteral("executionMode")).toString() == QStringLiteral("VIRTUAL"));
+    assert(snapshot.value(QStringLiteral("ready")).toBool());
+    assert(snapshot.value(QStringLiteral("released")).toBool());
+}
+
 static void testLifecycleReadinessRejectsVehicleProvenanceDrift()
 {
     using namespace bluesky::planning;
@@ -266,6 +304,7 @@ int main(int argc, char **argv)
     testExternalPassCannotGrantReady();
     testExistingBlockersArePreserved();
     testChecklistContainsOnlyPilotActions();
+    testVirtualReadinessPublishesDirectSandboxRelease();
     testLifecycleReadinessRejectsVehicleProvenanceDrift();
     testStaleLifecycleLineageCannotPublishReady();
     testValidatingAssessmentShowsOnlyPilotActionsWithoutGrantingReady();
