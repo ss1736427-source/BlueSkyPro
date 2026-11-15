@@ -10,6 +10,26 @@ namespace
 {
 constexpr auto kSchemaVersion = "1.0";
 constexpr auto kMessageType = "planning.result";
+
+const char *lifecycleStateText(bluesky::planning::MissionLifecycleState state)
+{
+    using bluesky::planning::MissionLifecycleState;
+    switch (state) {
+    case MissionLifecycleState::Draft: return "DRAFT";
+    case MissionLifecycleState::Calculating: return "CALCULATING";
+    case MissionLifecycleState::Validating: return "VALIDATING";
+    case MissionLifecycleState::Ready: return "READY";
+    case MissionLifecycleState::Submitted: return "SUBMITTED";
+    case MissionLifecycleState::Authorized: return "AUTHORIZED";
+    case MissionLifecycleState::Released: return "RELEASED";
+    case MissionLifecycleState::Executing: return "EXECUTING";
+    case MissionLifecycleState::Paused: return "PAUSED";
+    case MissionLifecycleState::Replanning: return "REPLANNING";
+    case MissionLifecycleState::Completed: return "COMPLETED";
+    case MissionLifecycleState::Aborted: return "ABORTED";
+    }
+    return "UNKNOWN";
+}
 }
 
 PlanningBridge::PlanningBridge(QObject *parent)
@@ -81,7 +101,7 @@ bool PlanningBridge::publishLifecycleReadiness(
         invalidateLifecycleReadiness(QStringLiteral("CPP_LIFECYCLE_SNAPSHOT_INVALID"));
         return false;
     };
-    if (!transition.accepted || transition.state != record.state
+    if (!transition.accepted || !transition.blockers.empty() || transition.state != record.state
         || record.mission_id.empty() || record.mission_version.empty()
         || record.current_route_id.empty() || record.current_route_version.empty()
         || record.current_calculation_input_version.empty() || record.history.empty())
@@ -152,7 +172,7 @@ bool PlanningBridge::publishLifecycleReadiness(
         filteredPilotActions.push_back(action);
     }
 
-    const QString state = QString::fromLatin1(toString(record.state));
+    const QString state = QString::fromLatin1(lifecycleStateText(record.state));
     QVariantMap snapshot{
         {QStringLiteral("status"), state},
         {QStringLiteral("lifecycleState"), state},
