@@ -379,6 +379,8 @@ static void testSharedLifecycleForPhysicalAndVirtualExecutionModes() {
         assert(!modeDrift.accepted);
         assert(std::find(modeDrift.blockers.begin(), modeDrift.blockers.end(),
                          "MISSION_EXECUTION_MODE_CHANGED") != modeDrift.blockers.end());
+        assert(record.state == MissionLifecycleState::Calculating);
+        assert(record.history.size() == 1);
         assert(move(record, MissionLifecycleState::Validating, e).accepted);
         assert(move(record, MissionLifecycleState::Ready, e).accepted);
         if (isVirtual) {
