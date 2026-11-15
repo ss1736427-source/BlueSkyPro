@@ -438,10 +438,8 @@ QVariantMap ManualMissionModelAdapter::buildMission(const QString &geometryJson,
                                    *mission.origin->true_north_bearing_deg);
     }
 
-    const QJsonObject executionContext = executionContextObject(missionContext, errors);
     QJsonObject canonical{
         {QStringLiteral("missionId"), missionId},
-        {QStringLiteral("executionContext"), executionContext},
         {QStringLiteral("missionVersion"), missionVersion},
         {QStringLiteral("missionMode"), QStringLiteral("MANUAL")},
         {QStringLiteral("lifecycle"), draftLifecycle(missionId, missionVersion)},
@@ -651,8 +649,10 @@ QVariantMap ManualMissionModelAdapter::buildAutoMissionV2(
         ? vehiclesValue.toList() : QVariantList{};
     const QVariantList equipment = equipmentValue.canConvert<QVariantList>()
         ? equipmentValue.toList() : QVariantList{};
+    const QJsonObject executionContext = executionContextObject(missionContext, errors);
     QJsonObject canonical{
         {QStringLiteral("missionId"), missionId},
+        {QStringLiteral("executionContext"), executionContext},
         {QStringLiteral("missionVersion"), missionVersion},
         {QStringLiteral("status"), QStringLiteral("DRAFT")},
         {QStringLiteral("lifecycle"), draftLifecycle(missionId, missionVersion)},
