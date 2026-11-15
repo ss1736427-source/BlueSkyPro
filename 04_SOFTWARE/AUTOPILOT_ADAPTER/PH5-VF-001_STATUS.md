@@ -1,6 +1,6 @@
 # PH5-VF-001 — Virtual Flight Shared Mission Lifecycle Integration
 
-**Status:** IMPLEMENTED — CI VERIFICATION PENDING  
+**Status:** SIL ADAPTER INTEGRATION TEST PASS; HMI PROVENANCE GATE CI PENDING  
 **Evidence class:** `SIL_FIXTURE_ONLY`  
 **Execution model:** DJI Mavic 3E catalogue reference only; no operational performance profile admitted
 
@@ -47,7 +47,7 @@ Published maximum flight time, speed, wind resistance and camera specifications 
 
 1. Connect the production mission model and real planning/validation outputs to the same lifecycle record; remove all synthetic evidence from the production path.
 2. Connect the simulator implementation to the normalized adapter contract for telemetry, pause/resume, abort, replanning and execution completion.
-3. Wire the Virtual Flight workspace in `MainContent.qml` to the shared mission/readiness state. The current UI still renders a watermark and the diagnostic assessment console is not a simulator.
+3. The HMI now publishes the pinned vehicle provenance with lifecycle readiness and refuses to present READY/RELEASED in Virtual Flight unless the current mission lineage is `SIL_FIXTURE`. The workspace still has no simulator execution controls or live simulator telemetry; the existing diagnostic assessment console is not a simulator.
 4. Build and validate the exact DJI Mavic 3E configuration/performance profile from authoritative source documents and configuration evidence. Keep unknown limits blocking; do not substitute catalogue maxima as operational limits.
 5. Verify the full HMI and adapter CI runs on the exact merge candidate SHA.
 
