@@ -226,6 +226,15 @@ int main(int argc, char **argv)
            == QStringLiteral("NOT_APPLICABLE"));
     assert(!virtualExecution.value(QStringLiteral("esorvdSubmissionAllowed")).toBool());
 
+    QVariantMap missingExecutionContext = mt01Context;
+    missingExecutionContext.remove(QStringLiteral("executionMode"));
+    const QVariantMap missingExecutionMission = adapter.buildMissionV2(
+        geometry, {QStringLiteral("MT-01")}, QStringLiteral("MISSION-MISSING-MODE"),
+        1, true, missingExecutionContext);
+    assert(!missingExecutionMission.value(QStringLiteral("valid")).toBool());
+    assert(missingExecutionMission.value(QStringLiteral("errors")).toStringList().contains(
+        QStringLiteral("MISSION_EXECUTION_MODE_REQUIRED")));
+
     QVariantMap invalidExecutionContext = mt01Context;
     invalidExecutionContext.insert(QStringLiteral("executionMode"), QStringLiteral("SIMULATED"));
     const QVariantMap invalidExecutionMission = adapter.buildMissionV2(
