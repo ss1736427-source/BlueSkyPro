@@ -6,6 +6,30 @@
 #include <QStringList>
 #include <QVariantMap>
 #include <QVariantList>
+#include <optional>
+#include <string>
+
+#include "04_SOFTWARE/PLANNING/model/route_model.hpp"
+#include "04_SOFTWARE/PLANNING/model/flight_safety_constraints.hpp"
+#include "04_SOFTWARE/PLANNING/notam_prohibited_zone_validator.hpp"
+#include "04_SOFTWARE/PLANNING/wind_performance_trajectory.hpp"
+
+struct WeatherCandidateEvidenceBundle
+{
+    std::string selected_candidate_id;
+    bluesky::planning::Route selected_route;
+    bluesky::planning::FlightSafetyValidationResult flight_safety_validation;
+    bluesky::planning::NotamValidationResult notam_validation;
+    bluesky::planning::TrajectoryResult weather_trajectory;
+    std::string weather_snapshot_id;
+    std::string weather_snapshot_version;
+};
+
+struct WeatherCalculationWorkerResult
+{
+    QVariantMap presentation;
+    std::optional<WeatherCandidateEvidenceBundle> selected_candidate_evidence;
+};
 
 class WeatherCalculationService final : public QObject
 {
@@ -22,6 +46,7 @@ public:
     QString lastError() const { return m_lastError; }
     QVariantMap result() const { return m_result; }
     bool decoderAvailable() const;
+    const std::optional<WeatherCandidateEvidenceBundle>& selectedCandidateEvidence() const { return m_selectedCandidateEvidence; }
 
     Q_INVOKABLE bool evaluateRoute(
         const QVariantList& forecastProducts,
@@ -46,6 +71,7 @@ signals:
     void lastErrorChanged();
     void resultChanged();
     void evaluationFinished(const QVariantMap& result);
+    void selectedCandidateEvidenceChanged();
 
 private:
     void setState(const QString& state);
@@ -54,5 +80,6 @@ private:
     QString m_state{QStringLiteral("IDLE")};
     QString m_lastError;
     QVariantMap m_result;
-    QFutureWatcher<QVariantMap> m_watcher;
+    QFutureWatcher<WeatherCalculationWorkerResult> m_watcher;
+    std::optional<WeatherCandidateEvidenceBundle> m_selectedCandidateEvidence;
 };

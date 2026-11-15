@@ -784,14 +784,15 @@ bool missionGeometryWithinNotamQueryCoverage(const QString& missionModelJson,
     return foundCoordinate;
 }
 
-QVariantMap evaluateCandidateSetOnWorker(
+WeatherCalculationWorkerResult evaluateCandidateSetOnWorker(
     const std::vector<ForecastProduct>& products,
     const std::vector<bluesky::planning::CandidateSolution>& candidates,
     const bluesky::planning::MissionProblem& problem,
     const TrajectoryPerformanceInput& input,
     const bluesky::planning::NotamSnapshot& notamSnapshot)
 {
-    QVariantMap result;
+    WeatherCalculationWorkerResult worker;
+    QVariantMap& result = worker.presentation;
 #ifndef BLUESKY_HAVE_ECCODES
     Q_UNUSED(products);
     Q_UNUSED(candidates);
@@ -801,7 +802,7 @@ QVariantMap evaluateCandidateSetOnWorker(
     result.insert(QStringLiteral("decodeSucceeded"), false);
     result.insert(QStringLiteral("weatherError"), QStringLiteral("GRIB2_DECODER_NOT_AVAILABLE"));
     result.insert(QStringLiteral("flightReleaseEligible"), false);
-    return result;
+    return worker;
 #else
     QCryptographicHash snapshotHash(QCryptographicHash::Sha256);
     std::vector<std::string> paths;
@@ -814,7 +815,7 @@ QVariantMap evaluateCandidateSetOnWorker(
             result.insert(QStringLiteral("weatherError"),
                           QStringLiteral("FORECAST_PRODUCT_UNREADABLE: ") + product.path);
             result.insert(QStringLiteral("flightReleaseEligible"), false);
-            return result;
+            return worker;
         }
         QCryptographicHash fileHash(QCryptographicHash::Sha256);
         qint64 actualBytes = 0;
@@ -826,7 +827,7 @@ QVariantMap evaluateCandidateSetOnWorker(
                 result.insert(QStringLiteral("weatherError"),
                               QStringLiteral("FORECAST_PRODUCT_READ_FAILED: ") + product.path);
                 result.insert(QStringLiteral("flightReleaseEligible"), false);
-                return result;
+                return worker;
             }
             actualBytes += chunk.size();
             fileHash.addData(chunk);
@@ -838,7 +839,7 @@ QVariantMap evaluateCandidateSetOnWorker(
             result.insert(QStringLiteral("weatherError"),
                           QStringLiteral("GRIB2_PRODUCT_SHA256_OR_SIZE_MISMATCH: ") + product.path);
             result.insert(QStringLiteral("flightReleaseEligible"), false);
-            return result;
+            return worker;
         }
         snapshotHash.addData(actualSha.toLatin1());
         snapshotHash.addData(QByteArray(1, '\0'));
@@ -864,7 +865,7 @@ QVariantMap evaluateCandidateSetOnWorker(
         result.insert(QStringLiteral("weatherError"),
                       QString::fromStdString(snapshot.error.empty()
                           ? std::string("DECODED_WIND_SNAPSHOT_EMPTY") : snapshot.error));
-        return result;
+        return worker;
     }
 
     auto baseAssessor = bluesky::weather::makeCandidateWeatherAssessor(
@@ -955,7 +956,25 @@ QVariantMap evaluateCandidateSetOnWorker(
         });
     }
     result.insert(QStringLiteral("rejectedCandidates"), rejected);
-    return result;
+
+    // Preserve the exact typed evidence used by the orchestrator. Do not reconstruct
+    // safety/NOTAM/weather attestations from serialized status strings in QML.
+    if (decision.feasibility == bluesky::planning::Feasibility::Feasible
+        && decision.selected_route.has_value()
+        && decision.selected_flight_safety_validation.has_value()
+        && decision.selected_notam_validation.has_value()
+        && decision.selected_weather_trajectory.has_value()) {
+        WeatherCandidateEvidenceBundle evidence;
+        evidence.selected_candidate_id = decision.selected_candidate_id;
+        evidence.selected_route = *decision.selected_route;
+        evidence.flight_safety_validation = *decision.selected_flight_safety_validation;
+        evidence.notam_validation = *decision.selected_notam_validation;
+        evidence.weather_trajectory = *decision.selected_weather_trajectory;
+        evidence.weather_snapshot_id = decision.weather_snapshot_id;
+        evidence.weather_snapshot_version = decision.weather_snapshot_version;
+        worker.selected_candidate_evidence = std::move(evidence);
+    }
+    return worker;
 #endif
 }
 
@@ -964,8 +983,11 @@ QVariantMap evaluateCandidateSetOnWorker(
 WeatherCalculationService::WeatherCalculationService(QObject* parent)
     : QObject(parent)
 {
-    connect(&m_watcher,&QFutureWatcher<QVariantMap>::finished,this,[this]() {
-        m_result=m_watcher.result();
+    connect(&m_watcher,&QFutureWatcher<WeatherCalculationWorkerResult>::finished,this,[this]() {
+        const WeatherCalculationWorkerResult worker = m_watcher.result();
+        m_result = worker.presentation;
+        m_selectedCandidateEvidence = worker.selected_candidate_evidence;
+        emit selectedCandidateEvidenceChanged();
         emit resultChanged();
         setError(m_result.value(QStringLiteral("weatherError")).toString());
         const bool ready=m_result.value(QStringLiteral("weatherReady")).toBool();
@@ -1045,7 +1067,9 @@ bool WeatherCalculationService::evaluateRoute(
     setState(QStringLiteral("ASSESSING"));
     m_watcher.setFuture(QtConcurrent::run(
         [products,route,input]() {
-            return evaluateOnWorker(products,route,input);
+            WeatherCalculationWorkerResult worker;
+            worker.presentation = evaluateOnWorker(products,route,input);
+            return worker;
         }));
     return true;
 }
