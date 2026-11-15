@@ -29,14 +29,17 @@ bool isKnownState(MissionLifecycleState state) noexcept {
     return false;
 }
 
-bool allowed(MissionLifecycleState from, MissionLifecycleState to) noexcept {
+bool allowed(MissionLifecycleState from, MissionLifecycleState to, MissionExecutionMode mode) noexcept {
     if (to == MissionLifecycleState::Aborted && !isTerminal(from))
         return true;
     switch (from) {
     case MissionLifecycleState::Draft: return to == MissionLifecycleState::Calculating;
     case MissionLifecycleState::Calculating: return to == MissionLifecycleState::Validating;
     case MissionLifecycleState::Validating: return to == MissionLifecycleState::Ready;
-    case MissionLifecycleState::Ready: return to == MissionLifecycleState::Submitted;
+    case MissionLifecycleState::Ready:
+        return mode == MissionExecutionMode::Virtual
+            ? to == MissionLifecycleState::Released
+            : to == MissionLifecycleState::Submitted;
     case MissionLifecycleState::Submitted: return to == MissionLifecycleState::Authorized;
     case MissionLifecycleState::Authorized: return to == MissionLifecycleState::Released;
     case MissionLifecycleState::Released: return to == MissionLifecycleState::Executing;
@@ -65,6 +68,10 @@ void requireText(const std::string &value, const char *code,
 
 
 } // namespace
+
+const char *toString(MissionExecutionMode mode) noexcept {
+    return mode == MissionExecutionMode::Virtual ? "VIRTUAL" : "PHYSICAL";
+}
 
 const char *toString(MissionLifecycleState state) noexcept {
     switch (state) {
@@ -132,6 +139,16 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         result.blockers.emplace_back("LIFECYCLE_EVIDENCE_MISSION_LINEAGE_MISMATCH");
         return result;
     }
+    const bool initialModeBinding = record.state == MissionLifecycleState::Draft
+        && target == MissionLifecycleState::Calculating;
+    if (!initialModeBinding && evidence.execution_mode != record.execution_mode)
+        result.blockers.emplace_back("MISSION_EXECUTION_MODE_CHANGED");
+    if (initialModeBinding && evidence.execution_mode == MissionExecutionMode::Physical
+        && evidence.vehicle_source_provenance != "PHYSICAL_LIVE")
+        result.blockers.emplace_back("PHYSICAL_MODE_REQUIRES_LIVE_VEHICLE_PROVENANCE");
+    if (initialModeBinding && evidence.execution_mode == MissionExecutionMode::Virtual
+        && evidence.vehicle_source_provenance != "SIL_FIXTURE")
+        result.blockers.emplace_back("VIRTUAL_MODE_REQUIRES_SIL_PROVENANCE");
     if (actor_id.empty())
         result.blockers.emplace_back("LIFECYCLE_ACTOR_REQUIRED");
 
@@ -158,7 +175,7 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
     }
     if (timestamp.empty())
         result.blockers.emplace_back("LIFECYCLE_TIMESTAMP_REQUIRED");
-    if (!allowed(record.state, target))
+    if (!allowed(record.state, target, evidence.execution_mode))
         result.blockers.emplace_back("MISSION_LIFECYCLE_TRANSITION_NOT_ALLOWED");
 
     if (target == MissionLifecycleState::Aborted) {
@@ -314,6 +331,28 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         }
         break;
     case MissionLifecycleState::Released:
+        if (evidence.execution_mode == MissionExecutionMode::Virtual) {
+            require(record.state == MissionLifecycleState::Ready,
+                    "VIRTUAL_RELEASE_MUST_FOLLOW_VIRTUAL_READY", result.blockers);
+            require(evidence.authorization_requirement_assessed,
+                    "VIRTUAL_AUTHORIZATION_APPLICABILITY_NOT_ASSESSED", result.blockers);
+            require(!evidence.authorization_required,
+                    "VIRTUAL_MODE_MUST_NOT_REQUEST_EXTERNAL_AUTHORIZATION", result.blockers);
+            requireText(evidence.authorization_not_required_reason,
+                        "VIRTUAL_NO_EXTERNAL_AUTHORIZATION_REASON_REQUIRED", result.blockers);
+            require(evidence.authorization_not_required_reason
+                        == "VIRTUAL_SANDBOX_NO_ESORVD_SUBMISSION_OR_AUTHORIZATION",
+                    "VIRTUAL_EXTERNAL_AUTHORIZATION_REASON_INVALID", result.blockers);
+            require(!evidence.regulatory_submission_prepared
+                        && evidence.regulatory_submission_id.empty(),
+                    "VIRTUAL_ESORVD_SUBMISSION_FORBIDDEN", result.blockers);
+            require(!evidence.authorization_present && !evidence.authorization_current
+                        && evidence.authorization_id.empty(),
+                    "VIRTUAL_EXTERNAL_AUTHORIZATION_FORBIDDEN", result.blockers);
+        } else {
+            require(record.state == MissionLifecycleState::Authorized,
+                    "PHYSICAL_RELEASE_REQUIRES_AUTHORIZED_STATE", result.blockers);
+        }
         require(evidence.package_integrity_verified, "MISSION_PACKAGE_INTEGRITY_NOT_VERIFIED", result.blockers);
         require(evidence.package_matches_selected_route, "MISSION_PACKAGE_ROUTE_MISMATCH", result.blockers);
         requireText(evidence.package_route_id, "MISSION_PACKAGE_ROUTE_ID_REQUIRED", result.blockers);
@@ -366,6 +405,7 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         return result;
 
     MissionLifecycleEvent event;
+    event.execution_mode = evidence.execution_mode;
     event.sequence = record.next_event_sequence;
     event.mission_id = record.mission_id;
     event.mission_version = startsNewRevision ? evidence.mission_version : record.mission_version;
@@ -418,6 +458,7 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
     }
     if (record.vehicle_id.empty() && record.state == MissionLifecycleState::Draft
         && target == MissionLifecycleState::Calculating) {
+        record.execution_mode = evidence.execution_mode;
         record.vehicle_id = evidence.vehicle_id;
         record.vehicle_source_provenance = evidence.vehicle_source_provenance;
         record.reference_model_id = evidence.reference_model_id;
