@@ -1,16 +1,16 @@
 # BlueSky PRO — Virtual Flight Uses the Shared Mission Lifecycle 001
 
 **Status:** CONTROLLED ARCHITECTURE CONTRACT  
-**Scope:** One mission lifecycle for physical and virtual execution  
+**Scope:** Shared mission core with isolated physical and virtual execution lifecycles  
 **Authority:** `02_ARCHITECTURE/BLUESKY_END_TO_END_OPERATIONAL_LIFECYCLE_BASELINE.md`
 
 ## 1. Binding rule
 
-A mission has one canonical lifecycle regardless of whether its execution is performed by a physical UAV or by Virtual Flight. Virtual Flight is not a separate abbreviated workflow, preflight-only assessment, demo mode, or alternative mission state machine.
+A mission uses one canonical mission model, planning core, validators and lifecycle controller, but its execution mode is pinned at mission admission. Physical and virtual missions are separate mission contexts and are never prepared or executed concurrently in the same active context. Selecting `VIRTUAL FLT` in the bottom toolbar enters the virtual workspace; it must bind a `VIRTUAL` lifecycle context. Returning to the physical workspace must not reuse virtual readiness, release, authorization or execution state.
 
-The same mission model, task interpretation, vehicle capability/configuration rules, algorithm orchestration, route generation, NOTAM and terrain handling, weather application, performance and energy calculations, validation gates, readiness/action graph, authorization/release contracts, mission package semantics, execution-state transitions, result verification, evidence consolidation and post-mission analysis apply in both modes.
+The same mission model, task interpretation, vehicle capability/configuration rules, algorithm orchestration, route generation, NOTAM and terrain handling, weather application, performance and energy calculations, internal safety/regulatory validation, readiness/action graph, mission package semantics, execution-state transitions, result verification, evidence consolidation and post-mission analysis apply in both modes. External authorization and regulatory submission are mode-specific and must not be invoked by the virtual path.
 
-The only operational substitution is the aircraft execution endpoint:
+The execution endpoint and external authorization path are mode-specific:
 
 - **Physical mode:** a verified physical aircraft and its live adapter/session provide vehicle identity, telemetry, command acknowledgement and physical execution.
 - **Virtual mode:** a selected catalogue aircraft model plus a versioned, validated configuration/performance profile are bound to the mission; the simulator provides virtual telemetry, command acknowledgement and simulated execution.
@@ -21,7 +21,7 @@ No parallel optimizer, validation engine, readiness gate, lifecycle controller, 
 
 Both modes use the canonical stages already defined by the end-to-end lifecycle baseline:
 
-`OBJECTIVE → MISSION MODEL → CAPABILITY / VEHICLE BINDING → TASK DECOMPOSITION → ALGORITHM ORCHESTRATION → ROUTE CANDIDATES → SAFETY / REGULATORY GATES → WEATHER APPLICATION → ROUTE / TIME / ENERGY RECALCULATION → SELECTED SOLUTION → FORECAST VIRTUAL FLIGHT → PACKAGE → VALIDATION → READINESS → AUTHORIZATION → RELEASE → UPLOAD / SIMULATOR LOAD → READ-BACK → EXECUTION → MONITORING / REPLANNING → COMPLETION → RESULT / QUALITY VERIFICATION → EVIDENCE → REPLAY / ANALYSIS`
+`OBJECTIVE → MISSION MODEL → CAPABILITY / VEHICLE BINDING → TASK DECOMPOSITION → ALGORITHM ORCHESTRATION → ROUTE CANDIDATES → INTERNAL SAFETY / REGULATORY GATES → WEATHER APPLICATION → ROUTE / TIME / ENERGY RECALCULATION → SELECTED SOLUTION → PACKAGE → VALIDATION → READINESS → MODE-SPECIFIC RELEASE → PHYSICAL UPLOAD OR SIMULATOR LOAD → READ-BACK → EXECUTION → MONITORING / REPLANNING → COMPLETION → RESULT / QUALITY VERIFICATION → EVIDENCE → REPLAY / ANALYSIS`
 
 The lifecycle controller is mode-neutral. Mode-specific adapters satisfy the same domain contracts and return evidence with explicit provenance.
 
@@ -84,19 +84,19 @@ The simulator may model vehicle dynamics, sensor/payload behaviour and environme
 
 `MissionLifecycleController` already admits `PHYSICAL_LIVE` and `SIL_FIXTURE` at initial vehicle binding and pins vehicle/model/configuration/performance identity across subsequent transitions. Its execution and completion transitions are provenance-neutral and consume the same evidence contract. This is the intended shared foundation.
 
-The current `VirtualFlightAssessmentBridge` is **not** the complete Virtual Flight implementation. The existing adapter-level SIL proofs are documented in `04_SOFTWARE/AUTOPILOT_ADAPTER/PH4-INT-014_STATUS.md` and `04_SOFTWARE/AUTOPILOT_ADAPTER/PH4-INT-027_STATUS.md`. It currently evaluates manual geometry against synthetic airspace/NOTAM fixtures, explicitly sets `flightReleaseEligible=false`, and states that weather thresholds, terrain, obstacles, energy, authorizations and flight release are outside its assessment scope. It must remain a non-operational diagnostic fixture until connected to the shared mission lifecycle and full validation/orchestration chain. In the current HMI, `MainContent.qml` renders the `VIRTUAL FLT` tool as a watermark overlay; `VirtualFlightTestConsole.qml` is included as a resource but is not instantiated by `MainContent.qml`. Therefore the visible Virtual Flight tool is not yet wired to the shared mission lifecycle. Its `ASSESSMENT_CLEAR_NON_OPERATIONAL` result must never be mapped to mission `READY`, `RELEASED` or `COMPLETED`.
+The `VIRTUAL FLT` toolbar entry is the existing user entry point and selects the virtual workspace. However, `BottomToolbar.activateTool()` currently changes the active tool/workspace context; the central `MainContent.qml` view still renders a watermark overlay. `VirtualFlightTestConsole.qml` is compiled as a resource but is not instantiated by `MainContent.qml`; it is a synthetic diagnostic console, not the simulator. `VirtualFlightAssessmentBridge` evaluates manual geometry against synthetic airspace/NOTAM fixtures, explicitly sets `flightReleaseEligible=false`, and does not cover the full production planning chain. Its `ASSESSMENT_CLEAR_NON_OPERATIONAL` result must never be mapped to mission `READY`, `RELEASED` or `COMPLETED`.
 
-The repository already contains a useful SIL execution foundation: `PH4-INT-014` provides a provenance-bound SIL execution source, and `PH4-INT-027` demonstrates a SIL adapter sequence for connect, identify, capabilities, compile, upload, read-back, semantic verification, execute, log acquisition and close. The new `PH5-VF-001` integration fixture now binds that adapter sequence and SIL execution evidence to the canonical `MissionLifecycleController` and exercises one correlated synthetic mission through `COMPLETED`. This proves the shared lifecycle transition and adapter evidence contract at fixture level only; it does not yet connect production optimizer outputs or real simulator telemetry. `PlanningBridge` now publishes pinned vehicle provenance with readiness, rejects provenance drift across lifecycle history, and the Virtual Flight HMI gates READY/RELEASED presentation on `SIL_FIXTURE` provenance. The remaining integration gap is to replace synthetic evidence with actual production planning/validation results and connect a real simulator implementation to the same package, telemetry, command, replanning and post-flight contracts. Do not expand the assessment bridge into a second lifecycle controller.
+The repository already contains a useful SIL execution foundation: `PH4-INT-014` provides a provenance-bound SIL execution source, and `PH4-INT-027` demonstrates a SIL adapter sequence for connect, identify, capabilities, compile, upload, read-back, semantic verification, execute, log acquisition and close. The new `PH5-VF-001` integration fixture now binds that adapter sequence and SIL execution evidence to the canonical `MissionLifecycleController` and exercises one correlated synthetic mission through `COMPLETED`. This proves the shared lifecycle transition and adapter evidence contract at fixture level only; it does not yet connect production optimizer outputs or real simulator telemetry. `PlanningBridge` now publishes pinned vehicle provenance with readiness, rejects provenance drift across lifecycle history, and the Virtual Flight HMI gates READY/RELEASED presentation on `SIL_FIXTURE` provenance. The lifecycle controller now pins `MissionExecutionMode` and provenance, allows virtual `READY → RELEASED` without `SUBMITTED` / `AUTHORIZED`, rejects virtual `SUBMITTED`, and requires the explicit no-ЕСОРВД applicability reason. The remaining integration gap is to connect the existing button-selected virtual workspace to a real virtual mission context, replace synthetic evidence with actual production planning/validation results, and connect a simulator implementation to the same package, telemetry, command, replanning and post-flight contracts. Do not expand the assessment bridge into a second lifecycle controller.
 
 ## 9. Acceptance criteria
 
-1. Physical and virtual missions are created from the same canonical mission model and use the same lifecycle controller.
+1. Physical and virtual missions are created from the same canonical mission model and use the same lifecycle controller, but pin distinct execution modes and independent mission contexts.
 2. Both modes invoke the same algorithm orchestration, NOTAM/terrain/weather, vehicle-envelope, camera/task-quality and energy-reserve validation contracts.
-3. Both modes use the same readiness, authorization-applicability, release and completion transition rules.
+3. Both modes use the same internal readiness and completion rules; physical mode alone uses ЕСОРВД submission/response and external authorization. Virtual mode transitions `READY → RELEASED` directly with an explicit no-ЕСОРВД record.
 4. The only execution substitution is physical adapter versus simulator adapter; no physical UAV is required for Virtual Flight.
 5. The selected model/configuration/performance revisions remain pinned and traceable throughout the mission.
 6. A complete SIL lifecycle can reach simulated execution and simulated completion using the same state transitions as a physical lifecycle.
-7. SIL evidence is never promoted to physical-flight evidence or used to satisfy physical fleet admission.
+7. SIL evidence is never promoted to physical-flight evidence or used to satisfy physical fleet admission. Virtual lifecycle state cannot leak into the physical workspace.
 8. Virtual READY is visibly scoped to simulated execution and cannot authorize physical flight.
 9. Simulator command/read-back/telemetry/result evidence is versioned and carries SIL provenance.
 10. The current route/NOTAM-only assessment bridge cannot produce READY or release eligibility.
@@ -104,4 +104,4 @@ The repository already contains a useful SIL execution foundation: `PH4-INT-014`
 
 ## 10. Definition of done
 
-A representative mission completes the same end-to-end lifecycle in Virtual Flight and physical mode using the same mission model, planner, validators, readiness logic and lifecycle controller. Only the aircraft/execution adapter and provenance of execution evidence differ. Both paths produce auditable evidence; the virtual path is explicitly marked as simulated and cannot be mistaken for a physical flight.
+A representative mission completes the shared planning and validation chain in each mode using the same mission model, planner, validators and lifecycle controller. The execution mode is pinned and contexts are isolated. Physical mode may use ЕСОРВД; virtual mode must not submit or check a flight plan there and releases only to a simulator. Both paths produce auditable evidence; virtual evidence is explicitly marked as simulated and cannot be mistaken for physical flight evidence.
