@@ -42,6 +42,9 @@ The ten type records preserve the identifiers already established in \`07_DATA/U
 | DJI-MAVIC-4-PRO | DJI Mavic 4 Pro | UAV-TYPE-001 |
 | DJI-AIR-3S | DJI Air 3S | UAV-TYPE-001 |
 | DJI-MINI-4-PRO | DJI Mini 4 Pro | UAV-TYPE-001 |
+| DJI-M30D | DJI Matrice 3D | UAV-TYPE-006 |
+| DJI-M30TD | DJI Matrice 3TD | UAV-TYPE-006 |
+| DJI-MAVIC-3T | DJI Mavic 3 Thermal | UAV-TYPE-001 |
 | AUTEL-EVO-MAX-4T | Autel EVO Max 4T | UAV-TYPE-001 |
 | WINGTRAONE-GEN2 | WingtraOne GEN II | UAV-TYPE-003 |
 | TRINITY-PRO | Quantum-Systems Trinity Pro | UAV-TYPE-003 |
