@@ -49,9 +49,9 @@ Item {
     readonly property string lifecycleExecutionProvenance:
         root.lifecycleReadinessSnapshot
         ? String(root.lifecycleReadinessSnapshot.vehicleSourceProvenance || "") : ""
-    // The active workspace selects exactly one mission execution context.
-    // A virtual lifecycle snapshot must never leak into the physical workspace,
-    // and physical readiness must never be shown as Virtual Flight readiness.
+    // The VIRTUAL FLT toolbar button selects the virtual mission workspace.
+    // The pinned lifecycle mode/provenance must match that workspace before READY
+    // or RELEASED can be displayed; switching workspaces never promotes a status.
     readonly property string lifecycleExpectedExecutionMode:
         root.activeTool === "VIRTUAL FLT" ? "VIRTUAL" : "PHYSICAL"
     readonly property bool lifecycleModeProvenanceMatches:
