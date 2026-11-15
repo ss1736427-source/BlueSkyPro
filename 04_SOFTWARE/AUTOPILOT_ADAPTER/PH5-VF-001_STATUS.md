@@ -1,6 +1,6 @@
 # PH5-VF-001 — Virtual Flight Shared Mission Lifecycle Integration
 
-**Status:** SIL ADAPTER INTEGRATION TEST PASS; HMI PROVENANCE GATE CI PENDING  
+**Status:** SIL LIFECYCLE MODE-SEPARATION CONTRACT IMPLEMENTED; CI VERIFICATION PENDING  
 **Evidence class:** `SIL_FIXTURE_ONLY`  
 **Execution model:** DJI Mavic 3E catalogue reference only; no operational performance profile admitted
 
@@ -13,12 +13,15 @@ Prove that the existing SIL autopilot adapter execution path can drive the same 
 - Added `core/ph5_vf_001_shared_mission_lifecycle_fixture.cpp`.
 - Registered `ph5_vf_001_shared_mission_lifecycle_fixture` in this module's CMake/CTest configuration.
 - The fixture creates one canonical mission lifecycle record and exercises:
-  `DRAFT → CALCULATING → VALIDATING → READY → SUBMITTED → AUTHORIZED → RELEASED → EXECUTING → COMPLETED`.
+  `DRAFT → CALCULATING → VALIDATING → READY → RELEASED → EXECUTING → COMPLETED`.
+- The fixture pins `MissionExecutionMode::Virtual` and `SIL_FIXTURE` provenance.
+- Virtual release is a direct `READY → RELEASED` transition. It rejects `SUBMITTED`, carries no regulatory submission ID, and requires the explicit `VIRTUAL_SANDBOX_NO_ESORVD_SUBMISSION_OR_AUTHORIZATION` applicability reason.
 - Before entering `EXECUTING`, the existing `AutopilotAdapterBaseline` performs connect, mission compile, upload, read-back and semantic comparison.
 - An acknowledged adapter start command is recorded through the existing `SilExecutionSource`; its flight-record reference is bound into the lifecycle execution evidence.
 - Completion is admitted only after the adapter returns a completed flight-log acquisition and a successful clean close. The post-flight record reference is preserved in the terminal transition.
 - Every lifecycle event is checked for stable vehicle identity, `SIL_FIXTURE` provenance, model reference and performance-profile reference.
 - The test-only profile identifier is explicitly `SIL-FIXTURE-PERF-NOT-OPERATIONAL`; the vehicle model identifier is catalogue-reference-only. Neither is an approved flight performance profile.
+- The physical lifecycle retains `READY → SUBMITTED → AUTHORIZED → RELEASED`; the virtual lifecycle cannot enter those external authorization stages.
 
 ## Important evidence boundary
 
@@ -47,7 +50,7 @@ Published maximum flight time, speed, wind resistance and camera specifications 
 
 1. Connect the production mission model and real planning/validation outputs to the same lifecycle record; remove all synthetic evidence from the production path.
 2. Connect the simulator implementation to the normalized adapter contract for telemetry, pause/resume, abort, replanning and execution completion.
-3. The HMI now publishes the pinned vehicle provenance with lifecycle readiness and refuses to present READY/RELEASED in Virtual Flight unless the current mission lineage is `SIL_FIXTURE`. The workspace still has no simulator execution controls or live simulator telemetry; the existing diagnostic assessment console is not a simulator.
+3. The HMI readiness snapshot now carries `executionMode`; the active `VIRTUAL FLT` workspace accepts only `VIRTUAL` + `SIL_FIXTURE`, while the physical workspace accepts only `PHYSICAL` + `PHYSICAL_LIVE`. The workspace still has no production simulator execution controls or live simulator telemetry; the existing diagnostic assessment console is not a simulator.
 4. Build and validate the exact DJI Mavic 3E configuration/performance profile from authoritative source documents and configuration evidence. Keep unknown limits blocking; do not substitute catalogue maxima as operational limits.
 5. Verify the full HMI and adapter CI runs on the exact merge candidate SHA.
 
