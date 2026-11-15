@@ -273,6 +273,10 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
     bool bestMaximumRegimeWarning = false;
     std::string bestOperatorWarning;
     CandidateWeatherAssessment bestWeatherAssessment;
+    std::optional<FlightSafetyValidationResult> bestFlightSafetyValidation;
+    std::optional<NotamValidationResult> bestNotamValidation;
+    std::optional<Route> bestSelectedRoute;
+    std::optional<TrajectoryResult> bestWeatherTrajectory;
     bool bestWeatherAssessmentApplied = false;
     bool have_best = false;
 
@@ -317,6 +321,8 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
 
             std::vector<std::string> violations = candidate.constraint_violations;
             FlightSafetyValidationResult flightSafety;
+            bool flightSafetyEvaluated = false;
+            std::optional<NotamValidationResult> notamValidation;
             if (context.problem().requires_flight_safety_validation) {
                 if (context.problem().vehicle_ids.size() != 1 ||
                     context.problem().flight_safety_vehicle_id.empty() ||
@@ -332,6 +338,7 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
                 } else {
                     flightSafety = FlightSafetyConstraintValidator::validate(
                         *context.problem().flight_safety_envelope, candidate.flight_dynamics);
+                    flightSafetyEvaluated = true;
                     if (flightSafety.status != FlightSafetyStatus::Allowed) {
                         if (flightSafety.findings.empty()) {
                             violations.push_back("FLIGHT_SAFETY_UNKNOWN: динамические ограничения БВС не подтверждены.");
@@ -468,10 +475,11 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
                     violations.push_back(
                         "NOTAM_VALIDATION_UNKNOWN: кандидат отключил обязательное избегание ограниченного воздушного пространства.");
                 } else {
-                    const auto notamResult = NotamProhibitedZoneValidator::validate(
+                    notamValidation = NotamProhibitedZoneValidator::validate(
                         *rankedCandidate.trajectory_route,
                         *context.problem().notam_snapshot,
                         *weatherAssessment.trajectory);
+                    const auto& notamResult = *notamValidation;
                     if (notamResult.status != RouteValidationStatus::Allowed) {
                         if (notamResult.findings.empty()) {
                             violations.push_back(
@@ -511,6 +519,11 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
             if (!have_best || better_candidate(rankedCandidate, best, context.problem())) {
                 best = rankedCandidate;
                 bestWeatherAssessment = weatherAssessment;
+                bestFlightSafetyValidation = flightSafetyEvaluated
+                    ? std::optional<FlightSafetyValidationResult>(flightSafety) : std::nullopt;
+                bestNotamValidation = notamValidation;
+                bestSelectedRoute = rankedCandidate.trajectory_route;
+                bestWeatherTrajectory = weatherAssessment.trajectory;
                 bestWeatherAssessmentApplied = static_cast<bool>(weather_assessor_);
                 bestMaximumRegimeUses = flightSafety.maximum_regime_uses;
                 bestMaximumRegimeWarning = flightSafety.maximum_regime_warning_required;
@@ -531,6 +544,10 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
     decision.feasibility = Feasibility::Feasible;
     decision.selected_solver_id = best.solver_id;
     decision.selected_candidate_id = best.candidate_id;
+    decision.selected_route = std::move(bestSelectedRoute);
+    decision.selected_flight_safety_validation = std::move(bestFlightSafetyValidation);
+    decision.selected_notam_validation = std::move(bestNotamValidation);
+    decision.selected_weather_trajectory = std::move(bestWeatherTrajectory);
     decision.selected_maximum_regime_uses = std::move(bestMaximumRegimeUses);
     decision.maximum_regime_warning_required = bestMaximumRegimeWarning;
     decision.operator_warning = std::move(bestOperatorWarning);

@@ -2,6 +2,8 @@
 
 #include "../solver_contract/solver_contract.hpp"
 #include "../wind_performance_trajectory.hpp"
+#include "../notam_prohibited_zone_validator.hpp"
+#include <optional>
 #include <functional>
 #include <memory>
 #include <string>
@@ -40,6 +42,12 @@ struct OrchestratorDecision {
     Feasibility feasibility{Feasibility::Uncertain};
     std::string selected_solver_id;
     std::string selected_candidate_id;
+    // Authoritative outputs from the exact checks used to admit the selected candidate.
+    // Empty optionals mean that the corresponding check was not executed.
+    std::optional<Route> selected_route;
+    std::optional<FlightSafetyValidationResult> selected_flight_safety_validation;
+    std::optional<NotamValidationResult> selected_notam_validation;
+    std::optional<TrajectoryResult> selected_weather_trajectory;
     std::vector<std::string> considered_solvers;
     std::vector<std::string> rejected_solvers;
     std::vector<CandidateRejection> rejected_candidates;

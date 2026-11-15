@@ -121,6 +121,10 @@ int main()
 
     assert(decision.feasibility == Feasibility::Feasible);
     assert(decision.selected_candidate_id == "raw-slow");
+    assert(decision.selected_route.has_value());
+    assert(decision.selected_route->lineage.route_id == "raw-slow");
+    assert(!decision.selected_flight_safety_validation.has_value());
+    assert(!decision.selected_notam_validation.has_value());
     assert(decision.weather_assessment_applied);
     assert(decision.weather_snapshot_id == "GFS-20261110-12");
     assert(decision.weather_corrected_time_s == 40.0);
@@ -221,6 +225,25 @@ int main()
         }
     }
     assert(temporalNotamConflictRejected);
+
+    // A clear, time-valid NOTAM snapshot retains the exact successful 4D validation result.
+    MissionProblem clearNotamProblem = problem;
+    clearNotamProblem.requires_notam_validation = true;
+    auto clearSnapshot = std::make_shared<NotamSnapshot>(*snapshot);
+    clearSnapshot->zones.clear();
+    clearNotamProblem.notam_snapshot = clearSnapshot;
+    TestContext clearNotamContext(clearNotamProblem);
+    std::vector<std::unique_ptr<Solver>> clearNotamSolvers;
+    clearNotamSolvers.push_back(std::make_unique<CandidateSolver>());
+    AlgorithmOrchestrator clearNotamOrchestrator(
+        std::move(clearNotamSolvers), {}, timedAssessor);
+    const auto clearNotamDecision = clearNotamOrchestrator.solve(clearNotamContext);
+    assert(clearNotamDecision.feasibility == Feasibility::Feasible);
+    assert(clearNotamDecision.selected_notam_validation.has_value());
+    assert(clearNotamDecision.selected_notam_validation->status == RouteValidationStatus::Allowed);
+    assert(clearNotamDecision.selected_notam_validation->snapshot_id == clearSnapshot->snapshot_id);
+    assert(clearNotamDecision.selected_weather_trajectory.has_value());
+    assert(clearNotamDecision.selected_route.has_value());
 
     MissionProblem missingSnapshotProblem = problem;
     missingSnapshotProblem.requires_notam_validation = true;
