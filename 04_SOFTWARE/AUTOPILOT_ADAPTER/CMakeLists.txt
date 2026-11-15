@@ -299,3 +299,23 @@ target_link_libraries(bluesky_manual_override_authority_gate PUBLIC bluesky_auto
 add_executable(manual_override_authority_gate_test core/manual_override_authority_gate_test.cpp)
 target_link_libraries(manual_override_authority_gate_test PRIVATE bluesky_manual_override_authority_gate)
 add_test(NAME manual_override_authority_gate_test COMMAND manual_override_authority_gate_test)
+
+# PH5-VF-001: one SIL adapter execution is correlated through the canonical
+# MissionLifecycleController. All admission/validation inputs in this target
+# are explicitly synthetic fixtures; this is not operational flight evidence.
+add_executable(ph5_vf_001_shared_mission_lifecycle_fixture
+    core/ph5_vf_001_shared_mission_lifecycle_fixture.cpp
+    core/ph4_int_014_sil_execution_source.cpp
+    ../PLANNING/mission_lifecycle.cpp
+)
+target_link_libraries(ph5_vf_001_shared_mission_lifecycle_fixture
+    PRIVATE bluesky_autopilot_baseline
+)
+target_include_directories(ph5_vf_001_shared_mission_lifecycle_fixture
+    PRIVATE ../PLANNING core
+)
+target_compile_features(ph5_vf_001_shared_mission_lifecycle_fixture PRIVATE cxx_std_20)
+add_test(NAME ph5_vf_001_shared_mission_lifecycle_fixture
+    COMMAND ph5_vf_001_shared_mission_lifecycle_fixture)
+set_tests_properties(ph5_vf_001_shared_mission_lifecycle_fixture
+    PROPERTIES LABELS "virtual-flight;lifecycle;sil" TIMEOUT 30)
