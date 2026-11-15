@@ -84,6 +84,7 @@ static bluesky::planning::MissionLifecycleRecord readyRecord()
 {
     using namespace bluesky::planning;
     MissionLifecycleRecord record;
+    record.execution_mode = MissionExecutionMode::Virtual;
     record.mission_id = "MISSION-1";
     record.mission_version = "2";
     record.current_route_id = "ROUTE-1";
@@ -98,6 +99,7 @@ static bluesky::planning::MissionLifecycleRecord readyRecord()
     record.performance_profile_revision = "1";
     record.state = MissionLifecycleState::Ready;
     MissionLifecycleEvent event;
+    event.execution_mode = record.execution_mode;
     event.sequence = 1;
     event.mission_id = record.mission_id;
     event.mission_version = record.mission_version;
