@@ -40,9 +40,19 @@ inline MissionLifecycleValidationEvidence makeMt01TaskQualityValidationEvidence(
         &&positive(m.maximum_camera_ground_speed_mps)&&std::isfinite(m.nominal_motion_blur_px)
         &&m.nominal_motion_blur_px>=0&&positive(input.cruise_speed_mps)
         &&positive(c.focal_length_mm)&&positive(c.pixel_pitch_um)&&c.image_width_px>0&&c.image_height_px>0;
+    if(ok) ok=geometry.vehicle_model_id==route.speed_profile->vehicle_model_id
+        &&geometry.vehicle_model_version==route.speed_profile->vehicle_model_version
+        &&geometry.vehicle_configuration_id==route.speed_profile->configuration_id;
     for(std::size_t i=0;ok&&i<geometry.waypoints.size();++i) {
         const auto& a=geometry.waypoints[i]; const auto& b=route.waypoints[i].position;
         ok=close(a.latitude_deg,b.latitude_deg,1e-8)&&close(a.longitude_deg,b.longitude_deg,1e-8);
+    }
+    for(std::size_t i=0;ok&&i<geometry.segments.size();++i) {
+        const auto& generated=geometry.segments[i]; const auto& canonical=route.segments[i];
+        ok=generated.segment_id==canonical.segment_id
+            &&generated.from_waypoint_index==i&&generated.to_waypoint_index==i+1
+            &&close(generated.distance_m,canonical.distance_m,std::max(0.5,canonical.distance_m*0.01))
+            &&close(generated.nominal_speed_mps,canonical.nominal_speed_mps,1e-6);
     }
     for(std::size_t i=0;ok&&i<geometry.capture_point_waypoint_indices.size();++i) {
         const auto index=geometry.capture_point_waypoint_indices[i];
