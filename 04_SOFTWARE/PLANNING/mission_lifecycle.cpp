@@ -30,6 +30,12 @@ bool isKnownState(MissionLifecycleState state) noexcept {
 }
 
 bool allowed(MissionLifecycleState from, MissionLifecycleState to, MissionExecutionMode mode) noexcept {
+    if (mode == MissionExecutionMode::Virtual
+        && (from == MissionLifecycleState::Submitted
+            || from == MissionLifecycleState::Authorized
+            || to == MissionLifecycleState::Submitted
+            || to == MissionLifecycleState::Authorized))
+        return false;
     if (to == MissionLifecycleState::Aborted && !isTerminal(from))
         return true;
     switch (from) {
@@ -149,6 +155,18 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
     if (initialModeBinding && evidence.execution_mode == MissionExecutionMode::Virtual
         && evidence.vehicle_source_provenance != "SIL_FIXTURE")
         result.blockers.emplace_back("VIRTUAL_MODE_REQUIRES_SIL_PROVENANCE");
+    for (const auto &event : record.history) {
+        if (event.execution_mode != record.execution_mode) {
+            result.blockers.emplace_back("MISSION_LIFECYCLE_HISTORY_MODE_DRIFT");
+            break;
+        }
+        if (record.execution_mode == MissionExecutionMode::Virtual
+            && (event.to == MissionLifecycleState::Submitted
+                || event.to == MissionLifecycleState::Authorized)) {
+            result.blockers.emplace_back("VIRTUAL_LIFECYCLE_CONTAINS_EXTERNAL_AUTHORIZATION_STAGE");
+            break;
+        }
+    }
     if (actor_id.empty())
         result.blockers.emplace_back("LIFECYCLE_ACTOR_REQUIRED");
 
