@@ -644,13 +644,6 @@ Item {
                 font.bold: true
             }
             Text {
-                text: "/"
-                color: root.secondary
-                font.family: "B612"
-                font.pixelSize: 13
-                font.bold: true
-            }
-            Text {
                 text: "ACTIONS"
                 color: "#FF00D4"
                 font.family: "B612"

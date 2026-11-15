@@ -5,6 +5,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QVariantMap>
+#include <QVariantList>
 
 #include <algorithm>
 #include <cassert>
