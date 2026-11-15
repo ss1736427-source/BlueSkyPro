@@ -105,6 +105,8 @@ qt_add_qml_module(appBlueSkyPRO
         qml/MissionProfileWindow.qml
         qml/ThreeDMappingProfile.qml
         qml/UAVFleetPanel.qml
+        qml/UavReferenceCatalog.qml
+        qml/UavReferenceCatalog.js
         qml/UAVFleetPanelForm.ui.qml
         qml/BottomToolbar.qml
         qml/ContextOverlay.ui.qml

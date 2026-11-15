@@ -1,5 +1,6 @@
 import QtQuick
 import QtCore
+import "UavReferenceCatalog.js" as UavCatalog
 
 Item {
     id: root
@@ -813,6 +814,14 @@ Item {
                                              && routeController.waypoints.length >= 2
     readonly property string routeValidationState: hasCanonicalRoute ? routeController.validationState : "EMPTY"
     property var uavModel: []
+    // Type-level reference data enriches mission context; it is never substituted for an approved aircraft profile.
+    readonly property var selectedUavReferenceType: {
+        var selected = root.selectedUavIndex >= 0 && root.selectedUavIndex < root.uavModel.length
+                ? root.uavModel[root.selectedUavIndex] : null
+        return selected && selected.referenceTypeId ? UavCatalog.typeById(selected.referenceTypeId) : null
+    }
+    readonly property var selectedUavReferenceModels: selectedUavReferenceType
+        ? UavCatalog.modelsForType(selectedUavReferenceType.id) : []
     // Assignment result supplied by mission planning; the HMI does not infer task allocation.
     property var missionAssignments: []
     property int selectedUavIndex: -1

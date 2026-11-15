@@ -19,7 +19,7 @@ Item {
 
     function titleFor(key) {
         return ({
-            Overview: "Обзор системы", Users: "Пользователи и роли",
+            Overview: "Обзор системы", UAVs: "БПЛА и типы", Users: "Пользователи и роли",
             Roles: "Пользователи и роли", Security: "Системное администрирование",
             Settings: "Системное администрирование", Integrations: "Внешние интеграции",
             Sync: "Данные и обработка", Documents: "Документы и соответствие",
@@ -81,6 +81,7 @@ Item {
                         Repeater {
                             model: [
                                 {key:"Overview", title:"Обзор системы", glyph:"⌂", group:""},
+                                {key:"UAVs", title:"БПЛА и типы", glyph:"✈", group:""},
                                 {key:"Users", title:"Пользователи и роли", glyph:"♟", group:""},
                                 {key:"Security", title:"Системное администрирование", glyph:"⚙", group:""},
                                 {key:"Integrations", title:"Внешние интеграции", glyph:"♆", group:""},
@@ -196,6 +197,16 @@ Item {
             Loader {
                 anchors.fill: parent
                 anchors.topMargin: adminTopBar.height
+                active: root.activeSection === "UAVs"
+                visible: active
+                sourceComponent: Component {
+                    UavReferenceCatalog { anchors.fill: parent }
+                }
+            }
+
+            Loader {
+                anchors.fill: parent
+                anchors.topMargin: adminTopBar.height
                 active: root.activeSection === "Integrations"
                 visible: active
                 sourceComponent: Component {
@@ -206,7 +217,7 @@ Item {
             Flickable {
                 anchors.fill: parent
                 anchors.topMargin: adminTopBar.height
-                visible: root.activeSection !== "Integrations"
+                visible: root.activeSection !== "Integrations" && root.activeSection !== "UAVs"
                 clip: true
                 contentWidth: width
                 contentHeight: overviewPage.implicitHeight + 56
