@@ -22,15 +22,30 @@ Item {
     readonly property var lifecycleReadinessSnapshot:
         typeof planningBridge !== "undefined" && planningBridge !== null
         ? planningBridge.readinessSnapshot : null
+    readonly property var lifecycleCurrentRouteSnapshot: {
+        if (typeof routeController === "undefined" || routeController === null)
+            return null
+        // Read NOTIFY-backed properties so routeChanged invalidates this snapshot
+        // before comparing the full mission/route lineage.
+        var currentRouteId = routeController.routeId
+        var currentRouteVersion = routeController.routeVersion
+        var currentInputVersion = routeController.calculationInputVersion
+        return routeController.routeSnapshot()
+    }
     readonly property bool lifecycleReadinessMatchesCurrentRevision:
         root.lifecycleReadinessSnapshot
+        && root.lifecycleCurrentRouteSnapshot
         && String(root.lifecycleReadinessSnapshot.missionId || "") === String(root.missionId)
-        && typeof routeController !== "undefined" && routeController !== null
-        && String(root.lifecycleReadinessSnapshot.routeId || "") === String(routeController.routeId)
-        && String(root.lifecycleReadinessSnapshot.routeVersion || "") === String(routeController.routeVersion)
+        && String(root.lifecycleReadinessSnapshot.missionId || "")
+           === String(root.lifecycleCurrentRouteSnapshot.missionId || "")
+        && String(root.lifecycleReadinessSnapshot.missionVersion || "")
+           === String(root.lifecycleCurrentRouteSnapshot.missionVersion || "")
+        && String(root.lifecycleReadinessSnapshot.routeId || "")
+           === String(root.lifecycleCurrentRouteSnapshot.routeId || "")
+        && String(root.lifecycleReadinessSnapshot.routeVersion || "")
+           === String(root.lifecycleCurrentRouteSnapshot.routeVersion || "")
         && String(root.lifecycleReadinessSnapshot.calculationInputVersion || "")
-           === String(routeController.calculationInputVersion)
-        && routeController.validationState === "VALIDATED"
+           === String(root.lifecycleCurrentRouteSnapshot.calculationInputVersion || "")
     readonly property bool missionReady:
         root.lifecycleReadinessMatchesCurrentRevision
         && root.lifecycleReadinessSnapshot.ready === true

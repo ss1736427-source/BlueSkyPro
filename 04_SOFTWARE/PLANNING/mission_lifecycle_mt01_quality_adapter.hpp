@@ -2,6 +2,7 @@
 #include "coverage_path_planner.hpp"
 #include "mission_lifecycle.hpp"
 #include "mt01_kinematic_geometry_builder.hpp"
+#include <algorithm>
 #include <cmath>
 namespace bluesky::planning {
 inline MissionLifecycleValidationEvidence makeMt01TaskQualityValidationEvidence(
@@ -43,9 +44,19 @@ inline MissionLifecycleValidationEvidence makeMt01TaskQualityValidationEvidence(
     if(ok) ok=geometry.vehicle_model_id==route.speed_profile->vehicle_model_id
         &&geometry.vehicle_model_version==route.speed_profile->vehicle_model_version
         &&geometry.vehicle_configuration_id==route.speed_profile->configuration_id;
+    if(ok) ok=geometry.vehicle_model_id==route.speed_profile->vehicle_model_id
+        &&geometry.vehicle_model_version==route.speed_profile->vehicle_model_version
+        &&geometry.vehicle_configuration_id==route.speed_profile->configuration_id;
     for(std::size_t i=0;ok&&i<geometry.waypoints.size();++i) {
         const auto& a=geometry.waypoints[i]; const auto& b=route.waypoints[i].position;
         ok=close(a.latitude_deg,b.latitude_deg,1e-8)&&close(a.longitude_deg,b.longitude_deg,1e-8);
+    }
+    for(std::size_t i=0;ok&&i<geometry.segments.size();++i) {
+        const auto& generated=geometry.segments[i]; const auto& canonical=route.segments[i];
+        ok=generated.segment_id==canonical.segment_id
+            &&generated.from_waypoint_index==i&&generated.to_waypoint_index==i+1
+            &&close(generated.distance_m,canonical.distance_m,std::max(0.5,canonical.distance_m*0.01))
+            &&close(generated.nominal_speed_mps,canonical.nominal_speed_mps,1e-6);
     }
     for(std::size_t i=0;ok&&i<geometry.segments.size();++i) {
         const auto& generated=geometry.segments[i]; const auto& canonical=route.segments[i];
