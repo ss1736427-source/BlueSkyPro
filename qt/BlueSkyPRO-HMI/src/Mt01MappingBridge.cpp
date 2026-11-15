@@ -371,6 +371,36 @@ bool parseMission(const QJsonObject &json, Mission &mission, QStringList &errors
         mission.identity.mission_version = std::to_string(json.value(QStringLiteral("missionVersion")).toInt());
     mission.mission_mode = json.value(QStringLiteral("missionMode")).toString().toStdString();
 
+    const QJsonValue executionContextValue = json.value(QStringLiteral("executionContext"));
+    if (!executionContextValue.isObject()) {
+        errors.push_back(QStringLiteral("MISSION_EXECUTION_CONTEXT_REQUIRED"));
+    } else {
+        const QJsonObject executionContext = executionContextValue.toObject();
+        const QString mode = executionContext.value(QStringLiteral("mode")).toString().trimmed();
+        const bool virtualMode = mode == QLatin1String("VIRTUAL");
+        const bool physicalMode = mode == QLatin1String("PHYSICAL");
+        const QString expectedProvenance = virtualMode
+            ? QStringLiteral("SIL_FIXTURE") : QStringLiteral("PHYSICAL_LIVE");
+        const QString expectedTarget = virtualMode
+            ? QStringLiteral("SIMULATOR_ONLY") : QStringLiteral("PHYSICAL_UAV");
+        const QString expectedAuthorization = virtualMode
+            ? QStringLiteral("NOT_APPLICABLE") : QStringLiteral("EXTERNAL_REGULATORY");
+        const QJsonValue esorvdAllowed = executionContext.value(QStringLiteral("esorvdSubmissionAllowed"));
+        if ((!virtualMode && !physicalMode)
+            || executionContext.value(QStringLiteral("vehicleSourceProvenanceRequired")).toString()
+                != expectedProvenance
+            || executionContext.value(QStringLiteral("releaseTarget")).toString() != expectedTarget
+            || executionContext.value(QStringLiteral("authorizationPath")).toString()
+                != expectedAuthorization
+            || !esorvdAllowed.isBool()
+            || esorvdAllowed.toBool() != physicalMode) {
+            errors.push_back(QStringLiteral("MISSION_EXECUTION_CONTEXT_INVALID"));
+        } else {
+            mission.lifecycle.execution_mode = virtualMode
+                ? MissionExecutionMode::Virtual : MissionExecutionMode::Physical;
+        }
+    }
+
     const QStringList templates = stringArray(json.value(QStringLiteral("selectedTemplateIds")),
                                                QStringLiteral("MISSION_TEMPLATE_IDS_INVALID"));
     if (templates.size() == 1 && templates.front() == QStringLiteral("MISSION_TEMPLATE_IDS_INVALID"))
@@ -927,14 +957,23 @@ QVariantMap Mt01MappingBridge::calculate(const QString &missionJson,
     QVariantList lifecycleTemplateIds;
     for (const auto &templateId : request.mission.selected_template_ids)
         lifecycleTemplateIds.push_back(QString::fromStdString(templateId));
+    const bool virtualExecution =
+        request.mission.lifecycle.execution_mode == MissionExecutionMode::Virtual;
     const QVariantMap lifecycleIdentity{
         {QStringLiteral("missionId"), QString::fromStdString(request.mission.identity.mission_id)},
         {QStringLiteral("missionVersion"), QString::fromStdString(request.mission.identity.mission_version)},
-        {QStringLiteral("templateIds"), lifecycleTemplateIds}
+        {QStringLiteral("templateIds"), lifecycleTemplateIds},
+        {QStringLiteral("executionMode"),
+         QString::fromLatin1(toString(request.mission.lifecycle.execution_mode))}
     };
 
     return {
         {QStringLiteral("lifecycleIdentity"), lifecycleIdentity},
+        {QStringLiteral("executionMode"),
+         QString::fromLatin1(toString(request.mission.lifecycle.execution_mode))},
+        {QStringLiteral("releaseTarget"),
+         virtualExecution ? QStringLiteral("SIMULATOR_ONLY") : QStringLiteral("PHYSICAL_UAV")},
+        {QStringLiteral("esorvdSubmissionAllowed"), !virtualExecution},
         {QStringLiteral("status"), calculated.coverage_candidate_available
              ? QStringLiteral("COVERAGE_CANDIDATE_AVAILABLE") : QStringLiteral("NEEDS_INPUT")},
         {QStringLiteral("coverageCandidateAvailable"), calculated.coverage_candidate_available},
