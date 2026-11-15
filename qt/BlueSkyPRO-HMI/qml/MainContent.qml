@@ -49,10 +49,18 @@ Item {
     readonly property string lifecycleExecutionProvenance:
         root.lifecycleReadinessSnapshot
         ? String(root.lifecycleReadinessSnapshot.vehicleSourceProvenance || "") : ""
-    // A physical READY/RELEASED snapshot must never be presented as a Virtual Flight result.
+    // The active workspace selects exactly one mission execution context.
+    // A virtual lifecycle snapshot must never leak into the physical workspace,
+    // and physical readiness must never be shown as Virtual Flight readiness.
+    readonly property string lifecycleExpectedExecutionMode:
+        root.activeTool === "VIRTUAL FLT" ? "VIRTUAL" : "PHYSICAL"
     readonly property bool lifecycleModeProvenanceMatches:
-        root.activeTool !== "VIRTUAL FLT"
-        || root.lifecycleExecutionProvenance === "SIL_FIXTURE"
+        root.lifecycleReadinessSnapshot
+        && String(root.lifecycleReadinessSnapshot.executionMode || "")
+           === root.lifecycleExpectedExecutionMode
+        && (root.lifecycleExpectedExecutionMode === "VIRTUAL"
+            ? root.lifecycleExecutionProvenance === "SIL_FIXTURE"
+            : root.lifecycleExecutionProvenance === "PHYSICAL_LIVE")
     readonly property bool missionReady:
         root.lifecycleReadinessMatchesCurrentRevision
         && root.lifecycleModeProvenanceMatches
@@ -641,7 +649,7 @@ Item {
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "LIFECYCLE: " + root.lifecycleReadinessStatus
+                    text: "MODE: VIRTUAL / LIFECYCLE: " + root.lifecycleReadinessStatus
                           + " / PROVENANCE: " + (root.lifecycleExecutionProvenance || "UNBOUND")
                     color: "#B8E8F7"
                     opacity: 0.72
