@@ -4,7 +4,10 @@ import QtCore
 Item {
     id: root
 
-    Component.onCompleted: console.warn("BLUESKY_MAIN_CONTENT_CREATED")
+    Component.onCompleted: {
+        console.warn("BLUESKY_MAIN_CONTENT_CREATED")
+        root.syncExecutionWorkspaceContext()
+    }
     // BlueSky PRO — Qt Design Studio working screen.
     // Visual composition only. Core / Safety remain authoritative.
     property int toolbarHeight: 54
