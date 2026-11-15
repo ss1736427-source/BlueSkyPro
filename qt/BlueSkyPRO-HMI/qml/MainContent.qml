@@ -76,7 +76,7 @@ Item {
         ? root.lifecycleReadinessSnapshot.pilotActions : []
     readonly property string lifecycleReadinessStatus:
         !root.lifecycleReadinessMatchesCurrentRevision ? "BLOCKED"
-        : (!root.lifecycleModeProvenanceMatches ? "BLOCKED_VIRTUAL_SIL_PROVENANCE_REQUIRED"
+        : (!root.lifecycleModeProvenanceMatches ? "BLOCKED_EXECUTION_MODE_OR_PROVENANCE_MISMATCH"
         : String(root.lifecycleReadinessSnapshot.status || "BLOCKED"))
     property bool manualCompositionComplete: false
     // Shared map view state: retained while switching mission templates and tools.

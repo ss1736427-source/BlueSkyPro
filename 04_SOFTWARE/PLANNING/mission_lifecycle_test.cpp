@@ -371,6 +371,14 @@ static void testSharedLifecycleForPhysicalAndVirtualExecutionModes() {
         }
 
         assert(move(record, MissionLifecycleState::Calculating, e).accepted);
+        auto changedMode = e;
+        changedMode.execution_mode = isVirtual
+            ? MissionExecutionMode::Physical : MissionExecutionMode::Virtual;
+        changedMode.vehicle_source_provenance = isVirtual ? "PHYSICAL_LIVE" : "SIL_FIXTURE";
+        const auto modeDrift = move(record, MissionLifecycleState::Validating, changedMode);
+        assert(!modeDrift.accepted);
+        assert(std::find(modeDrift.blockers.begin(), modeDrift.blockers.end(),
+                         "MISSION_EXECUTION_MODE_CHANGED") != modeDrift.blockers.end());
         assert(move(record, MissionLifecycleState::Validating, e).accepted);
         assert(move(record, MissionLifecycleState::Ready, e).accepted);
         if (isVirtual) {
@@ -446,11 +454,11 @@ int main() {
     auto started = move(record, MissionLifecycleState::Calculating, e);
     assert(started.accepted && record.state == MissionLifecycleState::Calculating);
     assert(record.vehicle_id == "UAV-1");
-    assert(record.vehicle_source_provenance == "SIL_FIXTURE");
+    assert(record.vehicle_source_provenance == "PHYSICAL_LIVE");
     assert(record.vehicle_configuration_revision == "CFG-REV-1");
     assert(record.fleet_assignment_snapshot_id == "FLEET-ASSIGNMENT-1");
     assert(record.history.front().vehicle_id == record.vehicle_id);
-    assert(record.history.front().vehicle_source_provenance == "SIL_FIXTURE");
+    assert(record.history.front().vehicle_source_provenance == "PHYSICAL_LIVE");
     assert(record.history.front().reference_model_id == record.reference_model_id);
     assert(record.history.front().performance_profile_id == record.performance_profile_id);
     assert(record.history.front().vehicle_configuration_revision == record.vehicle_configuration_revision);

@@ -158,7 +158,7 @@ struct MissionLifecycleRecord {
     std::vector<MissionLifecycleEvent> history;
     // All selected templates are retained; missions may combine task templates.
     std::vector<std::string> mission_template_ids;
-    // Immutable physical/SIL vehicle assignment pinned at DRAFT -> CALCULATING.
+    // Immutable execution mode and physical/SIL vehicle assignment pinned at DRAFT -> CALCULATING.
     std::string vehicle_id;
     std::string vehicle_source_provenance;
     std::string reference_model_id;
