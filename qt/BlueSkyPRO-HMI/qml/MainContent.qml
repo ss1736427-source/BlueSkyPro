@@ -22,9 +22,16 @@ Item {
     readonly property var lifecycleReadinessSnapshot:
         typeof planningBridge !== "undefined" && planningBridge !== null
         ? planningBridge.readinessSnapshot : null
-    readonly property var lifecycleCurrentRouteSnapshot:
-        typeof routeController !== "undefined" && routeController !== null
-        ? routeController.routeSnapshot() : null
+    readonly property var lifecycleCurrentRouteSnapshot: {
+        if (typeof routeController === "undefined" || routeController === null)
+            return null
+        // Read NOTIFY-backed properties so routeChanged invalidates this snapshot
+        // before comparing the full mission/route lineage.
+        var currentRouteId = routeController.routeId
+        var currentRouteVersion = routeController.routeVersion
+        var currentInputVersion = routeController.calculationInputVersion
+        return routeController.routeSnapshot()
+    }
     readonly property bool lifecycleReadinessMatchesCurrentRevision:
         root.lifecycleReadinessSnapshot
         && root.lifecycleCurrentRouteSnapshot
