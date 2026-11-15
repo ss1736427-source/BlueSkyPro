@@ -385,6 +385,14 @@ static void testSharedLifecycleForPhysicalAndVirtualExecutionModes() {
         assert(move(record, MissionLifecycleState::Ready, e).accepted);
         if (isVirtual) {
             assert(!move(record, MissionLifecycleState::Submitted, e).accepted);
+            auto forgedExternalStage = record;
+            forgedExternalStage.state = MissionLifecycleState::Submitted;
+            const auto forgedAuthorization =
+                move(forgedExternalStage, MissionLifecycleState::Authorized, e);
+            assert(!forgedAuthorization.accepted);
+            assert(std::find(forgedAuthorization.blockers.begin(), forgedAuthorization.blockers.end(),
+                             "MISSION_LIFECYCLE_TRANSITION_NOT_ALLOWED")
+                   != forgedAuthorization.blockers.end());
             assert(move(record, MissionLifecycleState::Released, e).accepted);
         } else {
             assert(!move(record, MissionLifecycleState::Released, e).accepted);
