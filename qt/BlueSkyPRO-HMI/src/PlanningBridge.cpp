@@ -79,6 +79,13 @@ void PlanningBridge::invalidateLifecycleReadiness(const QString &reason)
         {QStringLiteral("released"), false},
         {QStringLiteral("missionId"), QString()},
         {QStringLiteral("missionVersion"), QString()},
+        {QStringLiteral("vehicleId"), QString()},
+        {QStringLiteral("vehicleSourceProvenance"), QString()},
+        {QStringLiteral("referenceModelId"), QString()},
+        {QStringLiteral("vehicleConfigurationId"), QString()},
+        {QStringLiteral("vehicleConfigurationRevision"), QString()},
+        {QStringLiteral("performanceProfileId"), QString()},
+        {QStringLiteral("performanceProfileRevision"), QString()},
         {QStringLiteral("routeId"), QString()},
         {QStringLiteral("routeVersion"), QString()},
         {QStringLiteral("calculationInputVersion"), QString()},
@@ -103,6 +110,12 @@ bool PlanningBridge::publishLifecycleReadiness(
     };
     if (!transition.accepted || !transition.blockers.empty() || transition.state != record.state
         || record.mission_id.empty() || record.mission_version.empty()
+        || record.vehicle_id.empty()
+        || (record.vehicle_source_provenance != "PHYSICAL_LIVE"
+            && record.vehicle_source_provenance != "SIL_FIXTURE")
+        || record.reference_model_id.empty() || record.vehicle_configuration_id.empty()
+        || record.vehicle_configuration_revision.empty()
+        || record.performance_profile_id.empty() || record.performance_profile_revision.empty()
         || record.current_route_id.empty() || record.current_route_version.empty()
         || record.current_calculation_input_version.empty() || record.history.empty())
         return invalidate();
@@ -128,7 +141,14 @@ bool PlanningBridge::publishLifecycleReadiness(
     for (std::size_t i = 0; i < history.size(); ++i) {
         const auto &event = history[i];
         if (event.sequence == 0 || event.sequence <= previousSequence
-            || event.actor_id.empty() || event.timestamp.empty())
+            || event.actor_id.empty() || event.timestamp.empty()
+            || event.vehicle_id != record.vehicle_id
+            || event.vehicle_source_provenance != record.vehicle_source_provenance
+            || event.reference_model_id != record.reference_model_id
+            || event.vehicle_configuration_id != record.vehicle_configuration_id
+            || event.vehicle_configuration_revision != record.vehicle_configuration_revision
+            || event.performance_profile_id != record.performance_profile_id
+            || event.performance_profile_revision != record.performance_profile_revision)
             return invalidate();
         previousSequence = event.sequence;
         if (event.mission_id == record.mission_id
@@ -180,6 +200,13 @@ bool PlanningBridge::publishLifecycleReadiness(
         {QStringLiteral("released"), record.state == MissionLifecycleState::Released},
         {QStringLiteral("missionId"), QString::fromStdString(record.mission_id)},
         {QStringLiteral("missionVersion"), QString::fromStdString(record.mission_version)},
+        {QStringLiteral("vehicleId"), QString::fromStdString(record.vehicle_id)},
+        {QStringLiteral("vehicleSourceProvenance"), QString::fromStdString(record.vehicle_source_provenance)},
+        {QStringLiteral("referenceModelId"), QString::fromStdString(record.reference_model_id)},
+        {QStringLiteral("vehicleConfigurationId"), QString::fromStdString(record.vehicle_configuration_id)},
+        {QStringLiteral("vehicleConfigurationRevision"), QString::fromStdString(record.vehicle_configuration_revision)},
+        {QStringLiteral("performanceProfileId"), QString::fromStdString(record.performance_profile_id)},
+        {QStringLiteral("performanceProfileRevision"), QString::fromStdString(record.performance_profile_revision)},
         {QStringLiteral("routeId"), QString::fromStdString(record.current_route_id)},
         {QStringLiteral("routeVersion"), QString::fromStdString(record.current_route_version)},
         {QStringLiteral("calculationInputVersion"), QString::fromStdString(record.current_calculation_input_version)},
@@ -210,6 +237,9 @@ bool PlanningBridge::publishLifecycleAssessment(
         || assessment.state != record.state
         || assessment.accepted
         || record.mission_id.empty() || record.mission_version.empty()
+        || record.vehicle_id.empty()
+        || (record.vehicle_source_provenance != "PHYSICAL_LIVE"
+            && record.vehicle_source_provenance != "SIL_FIXTURE")
         || record.current_route_id.empty() || record.current_route_version.empty()
         || record.current_calculation_input_version.empty() || record.history.empty())
         return invalidate();
@@ -224,7 +254,14 @@ bool PlanningBridge::publishLifecycleAssessment(
         || lastEvent.route_id != record.current_route_id
         || lastEvent.route_version != record.current_route_version
         || lastEvent.evidence_reference != record.current_calculation_input_version
-        || lastEvent.actor_id.empty() || lastEvent.timestamp.empty())
+        || lastEvent.actor_id.empty() || lastEvent.timestamp.empty()
+        || lastEvent.vehicle_id != record.vehicle_id
+        || lastEvent.vehicle_source_provenance != record.vehicle_source_provenance
+        || lastEvent.reference_model_id != record.reference_model_id
+        || lastEvent.vehicle_configuration_id != record.vehicle_configuration_id
+        || lastEvent.vehicle_configuration_revision != record.vehicle_configuration_revision
+        || lastEvent.performance_profile_id != record.performance_profile_id
+        || lastEvent.performance_profile_revision != record.performance_profile_revision)
         return invalidate();
 
     QVariantList filteredPilotActions;
@@ -252,6 +289,13 @@ bool PlanningBridge::publishLifecycleAssessment(
         {QStringLiteral("released"), false},
         {QStringLiteral("missionId"), QString::fromStdString(record.mission_id)},
         {QStringLiteral("missionVersion"), QString::fromStdString(record.mission_version)},
+        {QStringLiteral("vehicleId"), QString::fromStdString(record.vehicle_id)},
+        {QStringLiteral("vehicleSourceProvenance"), QString::fromStdString(record.vehicle_source_provenance)},
+        {QStringLiteral("referenceModelId"), QString::fromStdString(record.reference_model_id)},
+        {QStringLiteral("vehicleConfigurationId"), QString::fromStdString(record.vehicle_configuration_id)},
+        {QStringLiteral("vehicleConfigurationRevision"), QString::fromStdString(record.vehicle_configuration_revision)},
+        {QStringLiteral("performanceProfileId"), QString::fromStdString(record.performance_profile_id)},
+        {QStringLiteral("performanceProfileRevision"), QString::fromStdString(record.performance_profile_revision)},
         {QStringLiteral("routeId"), QString::fromStdString(record.current_route_id)},
         {QStringLiteral("routeVersion"), QString::fromStdString(record.current_route_version)},
         {QStringLiteral("calculationInputVersion"), QString::fromStdString(record.current_calculation_input_version)},
