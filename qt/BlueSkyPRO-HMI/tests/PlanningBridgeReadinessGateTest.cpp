@@ -149,6 +149,22 @@ static void testChecklistContainsOnlyPilotActions()
            == QStringLiteral("pilot_review"));
 }
 
+static void testLifecycleReadinessRejectsVehicleProvenanceDrift()
+{
+    using namespace bluesky::planning;
+    PlanningBridge bridge;
+    auto record = readyRecord();
+    record.history.front().vehicle_source_provenance = "PHYSICAL_LIVE";
+    MissionLifecycleTransitionResult transition;
+    transition.accepted = true;
+    transition.state = MissionLifecycleState::Ready;
+    assert(!bridge.publishLifecycleReadiness(record, transition, {}));
+    const QVariantMap snapshot = bridge.readinessSnapshot();
+    assert(!snapshot.value(QStringLiteral("ready")).toBool());
+    assert(snapshot.value(QStringLiteral("blockers")).toList().contains(
+        QStringLiteral("CPP_LIFECYCLE_SNAPSHOT_INVALID")));
+}
+
 static void testStaleLifecycleLineageCannotPublishReady()
 {
     using namespace bluesky::planning;
@@ -248,6 +264,7 @@ int main(int argc, char **argv)
     testExternalPassCannotGrantReady();
     testExistingBlockersArePreserved();
     testChecklistContainsOnlyPilotActions();
+    testLifecycleReadinessRejectsVehicleProvenanceDrift();
     testStaleLifecycleLineageCannotPublishReady();
     testValidatingAssessmentShowsOnlyPilotActionsWithoutGrantingReady();
     testValidatingAssessmentRejectsStaleLineage();
