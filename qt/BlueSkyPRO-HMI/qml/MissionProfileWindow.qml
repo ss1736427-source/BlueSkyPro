@@ -822,6 +822,24 @@ Item {
     }
     readonly property var selectedUavReferenceModels: selectedUavReferenceType
         ? UavCatalog.modelsForType(selectedUavReferenceType.id) : []
+    // Resolve a specific reference model only from an explicit fleet binding.
+    readonly property var selectedUavReferenceModel: {
+        var selected = root.selectedUavIndex >= 0 && root.selectedUavIndex < root.uavModel.length
+                ? root.uavModel[root.selectedUavIndex] : null
+        return selected && selected.referenceModelId
+                ? UavCatalog.modelById(String(selected.referenceModelId)) : null
+    }
+    readonly property string selectedUavReferenceBindingStatus: {
+        var selected = root.selectedUavIndex >= 0 && root.selectedUavIndex < root.uavModel.length
+                ? root.uavModel[root.selectedUavIndex] : null
+        if (!selected) return "NO_AIRCRAFT_SELECTED"
+        if (selected.recordOrigin === "DEMO_FIXTURE") return "DEMO_FIXTURE_NOT_PHYSICAL_AIRCRAFT"
+        if (!selected.referenceModelId) return "MODEL_NOT_ASSIGNED"
+        if (!root.selectedUavReferenceModel) return "MODEL_REFERENCE_NOT_FOUND"
+        if (selected.referenceTypeId && root.selectedUavReferenceModel.typeId !== selected.referenceTypeId)
+            return "MODEL_TYPE_MISMATCH"
+        return selected.configurationId ? "CONFIGURATION_ID_LINKED_NOT_APPROVED" : "CONFIGURATION_NOT_LINKED"
+    }
     // Assignment result supplied by mission planning; the HMI does not infer task allocation.
     property var missionAssignments: []
     property int selectedUavIndex: -1
@@ -1965,10 +1983,32 @@ Item {
                                 font.pixelSize: 9
                                 elide: Text.ElideRight
                             }
+                            Text {
+                                width: parent.width
+                                visible: true
+                                text: {
+                                    var selected = root.selectedUavIndex >= 0 && root.selectedUavIndex < root.uavModel.length
+                                            ? root.uavModel[root.selectedUavIndex] : null
+                                    var modelLabel = root.selectedUavReferenceModel
+                                            ? root.selectedUavReferenceModel.manufacturer + " " + root.selectedUavReferenceModel.model
+                                            : "КОНКРЕТНАЯ МОДЕЛЬ НЕ НАЗНАЧЕНА"
+                                    var configLabel = selected && selected.configurationId
+                                            ? "CONFIG " + selected.configurationId + " · APPROVAL NOT VERIFIED"
+                                            : "КОНФИГУРАЦИЯ НЕ ПРИВЯЗАНА"
+                                    var demoLabel = selected && selected.recordOrigin === "DEMO_FIXTURE"
+                                            ? " · DEMO FIXTURE — НЕ ФИЗИЧЕСКИЙ БОРТ" : ""
+                                    return "МОДЕЛЬ: " + modelLabel + "  ·  " + configLabel + demoLabel
+                                }
+                                color: root.selectedUavReferenceBindingStatus === "CONFIGURATION_ID_LINKED_NOT_APPROVED"
+                                       ? root.muted : "#FFD339"
+                                font.family: "B612"
+                                font.pixelSize: 9
+                                elide: Text.ElideRight
+                            }
                             Canvas {
                                 id: profileCanvas
                                 width: parent.width
-                                height: parent.height - 44
+                                height: parent.height - 58
                                 onWidthChanged: requestPaint()
                                 onHeightChanged: requestPaint()
                                 Connections {

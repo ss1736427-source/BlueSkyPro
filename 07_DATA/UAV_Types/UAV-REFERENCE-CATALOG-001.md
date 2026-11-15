@@ -101,3 +101,25 @@ Catalog revision: `2026-11-15-RU-001`. The runtime catalogue now includes a manu
 - The Geoscan 201 record is the Geoscan 201 Geodesy configuration only. Geoscan 401 Geodesy is kept separate from 401 Geophysics/Lidar variants.
 - Speeds converted from km/h to m/s are reference display values only. They are not operational limits.
 - Manufacturer reference data does not populate approved aircraft configuration, performance profile, dynamic safety envelope or READY evidence.
+
+
+## 25. Explicit fleet-to-model identity boundary
+
+The HMI seed entries `BS-001` through `BS-004` are marked `recordOrigin: DEMO_FIXTURE`. They carry empty `referenceModelId` and `configurationId`; their type IDs classify demo platform classes only. They are not physical aircraft records and must not be mapped to a manufacturer model by inference.
+
+Production identity binding shall keep these identifiers distinct:
+
+- `vehicleId`: stable BlueSky identity of the physical airframe;
+- `serialNumber`: manufacturer/airframe serial;
+- `referenceModelId`: exact catalogue model/variant ID;
+- `referenceTypeId`: canonical platform type; must agree with the selected model's `typeId`;
+- `configurationId` and `configurationRevision`: exact controlled assembly;
+- `performanceProfile.vehicleId`: same physical vehicle;
+- `performanceProfile.configurationId`: same configuration;
+- `performanceProfile.modelId` and model version: exact model identity/revision used by the approved profile.
+
+Mission Profile resolves a model only when an explicit `referenceModelId` exists. It reports missing model/configuration linkage and identifies demo fixtures. A present configuration ID is a reference only; it does not prove validation or approval.
+
+The HMI performs no compatibility, configuration approval, performance-profile validation or safety validation. Those decisions remain with the authoritative Administrator/configuration provider and existing typed safety validator. No reference-catalogue field is copied into `performanceProfile`, `FlightSafetyEnvelope`, or lifecycle evidence.
+
+A production Fleet provider remains necessary before physical aircraft assignment can be claimed. Until then, demonstration records remain fixtures and cannot acquire a concrete physical-model/configuration binding from the reference catalogue alone.
