@@ -845,6 +845,24 @@ Item {
                 root.manualMt01Result = mt01MappingBridge.calculate(
                             root.manualMissionModelJson,
                             planningParameters)
+                if (root.manualMt01Result.executionMode !== undefined
+                        && String(root.manualMt01Result.executionMode)
+                           !== root.lifecycleExpectedExecutionMode) {
+                    root.manualModelValidationStatus = "MISSION_EXECUTION_MODE_MISMATCH"
+                    root.manualSetRequested = false
+                    root.manualSetBlocked = true
+                    root.missionState = "MANUAL"
+                    return
+                }
+                if (root.manualMt01Result.executionMode === "VIRTUAL"
+                        && (root.manualMt01Result.releaseTarget !== "SIMULATOR_ONLY"
+                            || root.manualMt01Result.esorvdSubmissionAllowed !== false)) {
+                    root.manualModelValidationStatus = "VIRTUAL_EXTERNAL_RELEASE_PATH_FORBIDDEN"
+                    root.manualSetRequested = false
+                    root.manualSetBlocked = true
+                    root.missionState = "MANUAL"
+                    return
+                }
                 var findings = root.manualMt01Result.findings || []
                 root.manualModelValidationStatus =
                         String(root.manualMt01Result.status || "NEEDS_INPUT")
