@@ -6,6 +6,10 @@
 
 namespace bluesky::planning {
 
+enum class MissionExecutionMode { Physical, Virtual };
+
+const char *toString(MissionExecutionMode mode) noexcept;
+
 enum class MissionLifecycleState {
     Draft,
     Calculating,
@@ -41,6 +45,7 @@ struct MissionLifecycleValidationEvidence {
 };
 
 struct MissionLifecycleEvidence {
+    MissionExecutionMode execution_mode{MissionExecutionMode::Physical};
     std::string mission_id;
     std::string mission_version;
     std::string route_id;
@@ -116,6 +121,7 @@ struct MissionLifecycleEvidence {
 };
 
 struct MissionLifecycleEvent {
+    MissionExecutionMode execution_mode{MissionExecutionMode::Physical};
     std::uint64_t sequence{0};
     std::string mission_id;
     std::string mission_version;
@@ -141,6 +147,7 @@ struct MissionLifecycleEvent {
 };
 
 struct MissionLifecycleRecord {
+    MissionExecutionMode execution_mode{MissionExecutionMode::Physical};
     std::string mission_id;
     std::string mission_version;
     MissionLifecycleState state{MissionLifecycleState::Draft};
