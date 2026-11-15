@@ -238,6 +238,18 @@ add_test(NAME mission_lifecycle_terrain_adapter_contract
 set_tests_properties(mission_lifecycle_terrain_adapter_contract
     PROPERTIES LABELS "planning;lifecycle;terrain" TIMEOUT 30)
 
+add_executable(mission_lifecycle_validation_adapters_test
+    mission_lifecycle_validation_adapters_test.cpp
+    mission_lifecycle_trajectory_geometry_adapter.hpp
+    mission_lifecycle_mt01_quality_adapter.hpp
+    mission_lifecycle_regulatory_adapter.hpp
+)
+target_link_libraries(mission_lifecycle_validation_adapters_test PRIVATE bluesky_planning)
+add_test(NAME mission_lifecycle_validation_adapters_contract
+    COMMAND mission_lifecycle_validation_adapters_test)
+set_tests_properties(mission_lifecycle_validation_adapters_contract
+    PROPERTIES LABELS "planning;lifecycle;readiness" TIMEOUT 30)
+
 add_executable(vehicle_equipment_capability_contract_test
     model/vehicle_equipment_capability_contract_test.cpp
 )
