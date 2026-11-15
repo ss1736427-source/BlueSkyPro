@@ -208,6 +208,9 @@ int main(int argc, char **argv)
     // Virtual mission metadata is explicit and cannot request an external
     // flight-plan submission or physical-aircraft release.
     QVariantMap virtualContext = mt01Context;
+    // The preceding negative test removes objective from mt01Context; restore
+    // a valid task intent so this case isolates execution-mode serialization.
+    virtualContext.insert(QStringLiteral("objective"), QStringLiteral("Виртуальная проверка картографирования"));
     virtualContext.insert(QStringLiteral("executionMode"), QStringLiteral("VIRTUAL"));
     const QVariantMap virtualMission = adapter.buildMissionV2(
         geometry, {QStringLiteral("MT-01")}, QStringLiteral("MISSION-VIRTUAL"), 1,
