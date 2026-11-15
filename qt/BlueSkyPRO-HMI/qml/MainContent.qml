@@ -92,8 +92,11 @@ Item {
         if (previousMode.length === 0)
             return
 
-        if (typeof planningBridge !== "undefined" && planningBridge !== null)
+        if (typeof planningBridge !== "undefined" && planningBridge !== null) {
+            if (planningBridge.running)
+                planningBridge.stopProcess()
             planningBridge.clear()
+        }
         if (typeof routeController !== "undefined" && routeController !== null)
             routeController.clear()
 
