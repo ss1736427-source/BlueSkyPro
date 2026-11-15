@@ -74,6 +74,7 @@ void PlanningBridge::invalidateLifecycleReadiness(const QString &reason)
 {
     QVariantMap snapshot{
         {QStringLiteral("status"), QStringLiteral("BLOCKED")},
+        {QStringLiteral("executionMode"), QString()},
         {QStringLiteral("lifecycleState"), QStringLiteral("BLOCKED")},
         {QStringLiteral("ready"), false},
         {QStringLiteral("released"), false},
@@ -121,20 +122,31 @@ bool PlanningBridge::publishLifecycleReadiness(
         return invalidate();
 
     std::size_t postReadyTransitions = 0;
-    switch (record.state) {
-    case MissionLifecycleState::Ready: postReadyTransitions = 0; break;
-    case MissionLifecycleState::Submitted: postReadyTransitions = 1; break;
-    case MissionLifecycleState::Authorized: postReadyTransitions = 2; break;
-    case MissionLifecycleState::Released: postReadyTransitions = 3; break;
-    default: return invalidate();
+    if (record.execution_mode == MissionExecutionMode::Virtual) {
+        if (record.state == MissionLifecycleState::Released)
+            postReadyTransitions = 1;
+        else if (record.state != MissionLifecycleState::Ready)
+            return invalidate();
+    } else {
+        switch (record.state) {
+        case MissionLifecycleState::Ready: postReadyTransitions = 0; break;
+        case MissionLifecycleState::Submitted: postReadyTransitions = 1; break;
+        case MissionLifecycleState::Authorized: postReadyTransitions = 2; break;
+        case MissionLifecycleState::Released: postReadyTransitions = 3; break;
+        default: return invalidate();
+        }
     }
 
     const std::array<MissionLifecycleState, 4> expectedFrom{
         MissionLifecycleState::Validating, MissionLifecycleState::Ready,
         MissionLifecycleState::Submitted, MissionLifecycleState::Authorized};
-    const std::array<MissionLifecycleState, 4> expectedTo{
+    std::array<MissionLifecycleState, 4> expectedTo{
         MissionLifecycleState::Ready, MissionLifecycleState::Submitted,
         MissionLifecycleState::Authorized, MissionLifecycleState::Released};
+    if (record.execution_mode == MissionExecutionMode::Virtual) {
+        expectedFrom[1] = MissionLifecycleState::Ready;
+        expectedTo[1] = MissionLifecycleState::Released;
+    }
     const auto &history = record.history;
     std::uint64_t previousSequence = 0;
     std::size_t readyIndex = history.size();
@@ -142,6 +154,7 @@ bool PlanningBridge::publishLifecycleReadiness(
         const auto &event = history[i];
         if (event.sequence == 0 || event.sequence <= previousSequence
             || event.actor_id.empty() || event.timestamp.empty()
+            || event.execution_mode != record.execution_mode
             || event.vehicle_id != record.vehicle_id
             || event.vehicle_source_provenance != record.vehicle_source_provenance
             || event.reference_model_id != record.reference_model_id
@@ -196,6 +209,7 @@ bool PlanningBridge::publishLifecycleReadiness(
     QVariantMap snapshot{
         {QStringLiteral("status"), state},
         {QStringLiteral("lifecycleState"), state},
+        {QStringLiteral("executionMode"), QString::fromLatin1(toString(record.execution_mode))},
         {QStringLiteral("ready"), true},
         {QStringLiteral("released"), record.state == MissionLifecycleState::Released},
         {QStringLiteral("missionId"), QString::fromStdString(record.mission_id)},
@@ -247,6 +261,7 @@ bool PlanningBridge::publishLifecycleAssessment(
     const auto &lastEvent = record.history.back();
     if (lastEvent.sequence == 0
         || record.next_event_sequence != lastEvent.sequence + 1
+        || lastEvent.execution_mode != record.execution_mode
         || lastEvent.mission_id != record.mission_id
         || lastEvent.mission_version != record.mission_version
         || lastEvent.from != MissionLifecycleState::Calculating
