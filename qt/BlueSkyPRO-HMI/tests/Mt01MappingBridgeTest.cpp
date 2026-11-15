@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <cassert>
 
-static QString validMissionJson()
+static QString validMissionJson(const QString &executionMode = QStringLiteral("PHYSICAL"))
 {
     QJsonArray coordinates{
         QJsonArray{0.0, 0.0}, QJsonArray{0.002, 0.0},
@@ -25,7 +25,16 @@ static QString validMissionJson()
         {"coordinates", coordinates},
         {"version", 1}
     };
+    const bool virtualMode = executionMode == QLatin1String("VIRTUAL");
+    QJsonObject executionContext{
+        {"mode", executionMode},
+        {"vehicleSourceProvenanceRequired", virtualMode ? "SIL_FIXTURE" : "PHYSICAL_LIVE"},
+        {"releaseTarget", virtualMode ? "SIMULATOR_ONLY" : "PHYSICAL_UAV"},
+        {"authorizationPath", virtualMode ? "NOT_APPLICABLE" : "EXTERNAL_REGULATORY"},
+        {"esorvdSubmissionAllowed", !virtualMode}
+    };
     QJsonObject mission{
+        {"executionContext", executionContext},
         {"missionId", "MT01-MAVIC3E-HMI-TEST"},
         {"missionVersion", "1"},
         {"missionMode", "AUTO"},
@@ -121,11 +130,41 @@ int main(int argc, char **argv)
     assert(!result.value("flightReleaseEligible").toBool());
     assert(!result.value("taskExecutionEstimatesReady").toBool());
     assert(!result.value("taskExecutionEstimatesAppliedToTrajectory").toBool());
+    assert(result.value("executionMode").toString() == "PHYSICAL");
+    assert(result.value("releaseTarget").toString() == "PHYSICAL_UAV");
+    assert(result.value("esorvdSubmissionAllowed").toBool());
+
+    const QVariantMap virtualResult =
+        bridge.calculate(validMissionJson(QStringLiteral("VIRTUAL")), validParameters());
+    assert(virtualResult.value("status").toString() == "COVERAGE_CANDIDATE_AVAILABLE");
+    assert(virtualResult.value("executionMode").toString() == "VIRTUAL");
+    assert(virtualResult.value("releaseTarget").toString() == "SIMULATOR_ONLY");
+    assert(!virtualResult.value("esorvdSubmissionAllowed").toBool());
+    assert(virtualResult.value("lifecycleIdentity").toMap()
+               .value("executionMode").toString() == "VIRTUAL");
+
+    QJsonObject invalidVirtualObject =
+        QJsonDocument::fromJson(validMissionJson(QStringLiteral("VIRTUAL")).toUtf8()).object();
+    QJsonObject invalidVirtualContext =
+        invalidVirtualObject.value("executionContext").toObject();
+    invalidVirtualContext.insert("esorvdSubmissionAllowed", true);
+    invalidVirtualObject.insert("executionContext", invalidVirtualContext);
+    const QVariantMap invalidVirtualResult = bridge.calculate(
+        QString::fromUtf8(QJsonDocument(invalidVirtualObject).toJson(QJsonDocument::Compact)),
+        validParameters());
+    assert(invalidVirtualResult.value("status").toString() == "NEEDS_INPUT");
+    assert(invalidVirtualResult.value("findings").toStringList()
+               .contains("MISSION_EXECUTION_CONTEXT_INVALID"));
 
     const QVariantMap lifecycleIdentity = result.value("lifecycleIdentity").toMap();
     bluesky::planning::MissionLifecycleRecord mt01LifecycleRecord;
     mt01LifecycleRecord.mission_id = lifecycleIdentity.value("missionId").toString().toStdString();
     mt01LifecycleRecord.mission_version = lifecycleIdentity.value("missionVersion").toString().toStdString();
+    mt01LifecycleRecord.execution_mode =
+        lifecycleIdentity.value("executionMode").toString() == "VIRTUAL"
+            ? bluesky::planning::MissionExecutionMode::Virtual
+            : bluesky::planning::MissionExecutionMode::Physical;
+    assert(mt01LifecycleRecord.execution_mode == bluesky::planning::MissionExecutionMode::Physical);
     for (const QVariant &templateId : lifecycleIdentity.value("templateIds").toList())
         mt01LifecycleRecord.mission_template_ids.push_back(templateId.toString().toStdString());
     assert(mt01LifecycleRecord.mission_id == "MT01-MAVIC3E-HMI-TEST");
