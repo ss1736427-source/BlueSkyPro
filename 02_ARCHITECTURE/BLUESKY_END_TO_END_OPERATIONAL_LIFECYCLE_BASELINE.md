@@ -546,11 +546,13 @@ The additions in this revision are orchestration relationships and lifecycle gat
 
 ## 27. Shared physical and virtual mission lifecycle
 
-Physical flight and Virtual Flight use the same canonical mission lifecycle, domain services, algorithm orchestration, validation gates, readiness logic, authorization/release contracts, mission package semantics, lifecycle controller and result/evidence model. Only the aircraft/execution endpoint differs: a verified physical UAV adapter in physical mode, or a versioned catalogue aircraft model and simulator adapter in Virtual Flight.
+Physical flight and Virtual Flight use the same canonical mission model, domain services, algorithm orchestration, internal safety/regulatory validation, readiness logic, mission package semantics, lifecycle controller and result/evidence model. The execution mode is pinned per mission and the active mission context is isolated; physical and virtual preparation/execution are not concurrent in one active context.
+
+Physical mode alone uses the external flight-plan submission/response and authorization path, including ЕСОРВД where applicable. Virtual mode bypasses ЕСОРВД submission and flight-plan checking entirely and transitions directly from `READY` to simulator-only `RELEASED` after package-integrity checks and an explicit no-external-authorization applicability record. This does not bypass internal airspace, NOTAM, weather, terrain, vehicle-envelope or task-quality validation.
 
 The binding implementation contract is:
 
 `02_ARCHITECTURE/VIRTUAL_FLIGHT_SHARED_MISSION_LIFECYCLE_CONTRACT_001.md`.
 
-Virtual Flight does not require a physical aircraft, but it must not use a parallel abbreviated planning or validation workflow. SIL provenance remains explicit and cannot satisfy physical fleet admission or be represented as real-flight evidence. Virtual READY means ready for simulated execution, not physical flight authorization. The existing `VirtualFlightAssessmentBridge` route/NOTAM fixture is diagnostic only and cannot grant lifecycle READY or release eligibility.
+Virtual Flight does not require a physical aircraft and must not use a parallel abbreviated planning or validation workflow. SIL provenance remains explicit and cannot satisfy physical fleet admission or be represented as real-flight evidence. Virtual READY means ready for simulated execution, not physical flight authorization. The existing `VirtualFlightAssessmentBridge` route/NOTAM fixture is diagnostic only and cannot grant lifecycle READY or release eligibility.
 
