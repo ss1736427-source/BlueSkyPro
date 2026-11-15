@@ -80,15 +80,31 @@ Virtual execution must consume the same released mission package semantics and f
 
 The simulator may model vehicle dynamics, sensor/payload behaviour and environment response. It must not replace the shared planning, validation or lifecycle logic with a simplified route/NOTAM-only assessment.
 
-## 8. Existing implementation boundary and known gap
+## 8. HMI mission-context binding
+
+The existing bottom-toolbar `VIRTUAL FLT` selection is the workspace mode selector. The HMI derives a distinct mission identity namespace for each execution mode (`-PH` / `-VF`) and clears the active route candidate and readiness snapshot whenever the operator changes between physical and virtual workspaces. A late planning result from the previous workspace therefore cannot satisfy the active mission lineage. A running planning process is stopped before the previous context is cleared.
+
+Both AUTO and MANUAL mission-model builders serialize an explicit `executionContext` object:
+
+- `mode`: `PHYSICAL` or `VIRTUAL`;
+- `vehicleSourceProvenanceRequired`: `PHYSICAL_LIVE` or `SIL_FIXTURE`;
+- `releaseTarget`: `PHYSICAL_UAV` or `SIMULATOR_ONLY`;
+- `authorizationPath`: `EXTERNAL_REGULATORY` or `NOT_APPLICABLE`;
+- `esorvdSubmissionAllowed`: true only for physical missions.
+
+The builder rejects missing or unknown execution modes. The MT-01 mapping bridge validates the execution-context policy, transfers the mode into its typed `MissionLifecycleRecord` projection, and returns the mode/release target with its assessment result. Switching modes preserves manual map geometry for editing, but invalidates the old mission aggregate; the operator must rebuild it in the newly selected mode. This is workspace/model binding, not simulator execution.
+
+The current HMI still has no production owner that maps this serialized mission context and authoritative planner/validator evidence into a live `MissionLifecycleRecord`. The next integration step is to implement that production lifecycle owner and pass the mode/provenance into the existing `MissionLifecycleController`; the synthetic PH5 fixture is not that owner.
+
+## 9. Existing implementation boundary and known gap
 
 `MissionLifecycleController` now pins `MissionExecutionMode` at initial vehicle binding and requires `PHYSICAL_LIVE` for `PHYSICAL` or `SIL_FIXTURE` for `VIRTUAL`. Mode and vehicle/model/configuration/performance identity are immutable across subsequent transitions. The physical path retains external submission/authorization states; the virtual path cannot enter them.
 
 The `VIRTUAL FLT` toolbar entry is the existing user entry point and selects the virtual workspace. However, `BottomToolbar.activateTool()` currently changes the active tool/workspace context; the central `MainContent.qml` view still renders a watermark overlay. `VirtualFlightTestConsole.qml` is compiled as a resource but is not instantiated by `MainContent.qml`; it is a synthetic diagnostic console, not the simulator. `VirtualFlightAssessmentBridge` evaluates manual geometry against synthetic airspace/NOTAM fixtures, explicitly sets `flightReleaseEligible=false`, and does not cover the full production planning chain. Its `ASSESSMENT_CLEAR_NON_OPERATIONAL` result must never be mapped to mission `READY`, `RELEASED` or `COMPLETED`.
 
-The repository already contains a useful SIL execution foundation: `PH4-INT-014` provides a provenance-bound SIL execution source, and `PH4-INT-027` demonstrates a SIL adapter sequence for connect, identify, capabilities, compile, upload, read-back, semantic verification, execute, log acquisition and close. The new `PH5-VF-001` integration fixture now binds that adapter sequence and SIL execution evidence to the canonical `MissionLifecycleController` and exercises one correlated synthetic mission through `COMPLETED`. This proves the shared lifecycle transition and adapter evidence contract at fixture level only; it does not yet connect production optimizer outputs or real simulator telemetry. ``PlanningBridge` publishes the pinned execution mode and vehicle provenance with readiness and rejects mode/provenance drift across lifecycle history. The HMI binds the toolbar-selected workspace to a mode-specific mission identity and serializes `executionContext` into AUTO and MANUAL mission models. The lifecycle controller pins `MissionExecutionMode`, allows virtual `READY → RELEASED` without external authorization stages, and rejects virtual `SUBMITTED`. The remaining gap is production lifecycle ownership, authoritative optimizer/validator evidence, and a simulator implementation connected to package, telemetry, command, replanning and post-flight contracts. Do not expand the assessment bridge into a second lifecycle controller.
+The repository already contains a useful SIL execution foundation: `PH4-INT-014` provides a provenance-bound SIL execution source, and `PH4-INT-027` demonstrates a SIL adapter sequence for connect, identify, capabilities, compile, upload, read-back, semantic verification, execute, log acquisition and close. The new `PH5-VF-001` integration fixture now binds that adapter sequence and SIL execution evidence to the canonical `MissionLifecycleController` and exercises one correlated synthetic mission through `COMPLETED`. This proves the shared lifecycle transition and adapter evidence contract at fixture level only; it does not yet connect production optimizer outputs or real simulator telemetry. `PlanningBridge` publishes the pinned execution mode and vehicle provenance with readiness and rejects mode/provenance drift across lifecycle history. The HMI binds the toolbar-selected workspace to a mode-specific mission identity and serializes `executionContext` into AUTO and MANUAL mission models. The MT-01 assessment bridge now validates and propagates that mode into its typed lifecycle projection. The lifecycle controller pins `MissionExecutionMode`, allows virtual `READY → RELEASED` without external authorization stages, and rejects virtual `SUBMITTED`. The remaining gap is production lifecycle ownership, authoritative optimizer/validator evidence, and a simulator implementation connected to package, telemetry, command, replanning and post-flight contracts. Do not expand the assessment bridge into a second lifecycle controller.
 
-## 9. Acceptance criteria
+## 10. Acceptance criteria
 
 1. Physical and virtual missions are created from the same canonical mission model and use the same lifecycle controller, but pin distinct execution modes and independent mission contexts.
 2. Both modes invoke the same algorithm orchestration, NOTAM/terrain/weather, vehicle-envelope, camera/task-quality and energy-reserve validation contracts.
@@ -102,6 +118,6 @@ The repository already contains a useful SIL execution foundation: `PH4-INT-014`
 10. The current route/NOTAM-only assessment bridge cannot produce READY or release eligibility.
 11. Tests exercise the common planning/validation stages and mode-specific transition paths: physical uses `READY → SUBMITTED → AUTHORIZED → RELEASED`; virtual uses `READY → RELEASED` and rejects all external submission/authorization states.
 
-## 10. Definition of done
+## 11. Definition of done
 
 A representative mission completes the shared planning and validation chain in each mode using the same mission model, planner, validators and lifecycle controller. The execution mode is pinned and contexts are isolated. Physical mode may use ЕСОРВД; virtual mode must not submit or check a flight plan there and releases only to a simulator. Both paths produce auditable evidence; virtual evidence is explicitly marked as simulated and cannot be mistaken for physical flight evidence.
