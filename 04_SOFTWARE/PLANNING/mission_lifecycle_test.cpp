@@ -393,6 +393,9 @@ int main() {
     assert(record.vehicle_configuration_revision == "CFG-REV-1");
     assert(record.fleet_assignment_snapshot_id == "FLEET-ASSIGNMENT-1");
     assert(record.history.front().vehicle_id == record.vehicle_id);
+    assert(record.history.front().vehicle_source_provenance == "SIL_FIXTURE");
+    assert(record.history.front().reference_model_id == record.reference_model_id);
+    assert(record.history.front().performance_profile_id == record.performance_profile_id);
     assert(record.history.front().vehicle_configuration_revision == record.vehicle_configuration_revision);
 
     auto changedVehicle = e;

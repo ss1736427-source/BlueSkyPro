@@ -379,14 +379,20 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
     event.route_version = evidence.route_version;
     event.evidence_reference = evidence.calculation_input_version;
     event.vehicle_id = evidence.vehicle_id;
+    event.vehicle_source_provenance = evidence.vehicle_source_provenance;
+    event.reference_model_id = evidence.reference_model_id;
+    event.reference_type_id = evidence.reference_type_id;
     event.vehicle_configuration_id = evidence.vehicle_configuration_id;
     event.vehicle_configuration_revision = evidence.vehicle_configuration_revision;
     event.fleet_assignment_snapshot_id = evidence.fleet_assignment_snapshot_id;
+    event.performance_profile_id = evidence.performance_profile_id;
+    event.performance_profile_revision = evidence.performance_profile_revision;
     const auto addEvidence = [&event](const std::string &value) {
         if (!value.empty())
             event.evidence_references.push_back(value);
     };
     addEvidence(evidence.vehicle_id);
+    addEvidence(evidence.vehicle_source_provenance);
     addEvidence(evidence.reference_model_id);
     addEvidence(evidence.reference_type_id);
     addEvidence(evidence.vehicle_configuration_id);

@@ -129,9 +129,14 @@ struct MissionLifecycleEvent {
     std::string route_version;
     std::string evidence_reference;
     std::string vehicle_id;
+    std::string vehicle_source_provenance;
+    std::string reference_model_id;
+    std::string reference_type_id;
     std::string vehicle_configuration_id;
     std::string vehicle_configuration_revision;
     std::string fleet_assignment_snapshot_id;
+    std::string performance_profile_id;
+    std::string performance_profile_revision;
     std::vector<std::string> evidence_references;
 };
 
