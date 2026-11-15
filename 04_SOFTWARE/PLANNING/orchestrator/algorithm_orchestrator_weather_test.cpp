@@ -50,6 +50,7 @@ Route completeRoute(const std::string& id)
     segment.to_waypoint_id = b.waypoint_id;
     segment.distance_m = 1000.0;
     segment.nominal_speed_mps = 20.0;
+    segment.lateral_acceleration_mps2 = 1.0;
     route.segments = {segment};
     return route;
 }
@@ -75,7 +76,10 @@ public:
             candidate.estimated_reserve_wh = 100.0 - nominalTime;
             candidate.objective_score = nominalTime;
             candidate.feasibility = Feasibility::Feasible;
-            if (withGeometry) candidate.trajectory_route = completeRoute(id);
+            if (withGeometry) {
+                candidate.trajectory_route = completeRoute(id);
+                attachFlightSafetyDynamics(candidate, *candidate.trajectory_route);
+            }
             context.publish(std::move(candidate));
         };
         publish("raw-fast", 10.0, true);
@@ -152,6 +156,45 @@ int main()
         }
     }
     assert(missingGeometryRejected);
+
+    // The same orchestrator must run the shared typed flight-safety validator before weather ranking.
+    MissionProblem safetyProblem = problem;
+    safetyProblem.vehicle_ids = {"TEST-UAV-001"};
+    safetyProblem.flight_safety_vehicle_id = "TEST-UAV-001";
+    safetyProblem.requires_flight_safety_validation = true;
+    FlightSafetyEnvelope safetyEnvelope;
+    safetyEnvelope.vehicle_model_id = "TEST-MODEL";
+    safetyEnvelope.model_version = "MODEL-REV-1";
+    safetyEnvelope.configuration_id = "TEST-CONFIG-REV-1";
+    safetyEnvelope.source_reference = "CONTROLLED-TEST-EVIDENCE-1";
+    safetyEnvelope.speed_reference = "AIR_RELATIVE";
+    safetyEnvelope.minimum_speed_basis = "CONFIGURATION_SPECIFIC_MINIMUM_AIR_RELATIVE_SPEED";
+    safetyEnvelope.evidence = FlightSafetyEvidence::OfficialValidated;
+    safetyEnvelope.motion_class = MotionClass::Multirotor;
+    safetyEnvelope.minimum_speed_mps = 5.0;
+    safetyEnvelope.maximum_speed_mps = 30.0;
+    safetyEnvelope.maximum_lateral_acceleration_mps2 = 2.0;
+    safetyProblem.flight_safety_envelope = safetyEnvelope;
+    TestContext safetyContext(safetyProblem);
+    std::vector<std::unique_ptr<Solver>> safetySolvers;
+    safetySolvers.push_back(std::make_unique<CandidateSolver>());
+    AlgorithmOrchestrator safetyOrchestrator(std::move(safetySolvers), {}, assessor);
+    const auto safetyDecision = safetyOrchestrator.solve(safetyContext);
+    assert(safetyDecision.feasibility == Feasibility::Feasible);
+    assert(safetyDecision.selected_flight_safety_validation.has_value());
+    assert(safetyDecision.selected_flight_safety_validation->status == FlightSafetyStatus::Allowed);
+    assert(safetyDecision.selected_flight_safety_validation->configuration_id == "TEST-CONFIG-REV-1");
+
+    // Missing envelope or incomplete segment dynamics must not produce a selected candidate.
+    MissionProblem unknownSafetyProblem = safetyProblem;
+    unknownSafetyProblem.flight_safety_envelope.reset();
+    TestContext unknownSafetyContext(unknownSafetyProblem);
+    std::vector<std::unique_ptr<Solver>> unknownSafetySolvers;
+    unknownSafetySolvers.push_back(std::make_unique<CandidateSolver>());
+    AlgorithmOrchestrator unknownSafetyOrchestrator(std::move(unknownSafetySolvers), {}, assessor);
+    const auto unknownSafetyDecision = unknownSafetyOrchestrator.solve(unknownSafetyContext);
+    assert(!unknownSafetyDecision.selected_flight_safety_validation.has_value());
+    assert(unknownSafetyDecision.feasibility != Feasibility::Feasible);
 
     // Final NOTAM validation runs after the weather assessor returns the matching 4D trajectory.
     MissionProblem notamProblem = problem;

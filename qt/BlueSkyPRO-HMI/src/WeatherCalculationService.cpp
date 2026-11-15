@@ -178,6 +178,79 @@ bool buildRoute(const QVariantMap& snapshot,Route& route,QString& error)
     return true;
 }
 
+bool buildFlightSafetyEnvelope(const QVariantMap& profile,
+                               bluesky::planning::FlightSafetyEnvelope& envelope,
+                               QString& error)
+{
+    const QString modelId = profile.value(QStringLiteral("vehicleModelId")).toString().trimmed();
+    const QString modelVersion = profile.value(QStringLiteral("vehicleModelVersion")).toString().trimmed();
+    const QString configurationId = profile.value(QStringLiteral("configurationId")).toString().trimmed();
+    const QString declaredModelId = profile.value(QStringLiteral("flightSafetyVehicleModelId")).toString().trimmed();
+    const QString declaredModelVersion = profile.value(QStringLiteral("flightSafetyModelVersion")).toString().trimmed();
+    const QString declaredConfigurationId = profile.value(QStringLiteral("flightSafetyConfigurationId")).toString().trimmed();
+    const QString motionClass = profile.value(QStringLiteral("flightSafetyMotionClass")).toString().trimmed();
+    const QString evidence = profile.value(QStringLiteral("flightSafetyEvidence")).toString().trimmed();
+
+    if (modelId.isEmpty() || modelVersion.isEmpty() || configurationId.isEmpty()
+        || declaredModelId != modelId || declaredModelVersion != modelVersion
+        || declaredConfigurationId != configurationId) {
+        error = QStringLiteral("FLIGHT_SAFETY_ENVELOPE_MODEL_VERSION_CONFIGURATION_MISMATCH");
+        return false;
+    }
+
+    envelope.vehicle_model_id = modelId.toStdString();
+    envelope.model_version = modelVersion.toStdString();
+    envelope.configuration_id = configurationId.toStdString();
+    envelope.source_reference = profile.value(QStringLiteral("flightSafetySourceReference")).toString().trimmed().toStdString();
+    envelope.speed_reference = profile.value(QStringLiteral("flightSafetySpeedReference")).toString().trimmed().toStdString();
+    envelope.minimum_speed_basis = profile.value(QStringLiteral("flightSafetyMinimumSpeedBasis")).toString().trimmed().toStdString();
+
+    if (motionClass == QStringLiteral("FIXED_WING"))
+        envelope.motion_class = bluesky::planning::MotionClass::FixedWing;
+    else if (motionClass == QStringLiteral("MULTIROTOR"))
+        envelope.motion_class = bluesky::planning::MotionClass::Multirotor;
+    else {
+        error = QStringLiteral("FLIGHT_SAFETY_MOTION_CLASS_UNKNOWN");
+        return false;
+    }
+
+    if (evidence == QStringLiteral("OFFICIAL_VALIDATED"))
+        envelope.evidence = bluesky::planning::FlightSafetyEvidence::OfficialValidated;
+    else if (evidence == QStringLiteral("FLIGHT_TEST_VALIDATED"))
+        envelope.evidence = bluesky::planning::FlightSafetyEvidence::FlightTestValidated;
+    else {
+        error = QStringLiteral("FLIGHT_SAFETY_EVIDENCE_NOT_QUALIFIED");
+        return false;
+    }
+
+    double value = 0.0;
+    if (!readFinite(profile, QStringLiteral("flightSafetyMinimumSpeedMps"), value) || value <= 0.0) {
+        error = QStringLiteral("FLIGHT_SAFETY_MINIMUM_SPEED_REQUIRED");
+        return false;
+    }
+    envelope.minimum_speed_mps = value;
+    if (!readFinite(profile, QStringLiteral("flightSafetyMaximumSpeedMps"), value) || value <= 0.0) {
+        error = QStringLiteral("FLIGHT_SAFETY_MAXIMUM_SPEED_REQUIRED");
+        return false;
+    }
+    envelope.maximum_speed_mps = value;
+
+    if (envelope.motion_class == bluesky::planning::MotionClass::FixedWing) {
+        if (readFinite(profile, QStringLiteral("flightSafetyMaximumBankAngleRad"), value))
+            envelope.maximum_bank_angle_rad = value;
+    } else {
+        if (readFinite(profile, QStringLiteral("flightSafetyMaximumLateralAccelerationMps2"), value))
+            envelope.maximum_lateral_acceleration_mps2 = value;
+    }
+
+    if (envelope.source_reference.empty() || envelope.speed_reference.empty()
+        || envelope.minimum_speed_basis.empty()) {
+        error = QStringLiteral("FLIGHT_SAFETY_PROVENANCE_AND_SPEED_BASIS_REQUIRED");
+        return false;
+    }
+    return true;
+}
+
 bool validateVehicleAssignment(const QString& missionJson,const QVariantMap& profile,
                                QString& vehicleId,QString& configurationVersion,
                                QString& missionId,QString& error)
@@ -1041,6 +1114,11 @@ bool WeatherCalculationService::evaluateCandidates(
         setError(error);
         return false;
     }
+    bluesky::planning::FlightSafetyEnvelope flightSafetyEnvelope;
+    if (!buildFlightSafetyEnvelope(validatedPerformanceProfile, flightSafetyEnvelope, error)) {
+        setError(error);
+        return false;
+    }
 
     if (!missionGeometryWithinNotamQueryCoverage(missionModelJson, notamSnapshot, notamSafetyBufferM)) {
         setError(QStringLiteral("NOTAM_SNAPSHOT_DOES_NOT_COVER_MISSION_GEOMETRY_WITH_BUFFER"));
@@ -1114,13 +1192,8 @@ bool WeatherCalculationService::evaluateCandidates(
             return false;
         }
 
-        // Weather ranking must never bypass the already completed dynamic flight-safety gate.
-        if (snapshot.value(QStringLiteral("flightSafetyValidationState")).toString()
-                != QStringLiteral("ALLOWED")
-            || snapshot.value(QStringLiteral("flightSafetyEnvelopeId")).toString().trimmed().isEmpty()) {
-            setError(QStringLiteral("CANDIDATE_REQUIRES_MATCHED_FLIGHT_SAFETY_VALIDATION"));
-            return false;
-        }
+        // Legacy ALLOWED flags are not safety evidence. Retain only identity cross-checks;
+        // the shared typed validator below is the authoritative admission gate.
         if (snapshot.value(QStringLiteral("flightSafetyVehicleId")).toString().trimmed()
             != vehicleId) {
             setError(QStringLiteral("CANDIDATE_FLIGHT_SAFETY_VEHICLE_MISMATCH"));
@@ -1128,6 +1201,10 @@ bool WeatherCalculationService::evaluateCandidates(
         }
         const QString currentSafetyEnvelopeId =
             snapshot.value(QStringLiteral("flightSafetyEnvelopeId")).toString().trimmed();
+        if (currentSafetyEnvelopeId != QString::fromStdString(flightSafetyEnvelope.configuration_id)) {
+            setError(QStringLiteral("CANDIDATE_FLIGHT_SAFETY_CONFIGURATION_MISMATCH"));
+            return false;
+        }
         if (commonSafetyEnvelopeId.isEmpty())
             commonSafetyEnvelopeId = currentSafetyEnvelopeId;
         else if (commonSafetyEnvelopeId != currentSafetyEnvelopeId) {
@@ -1170,6 +1247,7 @@ bool WeatherCalculationService::evaluateCandidates(
         for (const auto& waypoint : route.waypoints)
             candidate.route_elements.push_back(waypoint.waypoint_id);
         candidate.trajectory_route = std::move(route);
+        bluesky::planning::attachFlightSafetyDynamics(candidate, *candidate.trajectory_route);
         candidates.push_back(std::move(candidate));
     }
 
@@ -1179,6 +1257,9 @@ bool WeatherCalculationService::evaluateCandidates(
     problem.problem_class = "point_to_point";
     problem.vehicle_ids = {vehicleId.toStdString()};
     problem.environment_version = calculationInputVersion.toStdString();
+    problem.requires_flight_safety_validation = true;
+    problem.flight_safety_vehicle_id = vehicleId.toStdString();
+    problem.flight_safety_envelope = flightSafetyEnvelope;
     problem.notam_snapshot = std::make_shared<const bluesky::planning::NotamSnapshot>(notamSnapshot);
     problem.requires_notam_validation = true;
     for (const auto& priority : objectivePriorities)
