@@ -139,7 +139,7 @@ bool PlanningBridge::publishLifecycleReadiness(
         }
     }
 
-    const std::array<MissionLifecycleState, 4> expectedFrom{
+    std::array<MissionLifecycleState, 4> expectedFrom{
         MissionLifecycleState::Validating, MissionLifecycleState::Ready,
         MissionLifecycleState::Submitted, MissionLifecycleState::Authorized};
     std::array<MissionLifecycleState, 4> expectedTo{
