@@ -16,7 +16,7 @@ constexpr const char *kMissionId = "VF-MISSION-PH5-001";
 constexpr const char *kVehicleId = "UAV-SIL-M3E-FIXTURE";
 constexpr const char *kConfigurationId = "M3E-CFG-FIXTURE-001";
 constexpr const char *kConfigurationRevision = "1";
-constexpr const char *kPerformanceProfileId = "M3E-PERF-PENDING-VERIFIED-DATA";
+constexpr const char *kPerformanceProfileId = "SIL-FIXTURE-PERF-NOT-OPERATIONAL";
 constexpr const char *kPerformanceProfileRevision = "1";
 constexpr const char *kRouteId = "VF-ROUTE-FIXTURE-001";
 constexpr const char *kRouteVersion = "1";
@@ -51,7 +51,7 @@ MissionLifecycleEvidence fixtureEvidence() {
     e.vehicle_configuration_id = kConfigurationId;
     e.vehicle_id = kVehicleId;
     e.vehicle_source_provenance = "SIL_FIXTURE";
-    e.reference_model_id = "DJI-MAVIC-3-ENTERPRISE-REFERENCE-PENDING";
+    e.reference_model_id = "DJI-MAVIC-3E-CATALOGUE-REFERENCE-ONLY";
     e.reference_type_id = "MULTIROTOR";
     e.vehicle_configuration_revision = kConfigurationRevision;
     e.fleet_assignment_snapshot_id = "SIL-FLEET-SNAPSHOT-001";
