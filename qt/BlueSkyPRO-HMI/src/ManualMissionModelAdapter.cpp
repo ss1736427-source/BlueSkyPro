@@ -175,6 +175,33 @@ SerializedOperations serializeOperations(const QVariant &value,
     return result;
 }
 
+QJsonObject executionContextObject(const QVariantMap &missionContext,
+                                      QStringList &errors)
+{
+    const QString mode = missionContext.value(QStringLiteral("executionMode"))
+                             .toString().trimmed().toUpper();
+    if (mode.isEmpty()) {
+        errors.push_back(QStringLiteral("MISSION_EXECUTION_MODE_REQUIRED"));
+        return {};
+    }
+    if (mode != QLatin1String("PHYSICAL") && mode != QLatin1String("VIRTUAL")) {
+        errors.push_back(QStringLiteral("MISSION_EXECUTION_MODE_INVALID"));
+        return {};
+    }
+
+    const bool virtualMode = mode == QLatin1String("VIRTUAL");
+    return QJsonObject{
+        {QStringLiteral("mode"), mode},
+        {QStringLiteral("vehicleSourceProvenanceRequired"),
+         virtualMode ? QStringLiteral("SIL_FIXTURE") : QStringLiteral("PHYSICAL_LIVE")},
+        {QStringLiteral("releaseTarget"),
+         virtualMode ? QStringLiteral("SIMULATOR_ONLY") : QStringLiteral("PHYSICAL_UAV")},
+        {QStringLiteral("authorizationPath"),
+         virtualMode ? QStringLiteral("NOT_APPLICABLE") : QStringLiteral("EXTERNAL_REGULATORY")},
+        {QStringLiteral("esorvdSubmissionAllowed"), !virtualMode}
+    };
+}
+
 QStringList strings(const std::vector<std::string> &values)
 {
     QStringList result;
@@ -411,8 +438,10 @@ QVariantMap ManualMissionModelAdapter::buildMission(const QString &geometryJson,
                                    *mission.origin->true_north_bearing_deg);
     }
 
+    const QJsonObject executionContext = executionContextObject(missionContext, errors);
     QJsonObject canonical{
         {QStringLiteral("missionId"), missionId},
+        {QStringLiteral("executionContext"), executionContext},
         {QStringLiteral("missionVersion"), missionVersion},
         {QStringLiteral("missionMode"), QStringLiteral("MANUAL")},
         {QStringLiteral("lifecycle"), draftLifecycle(missionId, missionVersion)},
@@ -479,6 +508,9 @@ QVariantMap ManualMissionModelAdapter::buildMissionV2(
     }
 
     QJsonObject canonical = baseDocument.object();
+    const QJsonObject executionContext = executionContextObject(missionContext, errors);
+    if (!executionContext.isEmpty())
+        canonical.insert(QStringLiteral("executionContext"), executionContext);
     canonical.insert(QStringLiteral("status"), QStringLiteral("DRAFT"));
     canonical.insert(QStringLiteral("task"), QJsonObject{
         {QStringLiteral("description"), taskDescription}
