@@ -248,7 +248,7 @@ static MissionLifecycleEvidence evidence() {
     };
     VehicleCompilationInput finalVehicleInput;
     finalVehicleInput.uav_id = "UAV-1";
-    finalVehicleInput.configuration_version = e.vehicle_configuration_revision;
+    finalVehicleInput.configuration_version = e.vehicle_configuration_id;
     finalVehicleInput.performance_version = "PERF-1";
     finalVehicleInput.maximum_altitude_m = 120.0;
     finalVehicleInput.minimum_speed_mps = 5.0;
@@ -313,7 +313,7 @@ static void testRuntimeFinalPlanningIntegrityGate() {
 
     VehicleCompilationInput vehicle;
     vehicle.uav_id = "UAV-1";
-    vehicle.configuration_version = readyEvidence.vehicle_configuration_revision;
+    vehicle.configuration_version = readyEvidence.vehicle_configuration_id;
     vehicle.performance_version = "PERF-1";
     vehicle.maximum_altitude_m = 120.0;
     vehicle.minimum_speed_mps = 5.0;
