@@ -1952,10 +1952,23 @@ Item {
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                             }
+                            Text {
+                                width: parent.width
+                                visible: true
+                                text: root.selectedUavReferenceType
+                                      ? "ТИП БПЛА: " + root.selectedUavReferenceType.name
+                                        + "  ·  СПРАВОЧНЫХ МОДЕЛЕЙ: " + root.selectedUavReferenceModels.length
+                                        + "  ·  REFERENCE ONLY — НЕ ЯВЛЯЕТСЯ УТВЕРЖДЁННЫМ ПРОФИЛЕМ"
+                                      : "ТИП БПЛА НЕ НАЗНАЧЕН В СПРАВОЧНИКЕ"
+                                color: root.selectedUavReferenceType ? root.muted : "#FFD339"
+                                font.family: "B612"
+                                font.pixelSize: 9
+                                elide: Text.ElideRight
+                            }
                             Canvas {
                                 id: profileCanvas
                                 width: parent.width
-                                height: parent.height - 30
+                                height: parent.height - 44
                                 onWidthChanged: requestPaint()
                                 onHeightChanged: requestPaint()
                                 Connections {
