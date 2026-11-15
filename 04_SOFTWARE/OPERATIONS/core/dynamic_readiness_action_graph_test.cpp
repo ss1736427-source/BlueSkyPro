@@ -43,6 +43,23 @@ int main() {
     assert(parallel_set[0]->action.id == "a_action");
     assert(parallel_set[1]->action.id == "z_action");
 
+    // Only actionable human tasks belong in the pilot checklist.
+    OperationalSnapshot meteo_completed{{"battery_connected", "meteo_check"}, {}};
+    const auto pilot_actions = pilot_checklist_actions(readiness, meteo_completed);
+    assert(pilot_actions.size() == 1);
+    assert(pilot_actions.front()->action.id == "release_authorization");
+    assert(pilot_actions.front()->requires_human);
+
+    ReadinessSnapshot mixed_actions{{
+        {{"automatic_route_check", {}, AutomationLevel::Automatic, true, true, true, true, 100},
+         "system", false, true, false},
+        {{"pilot_acknowledgement", {}, AutomationLevel::HumanGuided, true, true, true, true, 90},
+         "pilot", false, true, true}
+    }};
+    const auto pilot_only = pilot_checklist_actions(mixed_actions, operational);
+    assert(pilot_only.size() == 1);
+    assert(pilot_only.front()->action.id == "pilot_acknowledgement");
+
     ReadinessSnapshot completed{{
         {{"done", {}, AutomationLevel::Automatic, true, true, true, true, 100},
          "technician", true, true, false}

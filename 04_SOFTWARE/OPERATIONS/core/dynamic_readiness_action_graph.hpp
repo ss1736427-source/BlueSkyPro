@@ -43,6 +43,27 @@ inline std::vector<const ReadinessAction*> actionable_readiness(
     return result;
 }
 
+// Return only currently actionable items that require a human decision or
+// acknowledgement. Automated actions remain in the operational graph but are
+// not presented as pilot checklist rows.
+inline std::vector<const ReadinessAction*> pilot_checklist_actions(
+    const ReadinessSnapshot& readiness, const OperationalSnapshot& operational) {
+    std::vector<const ReadinessAction*> result;
+    for (const auto& action : readiness.actions) {
+        if (action.requires_human
+            && readiness_status(action, operational) == ActionStatus::Actionable) {
+            result.push_back(&action);
+        }
+    }
+    std::stable_sort(result.begin(), result.end(), [](const auto* a, const auto* b) {
+        if (a->action.priority != b->action.priority) {
+            return a->action.priority > b->action.priority;
+        }
+        return a->action.id < b->action.id;
+    });
+    return result;
+}
+
 inline std::vector<const ReadinessAction*> parallel_ready_set(
     const ReadinessSnapshot& readiness, const OperationalSnapshot& operational) {
     const auto candidates = actionable_readiness(readiness, operational);

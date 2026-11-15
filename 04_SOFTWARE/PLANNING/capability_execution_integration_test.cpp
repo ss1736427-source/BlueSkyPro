@@ -45,26 +45,33 @@ void setReleasedLifecycle(Mission& mission)
     lifecycle.current_calculation_input_version = "input-9";
     lifecycle.state = MissionLifecycleState::Released;
 
-    MissionLifecycleEvent ready;
-    ready.sequence = 1;
-    ready.mission_id = mission.identity.mission_id;
-    ready.mission_version = mission.identity.mission_version;
-    ready.actor_id = "operator-048";
-    ready.timestamp = "2026-11-15T10:00:00Z";
-    ready.from = MissionLifecycleState::Validating;
-    ready.to = MissionLifecycleState::Ready;
-    ready.route_id = lifecycle.current_route_id;
-    ready.route_version = lifecycle.current_route_version;
-    ready.evidence_reference = lifecycle.current_calculation_input_version;
-    lifecycle.history.push_back(ready);
-
-    MissionLifecycleEvent released = ready;
-    released.sequence = 2;
-    released.timestamp = "2026-11-15T10:05:00Z";
-    released.from = MissionLifecycleState::Authorized;
-    released.to = MissionLifecycleState::Released;
-    lifecycle.history.push_back(released);
-    lifecycle.next_event_sequence = 3;
+    const MissionLifecycleState from[] = {
+        MissionLifecycleState::Validating,
+        MissionLifecycleState::Ready,
+        MissionLifecycleState::Submitted,
+        MissionLifecycleState::Authorized
+    };
+    const MissionLifecycleState to[] = {
+        MissionLifecycleState::Ready,
+        MissionLifecycleState::Submitted,
+        MissionLifecycleState::Authorized,
+        MissionLifecycleState::Released
+    };
+    for (std::size_t i = 0; i < 4; ++i) {
+        MissionLifecycleEvent event;
+        event.sequence = i + 1;
+        event.mission_id = mission.identity.mission_id;
+        event.mission_version = mission.identity.mission_version;
+        event.actor_id = "operator-048";
+        event.timestamp = "2026-11-15T10:00:00Z";
+        event.from = from[i];
+        event.to = to[i];
+        event.route_id = lifecycle.current_route_id;
+        event.route_version = lifecycle.current_route_version;
+        event.evidence_reference = lifecycle.current_calculation_input_version;
+        lifecycle.history.push_back(event);
+    }
+    lifecycle.next_event_sequence = 5;
 }
 
 } // namespace

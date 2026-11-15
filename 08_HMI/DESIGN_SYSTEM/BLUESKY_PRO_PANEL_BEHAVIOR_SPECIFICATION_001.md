@@ -289,6 +289,20 @@ When validation fails, the corresponding warning/error is shown.
 
 `START MISSION` is not green by default. It becomes active only when current readiness and required checklist/validation conditions are satisfied. A readiness-invalidating change returns it to the non-ready/disabled state.
 
+### Checklist content boundary — pilot actions only
+
+The Right Panel checklist is an operator action queue, not a report of automated system work.
+
+- Include only actions, acknowledgements, reviews or decisions that explicitly require pilot/operator participation.
+- Do not create checklist rows for automatic planning, data acquisition, calculations, validations or evidence generation (including route geometry, NOTAM conflict analysis, terrain, weather, energy/reserve, vehicle-envelope and final-integrity checks).
+- Automated results remain authoritative inputs to Mission Readiness and are presented in validation results, warnings or diagnostics with their reasons; they are not duplicated as pilot checklist tasks.
+- A failed automatic check is a system blocker. It must not be converted into a pilot checkbox or cleared by a generic operator acknowledgement.
+- Show a contextual pilot action only when the system determines that human participation is required. Remove/close it when completed, no longer applicable, or invalidated by a relevant revision.
+- Record each operator action against the exact mission and input revision, with actor and timestamp. A change that invalidates the action also invalidates its acknowledgement.
+- READY requires both successful current automated gates and completion of all applicable mandatory pilot actions. READY remains distinct from RELEASED.
+
+The checklist is populated from the authoritative readiness/action model; QML must not infer human participation from the presence of NOTAM, weather or other data.
+
 ## 7. UAV STATUS / LOCAL CONTEXT
 
 ### Role

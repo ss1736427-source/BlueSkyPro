@@ -126,6 +126,52 @@ void testFullTransfer() {
     assert(result.reason == "MISSION_UPLOADED_READBACK_VERIFIED");
 }
 
+void testRejectsStaleCalculationInputRevision() {
+    auto mission = makeMission();
+    setReleasedLifecycle(mission);
+    mission.selected_solution.calculation_input_version = "INPUT-STALE";
+    auto capabilities = makeCapabilities();
+    auto adapter = makeAdapter();
+    assert(adapter.connect());
+    const auto result = bluesky::planning::MissionTransferRuntime::execute(mission, capabilities, adapter);
+    assert(result.state == bluesky::planning::MissionTransferState::Rejected);
+    assert(result.reason == "MISSION_LIFECYCLE_RELEASE_EVENT_REQUIRED");
+}
+
+void testRejectsInterleavedEventAfterReady() {
+    auto mission = makeMission();
+    setReleasedLifecycle(mission);
+    auto unrelated = mission.lifecycle.history[1];
+    unrelated.sequence = 3;
+    unrelated.from = bluesky::planning::MissionLifecycleState::Submitted;
+    unrelated.to = bluesky::planning::MissionLifecycleState::Paused;
+    mission.lifecycle.history.insert(mission.lifecycle.history.begin() + 2, unrelated);
+    for (std::size_t i = 3; i < mission.lifecycle.history.size(); ++i)
+        mission.lifecycle.history[i].sequence = i + 1;
+    mission.lifecycle.next_event_sequence = mission.lifecycle.history.back().sequence + 1;
+    auto capabilities = makeCapabilities();
+    auto adapter = makeAdapter();
+    assert(adapter.connect());
+    const auto result = bluesky::planning::MissionTransferRuntime::execute(mission, capabilities, adapter);
+    assert(result.state == bluesky::planning::MissionTransferState::Rejected);
+    assert(result.reason == "MISSION_LIFECYCLE_RELEASE_EVENT_REQUIRED");
+}
+
+void testRejectsSkippedReleaseTransition() {
+    auto mission = makeMission();
+    setReleasedLifecycle(mission);
+    mission.lifecycle.history[2].from = bluesky::planning::MissionLifecycleState::Submitted;
+    mission.lifecycle.history[2].to = bluesky::planning::MissionLifecycleState::Released;
+    mission.lifecycle.history.erase(mission.lifecycle.history.begin() + 3);
+    mission.lifecycle.next_event_sequence = 4;
+    auto capabilities = makeCapabilities();
+    auto adapter = makeAdapter();
+    assert(adapter.connect());
+    const auto result = bluesky::planning::MissionTransferRuntime::execute(mission, capabilities, adapter);
+    assert(result.state == bluesky::planning::MissionTransferState::Rejected);
+    assert(result.reason == "MISSION_LIFECYCLE_RELEASE_EVENT_REQUIRED");
+}
+
 void testRejectsStaleRouteRevision() {
     auto mission = makeMission();
     setReleasedLifecycle(mission);
@@ -214,6 +260,9 @@ int main() {
     testRejectsWithoutReleasedLifecycle();
     testRejectsReadyOnlyLifecycle();
     testFullTransfer();
+    testRejectsStaleCalculationInputRevision();
+    testRejectsInterleavedEventAfterReady();
+    testRejectsSkippedReleaseTransition();
     testRejectsStaleRouteRevision();
     testRejectsConfigurationMismatch();
     testRejectsInvalidCapabilities();

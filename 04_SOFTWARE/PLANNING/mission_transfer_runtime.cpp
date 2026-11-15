@@ -31,6 +31,7 @@ bool capability_valid(const VehicleEquipmentCapabilityProfile& capabilities) {
 // without going through CapabilityExecutionIntegration.
 bool released_for_current_revision(const Mission& mission) {
     const auto& lifecycle = mission.lifecycle;
+    const auto& selected = mission.selected_solution;
     if (mission.identity.mission_id.empty()
         || mission.identity.mission_version.empty()
         || lifecycle.mission_id != mission.identity.mission_id
@@ -39,6 +40,8 @@ bool released_for_current_revision(const Mission& mission) {
         || lifecycle.current_route_id.empty()
         || lifecycle.current_route_version.empty()
         || lifecycle.current_calculation_input_version.empty()
+        || selected.calculation_input_version.empty()
+        || selected.calculation_input_version != lifecycle.current_calculation_input_version
         || lifecycle.history.empty()) {
         return false;
     }
@@ -58,6 +61,7 @@ bool released_for_current_revision(const Mission& mission) {
 
     std::uint64_t previousSequence = 0;
     std::size_t releaseStage = 0;
+    bool currentReadyFound = false;
     for (const auto& event : lifecycle.history) {
         if (event.sequence == 0 || event.sequence <= previousSequence
             || event.mission_id != mission.identity.mission_id
@@ -65,32 +69,39 @@ bool released_for_current_revision(const Mission& mission) {
             || event.actor_id.empty() || event.timestamp.empty()) {
             return false;
         }
-        previousSequence = event.sequence;
 
-        if (releaseStage < 4
-            && event.from == expectedFrom[releaseStage]
-            && event.to == expectedTo[releaseStage]) {
-            if (event.route_id != lifecycle.current_route_id
+        if (!currentReadyFound) {
+            if (event.from == MissionLifecycleState::Validating
+                && event.to == MissionLifecycleState::Ready) {
+                if (event.route_id != lifecycle.current_route_id
+                    || event.route_version != lifecycle.current_route_version
+                    || event.evidence_reference != lifecycle.current_calculation_input_version) {
+                    return false;
+                }
+                currentReadyFound = true;
+                releaseStage = 1;
+            }
+        } else {
+            // The release chain after current READY must be exact and contiguous.
+            if (releaseStage >= 4
+                || event.sequence != previousSequence + 1
+                || event.from != expectedFrom[releaseStage]
+                || event.to != expectedTo[releaseStage]
+                || event.route_id != lifecycle.current_route_id
                 || event.route_version != lifecycle.current_route_version
                 || event.evidence_reference != lifecycle.current_calculation_input_version) {
                 return false;
             }
             ++releaseStage;
-        } else if (releaseStage > 0 && releaseStage < 4
-                   && event.to == expectedTo[releaseStage - 1]) {
-            // Duplicate or out-of-order lifecycle transitions invalidate the chain.
-            return false;
         }
+        previousSequence = event.sequence;
     }
 
-    return releaseStage == 4
-        && lifecycle.next_event_sequence > previousSequence
+    return currentReadyFound
+        && releaseStage == 4
+        && lifecycle.next_event_sequence == previousSequence + 1
         && lifecycle.history.back().to == MissionLifecycleState::Released
-        && lifecycle.history.back().from == MissionLifecycleState::Authorized
-        && lifecycle.history.back().route_id == lifecycle.current_route_id
-        && lifecycle.history.back().route_version == lifecycle.current_route_version
-        && lifecycle.history.back().evidence_reference
-            == lifecycle.current_calculation_input_version;
+        && lifecycle.history.back().from == MissionLifecycleState::Authorized;
 }
 
 } // namespace
