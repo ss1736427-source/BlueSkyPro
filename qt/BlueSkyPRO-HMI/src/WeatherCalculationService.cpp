@@ -188,12 +188,13 @@ bool buildFlightSafetyEnvelope(const QVariantMap& profile,
     const QString declaredModelId = profile.value(QStringLiteral("flightSafetyVehicleModelId")).toString().trimmed();
     const QString declaredModelVersion = profile.value(QStringLiteral("flightSafetyModelVersion")).toString().trimmed();
     const QString declaredConfigurationId = profile.value(QStringLiteral("flightSafetyConfigurationId")).toString().trimmed();
+    const QString declaredEnvelopeId = profile.value(QStringLiteral("flightSafetyEnvelopeId")).toString().trimmed();
     const QString motionClass = profile.value(QStringLiteral("flightSafetyMotionClass")).toString().trimmed();
     const QString evidence = profile.value(QStringLiteral("flightSafetyEvidence")).toString().trimmed();
 
     if (modelId.isEmpty() || modelVersion.isEmpty() || configurationId.isEmpty()
-        || declaredModelId != modelId || declaredModelVersion != modelVersion
-        || declaredConfigurationId != configurationId) {
+        || declaredEnvelopeId.isEmpty() || declaredModelId != modelId
+        || declaredModelVersion != modelVersion || declaredConfigurationId != configurationId) {
         error = QStringLiteral("FLIGHT_SAFETY_ENVELOPE_MODEL_VERSION_CONFIGURATION_MISMATCH");
         return false;
     }
@@ -1201,8 +1202,9 @@ bool WeatherCalculationService::evaluateCandidates(
         }
         const QString currentSafetyEnvelopeId =
             snapshot.value(QStringLiteral("flightSafetyEnvelopeId")).toString().trimmed();
-        if (currentSafetyEnvelopeId != QString::fromStdString(flightSafetyEnvelope.configuration_id)) {
-            setError(QStringLiteral("CANDIDATE_FLIGHT_SAFETY_CONFIGURATION_MISMATCH"));
+        if (currentSafetyEnvelopeId != validatedPerformanceProfile.value(
+                QStringLiteral("flightSafetyEnvelopeId")).toString().trimmed()) {
+            setError(QStringLiteral("CANDIDATE_FLIGHT_SAFETY_ENVELOPE_MISMATCH"));
             return false;
         }
         if (commonSafetyEnvelopeId.isEmpty())
