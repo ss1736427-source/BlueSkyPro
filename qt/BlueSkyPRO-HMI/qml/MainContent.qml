@@ -46,19 +46,30 @@ Item {
            === String(root.lifecycleCurrentRouteSnapshot.routeVersion || "")
         && String(root.lifecycleReadinessSnapshot.calculationInputVersion || "")
            === String(root.lifecycleCurrentRouteSnapshot.calculationInputVersion || "")
+    readonly property string lifecycleExecutionProvenance:
+        root.lifecycleReadinessSnapshot
+        ? String(root.lifecycleReadinessSnapshot.vehicleSourceProvenance || "") : ""
+    // A physical READY/RELEASED snapshot must never be presented as a Virtual Flight result.
+    readonly property bool lifecycleModeProvenanceMatches:
+        root.activeTool !== "VIRTUAL FLT"
+        || root.lifecycleExecutionProvenance === "SIL_FIXTURE"
     readonly property bool missionReady:
         root.lifecycleReadinessMatchesCurrentRevision
+        && root.lifecycleModeProvenanceMatches
         && root.lifecycleReadinessSnapshot.ready === true
     readonly property bool missionReleased:
         root.lifecycleReadinessMatchesCurrentRevision
+        && root.lifecycleModeProvenanceMatches
         && root.lifecycleReadinessSnapshot.released === true
     readonly property var pilotChecklistActions:
         root.lifecycleReadinessMatchesCurrentRevision
+        && root.lifecycleModeProvenanceMatches
         && Array.isArray(root.lifecycleReadinessSnapshot.pilotActions)
         ? root.lifecycleReadinessSnapshot.pilotActions : []
     readonly property string lifecycleReadinessStatus:
-        root.lifecycleReadinessMatchesCurrentRevision
-        ? String(root.lifecycleReadinessSnapshot.status || "BLOCKED") : "BLOCKED"
+        !root.lifecycleReadinessMatchesCurrentRevision ? "BLOCKED"
+        : (!root.lifecycleModeProvenanceMatches ? "BLOCKED_VIRTUAL_SIL_PROVENANCE_REQUIRED"
+        : String(root.lifecycleReadinessSnapshot.status || "BLOCKED"))
     property bool manualCompositionComplete: false
     // Shared map view state: retained while switching mission templates and tools.
     property real mapPanX: 0
@@ -611,19 +622,43 @@ Item {
             z: 10
             clip: true
 
-            Text {
+            Column {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
-                text: "VIRTUAL FLIGHT"
-                color: "#B8E8F7"
-                opacity: 0.30
-                font.family: "B612"
-                font.pixelSize: Math.max(22, Math.min(34, parent.width * 0.035))
-                font.bold: true
-                font.letterSpacing: 3
-                horizontalAlignment: Text.AlignHCenter
-                style: Text.Outline
-                styleColor: "#182C3B"
+                spacing: 8
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "VIRTUAL FLIGHT"
+                    color: "#B8E8F7"
+                    opacity: 0.30
+                    font.family: "B612"
+                    font.pixelSize: Math.max(22, Math.min(34, parent.width * 0.035))
+                    font.bold: true
+                    font.letterSpacing: 3
+                    horizontalAlignment: Text.AlignHCenter
+                    style: Text.Outline
+                    styleColor: "#182C3B"
+                }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "LIFECYCLE: " + root.lifecycleReadinessStatus
+                          + " / PROVENANCE: " + (root.lifecycleExecutionProvenance || "UNBOUND")
+                    color: "#B8E8F7"
+                    opacity: 0.72
+                    font.family: "B612 Mono"
+                    font.pixelSize: 10
+                    horizontalAlignment: Text.AlignHCenter
+                }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: root.lifecycleExecutionProvenance !== "SIL_FIXTURE"
+                    text: "SIMULATOR EXECUTION NOT ADMITTED — SIL VEHICLE BINDING REQUIRED"
+                    color: "#FFD166"
+                    opacity: 0.82
+                    font.family: "B612 Mono"
+                    font.pixelSize: 9
+                    horizontalAlignment: Text.AlignHCenter
+                }
             }
         }
 
