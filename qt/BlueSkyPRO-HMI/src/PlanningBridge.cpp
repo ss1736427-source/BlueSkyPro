@@ -4,6 +4,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+#include <array>
+
 namespace
 {
 constexpr auto kSchemaVersion = "1.0";
@@ -13,6 +15,7 @@ constexpr auto kMessageType = "planning.result";
 PlanningBridge::PlanningBridge(QObject *parent)
     : QObject(parent)
 {
+    invalidateLifecycleReadiness(QStringLiteral("CPP_MISSION_FINALIZATION_REQUIRED"));
     connect(&m_process, &QProcess::readyReadStandardOutput,
             this, &PlanningBridge::consumeStdout);
 
@@ -40,6 +43,134 @@ QVariantMap PlanningBridge::result() const
 bool PlanningBridge::running() const
 {
     return m_process.state() != QProcess::NotRunning;
+}
+
+QVariantMap PlanningBridge::readinessSnapshot() const
+{
+    return m_readinessSnapshot;
+}
+
+void PlanningBridge::invalidateLifecycleReadiness(const QString &reason)
+{
+    QVariantMap snapshot{
+        {QStringLiteral("status"), QStringLiteral("BLOCKED")},
+        {QStringLiteral("lifecycleState"), QStringLiteral("BLOCKED")},
+        {QStringLiteral("ready"), false},
+        {QStringLiteral("released"), false},
+        {QStringLiteral("missionId"), QString()},
+        {QStringLiteral("missionVersion"), QString()},
+        {QStringLiteral("routeId"), QString()},
+        {QStringLiteral("routeVersion"), QString()},
+        {QStringLiteral("calculationInputVersion"), QString()},
+        {QStringLiteral("blockers"), QVariantList{reason}},
+        {QStringLiteral("pilotActions"), QVariantList{}}
+    };
+    if (m_readinessSnapshot == snapshot)
+        return;
+    m_readinessSnapshot = snapshot;
+    emit readinessSnapshotChanged();
+}
+
+bool PlanningBridge::publishLifecycleReadiness(
+    const bluesky::planning::MissionLifecycleRecord &record,
+    const bluesky::planning::MissionLifecycleTransitionResult &transition,
+    const QVariantList &pilotActions)
+{
+    using namespace bluesky::planning;
+    const auto invalidate = [this]() {
+        invalidateLifecycleReadiness(QStringLiteral("CPP_LIFECYCLE_SNAPSHOT_INVALID"));
+        return false;
+    };
+    if (!transition.accepted || transition.state != record.state
+        || record.mission_id.empty() || record.mission_version.empty()
+        || record.current_route_id.empty() || record.current_route_version.empty()
+        || record.current_calculation_input_version.empty() || record.history.empty())
+        return invalidate();
+
+    std::size_t postReadyTransitions = 0;
+    switch (record.state) {
+    case MissionLifecycleState::Ready: postReadyTransitions = 0; break;
+    case MissionLifecycleState::Submitted: postReadyTransitions = 1; break;
+    case MissionLifecycleState::Authorized: postReadyTransitions = 2; break;
+    case MissionLifecycleState::Released: postReadyTransitions = 3; break;
+    default: return invalidate();
+    }
+
+    const std::array<MissionLifecycleState, 4> expectedFrom{
+        MissionLifecycleState::Validating, MissionLifecycleState::Ready,
+        MissionLifecycleState::Submitted, MissionLifecycleState::Authorized};
+    const std::array<MissionLifecycleState, 4> expectedTo{
+        MissionLifecycleState::Ready, MissionLifecycleState::Submitted,
+        MissionLifecycleState::Authorized, MissionLifecycleState::Released};
+    const auto &history = record.history;
+    std::uint64_t previousSequence = 0;
+    std::size_t readyIndex = history.size();
+    for (std::size_t i = 0; i < history.size(); ++i) {
+        const auto &event = history[i];
+        if (event.sequence == 0 || event.sequence <= previousSequence
+            || event.actor_id.empty() || event.timestamp.empty())
+            return invalidate();
+        previousSequence = event.sequence;
+        if (event.mission_id == record.mission_id
+            && event.mission_version == record.mission_version
+            && event.from == MissionLifecycleState::Validating
+            && event.to == MissionLifecycleState::Ready
+            && event.route_id == record.current_route_id
+            && event.route_version == record.current_route_version
+            && event.evidence_reference == record.current_calculation_input_version)
+            readyIndex = i;
+    }
+    if (readyIndex == history.size()
+        || history.size() != readyIndex + 1 + postReadyTransitions
+        || record.next_event_sequence != history.back().sequence + 1)
+        return invalidate();
+
+    for (std::size_t stage = 0; stage <= postReadyTransitions; ++stage) {
+        const auto &event = history[readyIndex + stage];
+        if (event.mission_id != record.mission_id
+            || event.mission_version != record.mission_version
+            || event.from != expectedFrom[stage] || event.to != expectedTo[stage]
+            || event.route_id != record.current_route_id
+            || event.route_version != record.current_route_version
+            || event.evidence_reference != record.current_calculation_input_version)
+            return invalidate();
+        if (stage > 0 && event.sequence != history[readyIndex + stage - 1].sequence + 1)
+            return invalidate();
+    }
+    if (history.back().to != record.state)
+        return invalidate();
+
+    QVariantList filteredPilotActions;
+    for (const QVariant &value : pilotActions) {
+        const QVariantMap action = value.toMap();
+        if (!action.value(QStringLiteral("requiresHuman")).toBool())
+            continue;
+        const QString actionId = action.value(QStringLiteral("actionId")).toString().trimmed();
+        const QString label = action.value(QStringLiteral("label")).toString().trimmed();
+        if (actionId.isEmpty() || label.isEmpty())
+            continue;
+        filteredPilotActions.push_back(action);
+    }
+
+    const QString state = QString::fromLatin1(toString(record.state));
+    QVariantMap snapshot{
+        {QStringLiteral("status"), state},
+        {QStringLiteral("lifecycleState"), state},
+        {QStringLiteral("ready"), true},
+        {QStringLiteral("released"), record.state == MissionLifecycleState::Released},
+        {QStringLiteral("missionId"), QString::fromStdString(record.mission_id)},
+        {QStringLiteral("missionVersion"), QString::fromStdString(record.mission_version)},
+        {QStringLiteral("routeId"), QString::fromStdString(record.current_route_id)},
+        {QStringLiteral("routeVersion"), QString::fromStdString(record.current_route_version)},
+        {QStringLiteral("calculationInputVersion"), QString::fromStdString(record.current_calculation_input_version)},
+        {QStringLiteral("blockers"), QVariantList{}},
+        {QStringLiteral("pilotActions"), filteredPilotActions}
+    };
+    if (m_readinessSnapshot != snapshot) {
+        m_readinessSnapshot = snapshot;
+        emit readinessSnapshotChanged();
+    }
+    return true;
 }
 
 bool PlanningBridge::startProcess(const QString &program, const QStringList &arguments)
@@ -162,6 +293,7 @@ bool PlanningBridge::publishJson(const QString &json)
     }
     normalized.insert(QStringLiteral("verification"), normalizedVerification);
 
+    invalidateLifecycleReadiness(QStringLiteral("PLANNING_RESULT_CHANGED_REQUIRES_CPP_FINALIZATION"));
     publishResult(normalized.toVariantMap());
     return true;
 }
@@ -196,9 +328,9 @@ void PlanningBridge::publishResult(const QVariantMap &result)
 
 void PlanningBridge::clear()
 {
-    if (m_result.isEmpty())
-        return;
-
-    m_result.clear();
-    emit resultChanged();
+    if (!m_result.isEmpty()) {
+        m_result.clear();
+        emit resultChanged();
+    }
+    invalidateLifecycleReadiness(QStringLiteral("CPP_MISSION_FINALIZATION_REQUIRED"));
 }
