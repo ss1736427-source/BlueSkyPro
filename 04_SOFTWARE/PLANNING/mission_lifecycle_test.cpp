@@ -193,6 +193,14 @@ static MissionLifecycleEvidence evidence() {
     e.route_version = "3";
     e.calculation_input_version = "INPUT-9";
     e.vehicle_configuration_id = "CFG-01";
+    e.vehicle_id = "UAV-1";
+    e.vehicle_source_provenance = "SIL_FIXTURE";
+    e.reference_model_id = "TEST-UAV-MODEL";
+    e.reference_type_id = "UAV-TYPE-TEST";
+    e.vehicle_configuration_revision = "CFG-REV-1";
+    e.fleet_assignment_snapshot_id = "FLEET-ASSIGNMENT-1";
+    e.performance_profile_id = "PERF-1";
+    e.performance_profile_revision = "1";
     e.terrain_snapshot_id = "TERRAIN-4";
     e.mission_notam_snapshot_id = "NOTAM-5";
     e.weather_snapshot_id = "WX-SNAP-1";
@@ -203,9 +211,13 @@ static MissionLifecycleEvidence evidence() {
     e.package_route_id = "ROUTE-01";
     e.package_route_version = "3";
     e.package_vehicle_id = "UAV-1";
+    e.package_vehicle_configuration_id = "CFG-01";
+    e.package_vehicle_configuration_revision = "CFG-REV-1";
     e.execution_reference_id = "EXEC-1";
     e.postflight_record_id = "POSTFLIGHT-1";
     e.execution_vehicle_id = "UAV-1";
+    e.execution_vehicle_configuration_id = "CFG-01";
+    e.execution_vehicle_configuration_revision = "CFG-REV-1";
     e.task_definition_complete = true;
     e.mission_geometry_complete = true;
     e.vehicle_configuration_validated = true;
@@ -370,6 +382,20 @@ int main() {
     auto started = move(record, MissionLifecycleState::Calculating, e);
     assert(started.accepted && record.state == MissionLifecycleState::Calculating);
 
+    auto changedVehicle = e;
+    changedVehicle.vehicle_id = "UAV-OTHER";
+    auto changedVehicleResult = move(record, MissionLifecycleState::Validating, changedVehicle);
+    assert(!changedVehicleResult.accepted);
+    assert(std::find(changedVehicleResult.blockers.begin(), changedVehicleResult.blockers.end(),
+                     "MISSION_VEHICLE_IDENTITY_CHANGED") != changedVehicleResult.blockers.end());
+
+    auto changedConfigurationRevision = e;
+    changedConfigurationRevision.vehicle_configuration_revision = "CFG-REV-OTHER";
+    auto changedConfigurationResult = move(record, MissionLifecycleState::Validating, changedConfigurationRevision);
+    assert(!changedConfigurationResult.accepted);
+    assert(std::find(changedConfigurationResult.blockers.begin(), changedConfigurationResult.blockers.end(),
+                     "MISSION_VEHICLE_CONFIGURATION_REVISION_CHANGED") != changedConfigurationResult.blockers.end());
+
     auto skipped = move(record, MissionLifecycleState::Ready, e);
     assert(!skipped.accepted);
     assert(record.state == MissionLifecycleState::Calculating);
@@ -468,6 +494,19 @@ int main() {
     e.authorization_scope_matches = true;
     assert(move(record, MissionLifecycleState::Authorized, e).accepted);
 
+    auto wrongPackageVehicle = e;
+    wrongPackageVehicle.package_vehicle_id = "UAV-OTHER";
+    auto wrongPackageVehicleResult = move(record, MissionLifecycleState::Released, wrongPackageVehicle);
+    assert(!wrongPackageVehicleResult.accepted);
+    assert(std::find(wrongPackageVehicleResult.blockers.begin(), wrongPackageVehicleResult.blockers.end(),
+                     "MISSION_PACKAGE_VEHICLE_ASSIGNMENT_MISMATCH") != wrongPackageVehicleResult.blockers.end());
+    auto wrongPackageConfigurationRevision = e;
+    wrongPackageConfigurationRevision.package_vehicle_configuration_revision = "CFG-REV-OTHER";
+    auto wrongPackageConfigurationResult = move(record, MissionLifecycleState::Released, wrongPackageConfigurationRevision);
+    assert(!wrongPackageConfigurationResult.accepted);
+    assert(std::find(wrongPackageConfigurationResult.blockers.begin(), wrongPackageConfigurationResult.blockers.end(),
+                     "MISSION_PACKAGE_CONFIGURATION_REVISION_MISMATCH") != wrongPackageConfigurationResult.blockers.end());
+
     e.package_route_id = "ROUTE-OTHER";
     auto wrongPackageRouteId = move(record, MissionLifecycleState::Released, e);
     assert(!wrongPackageRouteId.accepted);
@@ -495,6 +534,12 @@ int main() {
     e.execution_vehicle_id = "UAV-OTHER";
     assert(!move(record, MissionLifecycleState::Executing, e).accepted);
     e.execution_vehicle_id = e.package_vehicle_id;
+    auto wrongExecutionConfiguration = e;
+    wrongExecutionConfiguration.execution_vehicle_configuration_revision = "CFG-REV-OTHER";
+    auto wrongExecutionConfigurationResult = move(record, MissionLifecycleState::Executing, wrongExecutionConfiguration);
+    assert(!wrongExecutionConfigurationResult.accepted);
+    assert(std::find(wrongExecutionConfigurationResult.blockers.begin(), wrongExecutionConfigurationResult.blockers.end(),
+                     "EXECUTION_VEHICLE_CONFIGURATION_REVISION_MISMATCH") != wrongExecutionConfigurationResult.blockers.end());
     assert(move(record, MissionLifecycleState::Executing, e).accepted);
 
     auto pauseWithoutReason = MissionLifecycleController::transition(

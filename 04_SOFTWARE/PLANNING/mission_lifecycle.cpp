@@ -134,6 +134,28 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
     }
     if (actor_id.empty())
         result.blockers.emplace_back("LIFECYCLE_ACTOR_REQUIRED");
+
+    // Once the mission has an admitted vehicle assignment, every lifecycle
+    // transition (including replanning) must carry the exact same identity.
+    if (!record.vehicle_id.empty()) {
+        require(evidence.vehicle_id == record.vehicle_id,
+                "MISSION_VEHICLE_IDENTITY_CHANGED", result.blockers);
+        require(evidence.vehicle_source_provenance == record.vehicle_source_provenance,
+                "MISSION_VEHICLE_PROVENANCE_CHANGED", result.blockers);
+        require(evidence.reference_model_id == record.reference_model_id,
+                "MISSION_VEHICLE_MODEL_CHANGED", result.blockers);
+        require(evidence.reference_type_id == record.reference_type_id,
+                "MISSION_VEHICLE_TYPE_CHANGED", result.blockers);
+        require(evidence.vehicle_configuration_id == record.vehicle_configuration_id,
+                "MISSION_VEHICLE_CONFIGURATION_CHANGED", result.blockers);
+        require(evidence.vehicle_configuration_revision == record.vehicle_configuration_revision,
+                "MISSION_VEHICLE_CONFIGURATION_REVISION_CHANGED", result.blockers);
+        require(evidence.fleet_assignment_snapshot_id == record.fleet_assignment_snapshot_id,
+                "MISSION_FLEET_ASSIGNMENT_SNAPSHOT_CHANGED", result.blockers);
+        require(evidence.performance_profile_id == record.performance_profile_id
+                    && evidence.performance_profile_revision == record.performance_profile_revision,
+                "MISSION_PERFORMANCE_PROFILE_CHANGED", result.blockers);
+    }
     if (timestamp.empty())
         result.blockers.emplace_back("LIFECYCLE_TIMESTAMP_REQUIRED");
     if (!allowed(record.state, target))
@@ -161,6 +183,19 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
             require(evidence.mission_geometry_complete, "MISSION_GEOMETRY_INCOMPLETE", result.blockers);
             require(evidence.vehicle_configuration_validated, "VEHICLE_CONFIGURATION_NOT_VALIDATED", result.blockers);
             requireText(evidence.vehicle_configuration_id, "VEHICLE_CONFIGURATION_ID_REQUIRED", result.blockers);
+            requireText(evidence.vehicle_id, "PHYSICAL_VEHICLE_ID_REQUIRED", result.blockers);
+            require(evidence.vehicle_source_provenance == "PHYSICAL_LIVE"
+                        || evidence.vehicle_source_provenance == "SIL_FIXTURE",
+                    "VEHICLE_SOURCE_PROVENANCE_NOT_ADMITTED", result.blockers);
+            requireText(evidence.reference_model_id, "VEHICLE_REFERENCE_MODEL_ID_REQUIRED", result.blockers);
+            requireText(evidence.reference_type_id, "VEHICLE_REFERENCE_TYPE_ID_REQUIRED", result.blockers);
+            requireText(evidence.vehicle_configuration_revision,
+                        "VEHICLE_CONFIGURATION_REVISION_REQUIRED", result.blockers);
+            requireText(evidence.fleet_assignment_snapshot_id,
+                        "FLEET_ASSIGNMENT_SNAPSHOT_REQUIRED", result.blockers);
+            requireText(evidence.performance_profile_id, "APPROVED_PERFORMANCE_PROFILE_ID_REQUIRED", result.blockers);
+            requireText(evidence.performance_profile_revision,
+                        "APPROVED_PERFORMANCE_PROFILE_REVISION_REQUIRED", result.blockers);
             require(evidence.equipment_configuration_validated, "EQUIPMENT_CONFIGURATION_NOT_VALIDATED", result.blockers);
             require(evidence.mission_notam_snapshot_current, "MISSION_NOTAM_SNAPSHOT_MISSING_OR_STALE", result.blockers);
             requireText(evidence.mission_notam_snapshot_id, "MISSION_NOTAM_SNAPSHOT_ID_REQUIRED", result.blockers);
@@ -295,6 +330,12 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         requireText(evidence.package_id, "MISSION_PACKAGE_ID_REQUIRED", result.blockers);
         require(evidence.package_vehicle_approved, "PACKAGE_VEHICLE_NOT_APPROVED", result.blockers);
         requireText(evidence.package_vehicle_id, "PACKAGE_VEHICLE_ID_REQUIRED", result.blockers);
+        require(evidence.package_vehicle_id == record.vehicle_id,
+                "MISSION_PACKAGE_VEHICLE_ASSIGNMENT_MISMATCH", result.blockers);
+        require(evidence.package_vehicle_configuration_id == record.vehicle_configuration_id,
+                "MISSION_PACKAGE_CONFIGURATION_MISMATCH", result.blockers);
+        require(evidence.package_vehicle_configuration_revision == record.vehicle_configuration_revision,
+                "MISSION_PACKAGE_CONFIGURATION_REVISION_MISMATCH", result.blockers);
         break;
     case MissionLifecycleState::Executing:
         require(evidence.execution_session_linked, "EXECUTION_SESSION_NOT_LINKED", result.blockers);
@@ -302,6 +343,12 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         requireText(evidence.execution_vehicle_id, "EXECUTION_VEHICLE_ID_REQUIRED", result.blockers);
         require(evidence.execution_vehicle_id == evidence.package_vehicle_id,
                 "EXECUTION_VEHICLE_PACKAGE_MISMATCH", result.blockers);
+        require(evidence.execution_vehicle_id == record.vehicle_id,
+                "EXECUTION_VEHICLE_ASSIGNMENT_MISMATCH", result.blockers);
+        require(evidence.execution_vehicle_configuration_id == record.vehicle_configuration_id,
+                "EXECUTION_VEHICLE_CONFIGURATION_MISMATCH", result.blockers);
+        require(evidence.execution_vehicle_configuration_revision == record.vehicle_configuration_revision,
+                "EXECUTION_VEHICLE_CONFIGURATION_REVISION_MISMATCH", result.blockers);
         break;
     case MissionLifecycleState::Completed:
         require(evidence.execution_closed, "EXECUTION_NOT_CLOSED", result.blockers);
@@ -331,10 +378,22 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
     event.route_id = evidence.route_id;
     event.route_version = evidence.route_version;
     event.evidence_reference = evidence.calculation_input_version;
+    event.vehicle_id = evidence.vehicle_id;
+    event.vehicle_configuration_id = evidence.vehicle_configuration_id;
+    event.vehicle_configuration_revision = evidence.vehicle_configuration_revision;
+    event.fleet_assignment_snapshot_id = evidence.fleet_assignment_snapshot_id;
     const auto addEvidence = [&event](const std::string &value) {
         if (!value.empty())
             event.evidence_references.push_back(value);
     };
+    addEvidence(evidence.vehicle_id);
+    addEvidence(evidence.reference_model_id);
+    addEvidence(evidence.reference_type_id);
+    addEvidence(evidence.vehicle_configuration_id);
+    addEvidence(evidence.vehicle_configuration_revision);
+    addEvidence(evidence.fleet_assignment_snapshot_id);
+    addEvidence(evidence.performance_profile_id);
+    addEvidence(evidence.performance_profile_revision);
     addEvidence(evidence.terrain_snapshot_id);
     addEvidence(evidence.mission_notam_snapshot_id);
     addEvidence(evidence.weather_snapshot_id);
@@ -350,6 +409,18 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
     if (startsNewRevision) {
         record.parent_mission_version = record.mission_version;
         record.mission_version = evidence.mission_version;
+    }
+    if (record.vehicle_id.empty() && record.state == MissionLifecycleState::Draft
+        && target == MissionLifecycleState::Calculating) {
+        record.vehicle_id = evidence.vehicle_id;
+        record.vehicle_source_provenance = evidence.vehicle_source_provenance;
+        record.reference_model_id = evidence.reference_model_id;
+        record.reference_type_id = evidence.reference_type_id;
+        record.vehicle_configuration_id = evidence.vehicle_configuration_id;
+        record.vehicle_configuration_revision = evidence.vehicle_configuration_revision;
+        record.fleet_assignment_snapshot_id = evidence.fleet_assignment_snapshot_id;
+        record.performance_profile_id = evidence.performance_profile_id;
+        record.performance_profile_revision = evidence.performance_profile_revision;
     }
     if (!evidence.route_id.empty())
         record.current_route_id = evidence.route_id;

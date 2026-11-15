@@ -47,6 +47,14 @@ struct MissionLifecycleEvidence {
     std::string route_version;
     std::string calculation_input_version;
     std::string vehicle_configuration_id;
+    std::string vehicle_id;
+    std::string vehicle_source_provenance;
+    std::string reference_model_id;
+    std::string reference_type_id;
+    std::string vehicle_configuration_revision;
+    std::string fleet_assignment_snapshot_id;
+    std::string performance_profile_id;
+    std::string performance_profile_revision;
     std::string terrain_snapshot_id;
     std::string mission_notam_snapshot_id;
     std::string weather_snapshot_id;
@@ -58,8 +66,12 @@ struct MissionLifecycleEvidence {
     std::string package_route_id;
     std::string package_route_version;
     std::string package_vehicle_id;
+    std::string package_vehicle_configuration_id;
+    std::string package_vehicle_configuration_revision;
     std::string execution_reference_id;
     std::string execution_vehicle_id;
+    std::string execution_vehicle_configuration_id;
+    std::string execution_vehicle_configuration_revision;
     std::string postflight_record_id;
 
     bool mt01_coverage_candidate_available{false};
@@ -116,6 +128,10 @@ struct MissionLifecycleEvent {
     std::string route_id;
     std::string route_version;
     std::string evidence_reference;
+    std::string vehicle_id;
+    std::string vehicle_configuration_id;
+    std::string vehicle_configuration_revision;
+    std::string fleet_assignment_snapshot_id;
     std::vector<std::string> evidence_references;
 };
 
@@ -131,6 +147,16 @@ struct MissionLifecycleRecord {
     std::vector<MissionLifecycleEvent> history;
     // All selected templates are retained; missions may combine task templates.
     std::vector<std::string> mission_template_ids;
+    // Immutable physical/SIL vehicle assignment pinned at DRAFT -> CALCULATING.
+    std::string vehicle_id;
+    std::string vehicle_source_provenance;
+    std::string reference_model_id;
+    std::string reference_type_id;
+    std::string vehicle_configuration_id;
+    std::string vehicle_configuration_revision;
+    std::string fleet_assignment_snapshot_id;
+    std::string performance_profile_id;
+    std::string performance_profile_revision;
 };
 
 struct MissionLifecycleTransitionResult {
