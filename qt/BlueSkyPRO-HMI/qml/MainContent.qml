@@ -19,7 +19,31 @@ Item {
     // Validation is part of the manual-mission workflow; keep its UI active.
     readonly property bool missionCreationMode:
         missionState === "MANUAL" || missionState === "VALIDATING"
-    property bool missionReady: false
+    readonly property var lifecycleReadinessSnapshot:
+        typeof planningBridge !== "undefined" && planningBridge !== null
+        ? planningBridge.readinessSnapshot : null
+    readonly property bool lifecycleReadinessMatchesCurrentRevision:
+        root.lifecycleReadinessSnapshot
+        && String(root.lifecycleReadinessSnapshot.missionId || "") === String(root.missionId)
+        && typeof routeController !== "undefined" && routeController !== null
+        && String(root.lifecycleReadinessSnapshot.routeId || "") === String(routeController.routeId)
+        && String(root.lifecycleReadinessSnapshot.routeVersion || "") === String(routeController.routeVersion)
+        && String(root.lifecycleReadinessSnapshot.calculationInputVersion || "")
+           === String(routeController.calculationInputVersion)
+        && routeController.validationState === "VALIDATED"
+    readonly property bool missionReady:
+        root.lifecycleReadinessMatchesCurrentRevision
+        && root.lifecycleReadinessSnapshot.ready === true
+    readonly property bool missionReleased:
+        root.lifecycleReadinessMatchesCurrentRevision
+        && root.lifecycleReadinessSnapshot.released === true
+    readonly property var pilotChecklistActions:
+        root.lifecycleReadinessMatchesCurrentRevision
+        && Array.isArray(root.lifecycleReadinessSnapshot.pilotActions)
+        ? root.lifecycleReadinessSnapshot.pilotActions : []
+    readonly property string lifecycleReadinessStatus:
+        root.lifecycleReadinessMatchesCurrentRevision
+        ? String(root.lifecycleReadinessSnapshot.status || "BLOCKED") : "BLOCKED"
     property bool manualCompositionComplete: false
     // Shared map view state: retained while switching mission templates and tools.
     property real mapPanX: 0
@@ -607,6 +631,9 @@ Item {
             showLeftBorder: true
             showRightBorder: true
             missionReady: root.missionReady
+            missionReleased: root.missionReleased
+            pilotActions: root.pilotChecklistActions
+            readinessStatus: root.lifecycleReadinessStatus
             notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
             notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
             warningActive: root.warningActive

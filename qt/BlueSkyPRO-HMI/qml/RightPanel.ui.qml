@@ -40,6 +40,9 @@ Item {
     property bool manualSetBlocked: false
     property string manualModelValidationStatus: "NOT_CHECKED"
     property bool missionReady: false
+    property bool missionReleased: false
+    property var pilotActions: []
+    property string readinessStatus: "BLOCKED"
     property bool warningActive: true
 
     Settings {
@@ -437,21 +440,7 @@ Item {
     // True only when a live weather stream is connected and supplying data.
     property bool weatherStreamConnected: false
     property bool notamPilotAttentionRequired: false
-    property var checklistItems: [
-        { label: "Mission definition", status: "PENDING" },
-        { label: "UAV allocation", status: "PENDING" },
-        { label: "Route validation", status: "PENDING" },
-        { label: "NOTAM / Airspace", status: "PENDING" },
-        { label: "Weather", status: "PENDING" },
-        { label: "Terrain / Obstacles", status: "PENDING" },
-        { label: "Battery / Payload", status: "PENDING" },
-        { label: "C2 / GNSS", status: "PENDING" },
-        { label: "Permissions", status: "PENDING" },
-        { label: "Final validation", status: "PENDING" }
-    ]
-    readonly property int checklistPassedCount: checklistItems.filter(function(item) {
-        return item.status === "PASS"
-    }).length
+    readonly property int checklistActionCount: pilotActions.length
     readonly property bool mapAlertsEnabled:
         panelSettingsPopup.enabledTools.indexOf("Map Alerts") >= 0
     property var systemMessages: [
@@ -648,8 +637,8 @@ Item {
             spacing: 3
 
             Text {
-                text: String(root.checklistPassedCount)
-                color: root.checklistPassedCount === root.checklistItems.length ? root.green : root.amber
+                text: String(root.checklistActionCount)
+                color: root.checklistActionCount > 0 ? root.amber : root.green
                 font.family: "B612"
                 font.pixelSize: 13
                 font.bold: true
@@ -662,7 +651,7 @@ Item {
                 font.bold: true
             }
             Text {
-                text: String(root.checklistItems.length)
+                text: "ACTIONS"
                 color: "#FF00D4"
                 font.family: "B612"
                 font.pixelSize: 13
@@ -688,18 +677,26 @@ Item {
             id: checklistList
             width: checklistScroller.width
             spacing: 1
+            Text {
+                visible: root.pilotActions.length === 0
+                width: checklistList.width
+                height: 30
+                text: root.readinessStatus === "BLOCKED"
+                      ? "АВТОМАТИЧЕСКИЕ ПРОВЕРКИ НЕ ЗАВЕРШЕНЫ"
+                      : "НЕТ АКТИВНЫХ ДЕЙСТВИЙ ПИЛОТА"
+                color: root.readinessStatus === "BLOCKED" ? root.amber : root.muted
+                font.family: "B612"
+                font.pixelSize: 10
+                wrapMode: Text.WordWrap
+                verticalAlignment: Text.AlignVCenter
+            }
             Repeater {
                 model: root.visibleChecklistItems()
                 delegate: Text {
                     width: checklistList.width
                     height: 17
-                    text: (modelData.status === "PASS" ? "✓" :
-                           modelData.status === "FAIL" ? "✕" :
-                           modelData.status === "WARNING" ? "⚠" : "○")
-                          + "  " + modelData.label
-                    color: modelData.status === "PASS" ? root.green :
-                           modelData.status === "FAIL" ? root.red :
-                           modelData.status === "WARNING" ? root.amber : root.secondary
+                    text: "○  " + modelData.label
+                    color: root.secondary
                     font.family: "B612"
                     font.pixelSize: 11
                     elide: Text.ElideRight
@@ -900,7 +897,7 @@ Item {
     }
 
     function visibleChecklistItems() {
-        return checklistItems.filter(function(item) { return item.status !== "PASS" })
+        return pilotActions
     }
 
     function hasUnacknowledgedCriticalMessage() {
@@ -1378,8 +1375,8 @@ Item {
         y: root.atcStartY
         width: parent.width - 52
         height: root.atcButtonHeight
-        color: root.missionReady ? "transparent" : "#050505"
-        border.color: root.missionReady ? root.green : root.divider
+        color: root.missionReleased ? "transparent" : "#050505"
+        border.color: root.missionReleased ? root.green : root.divider
         border.width: 1
     }
 
@@ -1390,7 +1387,7 @@ Item {
         width: parent.width - 52
         height: root.atcButtonHeight
         text: "START MISSION"
-        color: root.missionReady ? root.green : root.muted
+        color: root.missionReleased ? root.green : root.muted
         font.family: "B612"
         font.pixelSize: 12
         font.bold: true
@@ -1404,7 +1401,7 @@ Item {
         y: root.atcStartY
         width: parent.width - 52
         height: root.atcButtonHeight
-        enabled: root.missionReady
+        enabled: root.missionReleased
         onClicked: root.startMissionRequested()
     }
 
