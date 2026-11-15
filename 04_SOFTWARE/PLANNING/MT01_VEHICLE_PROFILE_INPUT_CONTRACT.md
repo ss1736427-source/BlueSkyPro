@@ -16,7 +16,7 @@ Required keys:
 - `vehicleMotionSpeedReference` — explicit reference, e.g. `TAS` for fixed wing.
 - `vehicleMotionSourceReference` — versioned evidence source.
 
-The current MT-01 kinematic connector implementation generates fixed-wing Dubins transitions only. Multirotor motion profiles are represented by the shared model but do not yet have an MT-01 turn-connector implementation.
+The MT-01 kinematic connector builds bounded-curvature Dubins transitions for both fixed-wing and multirotor aircraft. Fixed-wing radius uses explicit TAS and validated bank angle; multirotor radius uses explicit AIR_RELATIVE speed and validated sustained lateral acceleration. These are separate motion models, not interchangeable inputs. The connector does not yet model VTOL hover/transition/cruise phases as a distinct motion class. A multirotor with UNKNOWN lateral acceleration (including the current Mavic 3E reference record) remains blocked; yaw rate or pitch/attitude angle cannot be substituted for sustained lateral acceleration.
 
 ## Flight safety envelope
 

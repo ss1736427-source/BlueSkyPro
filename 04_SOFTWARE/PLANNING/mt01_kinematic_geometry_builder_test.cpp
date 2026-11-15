@@ -324,6 +324,26 @@ int main()
     }
     assert(sawMultirotorTurn);
 
+    // A multirotor connector must fail closed when sustained lateral
+    // acceleration is unknown; yaw rate or bank/attitude values are not substitutes.
+    auto unknownMultirotorAcceleration = multirotor;
+    unknownMultirotorAcceleration.lateral_acceleration_mps2 = 0.0;
+    const auto unknownMultirotorGeometry = Mt01KinematicGeometryBuilder::build(
+        coverage, unknownMultirotorAcceleration,
+        "TEST-MULTIROTOR", "TEST-CONFIG-1", 10.0, {});
+    assert(!unknownMultirotorGeometry.feasible);
+    assert(unknownMultirotorGeometry.diagnostics.front().find(
+        "TURN_RADIUS_NOT_VALIDATED") != std::string::npos);
+
+    auto scenarioOnlyMultirotor = multirotor;
+    scenarioOnlyMultirotor.evidence = MotionEvidence::DerivedScenario;
+    const auto scenarioOnlyGeometry = Mt01KinematicGeometryBuilder::build(
+        coverage, scenarioOnlyMultirotor,
+        "TEST-MULTIROTOR", "TEST-CONFIG-1", 10.0, {});
+    assert(!scenarioOnlyGeometry.feasible);
+    assert(scenarioOnlyGeometry.diagnostics.front().find(
+        "TURN_RADIUS_NOT_VALIDATED") != std::string::npos);
+
     const std::vector<std::vector<GeoPoint>> blockingArea{{
         {-0.01, -0.01}, {-0.01, 0.01}, {0.01, 0.01}, {0.01, -0.01}
     }};

@@ -22,10 +22,12 @@ MT-01-specific responsibility is to bind those contracts into one executable seq
 `Mt01MappingPipeline::calculate()` currently:
 - validates the canonical mission identity, MT-01 template selection, one assigned vehicle, one camera, AOI, and equipment compatibility/verification states;
 - accepts `VehicleMotionModel` and `FlightSafetyEnvelope` as separate request inputs;
-- generates coverage stripes, then fixed-wing Dubins connector geometry;
+- generates coverage stripes, then bounded-curvature Dubins connector geometry for both FixedWing and Multirotor using their distinct validated motion models;
 - validates segment speed, bank and lateral acceleration against the supplied safety envelope;
 - builds a canonical `Route` with waypoint/segment lineage;
 - deliberately leaves `route.trajectory_geometry_complete = false` and `flight_release_eligible = false`.
+
+Motion-class boundary: fixed-wing turn radius is derived from explicit TAS and validated bank angle; multirotor turn radius is derived from explicit AIR_RELATIVE speed and validated sustained lateral acceleration. The connector implementation does not support a VTOL transition envelope as a distinct motion class. For multirotor platforms such as Mavic 3E, an UNKNOWN lateral-acceleration value remains a hard blocker; yaw rate and attitude angle are not substitutes.
 
 The current route candidate is therefore a structural/kinematic analysis candidate, not a validated flight trajectory.
 
