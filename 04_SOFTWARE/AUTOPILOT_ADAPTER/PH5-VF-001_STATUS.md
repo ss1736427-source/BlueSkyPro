@@ -1,6 +1,6 @@
 # PH5-VF-001 — Virtual Flight Shared Mission Lifecycle Integration
 
-**Status:** SIL LIFECYCLE MODE-SEPARATION CONTRACT IMPLEMENTED; CI VERIFICATION PENDING  
+**Status:** SIL MODE-SEPARATION CONTRACT + HMI MISSION-MODE BINDING IMPLEMENTED; CI VERIFICATION PENDING  
 **Evidence class:** `SIL_FIXTURE_ONLY`  
 **Execution model:** DJI Mavic 3E catalogue reference only; no operational performance profile admitted
 
@@ -22,6 +22,8 @@ Prove that the existing SIL autopilot adapter execution path can drive the same 
 - Every lifecycle event is checked for stable vehicle identity, `SIL_FIXTURE` provenance, model reference and performance-profile reference.
 - The test-only profile identifier is explicitly `SIL-FIXTURE-PERF-NOT-OPERATIONAL`; the vehicle model identifier is catalogue-reference-only. Neither is an approved flight performance profile.
 - The physical lifecycle retains `READY → SUBMITTED → AUTHORIZED → RELEASED`; the virtual lifecycle cannot enter those external authorization stages.
+- AUTO and MANUAL HMI mission-model builders now serialize a validated `executionContext` with mode, required vehicle provenance, release target and external authorization policy.
+- The existing `VIRTUAL FLT` toolbar selection now produces a distinct `-VF` mission identity; physical workspaces use `-PH`. Switching execution workspace clears route candidates, planning output and readiness, increments the mission revision, and requires a MANUAL mission aggregate to be rebuilt while retaining operator geometry.
 
 ## Important evidence boundary
 
@@ -48,9 +50,9 @@ Published maximum flight time, speed, wind resistance and camera specifications 
 
 ## Remaining integration work
 
-1. Connect the production mission model and real planning/validation outputs to the same lifecycle record; remove all synthetic evidence from the production path.
+1. Implement a production lifecycle owner that consumes the serialized `executionContext`, binds it to `MissionLifecycleRecord`, and feeds actual production mission, optimizer and validator evidence into the shared controller; remove all synthetic evidence from the production path.
 2. Connect the simulator implementation to the normalized adapter contract for telemetry, pause/resume, abort, replanning and execution completion.
-3. The HMI readiness snapshot now carries `executionMode`; the active `VIRTUAL FLT` workspace accepts only `VIRTUAL` + `SIL_FIXTURE`, while the physical workspace accepts only `PHYSICAL` + `PHYSICAL_LIVE`. The workspace still has no production simulator execution controls or live simulator telemetry; the existing diagnostic assessment console is not a simulator.
+3. The HMI readiness snapshot carries `executionMode`; the active workspace accepts only the matching mode and provenance. Mission model creation now serializes mode-specific release/authorization policy, and switching workspace invalidates old route/readiness lineage. The workspace still has no production lifecycle owner, simulator execution controls or live simulator telemetry; the existing diagnostic assessment console is not a simulator.
 4. Build and validate the exact DJI Mavic 3E configuration/performance profile from authoritative source documents and configuration evidence. Keep unknown limits blocking; do not substitute catalogue maxima as operational limits.
 5. Verify the full HMI and adapter CI runs on the exact merge candidate SHA.
 
