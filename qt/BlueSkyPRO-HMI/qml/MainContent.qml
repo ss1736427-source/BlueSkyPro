@@ -78,6 +78,60 @@ Item {
         !root.lifecycleReadinessMatchesCurrentRevision ? "BLOCKED"
         : (!root.lifecycleModeProvenanceMatches ? "BLOCKED_EXECUTION_MODE_OR_PROVENANCE_MISMATCH"
         : String(root.lifecycleReadinessSnapshot.status || "BLOCKED"))
+
+    // A workspace switch starts a distinct mission identity. Results, route
+    // candidates and readiness from the previous execution mode are invalidated.
+    // Manual geometry is retained for editing, but its mission aggregate must be
+    // rebuilt under the newly pinned execution mode before planning can continue.
+    function syncExecutionWorkspaceContext() {
+        var nextMode = root.lifecycleExpectedExecutionMode
+        if (root.observedExecutionMode === nextMode)
+            return
+        var previousMode = root.observedExecutionMode
+        root.observedExecutionMode = nextMode
+        if (previousMode.length === 0)
+            return
+
+        if (typeof planningBridge !== "undefined" && planningBridge !== null)
+            planningBridge.clear()
+        if (typeof routeController !== "undefined" && routeController !== null)
+            routeController.clear()
+
+        root.autoMissionVersion += 1
+        root.manualMissionVersion += 1
+        root.manualMt01Result = ({})
+        root.manualSetRequested = false
+        root.manualSetBlocked = true
+        root.manualSetBaselineResultId = ""
+
+        if (root.missionState === "VALIDATING")
+            root.missionState = "MANUAL"
+
+        if (root.missionState === "MANUAL") {
+            root.manualMissionModelJson = ""
+            root.manualModelValidationStatus = "EXECUTION_MODE_CHANGED_REBUILD_REQUIRED"
+        } else if (root.autoMissionModelJson.length > 0) {
+            var autoContext = {
+                taskDescription: root.missionTaskDescription,
+                objective: root.missionTaskDescription,
+                taskType: root.missionTemplateIds.indexOf("MT-01") >= 0
+                          ? "MAPPING" : (root.missionTemplateIds.length > 0
+                                         ? root.missionTemplateIds[0] : ""),
+                executionMode: nextMode,
+                vehicleAssignments: [],
+                equipmentAssignments: []
+            }
+            var rebuilt = manualMissionModelAdapter.buildAutoMissionV2(
+                        root.missionTemplateIds, root.missionId,
+                        root.autoMissionVersion, autoContext)
+            root.autoMissionModelJson = rebuilt.valid
+                    ? String(rebuilt.missionModelJson || "") : ""
+            root.autoMissionModelStatus = rebuilt.valid
+                    ? "DRAFT" : rebuilt.errors.join(", ")
+        }
+    }
+
+    onActiveToolChanged: root.syncExecutionWorkspaceContext()
     property bool manualCompositionComplete: false
     // Shared map view state: retained while switching mission templates and tools.
     property real mapPanX: 0
@@ -115,7 +169,10 @@ Item {
     readonly property string selectedUavId: selectedUav ? selectedUav.id : "NO UAV SELECTED"
     property string uavDecision: ""
     property string lastJournalEvent: ""
-    property string missionId: "BS-260920-A-001"
+    property string missionIdBase: "BS-260920-A-001"
+    readonly property string missionId:
+        root.missionIdBase + (root.lifecycleExpectedExecutionMode === "VIRTUAL" ? "-VF" : "-PH")
+    property string observedExecutionMode: ""
     // Mission review status is independent of flight readiness.
     property string missionReviewState: "REWORK"
     // Populated by the mission/task aggregation layer; current value is a design-preview example.
@@ -709,6 +766,7 @@ Item {
                     taskDescription: root.missionTaskDescription,
                     objective: root.missionTaskDescription,
                     taskType: root.manualSelectedTemplateIds.indexOf("MT-01") >= 0 ? "MAPPING" : "",
+                    executionMode: root.lifecycleExpectedExecutionMode,
                     vehicleAssignments: root.manualVehicleAssignments,
                     equipmentAssignments: root.manualEquipmentAssignments
                 }
@@ -1168,6 +1226,7 @@ Item {
                 objective: root.missionTaskDescription,
                 taskType: templateIds.indexOf("MT-01") >= 0
                           ? "MAPPING" : (templateIds.length > 0 ? templateIds[0] : ""),
+                executionMode: root.lifecycleExpectedExecutionMode,
                 vehicleAssignments: [],
                 equipmentAssignments: []
             }
