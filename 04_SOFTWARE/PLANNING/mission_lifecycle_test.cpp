@@ -342,8 +342,42 @@ static void testRuntimeFinalPlanningIntegrityGate() {
     assert(mismatchRecord.state == MissionLifecycleState::Validating);
 }
 
+static void testSharedLifecycleForPhysicalAndVirtualExecutionModes() {
+    // Contract-level fixtures prove both provenance classes traverse the same
+    // lifecycle controller and transition sequence. PHYSICAL_LIVE here is
+    // synthetic test evidence, not proof of a real connected aircraft.
+    const std::vector<std::string> modes{"PHYSICAL_LIVE", "SIL_FIXTURE"};
+    for (const auto &mode : modes) {
+        MissionLifecycleRecord record{"MISSION-001", "7"};
+        auto e = evidence();
+        e.vehicle_source_provenance = mode;
+        e.vehicle_id = mode == "PHYSICAL_LIVE" ? "UAV-LIVE-FIXTURE" : "UAV-SIL-FIXTURE";
+        e.package_vehicle_id = e.vehicle_id;
+        e.execution_vehicle_id = e.vehicle_id;
+
+        assert(move(record, MissionLifecycleState::Calculating, e).accepted);
+        assert(move(record, MissionLifecycleState::Validating, e).accepted);
+        assert(move(record, MissionLifecycleState::Ready, e).accepted);
+        assert(move(record, MissionLifecycleState::Submitted, e).accepted);
+        assert(move(record, MissionLifecycleState::Authorized, e).accepted);
+        assert(move(record, MissionLifecycleState::Released, e).accepted);
+        assert(move(record, MissionLifecycleState::Executing, e).accepted);
+        assert(move(record, MissionLifecycleState::Completed, e).accepted);
+
+        assert(record.state == MissionLifecycleState::Completed);
+        assert(record.history.size() == 8);
+        for (const auto &event : record.history) {
+            assert(event.vehicle_source_provenance == mode);
+            assert(event.vehicle_id == e.vehicle_id);
+            assert(event.performance_profile_id == e.performance_profile_id);
+            assert(event.performance_profile_revision == e.performance_profile_revision);
+        }
+    }
+}
+
 int main() {
     testRuntimeFinalPlanningIntegrityGate();
+    testSharedLifecycleForPhysicalAndVirtualExecutionModes();
     MissionLifecycleRecord mt01Record{"MISSION-001", "7"};
     auto mt01Evidence = evidence();
     mt01Record.mission_template_ids = {"MT-01"};
