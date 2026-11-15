@@ -248,7 +248,7 @@ static MissionLifecycleEvidence evidence() {
     };
     VehicleCompilationInput finalVehicleInput;
     finalVehicleInput.uav_id = "UAV-1";
-    finalVehicleInput.configuration_version = e.vehicle_configuration_id;
+    finalVehicleInput.configuration_version = e.vehicle_configuration_revision;
     finalVehicleInput.performance_version = "PERF-1";
     finalVehicleInput.maximum_altitude_m = 120.0;
     finalVehicleInput.minimum_speed_mps = 5.0;
@@ -313,7 +313,7 @@ static void testRuntimeFinalPlanningIntegrityGate() {
 
     VehicleCompilationInput vehicle;
     vehicle.uav_id = "UAV-1";
-    vehicle.configuration_version = readyEvidence.vehicle_configuration_id;
+    vehicle.configuration_version = readyEvidence.vehicle_configuration_revision;
     vehicle.performance_version = "PERF-1";
     vehicle.maximum_altitude_m = 120.0;
     vehicle.minimum_speed_mps = 5.0;
@@ -371,6 +371,13 @@ int main() {
     auto e = evidence();
     e.task_definition_complete = false;
 
+    auto demoFixtureEvidence = e;
+    demoFixtureEvidence.vehicle_source_provenance = "DEMO_FIXTURE";
+    auto demoFixtureBlocked = move(record, MissionLifecycleState::Calculating, demoFixtureEvidence);
+    assert(!demoFixtureBlocked.accepted);
+    assert(std::find(demoFixtureBlocked.blockers.begin(), demoFixtureBlocked.blockers.end(),
+                     "VEHICLE_SOURCE_PROVENANCE_NOT_ADMITTED") != demoFixtureBlocked.blockers.end());
+
     auto blocked = move(record, MissionLifecycleState::Calculating, e);
     assert(!blocked.accepted);
     assert(record.state == MissionLifecycleState::Draft);
@@ -381,6 +388,12 @@ int main() {
     e.task_definition_complete = true;
     auto started = move(record, MissionLifecycleState::Calculating, e);
     assert(started.accepted && record.state == MissionLifecycleState::Calculating);
+    assert(record.vehicle_id == "UAV-1");
+    assert(record.vehicle_source_provenance == "SIL_FIXTURE");
+    assert(record.vehicle_configuration_revision == "CFG-REV-1");
+    assert(record.fleet_assignment_snapshot_id == "FLEET-ASSIGNMENT-1");
+    assert(record.history.front().vehicle_id == record.vehicle_id);
+    assert(record.history.front().vehicle_configuration_revision == record.vehicle_configuration_revision);
 
     auto changedVehicle = e;
     changedVehicle.vehicle_id = "UAV-OTHER";
