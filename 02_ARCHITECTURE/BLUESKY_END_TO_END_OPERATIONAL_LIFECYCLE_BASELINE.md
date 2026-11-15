@@ -529,6 +529,15 @@ and the improvement loop can demonstrate:
 
 Every safety-critical transition and every production model/algorithm change requires objective verification evidence.
 
+## 26. Physical fleet admission and mission vehicle binding
+
+Physical fleet discovery, mission-specific UAV recommendation, operator confirmation and assignment identity lock are governed by:
+
+`02_ARCHITECTURE/FLEET_PHYSICAL_VEHICLE_SELECTION_AND_MISSION_BINDING_001.md`.
+
+The operational lifecycle shall use only admitted physical vehicles for physical mission assignment. Catalogue models, demo fixtures, SIL and replay resources remain distinct provenance classes. A recommendation is not an assignment or authorization. Once confirmed, the physical `vehicleId` and exact configuration revision remain pinned across the mission lifecycle; reassignment or material configuration change invalidates dependent evidence and requires revalidation. If no eligible connected physical vehicle exists, the system reports the blocker rather than substituting a fixture or catalogue model.
+
+
 ## 25. Anti-rework rule
 
 No UI, vendor adapter, AI model or external intelligence source may redefine a canonical domain contract. If a new requirement crosses an existing boundary, the corresponding interface contract and traceability are updated before dependent implementation proceeds.
