@@ -112,7 +112,9 @@ bool PlanningBridge::publishLifecycleReadiness(
     if (!transition.accepted || !transition.blockers.empty() || transition.state != record.state
         || record.mission_id.empty() || record.mission_version.empty()
         || record.vehicle_id.empty()
-        || (record.vehicle_source_provenance != "PHYSICAL_LIVE"
+        || (record.execution_mode == MissionExecutionMode::Physical
+            && record.vehicle_source_provenance != "PHYSICAL_LIVE")
+        || (record.execution_mode == MissionExecutionMode::Virtual
             && record.vehicle_source_provenance != "SIL_FIXTURE")
         || record.reference_model_id.empty() || record.vehicle_configuration_id.empty()
         || record.vehicle_configuration_revision.empty()
@@ -300,6 +302,7 @@ bool PlanningBridge::publishLifecycleAssessment(
     QVariantMap snapshot{
         {QStringLiteral("status"), QStringLiteral("VALIDATING")},
         {QStringLiteral("lifecycleState"), QStringLiteral("VALIDATING")},
+        {QStringLiteral("executionMode"), QString::fromLatin1(toString(record.execution_mode))},
         {QStringLiteral("ready"), false},
         {QStringLiteral("released"), false},
         {QStringLiteral("missionId"), QString::fromStdString(record.mission_id)},
