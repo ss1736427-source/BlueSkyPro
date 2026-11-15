@@ -89,6 +89,13 @@ static bluesky::planning::MissionLifecycleRecord readyRecord()
     record.current_route_id = "ROUTE-1";
     record.current_route_version = "4";
     record.current_calculation_input_version = "INPUT-9";
+    record.vehicle_id = "UAV-SIL-TEST";
+    record.vehicle_source_provenance = "SIL_FIXTURE";
+    record.reference_model_id = "TEST-MODEL";
+    record.vehicle_configuration_id = "CFG-TEST";
+    record.vehicle_configuration_revision = "1";
+    record.performance_profile_id = "PERF-TEST";
+    record.performance_profile_revision = "1";
     record.state = MissionLifecycleState::Ready;
     MissionLifecycleEvent event;
     event.sequence = 1;
@@ -101,6 +108,13 @@ static bluesky::planning::MissionLifecycleRecord readyRecord()
     event.route_id = record.current_route_id;
     event.route_version = record.current_route_version;
     event.evidence_reference = record.current_calculation_input_version;
+    event.vehicle_id = record.vehicle_id;
+    event.vehicle_source_provenance = record.vehicle_source_provenance;
+    event.reference_model_id = record.reference_model_id;
+    event.vehicle_configuration_id = record.vehicle_configuration_id;
+    event.vehicle_configuration_revision = record.vehicle_configuration_revision;
+    event.performance_profile_id = record.performance_profile_id;
+    event.performance_profile_revision = record.performance_profile_revision;
     record.history.push_back(event);
     record.next_event_sequence = 2;
     return record;
@@ -126,6 +140,8 @@ static void testChecklistContainsOnlyPilotActions()
     assert(bridge.publishLifecycleReadiness(record, transition, actions));
     const QVariantMap snapshot = bridge.readinessSnapshot();
     assert(snapshot.value(QStringLiteral("ready")).toBool());
+    assert(snapshot.value(QStringLiteral("vehicleSourceProvenance")).toString() == QStringLiteral("SIL_FIXTURE"));
+    assert(snapshot.value(QStringLiteral("vehicleId")).toString() == QStringLiteral("UAV-SIL-TEST"));
     assert(!snapshot.value(QStringLiteral("released")).toBool());
     const QVariantList pilotActions = snapshot.value(QStringLiteral("pilotActions")).toList();
     assert(pilotActions.size() == 1);
