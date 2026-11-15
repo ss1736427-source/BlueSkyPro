@@ -43,6 +43,7 @@ MissionLifecycleValidationEvidence validation(const std::string &id,
 
 MissionLifecycleEvidence fixtureEvidence() {
     MissionLifecycleEvidence e;
+    e.execution_mode = MissionExecutionMode::Virtual;
     e.mission_id = kMissionId;
     e.mission_version = "1";
     e.route_id = kRouteId;
@@ -87,11 +88,10 @@ MissionLifecycleEvidence fixtureEvidence() {
     e.regulatory_validation = validation("REGULATORY");
     e.operator_review_accepted = true;
 
-    e.regulatory_submission_prepared = true;
-    e.regulatory_submission_id = "SIL-SUBMISSION-001";
+    e.regulatory_submission_prepared = false;
     e.authorization_requirement_assessed = true;
     e.authorization_required = false;
-    e.authorization_not_required_reason = "SIL_TEST_SANDBOX_NO_EXTERNAL_AUTHORITY";
+    e.authorization_not_required_reason = "VIRTUAL_SANDBOX_NO_ESORVD_SUBMISSION_OR_AUTHORIZATION";
 
     e.package_integrity_verified = true;
     e.package_matches_selected_route = true;
@@ -152,9 +152,8 @@ int main() {
     assert(move(record, MissionLifecycleState::Calculating, e, "SIL fixture mission admitted").accepted);
     assert(move(record, MissionLifecycleState::Validating, e, "SIL fixture route and environment validated").accepted);
     assert(move(record, MissionLifecycleState::Ready, e, "Shared lifecycle validation fixture passed").accepted);
-    assert(move(record, MissionLifecycleState::Submitted, e, "Sandbox submission prepared").accepted);
-    assert(move(record, MissionLifecycleState::Authorized, e, "External authorization not applicable in SIL").accepted);
-    assert(move(record, MissionLifecycleState::Released, e, "SIL package released to simulator adapter").accepted);
+    assert(!move(record, MissionLifecycleState::Submitted, e, "Virtual mode must not submit to ESORVD").accepted);
+    assert(move(record, MissionLifecycleState::Released, e, "Virtual package released to simulator adapter without ESORVD").accepted);
 
     assert(adapter.connect());
     const auto compiled = adapter.compileMission(mission, capabilities);
@@ -188,9 +187,10 @@ int main() {
     assert(move(record, MissionLifecycleState::Completed, e, "SIL log archived and adapter closed").accepted);
 
     assert(record.state == MissionLifecycleState::Completed);
-    assert(record.history.size() == 8);
+    assert(record.history.size() == 6);
     for (const auto &event : record.history) {
         assert(event.vehicle_id == kVehicleId);
+        assert(event.execution_mode == MissionExecutionMode::Virtual);
         assert(event.vehicle_source_provenance == "SIL_FIXTURE");
         assert(event.reference_model_id == e.reference_model_id);
         assert(event.performance_profile_id == kPerformanceProfileId);
