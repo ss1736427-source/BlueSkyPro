@@ -194,7 +194,8 @@ static MissionLifecycleEvidence evidence() {
     e.calculation_input_version = "INPUT-9";
     e.vehicle_configuration_id = "CFG-01";
     e.vehicle_id = "UAV-1";
-    e.vehicle_source_provenance = "SIL_FIXTURE";
+    e.execution_mode = MissionExecutionMode::Physical;
+    e.vehicle_source_provenance = "PHYSICAL_LIVE";
     e.reference_model_id = "TEST-UAV-MODEL";
     e.reference_type_id = "UAV-TYPE-TEST";
     e.vehicle_configuration_revision = "CFG-REV-1";
@@ -346,28 +347,50 @@ static void testSharedLifecycleForPhysicalAndVirtualExecutionModes() {
     // Contract-level fixtures prove both provenance classes traverse the same
     // lifecycle controller and transition sequence. PHYSICAL_LIVE here is
     // synthetic test evidence, not proof of a real connected aircraft.
-    const std::vector<std::string> modes{"PHYSICAL_LIVE", "SIL_FIXTURE"};
-    for (const auto &mode : modes) {
+    const std::vector<MissionExecutionMode> modes{
+        MissionExecutionMode::Physical, MissionExecutionMode::Virtual};
+    for (const auto mode : modes) {
         MissionLifecycleRecord record{"MISSION-001", "7"};
         auto e = evidence();
-        e.vehicle_source_provenance = mode;
-        e.vehicle_id = mode == "PHYSICAL_LIVE" ? "UAV-LIVE-FIXTURE" : "UAV-SIL-FIXTURE";
+        e.execution_mode = mode;
+        const bool isVirtual = mode == MissionExecutionMode::Virtual;
+        e.vehicle_source_provenance = isVirtual ? "SIL_FIXTURE" : "PHYSICAL_LIVE";
+        e.vehicle_id = isVirtual ? "UAV-SIL-FIXTURE" : "UAV-LIVE-FIXTURE";
         e.package_vehicle_id = e.vehicle_id;
         e.execution_vehicle_id = e.vehicle_id;
+        if (isVirtual) {
+            e.regulatory_submission_prepared = false;
+            e.regulatory_submission_id.clear();
+            e.authorization_requirement_assessed = true;
+            e.authorization_required = false;
+            e.authorization_present = false;
+            e.authorization_current = false;
+            e.authorization_id.clear();
+            e.authorization_not_required_reason =
+                "VIRTUAL_SANDBOX_NO_ESORVD_SUBMISSION_OR_AUTHORIZATION";
+        }
 
         assert(move(record, MissionLifecycleState::Calculating, e).accepted);
         assert(move(record, MissionLifecycleState::Validating, e).accepted);
         assert(move(record, MissionLifecycleState::Ready, e).accepted);
-        assert(move(record, MissionLifecycleState::Submitted, e).accepted);
-        assert(move(record, MissionLifecycleState::Authorized, e).accepted);
-        assert(move(record, MissionLifecycleState::Released, e).accepted);
+        if (isVirtual) {
+            assert(!move(record, MissionLifecycleState::Submitted, e).accepted);
+            assert(move(record, MissionLifecycleState::Released, e).accepted);
+        } else {
+            assert(!move(record, MissionLifecycleState::Released, e).accepted);
+            assert(move(record, MissionLifecycleState::Submitted, e).accepted);
+            assert(move(record, MissionLifecycleState::Authorized, e).accepted);
+            assert(move(record, MissionLifecycleState::Released, e).accepted);
+        }
         assert(move(record, MissionLifecycleState::Executing, e).accepted);
         assert(move(record, MissionLifecycleState::Completed, e).accepted);
 
         assert(record.state == MissionLifecycleState::Completed);
-        assert(record.history.size() == 8);
+        assert(record.history.size() == (isVirtual ? 6U : 8U));
+        assert(record.execution_mode == mode);
         for (const auto &event : record.history) {
-            assert(event.vehicle_source_provenance == mode);
+            assert(event.execution_mode == mode);
+            assert(event.vehicle_source_provenance == e.vehicle_source_provenance);
             assert(event.vehicle_id == e.vehicle_id);
             assert(event.performance_profile_id == e.performance_profile_id);
             assert(event.performance_profile_revision == e.performance_profile_revision);
