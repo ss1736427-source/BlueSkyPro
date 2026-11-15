@@ -122,7 +122,7 @@ Item {
                             anchors.fill: parent; anchors.margins: 10; spacing: 5
                             Row {
                                 width: parent.width
-                                Text { text: modelData.manufacturer + "  " + modelData.model; color: root.fg; font.pixelSize: 13; font.bold: true }
+                                Text { text: modelData.manufacturer + (modelData.manufacturerCountry === "RU" ? " · РФ" : "") + "  " + modelData.model; color: root.fg; font.pixelSize: 13; font.bold: true }
                                 Item { width: Math.max(0, parent.width - 300); height: 1 }
                                 Text { text: modelData.qualification; color: root.amber; font.pixelSize: 9 }
                             }

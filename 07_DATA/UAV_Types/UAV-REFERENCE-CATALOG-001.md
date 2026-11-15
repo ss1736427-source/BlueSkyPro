@@ -73,3 +73,31 @@ The initial records are transcribed from:
 - \`07_DATA/UAV_Types/UAV-MANEUVERABILITY-REFERENCE-001.md\`.
 
 Manufacturer URLs are stored on each runtime model record. The catalogue is an initial reference population, not a complete manufacturer database.
+
+
+## Russian civil and industrial manufacturer additions (2026-11-15)
+
+Catalog revision: `2026-11-15-RU-001`. The runtime catalogue now includes a manufacturer registry for three Russian manufacturers and nine model/configuration records. Manufacturer country is recorded separately from component sourcing.
+
+| Model ID | Manufacturer / model | Canonical type | Source |
+|---|---|---|---|
+| GEOSCAN-201-GEO | ГК «Геоскан» — Геоскан 201 Геодезия | UAV-TYPE-002 Fixed-Wing | https://www.geoscan.ru/ru/products/geoscan201/geo |
+| GEOSCAN-401-GEO | ГК «Геоскан» — Геоскан 401 Геодезия | UAV-TYPE-001 Multirotor | https://www.geoscan.ru/ru/products/geoscan401/geo |
+| GEOSCAN-701 | ГК «Геоскан» — Геоскан 701 | UAV-TYPE-002 Fixed-Wing | https://www.geoscan.ru/ru/products/geoscan701 |
+| GEOSCAN-801 | ГК «Геоскан» — Геоскан 801 | UAV-TYPE-001 Multirotor | https://www.geoscan.ru/ru/products/geoscan801 |
+| GEOSCAN-GEMINI | ГК «Геоскан» — Геоскан Gemini | UAV-TYPE-001 Multirotor | https://www.geoscan.ru/ru/products/gemini |
+| SUPERCAM-S150 | ГК «Беспилотные системы» — Supercam S150 | UAV-TYPE-002 Fixed-Wing | https://supercam.aero/catalog/supercams150 |
+| SUPERCAM-S350 | ГК «Беспилотные системы» — Supercam S350 | UAV-TYPE-002 Fixed-Wing | https://supercam.aero/catalog/supercam-s350 |
+| SUPERCAM-SX350 | ГК «Беспилотные системы» — Supercam SX350 | UAV-TYPE-003 VTOL | https://supercam.aero/catalog/supercam-sx350 |
+| ALBATROS-M5 | ООО «Альбатрос» — Альбатрос М5 | UAV-TYPE-002 Fixed-Wing | https://www.alb.aero/catalog/bpla-samoletnogo-tipa/albatros-m5/ |
+
+### Source and data-quality controls
+
+- Only civil/industrial mapping, surveying, inspection and monitoring platforms with accessible manufacturer product pages were added in this batch.
+- ZALA and other military/dual-use product families were not seeded in this batch; they require a separate scope decision and source/qualification review. No tactical or weapon-related performance records are included.
+- `manufacturerCountry: "RU"` identifies manufacturer origin, not domestic content, component origin or import-substitution status.
+- Supercam S350 MTOW is `UNKNOWN`: the Russian and English manufacturer pages publish different values (15.5 kg and 11.5 kg). The value is not selected by guesswork.
+- Albatros M5 manufacturer page contains conflicting endurance/range figures (up to 4.5 h / 300 km in promotional text versus up to 4 h / 250 km in the detailed specification). These fields remain unknown pending a controlled manual/revision.
+- The Geoscan 201 record is the Geoscan 201 Geodesy configuration only. Geoscan 401 Geodesy is kept separate from 401 Geophysics/Lidar variants.
+- Speeds converted from km/h to m/s are reference display values only. They are not operational limits.
+- Manufacturer reference data does not populate approved aircraft configuration, performance profile, dynamic safety envelope or READY evidence.
