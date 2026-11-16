@@ -1,4 +1,5 @@
 #include "mission_lifecycle_owner.hpp"
+#include "mission_lifecycle_validation_coordinator.hpp"
 
 #include <cassert>
 #include <string>
@@ -181,6 +182,27 @@ void testDraftRevisionAdvancesOnlyBeforeAdmission()
     assert(owner.snapshot("OWNER-TEST-001")->mission_version == "2");
 }
 
+
+void testOwnerDoesNotCommitWhenAuthoritativeSourcesAreMissing()
+{
+    MissionLifecycleOwner owner;
+    assert(owner.registerMission(makeMission()));
+    MissionLifecycleAuthoritativeSources sources;
+    RegulatoryComplianceAssessment regulatory;
+    FlightProfile profile;
+    VehicleCompilationInput vehicle;
+    const auto result = owner.finalizeReadyFromAuthoritativeSources(
+        "OWNER-TEST-001", initialEvidence(), sources, regulatory, 1000,
+        profile, vehicle, "test-actor", "2026-11-16T00:00:00Z",
+        "missing authoritative sources");
+    assert(!result.accepted);
+    assert(!result.blockers.empty());
+    const auto canonical = owner.snapshot("OWNER-TEST-001");
+    assert(canonical.has_value());
+    assert(canonical->state == MissionLifecycleState::Draft);
+    assert(canonical->history.empty());
+}
+
 void testUnknownMissionCannotBeTransitioned()
 {
     MissionLifecycleOwner owner;
@@ -200,6 +222,7 @@ int main()
     testRejectedTransitionDoesNotMutateCanonicalRecord();
     testAcceptedTransitionPinsModeAndVehicle();
     testDraftRevisionAdvancesOnlyBeforeAdmission();
+    testOwnerDoesNotCommitWhenAuthoritativeSourcesAreMissing();
     testUnknownMissionCannotBeTransitioned();
     return 0;
 }
