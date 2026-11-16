@@ -67,4 +67,33 @@ static void testMt01CannotSkipQualityEvidence() {
         result.finalization.transition.blockers.end(),"TASK_QUALITY_VALIDATION_EVIDENCE_REQUIRED")
         !=result.finalization.transition.blockers.end());
 }
-int main(){testCoordinatorBuildsTrustedEvidenceButFailsClosedOnMissingServices();testMt01CannotSkipQualityEvidence();return 0;}
+static void testAuthoritativeSourcePathRejectsMissingServicesBeforeFinalization() {
+    auto record=validatingRecord();
+    auto evidence=baseEvidence();
+    MissionLifecycleAuthoritativeSources sources;
+    FlightProfile profile;
+    VehicleCompilationInput vehicle;
+    const auto result=MissionLifecycleValidationCoordinator::finalizeReadyFromAuthoritativeSources(
+        record,evidence,sources,regulatoryFixture(),1500,profile,vehicle,
+        "OPERATOR-1","2026-11-16T00:00:00Z","authoritative readiness");
+    assert(!result.finalization.transition.accepted);
+    assert(record.state==MissionLifecycleState::Validating);
+    assert(std::find(result.evidence_assembly_blockers.begin(),
+        result.evidence_assembly_blockers.end(),"AUTHORITATIVE_PLANNING_DECISION_INCOMPLETE")
+        !=result.evidence_assembly_blockers.end());
+    assert(std::find(result.evidence_assembly_blockers.begin(),
+        result.evidence_assembly_blockers.end(),"NOTAM_SNAPSHOT_REQUIRED")
+        !=result.evidence_assembly_blockers.end());
+    assert(std::find(result.evidence_assembly_blockers.begin(),
+        result.evidence_assembly_blockers.end(),"TERRAIN_VALIDATION_SOURCE_REQUIRED")
+        !=result.evidence_assembly_blockers.end());
+    assert(std::find(result.evidence_assembly_blockers.begin(),
+        result.evidence_assembly_blockers.end(),"WEATHER_ENERGY_VALIDATION_SOURCE_REQUIRED")
+        !=result.evidence_assembly_blockers.end());
+}
+int main(){
+    testCoordinatorBuildsTrustedEvidenceButFailsClosedOnMissingServices();
+    testMt01CannotSkipQualityEvidence();
+    testAuthoritativeSourcePathRejectsMissingServicesBeforeFinalization();
+    return 0;
+}
