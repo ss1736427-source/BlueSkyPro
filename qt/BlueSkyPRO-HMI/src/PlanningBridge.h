@@ -5,7 +5,9 @@
 #include <QVariantMap>
 #include <QVariantList>
 
-#include "../../../04_SOFTWARE/PLANNING/mission_lifecycle.hpp"
+#include "../../../04_SOFTWARE/PLANNING/mission_lifecycle_owner.hpp"
+
+#include <optional>
 
 class PlanningBridge final : public QObject
 {
@@ -20,6 +22,28 @@ public:
     QVariantMap result() const;
     bool running() const;
     QVariantMap readinessSnapshot() const;
+
+    // The bridge owns the authoritative lifecycle store for the HMI runtime.
+    // These APIs are C++ only: QML cannot fabricate lifecycle transitions.
+    bool registerMissionLifecycle(const bluesky::planning::Mission& mission,
+                                  std::vector<std::string>* blockers = nullptr);
+    bluesky::planning::MissionLifecycleTransitionResult transitionMissionLifecycle(
+        const std::string& mission_id,
+        bluesky::planning::MissionLifecycleState target,
+        const bluesky::planning::MissionLifecycleEvidence& evidence,
+        const std::string& actor_id,
+        const std::string& timestamp,
+        const std::string& reason);
+    std::optional<bluesky::planning::MissionLifecycleRecord>
+    missionLifecycleSnapshot(const std::string& mission_id) const;
+    bool publishOwnedLifecycleReadiness(
+        const std::string& mission_id,
+        const bluesky::planning::MissionLifecycleTransitionResult& transition,
+        const QVariantList& pilotActions);
+    bool publishOwnedLifecycleAssessment(
+        const std::string& mission_id,
+        const bluesky::planning::MissionLifecycleTransitionResult& assessment,
+        const QVariantList& pilotActions);
 
     // C++ lifecycle owners only; deliberately not Q_INVOKABLE.
     bool publishLifecycleReadiness(
@@ -56,4 +80,5 @@ private:
     QByteArray m_stdoutBuffer;
     QVariantMap m_result;
     QVariantMap m_readinessSnapshot;
+    bluesky::planning::MissionLifecycleOwner m_lifecycleOwner;
 };
