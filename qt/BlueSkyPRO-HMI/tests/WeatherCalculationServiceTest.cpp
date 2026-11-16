@@ -29,6 +29,7 @@ int main(int argc,char** argv)
         {}, {}, QStringLiteral("{}"), QString(), {}, {QStringLiteral("time")}, {});
     assert(!missingNotamAccepted);
     assert(service.lastError() == QStringLiteral("NOTAM_SNAPSHOT_REQUIRED_FOR_WEATHER_RERANKING"));
+    assert(!service.selectedCandidateEvidence().has_value());
 
     const bool candidatesAccepted = service.evaluateCandidates(
         {}, {}, QStringLiteral("{}"), QString(), {}, {QStringLiteral("time")}, validNotamSnapshot());
@@ -37,6 +38,7 @@ int main(int argc,char** argv)
         assert(service.lastError() == QStringLiteral("GRIB2_DECODER_NOT_AVAILABLE"));
     else
         assert(service.lastError() == QStringLiteral("WEATHER_CANDIDATE_SET_REQUIRED"));
+    assert(!service.selectedCandidateEvidence().has_value());
 
     const bool unsupportedObjectiveAccepted = service.evaluateCandidates(
         {}, {QVariantMap{}}, QStringLiteral("{}"), QString(), {},
@@ -47,11 +49,13 @@ int main(int argc,char** argv)
                == QStringLiteral("WEATHER_RERANKING_REQUIRES_TIME_ENERGY_OR_RESERVE_OBJECTIVE"));
     else
         assert(service.lastError() == QStringLiteral("GRIB2_DECODER_NOT_AVAILABLE"));
+    assert(!service.selectedCandidateEvidence().has_value());
 
     const bool accepted=service.evaluateRoute(
         {},{},QStringLiteral("{}"),QString(),{});
     assert(!accepted);
     assert(service.state()==QStringLiteral("BLOCKED"));
+    assert(!service.selectedCandidateEvidence().has_value());
     if (!service.decoderAvailable())
         assert(service.lastError()==QStringLiteral("GRIB2_DECODER_NOT_AVAILABLE"));
     else
