@@ -298,6 +298,58 @@ static void testExternalPlanningResultInvalidatesLifecycleSnapshot()
         QStringLiteral("PLANNING_RESULT_CHANGED_REQUIRES_CPP_FINALIZATION")));
 }
 
+static void testPlanningBridgeOwnsCanonicalMissionLifecycle()
+{
+    using namespace bluesky::planning;
+    PlanningBridge bridge;
+    Mission mission;
+    mission.identity.mission_id = "BRIDGE-OWNER-001";
+    mission.identity.mission_version = "1";
+    mission.selected_template_ids = {"MT-01"};
+    assert(bridge.registerMissionLifecycle(mission));
+
+    MissionLifecycleEvidence evidence;
+    evidence.execution_mode = MissionExecutionMode::Virtual;
+    evidence.mission_id = mission.identity.mission_id;
+    evidence.mission_version = mission.identity.mission_version;
+    evidence.vehicle_id = "SIL-M3E-001";
+    evidence.vehicle_source_provenance = "SIL_FIXTURE";
+    evidence.reference_model_id = "DJI-MAVIC-3E-CATALOGUE-REFERENCE-ONLY";
+    evidence.reference_type_id = "MULTIROTOR";
+    evidence.vehicle_configuration_id = "SIL-CFG-001";
+    evidence.vehicle_configuration_revision = "1";
+    evidence.fleet_assignment_snapshot_id = "FLEET-SNAPSHOT-001";
+    evidence.performance_profile_id = "SIL-PERFORMANCE-001";
+    evidence.performance_profile_revision = "1";
+    evidence.mission_notam_snapshot_id = "NOTAM-SNAPSHOT-001";
+    evidence.terrain_snapshot_id = "TERRAIN-SNAPSHOT-001";
+    evidence.task_definition_complete = true;
+    evidence.mission_geometry_complete = true;
+    evidence.vehicle_configuration_validated = true;
+    evidence.equipment_configuration_validated = true;
+    evidence.mission_notam_snapshot_current = true;
+    evidence.terrain_snapshot_current = true;
+
+    const auto transition = bridge.transitionMissionLifecycle(
+        mission.identity.mission_id, MissionLifecycleState::Calculating,
+        evidence, "hmi-test", "2026-11-16T00:00:00Z", "bind virtual execution context");
+    assert(transition.accepted);
+
+    const auto snapshot = bridge.missionLifecycleSnapshot(mission.identity.mission_id);
+    assert(snapshot.has_value());
+    assert(snapshot->state == MissionLifecycleState::Calculating);
+    assert(snapshot->execution_mode == MissionExecutionMode::Virtual);
+    assert(snapshot->vehicle_source_provenance == "SIL_FIXTURE");
+    assert(snapshot->history.size() == 1);
+
+    const auto unknown = bridge.transitionMissionLifecycle(
+        "NOT-REGISTERED", MissionLifecycleState::Calculating, evidence,
+        "hmi-test", "2026-11-16T00:00:01Z", "must be rejected");
+    assert(!unknown.accepted);
+    assert(unknown.blockers.size() == 1);
+    assert(unknown.blockers.front() == "MISSION_NOT_REGISTERED");
+}
+
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
@@ -310,5 +362,6 @@ int main(int argc, char **argv)
     testValidatingAssessmentShowsOnlyPilotActionsWithoutGrantingReady();
     testValidatingAssessmentRejectsStaleLineage();
     testExternalPlanningResultInvalidatesLifecycleSnapshot();
+    testPlanningBridgeOwnsCanonicalMissionLifecycle();
     return 0;
 }
