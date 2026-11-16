@@ -10,6 +10,34 @@
 using namespace bluesky::planning;
 
 namespace {
+VehicleEquipmentCapabilityProfile testCapabilityProfile(
+    const std::string& vehicleId, const std::string& modelId,
+    const std::string& modelRevision, const std::string& configurationId)
+{
+    VehicleEquipmentCapabilityProfile profile;
+    profile.identity.vehicle_id = vehicleId;
+    profile.identity.vehicle_type_model = modelId;
+    profile.identity.airframe_configuration = "TEST-VARIANT";
+    profile.flight.minimum_airspeed = 5.0;
+    profile.flight.maximum_airspeed = 30.0;
+    profile.flight.maximum_lateral_acceleration_mps2 = 2.0;
+    profile.energy.usable_energy = 500.0;
+    profile.configuration.configuration_version = "TEST-CONFIG-REV-1";
+    profile.provenance.source_kind = "REFERENCE_PASSPORT";
+    profile.provenance.source_reference = "controlled-test-profile";
+    profile.provenance.source_revision = "source-1";
+    profile.provenance.profile_id = "PROFILE-WEATHER-TEST";
+    profile.provenance.profile_revision = modelRevision;
+    profile.provenance.configuration_id = configurationId;
+    profile.provenance.configuration_revision = "TEST-CONFIG-REV-1";
+    for (const auto& id : {"minimum_airspeed", "maximum_airspeed", "usable_energy_wh",
+                           "maximum_lateral_acceleration_mps2"}) {
+        profile.provenance.parameter_evidence.push_back(
+            {id, CapabilityParameterSource::ManufacturerPassport,
+             "controlled-test-profile", "source-1", false});
+    }
+    return profile;
+}
 class TestContext final : public SolverContext {
 public:
     explicit TestContext(const MissionProblem& problem) : problem_(problem) {}
@@ -175,6 +203,9 @@ int main()
     safetyEnvelope.maximum_speed_mps = 30.0;
     safetyEnvelope.maximum_lateral_acceleration_mps2 = 2.0;
     safetyProblem.flight_safety_envelope = safetyEnvelope;
+    safetyProblem.execution_mode = MissionExecutionMode::Virtual;
+    safetyProblem.vehicle_capability_profile = testCapabilityProfile(
+        "TEST-UAV-001", "TEST-MODEL", "MODEL-REV-1", "TEST-CONFIG-REV-1");
     TestContext safetyContext(safetyProblem);
     std::vector<std::unique_ptr<Solver>> safetySolvers;
     safetySolvers.push_back(std::make_unique<CandidateSolver>());

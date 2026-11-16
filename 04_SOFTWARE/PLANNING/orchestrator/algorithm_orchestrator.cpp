@@ -1,5 +1,6 @@
 #include "algorithm_orchestrator.hpp"
 #include "../notam_prohibited_zone_validator.hpp"
+#include "../vehicle_capability_profile_resolver.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -262,6 +263,69 @@ AlgorithmOrchestrator::AlgorithmOrchestrator(
 OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
     OrchestratorDecision decision;
     CandidateSolution best;
+    if (context.problem().requires_flight_safety_validation) {
+        const auto& problem = context.problem();
+        if (!problem.execution_mode.has_value() || !problem.vehicle_capability_profile.has_value()) {
+            decision.feasibility = Feasibility::Uncertain;
+            decision.explanation =
+                "Расчёт остановлен: режим исполнения и единый профиль возможностей назначенного БПЛА обязательны для проверки лётной безопасности.";
+            return decision;
+        }
+
+        VehicleCapabilityProfileResolutionRequest request;
+        request.execution_mode = problem.execution_mode;
+        request.profile = *problem.vehicle_capability_profile;
+        request.required_parameter_ids = problem.required_vehicle_capability_parameters;
+        if (request.required_parameter_ids.empty()) {
+            request.required_parameter_ids = {
+                "minimum_airspeed", "maximum_airspeed", "usable_energy_wh"
+            };
+            if (problem.flight_safety_envelope.has_value()) {
+                if (problem.flight_safety_envelope->maximum_bank_angle_rad.has_value())
+                    request.required_parameter_ids.push_back("maximum_bank_angle_rad");
+                if (problem.flight_safety_envelope->maximum_lateral_acceleration_mps2.has_value())
+                    request.required_parameter_ids.push_back("maximum_lateral_acceleration_mps2");
+            }
+        }
+
+        const auto resolved = VehicleCapabilityProfileResolver::resolve(request);
+        if (!resolved.accepted) {
+            decision.feasibility = Feasibility::Uncertain;
+            std::ostringstream reason;
+            reason << "Расчёт остановлен: профиль возможностей БПЛА не прошёл проверку источников и значений.";
+            for (const auto& blocker : resolved.blockers)
+                reason << " " << blocker << ";";
+            decision.explanation = reason.str();
+            return decision;
+        }
+
+        if (problem.vehicle_ids.size() != 1
+            || resolved.profile.identity.vehicle_id != problem.vehicle_ids.front()
+            || problem.flight_safety_vehicle_id != resolved.profile.identity.vehicle_id) {
+            decision.feasibility = Feasibility::Uncertain;
+            decision.explanation =
+                "Расчёт остановлен: профиль возможностей не совпадает с единственным назначенным БПЛА.";
+            return decision;
+        }
+        if (!problem.flight_safety_envelope.has_value()
+            || resolved.profile.identity.vehicle_type_model
+                != problem.flight_safety_envelope->vehicle_model_id
+            || resolved.profile.provenance.profile_revision
+                != problem.flight_safety_envelope->model_version
+            || resolved.profile.provenance.configuration_id
+                != problem.flight_safety_envelope->configuration_id) {
+            decision.feasibility = Feasibility::Uncertain;
+            decision.explanation =
+                "Расчёт остановлен: профиль возможностей и safety envelope относятся к разным ревизиям модели или конфигурации.";
+            return decision;
+        }
+
+        decision.vehicle_capability_profile_id = resolved.profile.provenance.profile_id;
+        decision.vehicle_capability_profile_revision = resolved.profile.provenance.profile_revision;
+        decision.vehicle_source_provenance = resolved.vehicle_source_provenance;
+        decision.release_target = resolved.release_target;
+    }
+
     if (context.problem().requires_notam_validation &&
         !context.problem().notam_snapshot) {
         decision.feasibility = Feasibility::Uncertain;

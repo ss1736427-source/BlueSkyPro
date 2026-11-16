@@ -1,6 +1,8 @@
 #pragma once
 
 #include "../model/planning_graph.hpp"
+#include "../model/vehicle_equipment_capability.hpp"
+#include "../mission_lifecycle.hpp"
 #include "../model/flight_safety_constraints.hpp"
 #include <optional>
 #include <memory>
@@ -33,6 +35,11 @@ struct MissionProblem {
     const PlanningGraph* planning_graph{nullptr};
     // Flight tasks must opt in explicitly; missing safety evidence then blocks candidates.
     bool requires_flight_safety_validation{false};
+    // The same immutable, provenance-bound profile is consumed by the planner
+    // and downstream lifecycle/energy/task validators.
+    std::optional<MissionExecutionMode> execution_mode;
+    std::optional<VehicleEquipmentCapabilityProfile> vehicle_capability_profile;
+    std::vector<std::string> required_vehicle_capability_parameters;
     // Current contract is single-aircraft only; this must match the sole vehicle_ids entry.
     std::string flight_safety_vehicle_id;
     std::optional<FlightSafetyEnvelope> flight_safety_envelope;

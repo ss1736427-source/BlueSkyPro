@@ -11,6 +11,42 @@
 using namespace bluesky::planning;
 
 namespace {
+VehicleEquipmentCapabilityProfile testCapabilityProfile(
+    const std::string& vehicleId, const std::string& modelId,
+    const std::string& modelRevision, const std::string& configurationId,
+    MissionExecutionMode mode)
+{
+    VehicleEquipmentCapabilityProfile profile;
+    profile.identity.vehicle_id = vehicleId;
+    profile.identity.vehicle_type_model = modelId;
+    profile.identity.airframe_configuration = "TEST-VARIANT";
+    profile.flight.minimum_airspeed = 10.0;
+    profile.flight.maximum_airspeed = 20.0;
+    profile.flight.maximum_bank_angle_rad = 0.5;
+    profile.flight.maximum_lateral_acceleration_mps2 = 3.0;
+    profile.energy.usable_energy = 500.0;
+    profile.configuration.configuration_version = "CFG-01";
+    profile.provenance.source_kind = mode == MissionExecutionMode::Virtual
+        ? "REFERENCE_PASSPORT" : "PHYSICAL_CONFIGURATION_VERIFIED";
+    profile.provenance.source_reference = "controlled-test-profile";
+    profile.provenance.source_revision = "source-1";
+    profile.provenance.profile_id = "PROFILE-TEST";
+    profile.provenance.profile_revision = modelRevision;
+    profile.provenance.configuration_id = configurationId;
+    profile.provenance.configuration_revision = "CFG-01";
+    profile.provenance.configuration_verified = mode == MissionExecutionMode::Physical;
+    const auto source = mode == MissionExecutionMode::Virtual
+        ? CapabilityParameterSource::ManufacturerPassport
+        : CapabilityParameterSource::PhysicalConfigurationVerified;
+    const bool verified = mode == MissionExecutionMode::Physical;
+    for (const auto& id : {"minimum_airspeed", "maximum_airspeed", "usable_energy_wh",
+                           "maximum_bank_angle_rad", "maximum_lateral_acceleration_mps2"}) {
+        profile.provenance.parameter_evidence.push_back(
+            {id, source, "controlled-test-profile", "source-1", verified});
+    }
+    return profile;
+}
+
 class TestContext final : public SolverContext {
 public:
     TestContext(const MissionProblem& p, ComputeBudget b) : p_(p), b_(b) {}
@@ -465,6 +501,9 @@ int main() {
     flightProblem.vehicle_ids = {"TEST-VEHICLE"};
     flightProblem.flight_safety_vehicle_id = "TEST-VEHICLE";
     flightProblem.flight_safety_envelope = validatedEnvelope;
+    flightProblem.execution_mode = MissionExecutionMode::Virtual;
+    flightProblem.vehicle_capability_profile = testCapabilityProfile(
+        "TEST-VEHICLE", "TEST-FW", "1", "CFG-01", MissionExecutionMode::Virtual);
     TestContext flightContext(flightProblem, ComputeBudget{1000, 256, 8});
     std::vector<std::unique_ptr<Solver>> flightSolvers;
     flightSolvers.push_back(std::make_unique<FlightDynamicsSolver>(20.0, 0.5));
@@ -472,8 +511,33 @@ int main() {
     const auto flightDecision = flightOrchestrator.solve(flightContext);
     assert(flightDecision.feasibility == Feasibility::Feasible);
     assert(flightDecision.maximum_regime_warning_required);
+    assert(flightDecision.vehicle_source_provenance == "SIL_FIXTURE");
+    assert(flightDecision.release_target == "SIMULATOR_ONLY");
+    assert(flightDecision.vehicle_capability_profile_id == "PROFILE-TEST");
     assert(!flightDecision.selected_maximum_regime_uses.empty());
     assert(!flightDecision.operator_warning.empty());
+
+    MissionProblem missingProfileProblem = flightProblem;
+    missingProfileProblem.mission_id = "ORCH-FLIGHT-SAFETY-NO-PROFILE-000";
+    missingProfileProblem.vehicle_capability_profile.reset();
+    TestContext missingProfileContext(missingProfileProblem, ComputeBudget{1000, 256, 8});
+    std::vector<std::unique_ptr<Solver>> missingProfileSolvers;
+    missingProfileSolvers.push_back(std::make_unique<FlightDynamicsSolver>(15.0, 0.2));
+    AlgorithmOrchestrator missingProfileOrchestrator(std::move(missingProfileSolvers));
+    const auto missingProfileDecision = missingProfileOrchestrator.solve(missingProfileContext);
+    assert(missingProfileDecision.feasibility == Feasibility::Uncertain);
+    assert(missingProfileDecision.selected_candidate_id.empty());
+
+    MissionProblem invalidPassportPhysicalProblem = flightProblem;
+    invalidPassportPhysicalProblem.mission_id = "ORCH-FLIGHT-SAFETY-PHYSICAL-PASSPORT-000";
+    invalidPassportPhysicalProblem.execution_mode = MissionExecutionMode::Physical;
+    TestContext invalidPassportPhysicalContext(invalidPassportPhysicalProblem, ComputeBudget{1000, 256, 8});
+    std::vector<std::unique_ptr<Solver>> invalidPassportPhysicalSolvers;
+    invalidPassportPhysicalSolvers.push_back(std::make_unique<FlightDynamicsSolver>(15.0, 0.2));
+    AlgorithmOrchestrator invalidPassportPhysicalOrchestrator(std::move(invalidPassportPhysicalSolvers));
+    const auto invalidPassportPhysicalDecision = invalidPassportPhysicalOrchestrator.solve(invalidPassportPhysicalContext);
+    assert(invalidPassportPhysicalDecision.feasibility == Feasibility::Uncertain);
+    assert(invalidPassportPhysicalDecision.selected_candidate_id.empty());
 
     MissionProblem missingEnvelopeProblem = flightProblem;
     missingEnvelopeProblem.mission_id = "ORCH-FLIGHT-SAFETY-MISSING-002";

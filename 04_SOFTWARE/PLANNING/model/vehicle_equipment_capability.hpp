@@ -15,6 +15,8 @@ struct FlightCapability {
     double altitude_min{};
     double altitude_max{};
     double turning_limit{};
+    double maximum_bank_angle_rad{};
+    double maximum_lateral_acceleration_mps2{};
     double endurance_seconds{};
     double wind_tolerance{};
     bool navigation_sensors_available{};

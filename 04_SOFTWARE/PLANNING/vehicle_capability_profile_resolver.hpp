@@ -3,11 +3,51 @@
 #include "mission_lifecycle.hpp"
 #include "model/vehicle_equipment_capability.hpp"
 
+#include <cmath>
 #include <optional>
 #include <string>
 #include <vector>
 
 namespace bluesky::planning {
+namespace {
+
+bool hasFinitePositiveValue(double value) noexcept
+{
+    return std::isfinite(value) && value > 0.0;
+}
+
+bool hasCapabilityValue(const VehicleEquipmentCapabilityProfile& profile,
+                        const std::string& parameterId) noexcept
+{
+    const auto& flight = profile.flight;
+    const auto& energy = profile.energy;
+    if (parameterId == "minimum_airspeed") return hasFinitePositiveValue(flight.minimum_airspeed);
+    if (parameterId == "maximum_airspeed") return hasFinitePositiveValue(flight.maximum_airspeed);
+    if (parameterId == "cruise_speed") return hasFinitePositiveValue(flight.cruise_speed);
+    if (parameterId == "economic_speed") return hasFinitePositiveValue(flight.economic_speed);
+    if (parameterId == "climb_limit") return hasFinitePositiveValue(flight.climb_limit);
+    if (parameterId == "descent_limit") return hasFinitePositiveValue(flight.descent_limit);
+    if (parameterId == "turning_limit") return hasFinitePositiveValue(flight.turning_limit);
+    if (parameterId == "maximum_bank_angle_rad")
+        return hasFinitePositiveValue(flight.maximum_bank_angle_rad);
+    if (parameterId == "maximum_lateral_acceleration_mps2")
+        return hasFinitePositiveValue(flight.maximum_lateral_acceleration_mps2);
+    if (parameterId == "endurance_seconds") return hasFinitePositiveValue(flight.endurance_seconds);
+    if (parameterId == "wind_tolerance") return hasFinitePositiveValue(flight.wind_tolerance);
+    if (parameterId == "usable_energy_wh" || parameterId == "usable_energy_model")
+        return hasFinitePositiveValue(energy.usable_energy);
+    if (parameterId == "battery_health")
+        return std::isfinite(energy.battery_health)
+            && energy.battery_health > 0.0 && energy.battery_health <= 1.0;
+    if (parameterId == "battery_state")
+        return std::isfinite(energy.battery_state)
+            && energy.battery_state > 0.0 && energy.battery_state <= 1.0;
+    if (parameterId == "reserve_requirement_wh")
+        return std::isfinite(energy.reserve_requirement) && energy.reserve_requirement >= 0.0;
+    return false;
+}
+
+} // namespace
 
 struct VehicleCapabilityProfileResolutionRequest {
     std::optional<MissionExecutionMode> execution_mode;
@@ -49,7 +89,8 @@ public:
 
         if (request.profile.configuration.configuration_version.empty()
             || provenance.configuration_id.empty()
-            || provenance.configuration_revision.empty())
+            || provenance.configuration_revision.empty()
+            || request.profile.configuration.configuration_version != provenance.configuration_revision)
             result.blockers.emplace_back("VERSIONED_VEHICLE_CONFIGURATION_REQUIRED");
 
         if (request.execution_mode == MissionExecutionMode::Virtual) {
@@ -93,6 +134,10 @@ public:
             if (match == nullptr || match->source_reference.empty()
                 || match->source_revision.empty()) {
                 result.blockers.emplace_back("CAPABILITY_PARAMETER_EVIDENCE_MISSING:" + required_id);
+                continue;
+            }
+            if (!hasCapabilityValue(request.profile, required_id)) {
+                result.blockers.emplace_back("CAPABILITY_PARAMETER_VALUE_MISSING_OR_INVALID:" + required_id);
                 continue;
             }
 

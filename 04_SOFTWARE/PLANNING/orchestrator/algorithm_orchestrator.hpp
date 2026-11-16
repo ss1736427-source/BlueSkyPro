@@ -42,6 +42,10 @@ struct OrchestratorDecision {
     Feasibility feasibility{Feasibility::Uncertain};
     std::string selected_solver_id;
     std::string selected_candidate_id;
+    std::string vehicle_capability_profile_id;
+    std::string vehicle_capability_profile_revision;
+    std::string vehicle_source_provenance;
+    std::string release_target;
     // Authoritative outputs from the exact checks used to admit the selected candidate.
     // Empty optionals mean that the corresponding check was not executed.
     std::optional<Route> selected_route;
