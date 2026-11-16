@@ -31,6 +31,8 @@ static TerrainDemGrid makeDem()
     dem.dataset_version="2026-11";
     dem.horizontal_crs="EPSG:4326";
     dem.vertical_datum="EGM96";
+    dem.surface_type="BARE_EARTH_DTM";
+    dem.vertical_accuracy_model="CONSERVATIVE_ABSOLUTE_BOUND";
     dem.origin_latitude_deg=59.995;
     dem.origin_longitude_deg=24.995;
     dem.latitude_step_deg=0.0001;
@@ -79,6 +81,24 @@ int main()
     auto unknownDatum=dem;
     unknownDatum.vertical_datum="UNKNOWN";
     assert(!TerrainProfileValidator::evaluate(route,unknownDatum).validation.passed);
+
+    // A DSM includes buildings/vegetation and is not a bare-earth terrain
+    // surface. It must never be accepted as the authoritative DTM input.
+    auto surfaceModel=dem;
+    surfaceModel.surface_type="DSM";
+    const auto surfaceModelResult=TerrainProfileValidator::evaluate(route,surfaceModel);
+    assert(!surfaceModelResult.validation.passed);
+    assert(!surfaceModelResult.findings.empty());
+    assert(surfaceModelResult.findings.front()=="DEM_SURFACE_NOT_BARE_EARTH_DTM");
+
+    // LE90 is a statistical confidence metric, not a deterministic maximum
+    // error bound. Do not subtract it as if every cell were bounded by it.
+    auto statisticalAccuracy=dem;
+    statisticalAccuracy.vertical_accuracy_model="LE90";
+    const auto statisticalAccuracyResult=TerrainProfileValidator::evaluate(route,statisticalAccuracy);
+    assert(!statisticalAccuracyResult.validation.passed);
+    assert(!statisticalAccuracyResult.findings.empty());
+    assert(statisticalAccuracyResult.findings.front()=="DEM_VERTICAL_ACCURACY_NOT_CONSERVATIVE_BOUND");
 
     auto incomplete=route;
     incomplete.trajectory_geometry_complete=false;

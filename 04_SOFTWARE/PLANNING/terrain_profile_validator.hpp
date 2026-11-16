@@ -19,6 +19,11 @@ struct TerrainDemGrid {
     std::string dataset_version;
     std::string horizontal_crs{"EPSG:4326"};
     std::string vertical_datum;
+    // BARE_EARTH_DTM, DSM, or UNKNOWN. Only bare-earth DTM is safety eligible.
+    std::string surface_type{"UNKNOWN"};
+    // CONSERVATIVE_ABSOLUTE_BOUND, RMSE, LE90, or UNKNOWN.
+    // Statistical metrics are not silently treated as hard maximum-error bounds.
+    std::string vertical_accuracy_model{"UNKNOWN"};
     double origin_latitude_deg{0.0};
     double origin_longitude_deg{0.0};
     double latitude_step_deg{0.0};

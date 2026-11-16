@@ -20,6 +20,11 @@ struct TerrainDemSnapshot {
     std::string dataset_version;
     std::string horizontal_crs;
     std::string vertical_datum;
+    // Only BARE_EARTH_DTM is eligible for terrain-clearance evidence.
+    std::string surface_type{"UNKNOWN"};
+    // Statistical metrics (RMSE/LE90) are not deterministic error bounds.
+    // Safety evidence requires CONSERVATIVE_ABSOLUTE_BOUND.
+    std::string vertical_accuracy_model{"UNKNOWN"};
     double horizontal_resolution_m{0.0};
     double vertical_accuracy_m{0.0};
     bool coverage_complete{false};
@@ -60,7 +65,9 @@ inline MissionLifecycleValidationEvidence makeTerrainValidationEvidence(
         + ";dataset:" + snapshot.dataset_id + "@" + snapshot.dataset_version
         + ";snapshot:" + snapshot.snapshot_id
         + ";crs:" + snapshot.horizontal_crs
-        + ";vertical-datum:" + snapshot.vertical_datum;
+        + ";vertical-datum:" + snapshot.vertical_datum
+        + ";surface:" + snapshot.surface_type
+        + ";vertical-accuracy-model:" + snapshot.vertical_accuracy_model;
 
     const bool routeGeometryComplete = route.trajectory_geometry_complete
         && route.waypoints.size() >= 2
@@ -78,6 +85,8 @@ inline MissionLifecycleValidationEvidence makeTerrainValidationEvidence(
         && !snapshot.vertical_datum.empty()
         && snapshot.vertical_datum != "UNKNOWN"
         && snapshot.vertical_datum != "UNSPECIFIED"
+        && snapshot.surface_type == "BARE_EARTH_DTM"
+        && snapshot.vertical_accuracy_model == "CONSERVATIVE_ABSOLUTE_BOUND"
         && snapshot.horizontal_resolution_m > 0.0
         && std::isfinite(snapshot.horizontal_resolution_m)
         && snapshot.vertical_accuracy_m > 0.0

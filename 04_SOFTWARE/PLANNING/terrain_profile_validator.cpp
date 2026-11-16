@@ -104,6 +104,8 @@ TerrainProfileAssessment TerrainProfileValidator::evaluate(
     snapshot.dataset_version = dem.dataset_version;
     snapshot.horizontal_crs = dem.horizontal_crs;
     snapshot.vertical_datum = dem.vertical_datum;
+    snapshot.surface_type = dem.surface_type;
+    snapshot.vertical_accuracy_model = dem.vertical_accuracy_model;
     snapshot.horizontal_resolution_m = dem.horizontal_resolution_m;
     snapshot.vertical_accuracy_m = dem.vertical_accuracy_m;
 
@@ -119,6 +121,8 @@ TerrainProfileAssessment TerrainProfileValidator::evaluate(
         && !dem.dataset_version.empty() && dem.horizontal_crs == "EPSG:4326"
         && !dem.vertical_datum.empty() && dem.vertical_datum != "UNKNOWN"
         && dem.vertical_datum != "UNSPECIFIED"
+        && dem.surface_type == "BARE_EARTH_DTM"
+        && dem.vertical_accuracy_model == "CONSERVATIVE_ABSOLUTE_BOUND"
         && std::isfinite(dem.horizontal_resolution_m) && dem.horizontal_resolution_m > 0.0
         && std::isfinite(dem.vertical_accuracy_m) && dem.vertical_accuracy_m > 0.0
         && std::isfinite(dem.origin_latitude_deg) && std::abs(dem.origin_latitude_deg) <= 90.0
@@ -128,7 +132,12 @@ TerrainProfileAssessment TerrainProfileValidator::evaluate(
         && dem.rows >= 2 && dem.columns >= 2
         && dem.rows <= std::numeric_limits<std::size_t>::max()/dem.columns
         && dem.elevation_m.size() == dem.rows*dem.columns;
-    if (!metadataValid) fail(result, "DEM_METADATA_OR_GRID_INVALID");
+    if (dem.surface_type != "BARE_EARTH_DTM")
+        fail(result, "DEM_SURFACE_NOT_BARE_EARTH_DTM");
+    if (dem.vertical_accuracy_model != "CONSERVATIVE_ABSOLUTE_BOUND")
+        fail(result, "DEM_VERTICAL_ACCURACY_NOT_CONSERVATIVE_BOUND");
+    if (!metadataValid && result.findings.empty())
+        fail(result, "DEM_METADATA_OR_GRID_INVALID");
     if (route.environment.terrain_snapshot_id != dem.snapshot_id)
         fail(result, "DEM_SNAPSHOT_NOT_BOUND_TO_ROUTE");
     if (!route.trajectory_geometry_complete || route.waypoints.size() < 2

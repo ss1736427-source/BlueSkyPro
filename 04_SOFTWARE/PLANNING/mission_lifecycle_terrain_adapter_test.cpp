@@ -25,12 +25,14 @@ static TerrainDemSnapshot makeSnapshot()
 {
     TerrainDemSnapshot snapshot;
     snapshot.snapshot_id = "DEM-SNAPSHOT-7";
-    snapshot.source_id = "MAPTILER-TERRAIN-RGB";
-    snapshot.source_version = "terrain-rgb-v2";
+    snapshot.source_id = "TEST-AUTHORITATIVE-DTM";
+    snapshot.source_version = "1";
     snapshot.dataset_id = "GLOBAL-DEM";
     snapshot.dataset_version = "2026-11";
     snapshot.horizontal_crs = "EPSG:4326";
     snapshot.vertical_datum = "EGM96";
+    snapshot.surface_type = "BARE_EARTH_DTM";
+    snapshot.vertical_accuracy_model = "CONSERVATIVE_ABSOLUTE_BOUND";
     snapshot.horizontal_resolution_m = 30.0;
     snapshot.vertical_accuracy_m = 10.0;
     snapshot.coverage_complete = true;
@@ -81,6 +83,16 @@ int main()
     auto unknownDatum = snapshot;
     unknownDatum.vertical_datum = "UNKNOWN";
     assert(makeTerrainValidationEvidence(route, unknownDatum, validation).status
+           == MissionLifecycleValidationStatus::Failed);
+
+    auto surfaceModel = snapshot;
+    surfaceModel.surface_type = "DSM";
+    assert(makeTerrainValidationEvidence(route, surfaceModel, validation).status
+           == MissionLifecycleValidationStatus::Failed);
+
+    auto statisticalAccuracy = snapshot;
+    statisticalAccuracy.vertical_accuracy_model = "LE90";
+    assert(makeTerrainValidationEvidence(route, statisticalAccuracy, validation).status
            == MissionLifecycleValidationStatus::Failed);
 
     auto staleRoute = validation;
