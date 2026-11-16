@@ -93,20 +93,22 @@ bool sampleCoordinate(const Coordinate &coordinate, int zoom, int tileSize,
     if (longitude < 0.0)
         longitude += 360.0;
     longitude -= 180.0;
+    const bool positiveDateLine = coordinate.longitude >= 180.0 - 1e-12;
     const double worldX = (longitude + 180.0) / 360.0
         * static_cast<double>(tileCount * tileSize);
     const double latRad = radians(latitude);
     const double worldY = (1.0 - std::asinh(std::tan(latRad)) / kPi) / 2.0
         * static_cast<double>(tileCount * tileSize);
-    const int x = (static_cast<int>(std::floor(worldX / tileSize)) % tileCount
-                   + tileCount) % tileCount;
+    const int x = positiveDateLine ? tileCount - 1
+        : (static_cast<int>(std::floor(worldX / tileSize)) % tileCount + tileCount) % tileCount;
     const int y = std::clamp(static_cast<int>(std::floor(worldY / tileSize)),
                              0, tileCount - 1);
     const auto it = tiles.constFind(tileKey(zoom, x, y));
     if (it == tiles.cend())
         return false;
-    const double pixelX = std::clamp(worldX - std::floor(worldX / tileSize) * tileSize,
-                                     0.0, static_cast<double>(tileSize - 1));
+    const double pixelX = positiveDateLine ? static_cast<double>(tileSize - 1)
+        : std::clamp(worldX - std::floor(worldX / tileSize) * tileSize,
+                     0.0, static_cast<double>(tileSize - 1));
     const double pixelY = std::clamp(worldY - std::floor(worldY / tileSize) * tileSize,
                                      0.0, static_cast<double>(tileSize - 1));
     return MapTilerTerrainRgbDecoder::sampleElevation(
