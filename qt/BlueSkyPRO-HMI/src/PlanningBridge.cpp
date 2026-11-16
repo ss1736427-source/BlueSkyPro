@@ -90,6 +90,8 @@ bool PlanningBridge::synchronizeDraftMissionLifecycle(const QString& missionMode
             && std::floor(versionNumber) == versionNumber
             ? QString::number(static_cast<qlonglong>(versionNumber)) : QString());
     const QJsonObject lifecycleJson = root.value(QStringLiteral("lifecycle")).toObject();
+    const QJsonValue templatesValue = root.value(QStringLiteral("selectedTemplateIds"));
+    const QString missionMode = root.value(QStringLiteral("missionMode")).toString();
     const QJsonValue lifecycleVersionValue = lifecycleJson.value(QStringLiteral("missionVersion"));
     const QString lifecycleVersion = lifecycleVersionValue.isString()
         ? lifecycleVersionValue.toString().trimmed()
@@ -102,6 +104,9 @@ bool PlanningBridge::synchronizeDraftMissionLifecycle(const QString& missionMode
     const bool physicalMode = mode == QLatin1String("PHYSICAL");
 
     if (missionId.isEmpty() || missionVersion.isEmpty()
+        || root.value(QStringLiteral("status")).toString() != QLatin1String("DRAFT")
+        || (missionMode != QLatin1String("AUTO") && missionMode != QLatin1String("MANUAL"))
+        || !templatesValue.isArray() || templatesValue.toArray().isEmpty()
         || lifecycleJson.value(QStringLiteral("state")).toString() != QLatin1String("DRAFT")
         || lifecycleJson.value(QStringLiteral("missionId")).toString() != missionId
         || lifecycleVersion != missionVersion
@@ -127,9 +132,9 @@ bool PlanningBridge::synchronizeDraftMissionLifecycle(const QString& missionMode
     mission.lifecycle.execution_mode = virtualMode
         ? bluesky::planning::MissionExecutionMode::Virtual
         : bluesky::planning::MissionExecutionMode::Physical;
-    mission.mission_mode = root.value(QStringLiteral("missionMode")).toString().toStdString();
+    mission.mission_mode = missionMode.toStdString();
 
-    const QJsonArray templates = root.value(QStringLiteral("selectedTemplateIds")).toArray();
+    const QJsonArray templates = templatesValue.toArray();
     for (const QJsonValue& value : templates) {
         if (!value.isString() || value.toString().trimmed().isEmpty()) {
             emit bridgeError(QStringLiteral("MISSION_TEMPLATE_ID_INVALID"));
