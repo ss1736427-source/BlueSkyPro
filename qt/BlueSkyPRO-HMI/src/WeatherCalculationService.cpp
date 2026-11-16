@@ -556,7 +556,7 @@ QVariantMap evaluateOnWorker(const std::vector<ForecastProduct>& products,const 
 #ifndef BLUESKY_HAVE_ECCODES
     Q_UNUSED(products);
     Q_UNUSED(route);
-    Q_UNUSED(input);
+    Q_UNUSED(performanceByCandidate);
     result.insert(QStringLiteral("weatherReady"),false);
     result.insert(QStringLiteral("decodeSucceeded"),false);
     result.insert(QStringLiteral("weatherError"),QStringLiteral("GRIB2_DECODER_NOT_AVAILABLE"));
@@ -902,7 +902,7 @@ WeatherCalculationWorkerResult evaluateCandidateSetOnWorker(
     const std::vector<ForecastProduct>& products,
     const std::vector<bluesky::planning::CandidateSolution>& candidates,
     const bluesky::planning::MissionProblem& problem,
-    const TrajectoryPerformanceInput& input,
+    const std::map<std::string, TrajectoryPerformanceInput>& performanceByCandidate,
     const bluesky::planning::NotamSnapshot& notamSnapshot)
 {
     WeatherCalculationWorkerResult worker;
@@ -983,7 +983,7 @@ WeatherCalculationWorkerResult evaluateCandidateSetOnWorker(
     }
 
     auto baseAssessor = bluesky::weather::makeCandidateWeatherAssessor(
-        snapshot.fields, input, snapshot.snapshot_id, snapshot.snapshot_version,
+        snapshot.fields, performanceByCandidate, snapshot.snapshot_id, snapshot.snapshot_version,
         "WEATHER-TIME-DEPENDENT-ITERATIVE-V1");
     std::map<std::string, bluesky::planning::CandidateWeatherAssessment> assessments;
     bluesky::planning::CandidateWeatherAssessor cachedAssessor =
@@ -1264,11 +1264,6 @@ bool WeatherCalculationService::evaluateCandidates(
         return false;
     }
 
-    TrajectoryPerformanceInput input;
-    if (!buildPerformanceInput(validatedPerformanceProfile, route, missionStartUtc, input, error)) {
-        setError(error);
-        return false;
-    }
     const QDateTime missionStart = QDateTime::fromString(missionStartUtc, Qt::ISODate).toUTC();
     if (!missionStart.isValid()) {
         setError(QStringLiteral("VALID_MISSION_START_UTC_REQUIRED"));
@@ -1291,6 +1286,7 @@ bool WeatherCalculationService::evaluateCandidates(
 
     std::vector<bluesky::planning::CandidateSolution> candidates;
     candidates.reserve(static_cast<std::size_t>(candidateSnapshots.size()));
+    std::map<std::string, TrajectoryPerformanceInput> performanceByCandidate;
     std::set<std::string> candidateIds;
     QString missionVersion;
     QString calculationInputVersion;
@@ -1360,6 +1356,17 @@ bool WeatherCalculationService::evaluateCandidates(
             return false;
         }
 
+        // Bind the performance input to this exact canonical route. Candidate
+        // speed profiles are route-specific and must never be shared across the set.
+        TrajectoryPerformanceInput candidatePerformance;
+        if (!buildPerformanceInput(validatedPerformanceProfile, route, missionStartUtc,
+                                   candidatePerformance, error)) {
+            setError(error);
+            return false;
+        }
+        performanceByCandidate.emplace(candidateId.toStdString(),
+                                        std::move(candidatePerformance));
+
         double nominalTime = 0.0;
         double nominalEnergy = 0.0;
         double nominalReserve = 0.0;
@@ -1408,8 +1415,9 @@ bool WeatherCalculationService::evaluateCandidates(
     setError(QString());
     setState(QStringLiteral("ASSESSING_CANDIDATE_SET"));
     m_watcher.setFuture(QtConcurrent::run(
-        [products, candidates, problem, input, notamSnapshot]() {
-            return evaluateCandidateSetOnWorker(products, candidates, problem, input, notamSnapshot);
+        [products, candidates, problem, performanceByCandidate, notamSnapshot]() {
+            return evaluateCandidateSetOnWorker(
+                products, candidates, problem, performanceByCandidate, notamSnapshot);
         }));
     return true;
 }

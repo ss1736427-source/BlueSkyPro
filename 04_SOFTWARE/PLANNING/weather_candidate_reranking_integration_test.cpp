@@ -3,6 +3,7 @@
 #include "../WEATHER/weather_field.hpp"
 #include "../WEATHER/weather_trajectory_calculator.hpp"
 #include <cassert>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -146,5 +147,27 @@ int main() {
            >eastCorrectedRoute->speed_profile->segments.front().maximum_reachable_speed_mps);
     assert(refreshed.corrected_route->speed_profile->segments.front().maximum_speed_mps==20.0);
     assert(refreshed.corrected_route->speed_profile->segments.front().applied_maximum_speed_mps==20.0);
+
+    // Candidate-set assessment must select the performance input by candidate ID.
+    // A deliberately mismatched UAV binding on the north candidate proves that the
+    // east candidate's validated input is not accidentally reused for every route.
+    auto eastPerformance = perf;
+    eastPerformance.uav_id = "uav-1";
+    auto northPerformance = perf;
+    northPerformance.uav_id = "different-uav";
+    std::map<std::string, TrajectoryPerformanceInput> perCandidate{
+        {"east-route", eastPerformance},
+        {"north-route", northPerformance}
+    };
+    const auto candidateAssessor = makeCandidateWeatherAssessor(
+        forecast(8.0, 0.0), std::move(perCandidate),
+        "GFS-CANDIDATE-PROFILES", "forecast-v1", "weather-rerank-candidate-profiles-v1");
+    const auto routeCandidates = candidates();
+    const auto eastProfileAssessment = candidateAssessor(p, routeCandidates.at(0));
+    const auto northProfileAssessment = candidateAssessor(p, routeCandidates.at(1));
+    assert(eastProfileAssessment.error
+           != "weather assessment requires one assigned UAV matching the validated performance profile");
+    assert(northProfileAssessment.error
+           == "weather assessment requires one assigned UAV matching the validated performance profile");
     return 0;
 }

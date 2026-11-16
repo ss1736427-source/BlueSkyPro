@@ -5,6 +5,7 @@
 #include "../PLANNING/orchestrator/algorithm_orchestrator.hpp"
 #include "../PLANNING/wind_performance_trajectory.hpp"
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,14 @@ namespace bluesky::weather {
 bluesky::planning::CandidateWeatherAssessor makeCandidateWeatherAssessor(
     std::vector<WindField> fields,
     bluesky::planning::TrajectoryPerformanceInput performance,
+    std::string snapshot_id,
+    std::string snapshot_version,
+    std::string calculation_version,
+    int maximum_vertical_gap_m = 100);
+
+bluesky::planning::CandidateWeatherAssessor makeCandidateWeatherAssessor(
+    std::vector<WindField> fields,
+    std::map<std::string, bluesky::planning::TrajectoryPerformanceInput> performance_by_candidate,
     std::string snapshot_id,
     std::string snapshot_version,
     std::string calculation_version,

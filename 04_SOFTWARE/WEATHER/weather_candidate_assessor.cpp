@@ -17,9 +17,26 @@ bluesky::planning::CandidateWeatherAssessor makeCandidateWeatherAssessor(
     std::string calculation_version,
     int maximum_vertical_gap_m)
 {
+    std::map<std::string, bluesky::planning::TrajectoryPerformanceInput> profiles;
+    profiles.emplace("*", std::move(performance));
+    return makeCandidateWeatherAssessor(
+        std::move(fields), std::move(profiles), std::move(snapshot_id),
+        std::move(snapshot_version), std::move(calculation_version), maximum_vertical_gap_m);
+}
+
+bluesky::planning::CandidateWeatherAssessor makeCandidateWeatherAssessor(
+    std::vector<WindField> fields,
+    std::map<std::string, bluesky::planning::TrajectoryPerformanceInput> performance_by_candidate,
+    std::string snapshot_id,
+    std::string snapshot_version,
+    std::string calculation_version,
+    int maximum_vertical_gap_m)
+{
     using namespace bluesky::planning;
     auto sharedFields = std::make_shared<const std::vector<WindField>>(std::move(fields));
-    return [sharedFields, performance = std::move(performance),
+    auto sharedProfiles = std::make_shared<const std::map<std::string, TrajectoryPerformanceInput>>(
+        std::move(performance_by_candidate));
+    return [sharedFields, sharedProfiles,
             snapshot_id = std::move(snapshot_id),
             snapshot_version = std::move(snapshot_version),
             calculation_version = std::move(calculation_version),
@@ -27,6 +44,14 @@ bluesky::planning::CandidateWeatherAssessor makeCandidateWeatherAssessor(
                 const MissionProblem& problem,
                 const CandidateSolution& candidate) -> CandidateWeatherAssessment {
         CandidateWeatherAssessment result;
+        const auto exactProfile = sharedProfiles->find(candidate.candidate_id);
+        const auto fallbackProfile = sharedProfiles->find("*");
+        if (exactProfile == sharedProfiles->end() && fallbackProfile == sharedProfiles->end()) {
+            result.error = "candidate-specific weather performance profile is missing";
+            return result;
+        }
+        const auto& performance = exactProfile != sharedProfiles->end()
+            ? exactProfile->second : fallbackProfile->second;
         if (problem.vehicle_ids.size() != 1
             || problem.vehicle_ids.front().empty()
             || performance.uav_id != problem.vehicle_ids.front()) {
