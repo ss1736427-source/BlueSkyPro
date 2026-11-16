@@ -70,6 +70,73 @@ QVariantMap PlanningBridge::readinessSnapshot() const
     return m_readinessSnapshot;
 }
 
+bool PlanningBridge::synchronizeDraftMissionLifecycle(const QString& missionModelJson)
+{
+    const QJsonDocument document = QJsonDocument::fromJson(missionModelJson.toUtf8());
+    if (!document.isObject()) {
+        emit bridgeError(QStringLiteral("MISSION_MODEL_JSON_INVALID"));
+        return false;
+    }
+
+    const QJsonObject root = document.object();
+    const QString missionId = root.value(QStringLiteral("missionId")).toString().trimmed();
+    const QJsonValue versionValue = root.value(QStringLiteral("missionVersion"));
+    const QString missionVersion = versionValue.isString()
+        ? versionValue.toString().trimmed()
+        : (versionValue.isDouble() && versionValue.toInt() > 0
+            ? QString::number(versionValue.toInt()) : QString());
+    const QJsonObject lifecycleJson = root.value(QStringLiteral("lifecycle")).toObject();
+    const QJsonObject executionContext = root.value(QStringLiteral("executionContext")).toObject();
+    const QString mode = executionContext.value(QStringLiteral("mode")).toString();
+    const bool virtualMode = mode == QLatin1String("VIRTUAL");
+    const bool physicalMode = mode == QLatin1String("PHYSICAL");
+
+    if (missionId.isEmpty() || missionVersion.isEmpty()
+        || lifecycleJson.value(QStringLiteral("state")).toString() != QLatin1String("DRAFT")
+        || lifecycleJson.value(QStringLiteral("missionId")).toString() != missionId
+        || lifecycleJson.value(QStringLiteral("missionVersion")).toVariant().toString() != missionVersion
+        || !lifecycleJson.value(QStringLiteral("history")).toArray().isEmpty()
+        || lifecycleJson.value(QStringLiteral("nextEventSequence")).toInt() != 1
+        || (!virtualMode && !physicalMode)
+        || executionContext.value(QStringLiteral("vehicleSourceProvenanceRequired")).toString()
+            != (virtualMode ? QLatin1String("SIL_FIXTURE") : QLatin1String("PHYSICAL_LIVE"))
+        || executionContext.value(QStringLiteral("releaseTarget")).toString()
+            != (virtualMode ? QLatin1String("SIMULATOR_ONLY") : QLatin1String("PHYSICAL_UAV"))
+        || executionContext.value(QStringLiteral("esorvdSubmissionAllowed")).toBool() == virtualMode) {
+        emit bridgeError(QStringLiteral("MISSION_DRAFT_EXECUTION_CONTEXT_INVALID"));
+        return false;
+    }
+
+    bluesky::planning::Mission mission;
+    mission.identity.mission_id = missionId.toStdString();
+    mission.identity.mission_version = missionVersion.toStdString();
+    mission.lifecycle.mission_id = mission.identity.mission_id;
+    mission.lifecycle.mission_version = mission.identity.mission_version;
+    mission.lifecycle.execution_mode = virtualMode
+        ? bluesky::planning::MissionExecutionMode::Virtual
+        : bluesky::planning::MissionExecutionMode::Physical;
+    mission.mission_mode = root.value(QStringLiteral("missionMode")).toString().toStdString();
+
+    const QJsonArray templates = root.value(QStringLiteral("selectedTemplateIds")).toArray();
+    for (const QJsonValue& value : templates) {
+        if (!value.isString() || value.toString().trimmed().isEmpty()) {
+            emit bridgeError(QStringLiteral("MISSION_TEMPLATE_ID_INVALID"));
+            return false;
+        }
+        mission.selected_template_ids.push_back(value.toString().toStdString());
+    }
+
+    std::vector<std::string> blockers;
+    if (!m_lifecycleOwner.synchronizeDraftMission(mission, &blockers)) {
+        const QString code = blockers.empty()
+            ? QStringLiteral("MISSION_DRAFT_REGISTRATION_REJECTED")
+            : QString::fromStdString(blockers.front());
+        emit bridgeError(code);
+        return false;
+    }
+    return true;
+}
+
 bool PlanningBridge::registerMissionLifecycle(
     const bluesky::planning::Mission& mission,
     std::vector<std::string>* blockers)
