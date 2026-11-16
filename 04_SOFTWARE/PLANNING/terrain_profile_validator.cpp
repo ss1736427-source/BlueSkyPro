@@ -167,6 +167,7 @@ TerrainProfileAssessment TerrainProfileValidator::evaluate(
     double minimumClearance = std::numeric_limits<double>::infinity();
     double maximumGap = 0.0;
     std::size_t sampleCount = 0;
+    bool completeDemCoverage = true;
     for (std::size_t segmentIndex=0; segmentIndex<route.segments.size(); ++segmentIndex) {
         const auto& segment = route.segments[segmentIndex];
         const auto& from = route.waypoints[segmentIndex];
@@ -192,6 +193,7 @@ TerrainProfileAssessment TerrainProfileValidator::evaluate(
             const GeoPoint position = interpolateGreatCircle(from.position,to.position,t);
             double ground = 0.0;
             if (!interpolateElevation(dem,position,ground)) {
+                completeDemCoverage = false;
                 fail(result, "DEM_ROUTE_COVERAGE_OR_NODATA_GAP");
                 return result;
             }
@@ -226,7 +228,7 @@ TerrainProfileAssessment TerrainProfileValidator::evaluate(
         fail(result, "MINIMUM_TERRAIN_CLEARANCE_NOT_MET");
     validation.findings_empty = result.findings.empty();
     validation.passed = validation.passed && validation.findings_empty;
-    snapshot.coverage_complete = result.findings.empty() && sampleCount >= 2;
+    snapshot.coverage_complete = completeDemCoverage && sampleCount >= 2;
     return result;
 }
 
