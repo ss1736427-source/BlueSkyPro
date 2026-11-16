@@ -39,9 +39,10 @@ struct MissionLifecycleAuthoritativeSources {
     const TrajectoryPerformanceInput* performance_input{nullptr};
     std::string vehicle_configuration_id;
 };
-// Single trusted C++ entry point for constructing the final validation bundle.
-// NOTAM, terrain, vehicle, weather/energy and non-MT01 task-quality evidence
-// must still be supplied by their own authoritative services in 'evidence'.
+// Trusted C++ assembly and finalization boundary. The authoritative-source
+// overload below builds NOTAM, terrain, vehicle-envelope and weather/energy
+// attestations from typed service outputs; task-specific non-MT01 validators
+// remain explicit inputs until their authoritative adapter is integrated.
 class MissionLifecycleValidationCoordinator {
 public:
     // Production-facing path: assemble lifecycle attestations from the exact
