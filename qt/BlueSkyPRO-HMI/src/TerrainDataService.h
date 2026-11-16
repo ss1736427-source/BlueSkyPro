@@ -29,6 +29,8 @@ public:
     // Downloads mission-AOI MapTiler Terrain RGB tiles into an independent,
     // immutable disk cache. This product is visual context only: it is not
     // authoritative DEM evidence and cannot satisfy terrain/READY validation.
+    Q_INVOKABLE bool requestVisualProfileForRoute(const QVariantMap &routeSnapshot,
+                                                  int zoom, const QString &apiKey);
     Q_INVOKABLE bool requestVisualContextTiles(const QString &missionId,
                                                double southDeg, double westDeg,
                                                double northDeg, double eastDeg,
@@ -41,6 +43,11 @@ signals:
     void progressChanged();
     void missionTilesReady(const QString &missionId, const QVariantList &tiles);
     void missionTilesFailed(const QString &missionId, const QString &reason);
+    void missionVisualProfileReady(const QString &missionId, const QString &routeId,
+                                   const QString &routeVersion, const QString &calculationInputVersion,
+                                   const QVariantList &samples);
+    void missionVisualProfileFailed(const QString &missionId, const QString &routeId,
+                                    const QString &routeVersion, const QString &reason);
     void missionCancelled(const QString &missionId);
 
 private:
@@ -62,6 +69,7 @@ private:
     QString cachePath(int zoom, int x, int y) const;
     bool validCachedTile(const QString &path) const;
     void finishMissionIfComplete();
+    void failVisualProfile(const QString &reason);
 
     QNetworkAccessManager m_network;
     QQueue<TileRequest> m_queue;
@@ -72,6 +80,8 @@ private:
     QString m_state{QStringLiteral("IDLE")};
     QString m_lastError;
     QString m_apiKey;
+    QVariantMap m_pendingRouteSnapshot;
+    bool m_visualProfileRequested{false};
     int m_zoom{0};
     int m_completedCount{0};
     int m_totalCount{0};

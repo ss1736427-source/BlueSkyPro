@@ -65,6 +65,10 @@ Item {
                 || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
                 || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE")
             invalidateWeatherAcquisition("MISSION_ID_CHANGED_WEATHER_REQUEST_INVALIDATED")
+        if (root.terrainDataService && root.missionId)
+            root.terrainDataService.cancelMission(root.visualTerrainProfileMissionId)
+        root.visualTerrainProfileSamples = []
+        root.requestVisualTerrainProfile()
     }
 
     Timer {
@@ -809,6 +813,13 @@ Item {
 
     // Shared authoritative route model; local profile data is presentation-only.
     property var routeController: null
+    property var terrainDataService: null
+    property string terrainApiKey: ""
+    property var visualTerrainProfileSamples: []
+    property string visualTerrainProfileStatus: "NOT_REQUESTED"
+    property string visualTerrainProfileRouteId: ""
+    property string visualTerrainProfileRouteVersion: ""
+    property string visualTerrainProfileMissionId: ""
     // Terrain samples are supplied by the shared terrain-data pipeline.
     // Each sample: { progress: 0..1, elevationM, snapshotId }.
     // They are display-only and must match the canonical route terrain snapshot.
@@ -816,6 +827,72 @@ Item {
     property string terrainProfileSnapshotId: ""
     property string terrainProfileVerticalDatum: ""
     property string terrainProfileSourceLabel: ""
+
+    function requestVisualTerrainProfile() {
+        if (!root.terrainDataService || !root.routeController
+                || typeof root.routeController.routeSnapshot !== "function") {
+            root.visualTerrainProfileSamples = []
+            root.visualTerrainProfileStatus = "SERVICE_OR_ROUTE_UNAVAILABLE"
+            return
+        }
+        var snapshot = root.routeController.routeSnapshot()
+        if (!snapshot || !snapshot.routeId || !snapshot.routeVersion
+                || !Array.isArray(snapshot.waypoints) || snapshot.waypoints.length < 2) {
+            root.visualTerrainProfileSamples = []
+            root.visualTerrainProfileStatus = "WAITING_FOR_CANONICAL_ROUTE"
+            return
+        }
+        root.visualTerrainProfileSamples = []
+        root.visualTerrainProfileRouteId = String(snapshot.routeId)
+        root.visualTerrainProfileRouteVersion = String(snapshot.routeVersion)
+        root.visualTerrainProfileMissionId = String(snapshot.missionId || root.missionId)
+        if (!root.terrainApiKey) {
+            root.visualTerrainProfileStatus = "MAPTILER_CREDENTIAL_NOT_CONFIGURED"
+            return
+        }
+        root.visualTerrainProfileStatus = "ACQUIRING_VISUAL_TERRAIN"
+        if (!root.terrainDataService.requestVisualProfileForRoute(snapshot, 14, root.terrainApiKey))
+            root.visualTerrainProfileStatus = "REQUEST_REJECTED: "
+                    + String(root.terrainDataService.lastError || "UNKNOWN")
+    }
+
+    Connections {
+        target: root.terrainDataService
+        enabled: target !== null
+        function onMissionVisualProfileReady(missionId, routeId, routeVersion,
+                                             calculationInputVersion, samples) {
+            if (String(missionId) !== String(root.missionId)
+                    || String(routeId) !== root.visualTerrainProfileRouteId
+                    || String(routeVersion) !== root.visualTerrainProfileRouteVersion)
+                return
+            var current = root.routeController && root.routeController.routeSnapshot
+                    ? root.routeController.routeSnapshot() : null
+            if (!current || String(current.routeId) !== String(routeId)
+                    || String(current.routeVersion) !== String(routeVersion)
+                    || String(current.calculationInputVersion || "") !== String(calculationInputVersion || ""))
+                return
+            root.visualTerrainProfileSamples = samples
+            root.visualTerrainProfileStatus = "READY_VISUAL_ONLY"
+        }
+        function onMissionVisualProfileFailed(missionId, routeId, routeVersion, reason) {
+            if (String(missionId) !== String(root.missionId)
+                    || String(routeId) !== root.visualTerrainProfileRouteId
+                    || String(routeVersion) !== root.visualTerrainProfileRouteVersion)
+                return
+            root.visualTerrainProfileSamples = []
+            root.visualTerrainProfileStatus = "FAILED: " + String(reason)
+        }
+    }
+
+    Connections {
+        target: root.routeController
+        enabled: target !== null
+        function onRouteChanged() {
+            if (root.terrainDataService && root.visualTerrainProfileMissionId)
+                root.terrainDataService.cancelMission(root.visualTerrainProfileMissionId)
+            root.requestVisualTerrainProfile()
+        }
+    }
     readonly property var validatedTerrainProfileSamples: {
         var result = []
         if (!root.hasCanonicalRoute || !root.routeController
@@ -1253,6 +1330,7 @@ Item {
         root.recalculateColumnLayout()
         root.tableSplitRatio = Math.max(0, Math.min(1, profileSettings.tableSplitRatio))
         root.syncFromCanonicalRoute()
+        root.requestVisualTerrainProfile()
         if (profileSettings.columnOrderJson.length > 0) {
             try {
                 var saved = JSON.parse(profileSettings.columnOrderJson)
@@ -2002,7 +2080,7 @@ Item {
                                 }
                                 Item { width: 18; height: 1 }
                                 Text {
-                                    text: "━ Маршрут AGL     ▰ Рельеф AMSL (правая шкала)     ┄ Ограничение высоты     ○ Точки маршрута"
+                                    text: "━ Маршрут AGL     ▰ " + (root.validatedTerrainProfileSamples.length >= 2 ? "Рельеф AMSL" : "Рельеф · VISUAL ONLY") + " (правая шкала)     ┄ Ограничение высоты     ○ Точки маршрута"
                                     color: root.muted
                                     font.family: "B612"
                                     font.pixelSize: 9
@@ -2051,8 +2129,11 @@ Item {
                                       ? "РЕЛЬЕФ: " + (root.terrainProfileSourceLabel || "DEM")
                                         + " · " + root.terrainProfileVerticalDatum
                                         + " · SNAPSHOT " + root.terrainProfileSnapshotId
-                                      : "РЕЛЬЕФ: НЕТ ДАННЫХ ДЛЯ АКТИВНОГО TERRAIN SNAPSHOT"
-                                color: root.validatedTerrainProfileSamples.length >= 2 ? "#8FCB78" : "#FFD339"
+                                      : (root.visualTerrainProfileSamples.length >= 2
+                                         ? "РЕЛЬЕФ: MAPTILER TERRAIN RGB · VISUAL ONLY · DATUM UNKNOWN"
+                                         : "РЕЛЬЕФ: " + root.visualTerrainProfileStatus)
+                                color: root.validatedTerrainProfileSamples.length >= 2
+                                       || root.visualTerrainProfileSamples.length >= 2 ? "#8FCB78" : "#FFD339"
                                 font.family: "B612"
                                 font.pixelSize: 9
                                 elide: Text.ElideRight
@@ -2070,6 +2151,7 @@ Item {
                                     // the current progress-sorted route nodes during onPaint.
                                     function onMandatoryPointsChanged() { profileCanvas.requestPaint() }
                                     function onTerrainProfileSamplesChanged() { profileCanvas.requestPaint() }
+                                    function onVisualTerrainProfileSamplesChanged() { profileCanvas.requestPaint() }
                                     function onTerrainProfileSnapshotIdChanged() { profileCanvas.requestPaint() }
                                     function onTerrainProfileVerticalDatumChanged() { profileCanvas.requestPaint() }
                                     function onLiveFlightActiveChanged() { profileCanvas.requestPaint() }
@@ -2095,7 +2177,9 @@ Item {
                                     // Terrain uses its own AMSL scale on the right axis.
                                     // Route target heights remain AGL on the left axis; the
                                     // vertical gap between these two series is NOT clearance.
-                                    var terrain = root.validatedTerrainProfileSamples
+                                    var terrain = root.validatedTerrainProfileSamples.length >= 2
+                                            ? root.validatedTerrainProfileSamples
+                                            : root.visualTerrainProfileSamples
                                     if (terrain.length >= 2) {
                                         var terrainMin = terrain[0].elevationM
                                         var terrainMax = terrainMin
@@ -2226,7 +2310,8 @@ Item {
                                     }
                                     ctx.fillStyle = "#DCE8F2"; ctx.font = "11px sans-serif"
                                     ctx.fillText("Маршрут AGL, м", 3, 12)
-                                    if (terrain.length >= 2) ctx.fillText("Рельеф AMSL, м", right - 92, 12)
+                                    if (terrain.length >= 2) ctx.fillText(root.validatedTerrainProfileSamples.length >= 2
+                                        ? "Рельеф AMSL, м" : "Рельеф · VISUAL ONLY, м", right - 150, 12)
                                     // Time axis: elapsed mission time, from departure to planned ETA.
                                     ctx.fillText("Время полёта", Math.max(45, width / 2 - 35), height - 4)
                                     ctx.fillText("00:00", left - 18, bottom + 14)

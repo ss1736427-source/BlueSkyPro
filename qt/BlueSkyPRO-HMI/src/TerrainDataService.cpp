@@ -2,6 +2,9 @@
 
 #include "MapTilerTerrainRgbDecoder.h"
 #include "TerrainRgbTileMatrix.h"
+#include "TerrainRgbRouteSampler.h"
+
+#include <limits>
 
 #include <QDir>
 #include <QFile>
@@ -14,6 +17,8 @@
 #include <QUrl>
 
 #include <algorithm>
+#include <cmath>
+#include <QtMath>
 
 TerrainDataService::TerrainDataService(QObject *parent)
     : QObject(parent), m_network(this)
@@ -121,6 +126,77 @@ bool TerrainDataService::requestVisualContextTiles(
     return true;
 }
 
+
+bool TerrainDataService::requestVisualProfileForRoute(
+    const QVariantMap &routeSnapshot, int zoom, const QString &apiKey)
+{
+    const QVariantList waypoints = routeSnapshot.value(QStringLiteral("waypoints")).toList();
+    const QString missionId = routeSnapshot.value(QStringLiteral("missionId")).toString().trimmed();
+    const QString routeId = routeSnapshot.value(QStringLiteral("routeId")).toString().trimmed();
+    if (missionId.isEmpty() || routeId.isEmpty() || waypoints.size() < 2
+        || routeSnapshot.value(QStringLiteral("coordinateReferenceSystem")).toString()
+               != QStringLiteral("EPSG:4326")) {
+        setError(QStringLiteral("CANONICAL_ROUTE_SNAPSHOT_REQUIRED"));
+        return false;
+    }
+
+    double south = 90.0;
+    double north = -90.0;
+    double minLon = 180.0;
+    double maxLon = -180.0;
+    for (const QVariant &value : waypoints) {
+        const QVariantMap point = value.toMap();
+        const double lat = point.value(QStringLiteral("latitudeDeg"),
+                                       std::numeric_limits<double>::quiet_NaN()).toDouble();
+        const double lon = point.value(QStringLiteral("longitudeDeg"),
+                                       std::numeric_limits<double>::quiet_NaN()).toDouble();
+        if (!std::isfinite(lat) || !std::isfinite(lon)
+            || lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0) {
+            setError(QStringLiteral("ROUTE_WAYPOINT_COORDINATE_INVALID"));
+            return false;
+        }
+        south = std::min(south, lat);
+        north = std::max(north, lat);
+        minLon = std::min(minLon, lon);
+        maxLon = std::max(maxLon, lon);
+    }
+
+    double west = minLon;
+    double east = maxLon;
+    if (maxLon - minLon > 180.0) {
+        west = maxLon;
+        east = minLon;
+    }
+    const double meanLat = (south + north) * 0.5;
+    const double latMargin = 0.002;
+    const double lonMargin = std::min(5.0, 0.002 / std::max(0.087, std::cos(qDegreesToRadians(meanLat))));
+    south = std::max(-85.0, south - latMargin);
+    north = std::min(85.0, north + latMargin);
+    west = std::max(-180.0, west - lonMargin);
+    east = std::min(180.0, east + lonMargin);
+
+    m_pendingRouteSnapshot = routeSnapshot;
+    m_visualProfileRequested = true;
+    if (!requestVisualContextTiles(missionId, south, west, north, east, zoom, apiKey)) {
+        m_pendingRouteSnapshot.clear();
+        m_visualProfileRequested = false;
+        return false;
+    }
+    return true;
+}
+
+
+void TerrainDataService::failVisualProfile(const QString &reason)
+{
+    if (!m_visualProfileRequested)
+        return;
+    const QString routeId = m_pendingRouteSnapshot.value(QStringLiteral("routeId")).toString();
+    const QString routeVersion = m_pendingRouteSnapshot.value(QStringLiteral("routeVersion")).toString();
+    m_visualProfileRequested = false;
+    m_pendingRouteSnapshot.clear();
+    emit missionVisualProfileFailed(m_missionId, routeId, routeVersion, reason);
+}
+
 void TerrainDataService::pump()
 {
     while (!m_cancelled && m_active.size() < kMaximumConcurrent && !m_queue.isEmpty()) {
@@ -143,6 +219,7 @@ void TerrainDataService::startTile(const TileRequest &tile)
         m_queue.clear();
         for (auto *pending : m_active.keys())
             pending->abort();
+        failVisualProfile(urlError);
         emit missionTilesFailed(m_missionId, urlError);
         return;
     }
@@ -208,6 +285,9 @@ void TerrainDataService::finishTile(QNetworkReply *reply)
             m_queue.clear();
             for (auto *pending : m_active.keys())
                 pending->abort();
+            failVisualProfile(lastError());
+            failVisualProfile(lastError());
+            failVisualProfile(lastError());
             emit missionTilesFailed(m_missionId, lastError());
             return;
         }
@@ -222,6 +302,7 @@ void TerrainDataService::finishTile(QNetworkReply *reply)
             m_queue.clear();
             for (auto *pending : m_active.keys())
                 pending->abort();
+            failVisualProfile(lastError());
             emit missionTilesFailed(m_missionId, lastError());
             return;
         }
@@ -263,6 +344,25 @@ void TerrainDataService::finishMissionIfComplete()
         return;
     setState(QStringLiteral("VISUAL_CONTEXT_READY"));
     emit missionTilesReady(m_missionId, m_completed);
+    if (m_visualProfileRequested) {
+        QVariantList samples;
+        QString sampleError;
+        const QVariantMap route = m_pendingRouteSnapshot;
+        const bool sampled = TerrainRgbRouteSampler::sampleRoute(
+            route, m_completed, &samples, &sampleError);
+        const QString routeId = route.value(QStringLiteral("routeId")).toString();
+        const QString routeVersion = route.value(QStringLiteral("routeVersion")).toString();
+        const QString inputVersion = route.value(QStringLiteral("calculationInputVersion")).toString();
+        m_visualProfileRequested = false;
+        m_pendingRouteSnapshot.clear();
+        if (sampled) {
+            emit missionVisualProfileReady(m_missionId, routeId, routeVersion,
+                                           inputVersion, samples);
+        } else {
+            setState(QStringLiteral("VISUAL_PROFILE_FAILED"));
+            emit missionVisualProfileFailed(m_missionId, routeId, routeVersion, sampleError);
+        }
+    }
     m_apiKey.clear();
 }
 
@@ -271,6 +371,8 @@ void TerrainDataService::cancelMission(const QString &missionId)
     if (missionId.trimmed().isEmpty() || missionId.trimmed() != m_missionId)
         return;
     m_cancelled = true;
+    m_visualProfileRequested = false;
+    m_pendingRouteSnapshot.clear();
     m_queue.clear();
     for (auto *reply : m_active.keys())
         reply->abort();

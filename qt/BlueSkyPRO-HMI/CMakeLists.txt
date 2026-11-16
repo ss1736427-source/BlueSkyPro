@@ -74,6 +74,8 @@ qt_add_executable(appBlueSkyPRO
     src/TerrainRgbTileMatrix.h
     src/TerrainDataService.cpp
     src/TerrainDataService.h
+    src/TerrainRgbRouteSampler.cpp
+    src/TerrainRgbRouteSampler.h
     src/CredentialVault.cpp
     src/CredentialVault.h
     src/FaaNmsClient.cpp
@@ -181,6 +183,8 @@ add_executable(terrain_data_service_contract_test
     src/MapTilerTerrainRgbDecoder.h
     src/TerrainRgbTileMatrix.cpp
     src/TerrainRgbTileMatrix.h
+    src/TerrainRgbRouteSampler.cpp
+    src/TerrainRgbRouteSampler.h
 )
 target_include_directories(terrain_data_service_contract_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(terrain_data_service_contract_test PRIVATE Qt6::Core Qt6::Gui Qt6::Network)

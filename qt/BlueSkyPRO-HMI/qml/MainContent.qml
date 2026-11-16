@@ -533,6 +533,8 @@ Item {
             id: missionProfileWindow
             visible: root.missionProfileOpen && root.activeTool !== "ADMIN"
             routeController: canonicalRouteController
+            terrainDataService: typeof terrainDataService !== "undefined" ? terrainDataService : null
+            terrainApiKey: typeof mapTilerApiKey !== "undefined" ? mapTilerApiKey : ""
             missionId: root.missionId
             missionModelJson: root.activeMissionModelJson
             coverageBridge: typeof weatherCoverageBridge !== "undefined" ? weatherCoverageBridge : null
