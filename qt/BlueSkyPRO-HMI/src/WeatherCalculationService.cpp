@@ -556,7 +556,7 @@ QVariantMap evaluateOnWorker(const std::vector<ForecastProduct>& products,const 
 #ifndef BLUESKY_HAVE_ECCODES
     Q_UNUSED(products);
     Q_UNUSED(route);
-    Q_UNUSED(performanceByCandidate);
+    Q_UNUSED(input);
     result.insert(QStringLiteral("weatherReady"),false);
     result.insert(QStringLiteral("decodeSucceeded"),false);
     result.insert(QStringLiteral("weatherError"),QStringLiteral("GRIB2_DECODER_NOT_AVAILABLE"));
@@ -911,7 +911,7 @@ WeatherCalculationWorkerResult evaluateCandidateSetOnWorker(
     Q_UNUSED(products);
     Q_UNUSED(candidates);
     Q_UNUSED(problem);
-    Q_UNUSED(input);
+    Q_UNUSED(performanceByCandidate);
     result.insert(QStringLiteral("weatherReady"), false);
     result.insert(QStringLiteral("decodeSucceeded"), false);
     result.insert(QStringLiteral("weatherError"), QStringLiteral("GRIB2_DECODER_NOT_AVAILABLE"));
