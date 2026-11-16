@@ -533,7 +533,7 @@ Item {
             id: missionProfileWindow
             visible: root.missionProfileOpen && root.activeTool !== "ADMIN"
             routeController: canonicalRouteController
-            terrainDataService: typeof terrainDataService !== "undefined" ? terrainDataService : null
+            terrainDataService: typeof terrainDataServiceContext !== "undefined" ? terrainDataServiceContext : null
             terrainApiKey: typeof mapTilerApiKey !== "undefined" ? mapTilerApiKey : ""
             missionId: root.missionId
             missionModelJson: root.activeMissionModelJson

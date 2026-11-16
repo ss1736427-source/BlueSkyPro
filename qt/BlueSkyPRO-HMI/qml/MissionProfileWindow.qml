@@ -2132,8 +2132,8 @@ Item {
                                       : (root.visualTerrainProfileSamples.length >= 2
                                          ? "РЕЛЬЕФ: MAPTILER TERRAIN RGB · VISUAL ONLY · DATUM UNKNOWN"
                                          : "РЕЛЬЕФ: " + root.visualTerrainProfileStatus)
-                                color: root.validatedTerrainProfileSamples.length >= 2
-                                       || root.visualTerrainProfileSamples.length >= 2 ? "#8FCB78" : "#FFD339"
+                                color: root.validatedTerrainProfileSamples.length >= 2 ? "#8FCB78"
+                                       : (root.visualTerrainProfileSamples.length >= 2 ? root.muted : "#FFD339")
                                 font.family: "B612"
                                 font.pixelSize: 9
                                 elide: Text.ElideRight
@@ -2174,9 +2174,9 @@ Item {
                                         var x = left + plotW * gx / 8
                                         ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke()
                                     }
-                                    // Terrain uses its own AMSL scale on the right axis.
-                                    // Route target heights remain AGL on the left axis; the
-                                    // vertical gap between these two series is NOT clearance.
+                                    // Terrain uses a separate display scale on the right axis. Only a validated
+                                    // DEM series has an authoritative vertical datum; MapTiler
+                                    // visual context is datum-unknown. Neither visual gap is clearance.
                                     var terrain = root.validatedTerrainProfileSamples.length >= 2
                                             ? root.validatedTerrainProfileSamples
                                             : root.visualTerrainProfileSamples
