@@ -358,7 +358,7 @@ int main()
     assert(fixedWingResult.route_candidate.route.speed_profile.has_value());
     assert(fixedWingResult.speed_profile.status == SpeedProfileStatus::Feasible);
     assert(fixedWingResult.speed_profile.profile_id
-           == "MISSION-FIXED-WING:MT01-ROUTE-PIPELINE-TEST:1:speed-profile");
+           == "MT01-MAVIC3E-TEST:MT01-ROUTE-PIPELINE-TEST:1:speed-profile");
     assert(fixedWingResult.speed_profile.profile_version == "INPUT-PIPELINE-TEST-1");
     assert(fixedWingResult.route_candidate.route.speed_profile->profile_id
            == fixedWingResult.speed_profile.profile_id);
