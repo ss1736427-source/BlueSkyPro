@@ -135,11 +135,26 @@ TerrainProfileAssessment TerrainProfileValidator::evaluate(
         fail(result, "ROUTE_LINEAGE_REQUIRED");
     if (!std::isfinite(options.maximum_sample_gap_m) || options.maximum_sample_gap_m < 0.0
         || !std::isfinite(options.additional_clearance_margin_m)
-        || options.additional_clearance_margin_m < 0.0)
+        || options.additional_clearance_margin_m < 0.0
+        || options.maximum_profile_samples < 2)
         fail(result, "TERRAIN_VALIDATION_OPTIONS_INVALID");
     if (!metadataValid || !result.findings.empty())
         return result;
 
+    const GeoPoint gridSouthWest{dem.origin_latitude_deg,dem.origin_longitude_deg};
+    const GeoPoint gridSouthEast{dem.origin_latitude_deg,
+        dem.origin_longitude_deg+dem.longitude_step_deg};
+    const GeoPoint gridNorthWest{dem.origin_latitude_deg+dem.latitude_step_deg,
+        dem.origin_longitude_deg};
+    const double pixelEastM=distanceM(gridSouthWest,gridSouthEast);
+    const double pixelNorthM=distanceM(gridSouthWest,gridNorthWest);
+    const double nominalPixelM=std::sqrt(pixelEastM*pixelNorthM);
+    if (!std::isfinite(nominalPixelM) || nominalPixelM <= 0.0
+        || std::abs(nominalPixelM-dem.horizontal_resolution_m)
+            > std::max(5.0,dem.horizontal_resolution_m*0.35)) {
+        fail(result, "DEM_GRID_SPACING_DOES_NOT_MATCH_DECLARED_RESOLUTION");
+        return result;
+    }
     const double sampleGap = options.maximum_sample_gap_m > 0.0
         ? std::min(options.maximum_sample_gap_m, dem.horizontal_resolution_m*0.5)
         : dem.horizontal_resolution_m*0.5;
@@ -184,8 +199,15 @@ TerrainProfileAssessment TerrainProfileValidator::evaluate(
             fail(result, "ROUTE_SEGMENT_GEOMETRY_DOES_NOT_MATCH_WAYPOINTS");
             return result;
         }
-        const std::size_t intervals = std::max<std::size_t>(
-            1, static_cast<std::size_t>(std::ceil(length/sampleGap)));
+        const double requiredIntervals=std::ceil(length/sampleGap);
+        if (!std::isfinite(requiredIntervals) || requiredIntervals < 1.0
+            || requiredIntervals > static_cast<double>(options.maximum_profile_samples)
+            || sampleCount + static_cast<std::size_t>(requiredIntervals)
+                > options.maximum_profile_samples) {
+            fail(result, "TERRAIN_PROFILE_SAMPLE_LIMIT_EXCEEDED");
+            return result;
+        }
+        const std::size_t intervals = static_cast<std::size_t>(requiredIntervals);
         const double actualGap = length/static_cast<double>(intervals);
         maximumGap = std::max(maximumGap, actualGap);
         for (std::size_t i=(segmentIndex==0 ? 0 : 1); i<=intervals; ++i) {
