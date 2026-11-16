@@ -10,6 +10,12 @@
 
 namespace bluesky::planning {
 
+struct MissionLifecycleAuthoritativeSources;
+struct RegulatoryComplianceAssessment;
+struct FlightProfile;
+struct VehicleCompilationInput;
+struct MissionLifecycleMt01QualityInputs;
+
 // Owns the canonical in-process lifecycle records. All state changes are
 // delegated to MissionLifecycleController; this class adds identity ownership,
 // atomic transition commits and duplicate-registration protection, not a second
@@ -22,6 +28,19 @@ public:
     // admission starts, the existing lifecycle record is immutable here.
     bool synchronizeDraftMission(const Mission& mission,
                                  std::vector<std::string>* blockers = nullptr);
+
+    MissionLifecycleTransitionResult finalizeReadyFromAuthoritativeSources(
+        const std::string& mission_id,
+        const MissionLifecycleEvidence& evidence,
+        const MissionLifecycleAuthoritativeSources& sources,
+        const RegulatoryComplianceAssessment& regulatory_assessment,
+        std::uint64_t now_epoch_s,
+        const FlightProfile& selected_flight_profile,
+        const VehicleCompilationInput& assigned_vehicle,
+        const std::string& actor_id,
+        const std::string& timestamp,
+        const std::string& reason,
+        const MissionLifecycleMt01QualityInputs* mt01_quality = nullptr);
 
     MissionLifecycleTransitionResult transition(
         const std::string& mission_id,
