@@ -51,6 +51,67 @@ bool MissionLifecycleOwner::registerMission(
     return true;
 }
 
+bool MissionLifecycleOwner::synchronizeDraftMission(
+    const Mission& mission, std::vector<std::string>* blockers)
+{
+    std::vector<std::string> localBlockers;
+    if (mission.identity.mission_id.empty())
+        localBlockers.emplace_back("MISSION_ID_REQUIRED");
+    if (mission.identity.mission_version.empty())
+        localBlockers.emplace_back("MISSION_VERSION_REQUIRED");
+
+    Mission canonical = mission;
+    synchronizeMissionLifecycleIdentity(canonical);
+    const auto& supplied = mission.lifecycle;
+    const auto& lifecycle = canonical.lifecycle;
+    if ((!supplied.mission_id.empty() && supplied.mission_id != lifecycle.mission_id)
+        || (!supplied.mission_version.empty()
+            && supplied.mission_version != lifecycle.mission_version))
+        localBlockers.emplace_back("MISSION_LIFECYCLE_IDENTITY_MISMATCH");
+    if (supplied.state != MissionLifecycleState::Draft || !supplied.history.empty()
+        || !supplied.vehicle_id.empty() || supplied.next_event_sequence != 1)
+        localBlockers.emplace_back("MISSION_LIFECYCLE_MUST_START_AS_UNBOUND_DRAFT");
+
+    if (!localBlockers.empty()) {
+        if (blockers)
+            *blockers = std::move(localBlockers);
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const auto it = m_records.find(lifecycle.mission_id);
+    if (it == m_records.end()) {
+        m_records.emplace(lifecycle.mission_id, lifecycle);
+        if (blockers)
+            blockers->clear();
+        return true;
+    }
+
+    auto& current = it->second;
+    if (current.state != MissionLifecycleState::Draft || !current.history.empty()
+        || !current.vehicle_id.empty() || current.next_event_sequence != 1) {
+        addBlocker(blockers, "MISSION_DRAFT_REVISION_NOT_ALLOWED_AFTER_ADMISSION");
+        return false;
+    }
+
+    if (current.mission_version == lifecycle.mission_version) {
+        if (current.mission_template_ids != lifecycle.mission_template_ids) {
+            addBlocker(blockers, "MISSION_DRAFT_VERSION_NOT_ADVANCED");
+            return false;
+        }
+        if (blockers)
+            blockers->clear();
+        return true;
+    }
+
+    current.parent_mission_version = current.mission_version;
+    current.mission_version = lifecycle.mission_version;
+    current.mission_template_ids = lifecycle.mission_template_ids;
+    if (blockers)
+        blockers->clear();
+    return true;
+}
+
 MissionLifecycleTransitionResult MissionLifecycleOwner::transition(
     const std::string& mission_id,
     MissionLifecycleState target,
