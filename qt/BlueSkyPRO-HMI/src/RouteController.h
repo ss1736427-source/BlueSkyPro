@@ -60,6 +60,12 @@ public:
         environmentSnapshotRefs.insert(QStringLiteral("windSnapshotId"),
                                         QString::fromStdString(m_route.environment.wind_snapshot_id));
         snapshot.insert(QStringLiteral("environmentSnapshotRefs"), environmentSnapshotRefs);
+        snapshot.insert(QStringLiteral("constraints"), QVariantMap{
+            {QStringLiteral("minimumAltitudeM"), m_route.constraints.minimum_altitude_m},
+            {QStringLiteral("maximumAltitudeM"), m_route.constraints.maximum_altitude_m},
+            {QStringLiteral("minimumClearanceM"), m_route.constraints.minimum_clearance_m},
+            {QStringLiteral("avoidRestrictedAreas"), m_route.constraints.avoid_restricted_areas}
+        });
         snapshot.insert(QStringLiteral("waypoints"), m_waypoints);
         QVariantList segmentSnapshot;
         for (const auto &segment : m_route.segments) {
@@ -103,6 +109,31 @@ public:
         const QString airspaceSnapshotId = environment.value(QStringLiteral("airspaceSnapshotId")).toString().trimmed();
         const QString weatherSnapshotId = environment.value(QStringLiteral("weatherSnapshotId")).toString().trimmed();
         const QString windSnapshotId = environment.value(QStringLiteral("windSnapshotId")).toString().trimmed();
+        RouteConstraints routeConstraints;
+        if (candidate.contains(QStringLiteral("constraints"))) {
+            const QVariantMap constraints = candidate.value(QStringLiteral("constraints")).toMap();
+            bool minimumOk = false, maximumOk = false, clearanceOk = false;
+            const double minimumAltitude =
+                constraints.value(QStringLiteral("minimumAltitudeM")).toDouble(&minimumOk);
+            const double maximumAltitude =
+                constraints.value(QStringLiteral("maximumAltitudeM")).toDouble(&maximumOk);
+            const double minimumClearance =
+                constraints.value(QStringLiteral("minimumClearanceM")).toDouble(&clearanceOk);
+            const QVariant avoidRestrictedValue =
+                constraints.value(QStringLiteral("avoidRestrictedAreas"));
+            if (!minimumOk || !maximumOk || !clearanceOk
+                || !std::isfinite(minimumAltitude) || !std::isfinite(maximumAltitude)
+                || !std::isfinite(minimumClearance) || minimumAltitude < 0.0
+                || maximumAltitude < 0.0 || minimumClearance < 0.0
+                || (maximumAltitude > 0.0 && minimumAltitude > maximumAltitude)
+                || avoidRestrictedValue.metaType().id() != QMetaType::Bool) {
+                return rejectCandidate(QStringLiteral("ROUTE_CONSTRAINTS_INVALID"));
+            }
+            routeConstraints.minimum_altitude_m = minimumAltitude;
+            routeConstraints.maximum_altitude_m = maximumAltitude;
+            routeConstraints.minimum_clearance_m = minimumClearance;
+            routeConstraints.avoid_restricted_areas = avoidRestrictedValue.toBool();
+        }
         const QVariantList points = candidate.value(QStringLiteral("waypoints")).toList();
         const QVariant completeValue =
             candidate.value(QStringLiteral("trajectoryGeometryComplete"));
@@ -200,6 +231,7 @@ public:
         m_route.environment.airspace_snapshot_id = airspaceSnapshotId.toStdString();
         m_route.environment.weather_snapshot_id = weatherSnapshotId.toStdString();
         m_route.environment.wind_snapshot_id = windSnapshotId.toStdString();
+        m_route.constraints = routeConstraints;
         std::set<std::string> segmentIds;
         for (qsizetype i = 0; i < segmentValues.size(); ++i) {
             const QVariantMap item = segmentValues.at(i).toMap();
