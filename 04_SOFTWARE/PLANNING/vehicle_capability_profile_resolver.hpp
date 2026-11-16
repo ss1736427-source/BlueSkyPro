@@ -83,6 +83,9 @@ public:
         if (provenance.profile_id.empty() || provenance.profile_revision.empty())
             result.blockers.emplace_back("CAPABILITY_PROFILE_ID_AND_REVISION_REQUIRED");
 
+        if (request.profile.identity.vehicle_id.empty())
+            result.blockers.emplace_back("VEHICLE_INSTANCE_ID_REQUIRED");
+
         if (request.profile.identity.vehicle_type_model.empty()
             || request.profile.identity.airframe_configuration.empty())
             result.blockers.emplace_back("VEHICLE_MODEL_AND_VARIANT_REQUIRED");
@@ -155,6 +158,12 @@ public:
                 result.blockers.emplace_back("PHYSICAL_PARAMETER_NOT_VERIFIED:" + required_id);
             }
         }
+
+        const double minimumSpeed = request.profile.flight.minimum_airspeed;
+        const double maximumSpeed = request.profile.flight.maximum_airspeed;
+        if (hasFinitePositiveValue(minimumSpeed) && hasFinitePositiveValue(maximumSpeed)
+            && minimumSpeed >= maximumSpeed)
+            result.blockers.emplace_back("VEHICLE_AIRSPEED_RANGE_INVALID");
 
         result.accepted = result.blockers.empty();
         return result;

@@ -302,18 +302,18 @@ OrchestratorDecision AlgorithmOrchestrator::solve(SolverContext& context) {
         if (problem.vehicle_ids.size() != 1
             || resolved.profile.identity.vehicle_id != problem.vehicle_ids.front()
             || problem.flight_safety_vehicle_id != resolved.profile.identity.vehicle_id) {
-            decision.feasibility = Feasibility::Uncertain;
+            decision.feasibility = Feasibility::Infeasible;
             decision.explanation =
                 "Расчёт остановлен: профиль возможностей не совпадает с единственным назначенным БПЛА.";
             return decision;
         }
-        if (!problem.flight_safety_envelope.has_value()
-            || resolved.profile.identity.vehicle_type_model
-                != problem.flight_safety_envelope->vehicle_model_id
-            || resolved.profile.provenance.profile_revision
-                != problem.flight_safety_envelope->model_version
-            || resolved.profile.provenance.configuration_id
-                != problem.flight_safety_envelope->configuration_id) {
+        if (problem.flight_safety_envelope.has_value()
+            && (resolved.profile.identity.vehicle_type_model
+                    != problem.flight_safety_envelope->vehicle_model_id
+                || resolved.profile.provenance.profile_revision
+                    != problem.flight_safety_envelope->model_version
+                || resolved.profile.provenance.configuration_id
+                    != problem.flight_safety_envelope->configuration_id)) {
             decision.feasibility = Feasibility::Uncertain;
             decision.explanation =
                 "Расчёт остановлен: профиль возможностей и safety envelope относятся к разным ревизиям модели или конфигурации.";

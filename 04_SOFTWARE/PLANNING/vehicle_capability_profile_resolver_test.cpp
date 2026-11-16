@@ -10,9 +10,13 @@ VehicleCapabilityProfileResolutionRequest baseRequest(MissionExecutionMode mode)
 {
     VehicleCapabilityProfileResolutionRequest request;
     request.execution_mode = mode;
+    request.profile.identity.vehicle_id = "SIM-INSTANCE-001";
     request.profile.identity.vehicle_type_model = "DJI Mavic 3 Enterprise";
     request.profile.identity.airframe_configuration = "FACTORY_VARIANT";
     request.profile.configuration.configuration_version = "factory-1";
+    request.profile.flight.minimum_airspeed = 4.0;
+    request.profile.flight.maximum_airspeed = 21.0;
+    request.profile.energy.usable_energy = 48.0;
     request.profile.provenance.profile_id = "DJI-M3E-PASSPORT";
     request.profile.provenance.profile_revision = "2026-11-15";
     request.profile.provenance.configuration_id = "DJI-M3E-FACTORY";
@@ -65,6 +69,12 @@ int main()
     assert(physicalResult.accepted);
     assert(physicalResult.vehicle_source_provenance == "PHYSICAL_LIVE");
     assert(physicalResult.release_target == "PHYSICAL_UAV");
+
+    // A provenance record cannot make a missing numeric value usable.
+    auto missingNumericValue = virtualRequest;
+    missingNumericValue.profile.energy.usable_energy = 0.0;
+    auto missingValue = VehicleCapabilityProfileResolver::resolve(missingNumericValue);
+    assert(!missingValue.accepted);
 
     // Missing required values fail closed; no implicit typical-value fallback.
     physicalRequest.profile.provenance.parameter_evidence.pop_back();
