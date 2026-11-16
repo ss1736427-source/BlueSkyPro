@@ -72,6 +72,8 @@ qt_add_executable(appBlueSkyPRO
     src/MapTilerTerrainRgbDecoder.h
     src/TerrainRgbTileMatrix.cpp
     src/TerrainRgbTileMatrix.h
+    src/TerrainDataService.cpp
+    src/TerrainDataService.h
     src/CredentialVault.cpp
     src/CredentialVault.h
     src/FaaNmsClient.cpp
@@ -170,6 +172,20 @@ target_compile_options(maptiler_terrain_rgb_decoder_test PRIVATE
     "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
 )
 add_test(NAME maptiler_terrain_rgb_decoder_contract COMMAND maptiler_terrain_rgb_decoder_test)
+
+add_executable(terrain_data_service_contract_test
+    tests/TerrainDataServiceContractTest.cpp
+    src/TerrainDataService.cpp
+    src/TerrainDataService.h
+    src/MapTilerTerrainRgbDecoder.cpp
+    src/MapTilerTerrainRgbDecoder.h
+    src/TerrainRgbTileMatrix.cpp
+    src/TerrainRgbTileMatrix.h
+)
+target_include_directories(terrain_data_service_contract_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(terrain_data_service_contract_test PRIVATE Qt6::Core Qt6::Gui Qt6::Network)
+target_compile_features(terrain_data_service_contract_test PRIVATE cxx_std_20)
+add_test(NAME terrain_data_service_contract COMMAND terrain_data_service_contract_test)
 
 add_executable(terrain_rgb_tile_matrix_test
     tests/TerrainRgbTileMatrixTest.cpp

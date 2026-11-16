@@ -19,6 +19,7 @@
 #include "ManualMissionModelAdapter.h"
 #include "RouteController.h"
 #include "TileCacheManager.h"
+#include "TerrainDataService.h"
 #include "CredentialVault.h"
 #include "FaaNmsClient.h"
 #include "WeatherDataService.h"
@@ -150,6 +151,7 @@ int main(int argc, char *argv[])
 
     writeStartupLog(QStringLiteral("CHECKPOINT: before TileCacheManager constructor"));
     TileCacheManager tileCacheManager;
+    TerrainDataService terrainDataService;
     writeStartupLog(QStringLiteral("CHECKPOINT: after TileCacheManager constructor"));
 
     writeStartupLog(QStringLiteral("CHECKPOINT: before CredentialVault constructor"));
@@ -180,6 +182,7 @@ int main(int argc, char *argv[])
     // Explicit alias avoids QML property-name shadowing in component bindings.
     engine.rootContext()->setContextProperty(QStringLiteral("canonicalRouteController"), &routeController);
     engine.rootContext()->setContextProperty(QStringLiteral("tileCacheManager"), &tileCacheManager);
+    engine.rootContext()->setContextProperty(QStringLiteral("terrainDataService"), &terrainDataService);
     engine.rootContext()->setContextProperty(QStringLiteral("credentialVault"), &credentialVault);
     engine.rootContext()->setContextProperty(QStringLiteral("faaNmsClient"), &faaNmsClient);
     engine.rootContext()->setContextProperty(QStringLiteral("weatherDataService"), &weatherDataService);
