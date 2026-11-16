@@ -97,6 +97,30 @@ int main(int argc, char *argv[])
            == QStringLiteral("terrain-snapshot-001"));
     assert(environmentSnapshotRefs.value(QStringLiteral("windSnapshotId")).toString()
            == QStringLiteral("wind-snapshot-001"));
+
+    QVariantMap constrainedCandidate = candidate();
+    constrainedCandidate.insert(QStringLiteral("constraints"), QVariantMap{
+        {QStringLiteral("minimumAltitudeM"), 50.0},
+        {QStringLiteral("maximumAltitudeM"), 150.0},
+        {QStringLiteral("minimumClearanceM"), 30.0},
+        {QStringLiteral("avoidRestrictedAreas"), true}
+    });
+    assert(controller.loadCandidate(constrainedCandidate));
+    const QVariantMap constraintSnapshot =
+        controller.routeSnapshot().value(QStringLiteral("constraints")).toMap();
+    assert(constraintSnapshot.value(QStringLiteral("minimumAltitudeM")).toDouble() == 50.0);
+    assert(constraintSnapshot.value(QStringLiteral("maximumAltitudeM")).toDouble() == 150.0);
+    assert(constraintSnapshot.value(QStringLiteral("minimumClearanceM")).toDouble() == 30.0);
+    assert(constraintSnapshot.value(QStringLiteral("avoidRestrictedAreas")).toBool());
+
+    QVariantMap invalidConstraints = constrainedCandidate;
+    QVariantMap invalidConstraintValues = invalidConstraints.value(QStringLiteral("constraints")).toMap();
+    invalidConstraintValues.insert(QStringLiteral("maximumAltitudeM"), 40.0);
+    invalidConstraints.insert(QStringLiteral("constraints"), invalidConstraintValues);
+    assert(!controller.loadCandidate(invalidConstraints));
+    assert(controller.validationReason() == QStringLiteral("ROUTE_CONSTRAINTS_INVALID"));
+    assert(controller.waypoints().isEmpty());
+    assert(controller.loadCandidate(candidate()));
     const QVariantMap snapshotWaypoint = snapshot.value(QStringLiteral("waypoints")).toList()[0].toMap();
     assert(snapshotWaypoint.value(QStringLiteral("waypointId")).toString() == QStringLiteral("WP-1"));
     assert(snapshotWaypoint.value(QStringLiteral("latitudeDeg")).toDouble() == 60.0);
