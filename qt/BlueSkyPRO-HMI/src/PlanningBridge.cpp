@@ -70,6 +70,58 @@ QVariantMap PlanningBridge::readinessSnapshot() const
     return m_readinessSnapshot;
 }
 
+bool PlanningBridge::registerMissionLifecycle(
+    const bluesky::planning::Mission& mission,
+    std::vector<std::string>* blockers)
+{
+    return m_lifecycleOwner.registerMission(mission, blockers);
+}
+
+bluesky::planning::MissionLifecycleTransitionResult
+PlanningBridge::transitionMissionLifecycle(
+    const std::string& mission_id,
+    bluesky::planning::MissionLifecycleState target,
+    const bluesky::planning::MissionLifecycleEvidence& evidence,
+    const std::string& actor_id,
+    const std::string& timestamp,
+    const std::string& reason)
+{
+    return m_lifecycleOwner.transition(
+        mission_id, target, evidence, actor_id, timestamp, reason);
+}
+
+std::optional<bluesky::planning::MissionLifecycleRecord>
+PlanningBridge::missionLifecycleSnapshot(const std::string& mission_id) const
+{
+    return m_lifecycleOwner.snapshot(mission_id);
+}
+
+bool PlanningBridge::publishOwnedLifecycleReadiness(
+    const std::string& mission_id,
+    const bluesky::planning::MissionLifecycleTransitionResult& transition,
+    const QVariantList& pilotActions)
+{
+    const auto record = m_lifecycleOwner.snapshot(mission_id);
+    if (!record) {
+        invalidateLifecycleReadiness(QStringLiteral("MISSION_NOT_REGISTERED"));
+        return false;
+    }
+    return publishLifecycleReadiness(*record, transition, pilotActions);
+}
+
+bool PlanningBridge::publishOwnedLifecycleAssessment(
+    const std::string& mission_id,
+    const bluesky::planning::MissionLifecycleTransitionResult& assessment,
+    const QVariantList& pilotActions)
+{
+    const auto record = m_lifecycleOwner.snapshot(mission_id);
+    if (!record) {
+        invalidateLifecycleReadiness(QStringLiteral("MISSION_NOT_REGISTERED"));
+        return false;
+    }
+    return publishLifecycleAssessment(*record, assessment, pilotActions);
+}
+
 void PlanningBridge::invalidateLifecycleReadiness(const QString &reason)
 {
     QVariantMap snapshot{
