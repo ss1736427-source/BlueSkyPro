@@ -5,6 +5,7 @@
 #include <QJsonObject>
 
 #include <array>
+#include <cmath>
 
 namespace
 {
@@ -81,11 +82,19 @@ bool PlanningBridge::synchronizeDraftMissionLifecycle(const QString& missionMode
     const QJsonObject root = document.object();
     const QString missionId = root.value(QStringLiteral("missionId")).toString().trimmed();
     const QJsonValue versionValue = root.value(QStringLiteral("missionVersion"));
+    const double versionNumber = versionValue.toDouble(-1.0);
     const QString missionVersion = versionValue.isString()
         ? versionValue.toString().trimmed()
-        : (versionValue.isDouble() && versionValue.toInt() > 0
-            ? QString::number(versionValue.toInt()) : QString());
+        : (versionValue.isDouble() && versionNumber > 0.0
+            && std::floor(versionNumber) == versionNumber
+            ? QString::number(static_cast<qlonglong>(versionNumber)) : QString());
     const QJsonObject lifecycleJson = root.value(QStringLiteral("lifecycle")).toObject();
+    const QJsonValue lifecycleVersionValue = lifecycleJson.value(QStringLiteral("missionVersion"));
+    const QString lifecycleVersion = lifecycleVersionValue.isString()
+        ? lifecycleVersionValue.toString().trimmed()
+        : (lifecycleVersionValue.isDouble()
+            && lifecycleVersionValue.toDouble(-1.0) == versionNumber
+            ? QString::number(static_cast<qlonglong>(versionNumber)) : QString());
     const QJsonObject executionContext = root.value(QStringLiteral("executionContext")).toObject();
     const QString mode = executionContext.value(QStringLiteral("mode")).toString();
     const bool virtualMode = mode == QLatin1String("VIRTUAL");
@@ -94,7 +103,7 @@ bool PlanningBridge::synchronizeDraftMissionLifecycle(const QString& missionMode
     if (missionId.isEmpty() || missionVersion.isEmpty()
         || lifecycleJson.value(QStringLiteral("state")).toString() != QLatin1String("DRAFT")
         || lifecycleJson.value(QStringLiteral("missionId")).toString() != missionId
-        || lifecycleJson.value(QStringLiteral("missionVersion")).toVariant().toString() != missionVersion
+        || lifecycleVersion != missionVersion
         || !lifecycleJson.value(QStringLiteral("history")).toArray().isEmpty()
         || lifecycleJson.value(QStringLiteral("nextEventSequence")).toInt() != 1
         || (!virtualMode && !physicalMode)
@@ -102,6 +111,8 @@ bool PlanningBridge::synchronizeDraftMissionLifecycle(const QString& missionMode
             != (virtualMode ? QLatin1String("SIL_FIXTURE") : QLatin1String("PHYSICAL_LIVE"))
         || executionContext.value(QStringLiteral("releaseTarget")).toString()
             != (virtualMode ? QLatin1String("SIMULATOR_ONLY") : QLatin1String("PHYSICAL_UAV"))
+        || executionContext.value(QStringLiteral("authorizationPath")).toString()
+            != (virtualMode ? QLatin1String("NOT_APPLICABLE") : QLatin1String("EXTERNAL_REGULATORY"))
         || executionContext.value(QStringLiteral("esorvdSubmissionAllowed")).toBool() == virtualMode) {
         emit bridgeError(QStringLiteral("MISSION_DRAFT_EXECUTION_CONTEXT_INVALID"));
         return false;
