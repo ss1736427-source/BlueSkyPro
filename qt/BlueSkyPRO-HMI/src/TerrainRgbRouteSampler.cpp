@@ -28,10 +28,6 @@ struct Coordinate {
     double longitude{0.0};
 };
 
-struct Tile {
-    QImage image;
-};
-
 double radians(double degrees) { return degrees * kPi / 180.0; }
 
 double haversineDistance(const Coordinate &a, const Coordinate &b)
@@ -46,7 +42,6 @@ double haversineDistance(const Coordinate &a, const Coordinate &b)
     return 2.0 * kEarthRadiusM * std::asin(std::sqrt(std::clamp(h, 0.0, 1.0)));
 }
 
-// Spherical interpolation avoids the long-way-around error at the antimeridian.
 Coordinate interpolateGreatCircle(const Coordinate &a, const Coordinate &b, double t)
 {
     const double lat1 = radians(a.latitude);
@@ -82,10 +77,35 @@ QString tileKey(int zoom, int x, int y)
     return QStringLiteral("%1/%2/%3").arg(zoom).arg(x).arg(y);
 }
 
-bool sampleCoordinate(const Coordinate &coordinate, int zoom, int tileSize,
-                      const QHash<QString, Tile> &tiles, double *elevation)
+bool sampleWorldPixel(int zoom, int tileSize, const QHash<QString, QImage> &tiles,
+                      qint64 worldPixelX, qint64 worldPixelY, double *elevation)
 {
-    const int tileCount = 1 << zoom;
+    const qint64 worldSize = static_cast<qint64>(1 << zoom) * tileSize;
+    if (worldSize <= 0 || !elevation)
+        return false;
+    worldPixelX %= worldSize;
+    if (worldPixelX < 0)
+        worldPixelX += worldSize;
+    worldPixelY = std::clamp<qint64>(worldPixelY, 0, worldSize - 1);
+    const int tileX = static_cast<int>(worldPixelX / tileSize);
+    const int tileY = static_cast<int>(worldPixelY / tileSize);
+    const int pixelX = static_cast<int>(worldPixelX % tileSize);
+    const int pixelY = static_cast<int>(worldPixelY % tileSize);
+    const auto it = tiles.constFind(tileKey(zoom, tileX, tileY));
+    if (it == tiles.cend() || it->isNull())
+        return false;
+    const QRgb pixel = it->pixel(pixelX, pixelY);
+    if (qAlpha(pixel) == 0)
+        return false;
+    *elevation = MapTilerTerrainRgbDecoder::decodeElevation(
+        qRed(pixel), qGreen(pixel), qBlue(pixel));
+    return std::isfinite(*elevation);
+}
+
+bool sampleCoordinate(const Coordinate &coordinate, int zoom, int tileSize,
+                      const QHash<QString, QImage> &tiles, double *elevation)
+{
+    const qint64 worldSize = static_cast<qint64>(1 << zoom) * tileSize;
     const double latitude = std::clamp(coordinate.latitude,
                                        -kMercatorLatitudeLimit,
                                        kMercatorLatitudeLimit);
@@ -94,25 +114,28 @@ bool sampleCoordinate(const Coordinate &coordinate, int zoom, int tileSize,
         longitude += 360.0;
     longitude -= 180.0;
     const bool positiveDateLine = coordinate.longitude >= 180.0 - 1e-12;
-    const double worldX = (longitude + 180.0) / 360.0
-        * static_cast<double>(tileCount * tileSize);
+    const double worldX = positiveDateLine ? static_cast<double>(worldSize - 1)
+        : (longitude + 180.0) / 360.0 * static_cast<double>(worldSize);
     const double latRad = radians(latitude);
     const double worldY = (1.0 - std::asinh(std::tan(latRad)) / kPi) / 2.0
-        * static_cast<double>(tileCount * tileSize);
-    const int x = positiveDateLine ? tileCount - 1
-        : (static_cast<int>(std::floor(worldX / tileSize)) % tileCount + tileCount) % tileCount;
-    const int y = std::clamp(static_cast<int>(std::floor(worldY / tileSize)),
-                             0, tileCount - 1);
-    const auto it = tiles.constFind(tileKey(zoom, x, y));
-    if (it == tiles.cend())
+        * static_cast<double>(worldSize);
+    const qint64 x0 = static_cast<qint64>(std::floor(worldX));
+    const qint64 y0 = std::clamp<qint64>(
+        static_cast<qint64>(std::floor(worldY)), 0, worldSize - 1);
+    const qint64 x1 = (x0 + 1) % worldSize;
+    const qint64 y1 = std::min<qint64>(y0 + 1, worldSize - 1);
+    const double tx = worldX - std::floor(worldX);
+    const double ty = std::clamp(worldY - std::floor(worldY), 0.0, 1.0);
+
+    double values[4]{};
+    if (!sampleWorldPixel(zoom, tileSize, tiles, x0, y0, &values[0])
+        || !sampleWorldPixel(zoom, tileSize, tiles, x1, y0, &values[1])
+        || !sampleWorldPixel(zoom, tileSize, tiles, x0, y1, &values[2])
+        || !sampleWorldPixel(zoom, tileSize, tiles, x1, y1, &values[3]))
         return false;
-    const double pixelX = positiveDateLine ? static_cast<double>(tileSize - 1)
-        : std::clamp(worldX - std::floor(worldX / tileSize) * tileSize,
-                     0.0, static_cast<double>(tileSize - 1));
-    const double pixelY = std::clamp(worldY - std::floor(worldY / tileSize) * tileSize,
-                                     0.0, static_cast<double>(tileSize - 1));
-    return MapTilerTerrainRgbDecoder::sampleElevation(
-        it->image, pixelX, pixelY, elevation, nullptr);
+    *elevation = (1.0 - ty) * ((1.0 - tx) * values[0] + tx * values[1])
+        + ty * ((1.0 - tx) * values[2] + tx * values[3]);
+    return std::isfinite(*elevation);
 }
 }
 
@@ -141,7 +164,7 @@ bool TerrainRgbRouteSampler::sampleRoute(const QVariantMap &routeSnapshot,
         return false;
     }
 
-    QHash<QString, Tile> tiles;
+    QHash<QString, QImage> tiles;
     int tileSize = 0;
     for (const QVariant &entry : tileManifest) {
         const QVariantMap metadata = entry.toMap();
@@ -155,7 +178,8 @@ bool TerrainRgbRouteSampler::sampleRoute(const QVariantMap &routeSnapshot,
         const int y = metadata.value(QStringLiteral("y"), -1).toInt();
         const QString path = metadata.value(QStringLiteral("cachePath")).toString();
         QFile file(path);
-        if (x < 0 || y < 0 || path.isEmpty() || !file.open(QIODevice::ReadOnly)) {
+        if (x < 0 || x >= (1 << zoom) || y < 0 || y >= (1 << zoom)
+            || path.isEmpty() || !file.open(QIODevice::ReadOnly)) {
             setError(error, QStringLiteral("TERRAIN_TILE_CACHE_ENTRY_UNAVAILABLE"));
             return false;
         }
@@ -170,9 +194,43 @@ bool TerrainRgbRouteSampler::sampleRoute(const QVariantMap &routeSnapshot,
             setError(error, QStringLiteral("MIXED_TERRAIN_TILE_DIMENSIONS"));
             return false;
         }
-        tiles.insert(tileKey(zoom, x, y), Tile{image});
+        tiles.insert(tileKey(zoom, x, y), image);
     }
     if (tiles.isEmpty() || tileSize < 2) {
+        setError(error, QStringLiteral("TERRAIN_TILE_SET_EMPTY"));
+        return false;
+    }
+    return sampleRouteFromDecodedTiles(routeSnapshot, zoom, tiles, samples,
+                                        error, maximumSpacingM, maximumSamples);
+}
+
+bool TerrainRgbRouteSampler::sampleRouteFromDecodedTiles(
+    const QVariantMap &routeSnapshot, int zoom,
+    const QHash<QString, QImage> &tiles, QVariantList *samples,
+    QString *error, double maximumSpacingM, int maximumSamples)
+{
+    if (!samples || !std::isfinite(maximumSpacingM) || maximumSpacingM <= 0.0
+        || maximumSamples < 2 || zoom < 0 || zoom > 14) {
+        setError(error, QStringLiteral("INVALID_SAMPLER_ARGUMENTS"));
+        return false;
+    }
+    samples->clear();
+    if (routeSnapshot.value(QStringLiteral("coordinateReferenceSystem")).toString()
+            != QStringLiteral("EPSG:4326")) {
+        setError(error, QStringLiteral("ROUTE_CRS_MUST_BE_EPSG_4326"));
+        return false;
+    }
+    int tileSize = 0;
+    for (auto it = tiles.cbegin(); it != tiles.cend(); ++it) {
+        if (it.value().isNull() || it.value().width() != it.value().height()
+            || it.value().width() < 2
+            || (tileSize != 0 && it.value().width() != tileSize)) {
+            setError(error, QStringLiteral("INVALID_DECODED_TILE_SET"));
+            return false;
+        }
+        tileSize = it.value().width();
+    }
+    if (tiles.isEmpty()) {
         setError(error, QStringLiteral("TERRAIN_TILE_SET_EMPTY"));
         return false;
     }
