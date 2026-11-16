@@ -357,6 +357,13 @@ int main()
     assert(fixedWingResult.speed_profile_available);
     assert(fixedWingResult.route_candidate.route.speed_profile.has_value());
     assert(fixedWingResult.speed_profile.status == SpeedProfileStatus::Feasible);
+    assert(fixedWingResult.speed_profile.profile_id
+           == "MISSION-FIXED-WING:MT01-ROUTE-PIPELINE-TEST:1:speed-profile");
+    assert(fixedWingResult.speed_profile.profile_version == "INPUT-PIPELINE-TEST-1");
+    assert(fixedWingResult.route_candidate.route.speed_profile->profile_id
+           == fixedWingResult.speed_profile.profile_id);
+    assert(fixedWingResult.route_candidate.route.speed_profile->profile_version
+           == fixedWingResult.speed_profile.profile_version);
     for (std::size_t i = 0; i < fixedWingResult.kinematic_geometry.segments.size(); ++i) {
         const auto& segment = fixedWingResult.kinematic_geometry.segments[i];
 

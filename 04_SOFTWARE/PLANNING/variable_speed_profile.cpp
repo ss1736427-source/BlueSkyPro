@@ -7,9 +7,11 @@ SpeedProfileResult VariableSpeedProfileSolver::calculate(const SpeedProfileInput
  SpeedProfileResult out;
  out.vehicle_model_id=input.vehicle_model_id; out.vehicle_model_version=input.vehicle_model_version;
  out.configuration_id=input.configuration_id; out.speed_reference=input.speed_reference;
+ out.profile_id=input.profile_id; out.profile_version=input.profile_version;
  out.dynamics_source=input.longitudinal_dynamics_source;
  const auto fail=[&](const std::string& why){ out.status=SpeedProfileStatus::Infeasible; out.segments.clear(); out.findings.push_back(why); return out; };
  if(input.vehicle_model_id.empty()||input.vehicle_model_version.empty()||input.configuration_id.empty()||
+    input.profile_id.empty()||input.profile_version.empty()||
     (input.speed_reference!="TAS"&&input.speed_reference!="AIR_RELATIVE"))
   return fail("SPEED_PROFILE_VEHICLE_BINDING_INVALID: exact vehicle/configuration and explicit air-relative speed reference are required.");
  if(!input.longitudinal_dynamics_validated||input.longitudinal_dynamics_source.empty()||

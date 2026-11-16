@@ -85,6 +85,7 @@ Mt01RouteCandidateResult Mt01RouteCandidateBuilder::build(
             || speedProfile->vehicle_model_version != geometry.vehicle_model_version
             || speedProfile->configuration_id.empty()
             || speedProfile->configuration_id != geometry.vehicle_configuration_id
+            || speedProfile->profile_id.empty() || speedProfile->profile_version.empty()
             || speedProfile->dynamics_source.empty()
             || (speedProfile->speed_reference != "TAS"
                 && speedProfile->speed_reference != "AIR_RELATIVE")
@@ -123,6 +124,8 @@ Mt01RouteCandidateResult Mt01RouteCandidateBuilder::build(
         boundProfile.configuration_id = speedProfile->configuration_id;
         boundProfile.speed_reference = speedProfile->speed_reference;
         boundProfile.dynamics_source = speedProfile->dynamics_source;
+        boundProfile.profile_id = speedProfile->profile_id;
+        boundProfile.profile_version = speedProfile->profile_version;
         boundProfile.segments.reserve(speedProfile->segments.size());
         double previousExitSpeed = 0.0;
         for (std::size_t i = 0; i < speedProfile->segments.size(); ++i) {

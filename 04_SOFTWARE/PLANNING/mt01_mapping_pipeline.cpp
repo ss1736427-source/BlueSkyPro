@@ -269,6 +269,9 @@ Mt01MappingPipelineResult Mt01MappingPipeline::calculate(
                 profileInput.vehicle_model_version = request.vehicle_motion_model.model_version;
                 profileInput.configuration_id = request.vehicle_motion_model.configuration_id;
                 profileInput.speed_reference = request.vehicle_motion_model.speed_reference;
+                profileInput.profile_id = mission.identity.mission_id + ":"
+                    + routeMetadata.route_id + ":" + routeMetadata.route_version + ":speed-profile";
+                profileInput.profile_version = routeMetadata.calculation_input_version;
                 profileInput.longitudinal_dynamics_validated = true;
                 profileInput.longitudinal_dynamics_source = request.longitudinal_dynamics_source;
                 profileInput.maximum_acceleration_mps2 = request.maximum_acceleration_mps2;
