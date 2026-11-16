@@ -60,12 +60,16 @@ int main()
         ridge.elevation_m[row*ridge.columns+55]=145.0;
     const auto ridgeResult=TerrainProfileValidator::evaluate(route,ridge);
     assert(!ridgeResult.validation.passed);
+    assert(ridgeResult.snapshot.coverage_complete);
     assert(!ridgeResult.findings.empty());
+    assert(makeTerrainValidationEvidence(route,ridgeResult.snapshot,ridgeResult.validation).status
+        ==MissionLifecycleValidationStatus::Failed);
 
     auto noData=dem;
     noData.elevation_m[55*noData.columns+55]=std::numeric_limits<double>::quiet_NaN();
     const auto noDataResult=TerrainProfileValidator::evaluate(route,noData);
     assert(!noDataResult.validation.passed);
+    assert(!noDataResult.snapshot.coverage_complete);
 
     auto stale=dem;
     stale.snapshot_id="DEM-OTHER";
@@ -83,6 +87,14 @@ int main()
     auto badDatum=route;
     badDatum.waypoints[0].altitude_reference=AltitudeReference::AMSL;
     assert(!TerrainProfileValidator::evaluate(badDatum,dem).validation.passed);
+
+    auto coarseGrid=dem;
+    coarseGrid.horizontal_resolution_m=100.0;
+    assert(!TerrainProfileValidator::evaluate(route,coarseGrid).validation.passed);
+
+    TerrainProfileValidationOptions capped;
+    capped.maximum_profile_samples=2;
+    assert(!TerrainProfileValidator::evaluate(route,dem,capped).validation.passed);
 
     return 0;
 }
