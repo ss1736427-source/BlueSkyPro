@@ -82,7 +82,8 @@ bool PlanningBridge::synchronizeDraftMissionLifecycle(const QString& missionMode
     const QJsonObject root = document.object();
     const QString missionId = root.value(QStringLiteral("missionId")).toString().trimmed();
     const QJsonValue versionValue = root.value(QStringLiteral("missionVersion"));
-    const double versionNumber = versionValue.toDouble(-1.0);
+    const double versionNumber = versionValue.isString()
+        ? versionValue.toString().toDouble() : versionValue.toDouble(-1.0);
     const QString missionVersion = versionValue.isString()
         ? versionValue.toString().trimmed()
         : (versionValue.isDouble() && versionNumber > 0.0
