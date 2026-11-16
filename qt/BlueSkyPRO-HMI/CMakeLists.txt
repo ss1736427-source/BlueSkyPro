@@ -185,6 +185,8 @@ add_executable(planning_bridge_readiness_gate_test
     src/PlanningBridge.h
     ../../04_SOFTWARE/PLANNING/mission_lifecycle.cpp
     ../../04_SOFTWARE/PLANNING/mission_lifecycle.hpp
+    ../../04_SOFTWARE/PLANNING/mission_lifecycle_owner.cpp
+    ../../04_SOFTWARE/PLANNING/mission_lifecycle_owner.hpp
 )
 target_link_libraries(planning_bridge_readiness_gate_test PRIVATE Qt6::Core)
 target_include_directories(planning_bridge_readiness_gate_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
