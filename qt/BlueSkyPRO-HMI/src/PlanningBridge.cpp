@@ -1,4 +1,5 @@
 #include "PlanningBridge.h"
+#include "../../../04_SOFTWARE/PLANNING/mission_lifecycle_validation_coordinator.hpp"
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -172,6 +173,35 @@ PlanningBridge::transitionMissionLifecycle(
 {
     return m_lifecycleOwner.transition(
         mission_id, target, evidence, actor_id, timestamp, reason);
+}
+
+bluesky::planning::MissionLifecycleTransitionResult
+PlanningBridge::finalizeMissionReadyFromAuthoritativeSources(
+    const std::string& mission_id,
+    const bluesky::planning::MissionLifecycleEvidence& evidence,
+    const bluesky::planning::MissionLifecycleAuthoritativeSources& sources,
+    const bluesky::planning::RegulatoryComplianceAssessment& regulatory_assessment,
+    std::uint64_t now_epoch_s,
+    const bluesky::planning::FlightProfile& selected_flight_profile,
+    const bluesky::planning::VehicleCompilationInput& assigned_vehicle,
+    const std::string& actor_id,
+    const std::string& timestamp,
+    const std::string& reason,
+    const bluesky::planning::MissionLifecycleMt01QualityInputs* mt01_quality,
+    const QVariantList& pilotActions)
+{
+    const auto transition = m_lifecycleOwner.finalizeReadyFromAuthoritativeSources(
+        mission_id, evidence, sources, regulatory_assessment, now_epoch_s,
+        selected_flight_profile, assigned_vehicle, actor_id, timestamp,
+        reason, mt01_quality);
+    if (transition.accepted) {
+        publishOwnedLifecycleReadiness(mission_id, transition, pilotActions);
+    } else {
+        // A failed assessment can expose pilot-owned actions, but it never
+        // grants READY. System-completed checks stay out of this list.
+        publishOwnedLifecycleAssessment(mission_id, transition, pilotActions);
+    }
+    return transition;
 }
 
 std::optional<bluesky::planning::MissionLifecycleRecord>
