@@ -12,7 +12,7 @@ namespace bluesky::planning {
 
 // Owns the canonical in-process lifecycle records. All state changes are
 // delegated to MissionLifecycleController; this class adds identity ownership,
-// atomic persistence and duplicate-registration protection, not a second
+// atomic transition commits and duplicate-registration protection, not a second
 // transition policy.
 class MissionLifecycleOwner final {
 public:
