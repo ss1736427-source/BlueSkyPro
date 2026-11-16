@@ -1,10 +1,10 @@
 #pragma once
 
+#include <QByteArray>
 #include <QHash>
 #include <QNetworkAccessManager>
 #include <QObject>
 #include <QQueue>
-#include <QSet>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -66,7 +66,6 @@ private:
     QNetworkAccessManager m_network;
     QQueue<TileRequest> m_queue;
     QHash<QNetworkReply *, ActiveRequest> m_active;
-    QSet<QString> m_pendingKeys;
     QVariantList m_completed;
     QString m_missionId;
     QString m_cacheDirectory;
@@ -76,7 +75,6 @@ private:
     int m_zoom{0};
     int m_completedCount{0};
     int m_totalCount{0};
-    int m_activeCount{0};
     bool m_cancelled{false};
     static constexpr int kMaximumTiles = 256;
     static constexpr int kMaximumConcurrent = 4;

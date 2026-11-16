@@ -86,7 +86,6 @@ bool TerrainDataService::requestVisualContextTiles(
     m_apiKey = apiKey;
     m_cancelled = false;
     m_completed.clear();
-    m_pendingKeys.clear();
     m_completedCount = 0;
     m_totalCount = coordinates.size();
 
@@ -108,7 +107,6 @@ bool TerrainDataService::requestVisualContextTiles(
             ++m_completedCount;
         } else {
             m_queue.enqueue({coordinate.x, coordinate.y, 0});
-            m_pendingKeys.insert(key);
         }
     }
 
@@ -140,9 +138,12 @@ void TerrainDataService::startTile(const TileRequest &tile)
     if (!url.isValid()) {
         setError(QStringLiteral("TERRAIN_TILE_URL_INVALID"));
         setState(QStringLiteral("FAILED"));
+        m_cancelled = true;
         m_apiKey.clear();
-        emit missionTilesFailed(m_missionId, urlError);
         m_queue.clear();
+        for (auto *pending : m_active.keys())
+            pending->abort();
+        emit missionTilesFailed(m_missionId, urlError);
         return;
     }
 
@@ -202,8 +203,12 @@ void TerrainDataService::finishTile(QNetworkReply *reply)
         if (!QDir().mkpath(QFileInfo(path).absolutePath())) {
             setError(QStringLiteral("TERRAIN_CACHE_DIRECTORY_UNAVAILABLE"));
             setState(QStringLiteral("FAILED"));
-            emit missionTilesFailed(m_missionId, lastError());
+            m_cancelled = true;
+            m_apiKey.clear();
             m_queue.clear();
+            for (auto *pending : m_active.keys())
+                pending->abort();
+            emit missionTilesFailed(m_missionId, lastError());
             return;
         }
         QSaveFile file(path);
@@ -266,7 +271,6 @@ void TerrainDataService::cancelMission(const QString &missionId)
     for (auto *reply : m_active.keys())
         reply->abort();
     m_active.clear();
-    m_pendingKeys.clear();
     m_apiKey.clear();
     setState(QStringLiteral("CANCELLED"));
     emit missionCancelled(m_missionId);
