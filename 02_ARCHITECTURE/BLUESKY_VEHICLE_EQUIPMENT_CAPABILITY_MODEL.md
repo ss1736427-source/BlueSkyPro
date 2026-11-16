@@ -198,3 +198,25 @@ Allocation shall consider:
 ## 12. Autopilot independence
 
 The capability model shall not embed ArduPilot-, PX4- or OEM-specific assumptions into the mission model.
+
+
+## 13. Execution-mode-specific capability provenance
+
+Capability profile resolution is mode-aware and fail-closed. The execution mode is an explicit input; a resolver must never infer or silently switch it.
+
+**VIRTUAL**
+- A new virtual aircraft may use the selected model/variant's manufacturer-published passport characteristics.
+- The profile must pin the manufacturer source, source revision, model/variant, configuration revision and profile revision.
+- Parameters calculated from a simulation assumption must be individually marked `DerivedSimulationEstimate`, with a traceable method/source revision. They are not manufacturer facts and must not be marked verified.
+- Every parameter required by the current task and its validators must have admissible evidence. Missing values are blockers; generic or typical values must not be inserted implicitly.
+- The resolved execution provenance is `SIL_FIXTURE` and the release target is `SIMULATOR_ONLY`.
+
+**PHYSICAL**
+- Only the exact identified airframe and its verified installed configuration may supply the operational capability profile.
+- Required parameter evidence must be tied to that physical configuration and explicitly verified. Manufacturer passport data may describe the model but cannot satisfy physical operational validation.
+- Missing identity, configuration, battery/energy state, equipment verification or required capability evidence blocks the relevant admission/validation.
+- The resolved execution provenance is `PHYSICAL_LIVE` and the release target is `PHYSICAL_UAV`.
+
+A VIRTUAL-to-PHYSICAL mode change invalidates the virtual profile resolution and all dependent calculations/attestations. The physical profile must be resolved again from the identified aircraft; no SIL result is promoted to physical evidence.
+
+Published manufacturer maxima are reference facts, not automatically safe operating limits. The planning/validation chain must use task-applicable operational limits and explicit conservative simulation assumptions. A profile resolver establishes source admissibility; it does not replace flight-envelope, energy-reserve, equipment, task-quality or lifecycle validation.

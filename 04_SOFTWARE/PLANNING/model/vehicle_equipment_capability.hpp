@@ -93,12 +93,42 @@ struct VehicleConfiguration {
     bool valid_for_mission{};
 };
 
+
+enum class CapabilityParameterSource {
+    Unknown,
+    ManufacturerPassport,
+    DerivedSimulationEstimate,
+    PhysicalConfigurationVerified
+};
+
+struct CapabilityParameterEvidence {
+    std::string parameter_id;
+    CapabilityParameterSource source{CapabilityParameterSource::Unknown};
+    std::string source_reference;
+    std::string source_revision;
+    bool verified{false};
+};
+
+struct VehicleCapabilityProfileProvenance {
+    // REFERENCE_PASSPORT or PHYSICAL_CONFIGURATION_VERIFIED.
+    std::string source_kind;
+    std::string source_reference;
+    std::string source_revision;
+    std::string profile_id;
+    std::string profile_revision;
+    std::string configuration_id;
+    std::string configuration_revision;
+    bool configuration_verified{false};
+    std::vector<CapabilityParameterEvidence> parameter_evidence;
+};
+
 struct VehicleEquipmentCapabilityProfile {
     VehicleIdentity identity;
     FlightCapability flight;
     EnergyCapability energy;
     PropulsionResourceCapability propulsion_resource;
     VehicleConfiguration configuration;
+    VehicleCapabilityProfileProvenance provenance;
 };
 
 } // namespace bluesky::planning

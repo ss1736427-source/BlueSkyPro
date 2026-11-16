@@ -265,6 +265,13 @@ add_executable(vehicle_equipment_capability_contract_test
 )
 target_link_libraries(vehicle_equipment_capability_contract_test PRIVATE bluesky_planning)
 
+add_executable(vehicle_capability_profile_resolver_test
+    vehicle_capability_profile_resolver_test.cpp
+)
+target_link_libraries(vehicle_capability_profile_resolver_test PRIVATE bluesky_planning)
+add_test(NAME vehicle_capability_profile_resolver_contract
+    COMMAND vehicle_capability_profile_resolver_test)
+
 add_executable(vehicle_motion_model_test vehicle_motion_model_test.cpp)
 target_link_libraries(vehicle_motion_model_test PRIVATE bluesky_planning)
 
