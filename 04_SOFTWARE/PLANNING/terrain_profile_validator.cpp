@@ -255,7 +255,7 @@ TerrainProfileAssessment TerrainProfileValidator::evaluate(
         && std::isfinite(route.constraints.minimum_clearance_m)
         && route.constraints.minimum_clearance_m >= 0.0
         && minimumClearance >= route.constraints.minimum_clearance_m;
-    if (!validation.passed && validation.findings.empty())
+    if (!validation.passed && validation.findings_empty)
         fail(result, "MINIMUM_TERRAIN_CLEARANCE_NOT_MET");
     validation.findings_empty = result.findings.empty();
     validation.passed = validation.passed && validation.findings_empty;
