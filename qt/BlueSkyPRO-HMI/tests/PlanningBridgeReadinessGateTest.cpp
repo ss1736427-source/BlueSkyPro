@@ -298,6 +298,56 @@ static void testExternalPlanningResultInvalidatesLifecycleSnapshot()
         QStringLiteral("PLANNING_RESULT_CHANGED_REQUIRES_CPP_FINALIZATION")));
 }
 
+static void testHmiDraftJsonIsSynchronizedIntoLifecycleOwner()
+{
+    using namespace bluesky::planning;
+    PlanningBridge bridge;
+    const QString virtualDraft = QStringLiteral(
+        "{\"missionId\":\"JSON-DRAFT-VF\",\"missionVersion\":1,"
+        "\"missionMode\":\"AUTO\",\"selectedTemplateIds\":[\"MT-01\"],"
+        "\"lifecycle\":{\"missionId\":\"JSON-DRAFT-VF\",\"missionVersion\":1,"
+        "\"state\":\"DRAFT\",\"nextEventSequence\":1,\"history\":[]},"
+        "\"executionContext\":{\"mode\":\"VIRTUAL\","
+        "\"vehicleSourceProvenanceRequired\":\"SIL_FIXTURE\","
+        "\"releaseTarget\":\"SIMULATOR_ONLY\","
+        "\"authorizationPath\":\"NOT_APPLICABLE\",\"esorvdSubmissionAllowed\":false}}");
+    assert(bridge.synchronizeDraftMissionLifecycle(virtualDraft));
+
+    auto snapshot = bridge.missionLifecycleSnapshot("JSON-DRAFT-VF");
+    assert(snapshot.has_value());
+    assert(snapshot->state == MissionLifecycleState::Draft);
+    assert(snapshot->mission_version == "1");
+    assert(snapshot->mission_template_ids.size() == 1);
+
+    const QString revisedDraft = QStringLiteral(
+        "{\"missionId\":\"JSON-DRAFT-VF\",\"missionVersion\":2,"
+        "\"missionMode\":\"AUTO\",\"selectedTemplateIds\":[\"MT-01\",\"MT-03\"],"
+        "\"lifecycle\":{\"missionId\":\"JSON-DRAFT-VF\",\"missionVersion\":2,"
+        "\"state\":\"DRAFT\",\"nextEventSequence\":1,\"history\":[]},"
+        "\"executionContext\":{\"mode\":\"VIRTUAL\","
+        "\"vehicleSourceProvenanceRequired\":\"SIL_FIXTURE\","
+        "\"releaseTarget\":\"SIMULATOR_ONLY\","
+        "\"authorizationPath\":\"NOT_APPLICABLE\",\"esorvdSubmissionAllowed\":false}}");
+    assert(bridge.synchronizeDraftMissionLifecycle(revisedDraft));
+    snapshot = bridge.missionLifecycleSnapshot("JSON-DRAFT-VF");
+    assert(snapshot.has_value());
+    assert(snapshot->mission_version == "2");
+    assert(snapshot->parent_mission_version == "1");
+    assert(snapshot->mission_template_ids.size() == 2);
+
+    const QString unsafeDraft = QStringLiteral(
+        "{\"missionId\":\"JSON-UNSAFE-VF\",\"missionVersion\":1,"
+        "\"selectedTemplateIds\":[\"MT-01\"],"
+        "\"lifecycle\":{\"missionId\":\"JSON-UNSAFE-VF\",\"missionVersion\":1,"
+        "\"state\":\"DRAFT\",\"nextEventSequence\":1,\"history\":[]},"
+        "\"executionContext\":{\"mode\":\"VIRTUAL\","
+        "\"vehicleSourceProvenanceRequired\":\"SIL_FIXTURE\","
+        "\"releaseTarget\":\"SIMULATOR_ONLY\","
+        "\"esorvdSubmissionAllowed\":true}}");
+    assert(!bridge.synchronizeDraftMissionLifecycle(unsafeDraft));
+    assert(!bridge.missionLifecycleSnapshot("JSON-UNSAFE-VF").has_value());
+}
+
 static void testPlanningBridgeOwnsCanonicalMissionLifecycle()
 {
     using namespace bluesky::planning;
@@ -363,5 +413,6 @@ int main(int argc, char **argv)
     testValidatingAssessmentRejectsStaleLineage();
     testExternalPlanningResultInvalidatesLifecycleSnapshot();
     testPlanningBridgeOwnsCanonicalMissionLifecycle();
+    testHmiDraftJsonIsSynchronizedIntoLifecycleOwner();
     return 0;
 }
