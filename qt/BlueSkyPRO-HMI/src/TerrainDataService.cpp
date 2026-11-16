@@ -217,8 +217,12 @@ void TerrainDataService::finishTile(QNetworkReply *reply)
             || !file.commit()) {
             setError(QStringLiteral("TERRAIN_CACHE_WRITE_FAILED"));
             setState(QStringLiteral("FAILED"));
-            emit missionTilesFailed(m_missionId, lastError());
+            m_cancelled = true;
+            m_apiKey.clear();
             m_queue.clear();
+            for (auto *pending : m_active.keys())
+                pending->abort();
+            emit missionTilesFailed(m_missionId, lastError());
             return;
         }
         m_completed.append(QVariantMap{
