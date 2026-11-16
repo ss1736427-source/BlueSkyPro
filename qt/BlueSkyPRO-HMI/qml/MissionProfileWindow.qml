@@ -894,7 +894,7 @@ Item {
             root.visualTerrainProfileStatus = "READY_VISUAL_ONLY"
         }
         function onMissionVisualProfileFailed(missionId, routeId, routeVersion, reason) {
-            if (String(missionId) !== String(root.missionId)
+            if (String(missionId) !== root.visualTerrainProfileMissionId
                     || String(routeId) !== root.visualTerrainProfileRouteId
                     || String(routeVersion) !== root.visualTerrainProfileRouteVersion)
                 return
