@@ -46,6 +46,8 @@ int main()
     speedProfile.configuration_id="CFG-01";
     speedProfile.speed_reference="AIR_RELATIVE";
     speedProfile.dynamics_source="CONTROLLED-TEST-DYNAMICS";
+    speedProfile.profile_id="ROUTE-01:SPEED-PROFILE";
+    speedProfile.profile_version="INPUT-01";
     speedProfile.segments={{"COV-LONG",22239.0,10.0,10.0,10.0,0.0,0.0,22239.0,
         2.0,2.0,5.0,10.0}};
     route.speed_profile=speedProfile;

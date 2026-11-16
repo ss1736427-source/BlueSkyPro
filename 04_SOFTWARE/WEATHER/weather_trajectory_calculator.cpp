@@ -412,6 +412,7 @@ bool buildWindAwareSpeedProfile(
     const auto& sourceProfile=*sourceRoute.speed_profile;
     if (sourceProfile.vehicle_model_id.empty()||sourceProfile.vehicle_model_version.empty()
         ||sourceProfile.configuration_id.empty()||sourceProfile.dynamics_source.empty()
+        ||sourceProfile.profile_id.empty()||sourceProfile.profile_version.empty()
         ||(sourceProfile.speed_reference!="TAS"&&sourceProfile.speed_reference!="AIR_RELATIVE")
         ||sourceProfile.segments.size()!=sourceRoute.segments.size()
         ||sourceProfile.segments.empty()
@@ -437,6 +438,9 @@ bool buildWindAwareSpeedProfile(
     profileInput.vehicle_model_version=sourceProfile.vehicle_model_version;
     profileInput.configuration_id=sourceProfile.configuration_id;
     profileInput.speed_reference=sourceProfile.speed_reference;
+    profileInput.profile_id=sourceProfile.profile_id+":WIND-RECALC";
+    profileInput.profile_version=sourceProfile.profile_version+":"
+        +snapshotId+":"+snapshotVersion+":"+calculationVersion;
     profileInput.longitudinal_dynamics_validated=true;
     profileInput.longitudinal_dynamics_source=sourceProfile.dynamics_source;
     profileInput.maximum_acceleration_mps2=first.maximum_acceleration_mps2;

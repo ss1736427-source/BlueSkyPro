@@ -127,6 +127,8 @@ int main(){
     longitudinalInput.vehicle_model_version = "MODEL-1";
     longitudinalInput.configuration_id = "CFG1";
     longitudinalInput.speed_reference = "TAS";
+    longitudinalInput.profile_id = "ROUTE-01:SPEED-PROFILE";
+    longitudinalInput.profile_version = "INPUT-01";
     longitudinalInput.longitudinal_dynamics_validated = true;
     longitudinalInput.longitudinal_dynamics_source = "verified-test:LONG-01";
     longitudinalInput.maximum_acceleration_mps2 = 2.0;

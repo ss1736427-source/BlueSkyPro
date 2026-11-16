@@ -158,6 +158,8 @@ int main()
     profileInput.vehicle_model_version = vehicle.model_version;
     profileInput.configuration_id = vehicle.configuration_id;
     profileInput.speed_reference = "TAS";
+    profileInput.profile_id = "MT01-MISSION-TEST:MT01-ROUTE-TEST:1:speed-profile";
+    profileInput.profile_version = "INPUT-TEST-1";
     profileInput.longitudinal_dynamics_validated = true;
     profileInput.longitudinal_dynamics_source = "controlled-test-fixture";
     profileInput.maximum_acceleration_mps2 = 2.0;
@@ -189,6 +191,8 @@ int main()
     slowedProfileInput.vehicle_model_version = vehicle.model_version;
     slowedProfileInput.configuration_id = vehicle.configuration_id;
     slowedProfileInput.speed_reference = "TAS";
+    slowedProfileInput.profile_id = "MT01-MISSION-TEST:MT01-ROUTE-TEST:SLOWED:speed-profile";
+    slowedProfileInput.profile_version = "INPUT-TEST-2";
     slowedProfileInput.longitudinal_dynamics_validated = true;
     slowedProfileInput.longitudinal_dynamics_source = "controlled-test-fixture";
     slowedProfileInput.maximum_acceleration_mps2 = 2.0;
