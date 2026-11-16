@@ -68,6 +68,8 @@ qt_add_executable(appBlueSkyPRO
     src/RouteController.h
     src/TileCacheManager.cpp
     src/TileCacheManager.h
+    src/MapTilerTerrainRgbDecoder.cpp
+    src/MapTilerTerrainRgbDecoder.h
     src/CredentialVault.cpp
     src/CredentialVault.h
     src/FaaNmsClient.cpp
@@ -152,6 +154,19 @@ add_executable(tile_cache_manager_test
 )
 target_link_libraries(tile_cache_manager_test PRIVATE Qt6::Network)
 add_test(NAME tile_cache_manager_contract COMMAND tile_cache_manager_test)
+
+add_executable(maptiler_terrain_rgb_decoder_test
+    tests/MapTilerTerrainRgbDecoderTest.cpp
+    src/MapTilerTerrainRgbDecoder.cpp
+    src/MapTilerTerrainRgbDecoder.h
+)
+target_link_libraries(maptiler_terrain_rgb_decoder_test PRIVATE Qt6::Core Qt6::Gui)
+target_compile_features(maptiler_terrain_rgb_decoder_test PRIVATE cxx_std_20)
+target_compile_options(maptiler_terrain_rgb_decoder_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME maptiler_terrain_rgb_decoder_contract COMMAND maptiler_terrain_rgb_decoder_test)
 
 add_executable(mt01_mapping_bridge_test
     tests/Mt01MappingBridgeTest.cpp
