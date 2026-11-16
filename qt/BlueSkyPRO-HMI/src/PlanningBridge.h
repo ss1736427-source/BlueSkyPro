@@ -34,6 +34,21 @@ public:
         const std::string& actor_id,
         const std::string& timestamp,
         const std::string& reason);
+    // C++ runtime entry point: finalizes READY only from typed authoritative
+    // service outputs, then publishes the owner snapshot to the HMI.
+    bluesky::planning::MissionLifecycleTransitionResult finalizeMissionReadyFromAuthoritativeSources(
+        const std::string& mission_id,
+        const bluesky::planning::MissionLifecycleEvidence& evidence,
+        const bluesky::planning::MissionLifecycleAuthoritativeSources& sources,
+        const bluesky::planning::RegulatoryComplianceAssessment& regulatory_assessment,
+        std::uint64_t now_epoch_s,
+        const bluesky::planning::FlightProfile& selected_flight_profile,
+        const bluesky::planning::VehicleCompilationInput& assigned_vehicle,
+        const std::string& actor_id,
+        const std::string& timestamp,
+        const std::string& reason,
+        const bluesky::planning::MissionLifecycleMt01QualityInputs* mt01_quality = nullptr,
+        const QVariantList& pilotActions = {});
     std::optional<bluesky::planning::MissionLifecycleRecord>
     missionLifecycleSnapshot(const std::string& mission_id) const;
     bool publishOwnedLifecycleReadiness(
