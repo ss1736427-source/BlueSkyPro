@@ -108,6 +108,8 @@ The planning core now also contains `TerrainProfileValidator` (`terrain_profile_
 
 This is the DEM profile-validation algorithm, not yet a live DEM acquisition integration. A provider/decoder must still fetch and authenticate a real elevation product, populate the immutable grid and bind its snapshot ID to the route before this result can be considered production evidence. No synthetic or fixture grid is accepted as real flight evidence.
 
+`PlanningBridge::finalizeMissionReadyFromAuthoritativeSources` is now the C++ runtime entry point for this finalization path. It delegates to the existing `MissionLifecycleOwner`, then publishes either the owner-confirmed READY snapshot or a fail-closed VALIDATING assessment; it is deliberately not `Q_INVOKABLE`, so QML cannot manufacture typed evidence or call READY directly. This closes the bridge-to-owner API gap but is not yet a production call from AUTO/MANUAL calculation completion: those paths still need to supply the typed weather bundle, a validated DEM assessment, the authoritative regulatory assessment, selected flight profile/vehicle compilation input and (for MT-01) the camera-quality inputs. The bridge must not be wired to a presentation-only JSON result.
+
 ## 9. Existing implementation boundary and known gap
 
 `MissionLifecycleController` now pins `MissionExecutionMode` at initial vehicle binding and requires `PHYSICAL_LIVE` for `PHYSICAL` or `SIL_FIXTURE` for `VIRTUAL`. Mode and vehicle/model/configuration/performance identity are immutable across subsequent transitions. The physical path retains external submission/authorization states; the virtual path cannot enter them.
