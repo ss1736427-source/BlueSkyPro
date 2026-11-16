@@ -1,9 +1,11 @@
 #include "GeoTiffTerrainReader.h"
 
 #include <gdal.h>
+#include <cpl_conv.h>
 #include <ogr_srs_api.h>
 
 #include <QCoreApplication>
+#include <QFile>
 #include <QDir>
 #include <QTemporaryDir>
 
@@ -81,7 +83,7 @@ int main(int argc, char **argv)
         QDir(temporary.path()).filePath("nodata.tif"), "EPSG:4326", false, true);
     TerrainDemGrid noDataGrid;
     assert(GeoTiffTerrainReader::readForInspection(noDataPath, &noDataGrid, &error));
-    assert(std::isnan(noDataGrid.elevation_m[0]));
+    assert(std::isnan(noDataGrid.elevation_m[1]));
 
     const QString wrongCrsPath = createFixture(
         QDir(temporary.path()).filePath("wrong-crs.tif"), "EPSG:3857");
