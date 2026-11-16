@@ -13,9 +13,20 @@
 #include "04_SOFTWARE/PLANNING/model/flight_safety_constraints.hpp"
 #include "04_SOFTWARE/PLANNING/notam_prohibited_zone_validator.hpp"
 #include "04_SOFTWARE/PLANNING/wind_performance_trajectory.hpp"
+#include "04_SOFTWARE/PLANNING/orchestrator/algorithm_orchestrator.hpp"
+#include "04_SOFTWARE/WEATHER/weather_trajectory_calculator.hpp"
 
 struct WeatherCandidateEvidenceBundle
 {
+    // Preserve the exact typed decision and source objects used by the worker.
+    // Lifecycle finalization must consume these values, never rebuild evidence
+    // from the presentation QVariantMap.
+    bluesky::planning::OrchestratorDecision planning_decision;
+    bluesky::planning::NotamSnapshot notam_snapshot;
+    bluesky::weather::WeatherTrajectoryEvaluation weather_evaluation;
+    bluesky::planning::TrajectoryPerformanceInput performance_input;
+    std::string vehicle_configuration_id;
+
     std::string selected_candidate_id;
     bluesky::planning::Route selected_route;
     bluesky::planning::FlightSafetyValidationResult flight_safety_validation;
