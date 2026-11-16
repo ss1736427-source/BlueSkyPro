@@ -62,11 +62,32 @@ void setReleasedLifecycle(bluesky::planning::Mission& mission) {
 bluesky::planning::VehicleEquipmentCapabilityProfile makeCapabilities() {
     bluesky::planning::VehicleEquipmentCapabilityProfile capabilities;
     capabilities.identity.vehicle_id = "UAV-020";
+    capabilities.identity.vehicle_type_model = "TEST-UAV-MODEL";
+    capabilities.identity.airframe_configuration = "TEST-VARIANT";
     capabilities.identity.autopilot_type = "TEST-FCS";
     capabilities.identity.autopilot_version = "1";
     capabilities.identity.supported_protocols = {"MAVLink2"};
     capabilities.configuration.configuration_version = "CFG-1";
     capabilities.configuration.valid_for_mission = true;
+    capabilities.flight.minimum_airspeed = 5.0;
+    capabilities.flight.maximum_airspeed = 20.0;
+    capabilities.energy.usable_energy = 250.0;
+    capabilities.provenance.source_kind = "PHYSICAL_CONFIGURATION_VERIFIED";
+    capabilities.provenance.source_reference = "controlled-physical-configuration";
+    capabilities.provenance.source_revision = "record-1";
+    capabilities.provenance.profile_id = "PROFILE-UAV-020";
+    capabilities.provenance.profile_revision = "model-1";
+    capabilities.provenance.configuration_id = "CFG-1";
+    capabilities.provenance.configuration_revision = "CFG-1";
+    capabilities.provenance.configuration_verified = true;
+    capabilities.provenance.parameter_evidence = {
+        {"minimum_airspeed", CapabilityParameterSource::PhysicalConfigurationVerified,
+         "controlled-physical-configuration", "record-1", true},
+        {"maximum_airspeed", CapabilityParameterSource::PhysicalConfigurationVerified,
+         "controlled-physical-configuration", "record-1", true},
+        {"usable_energy_wh", CapabilityParameterSource::PhysicalConfigurationVerified,
+         "controlled-physical-configuration", "record-1", true}
+    };
     return capabilities;
 }
 

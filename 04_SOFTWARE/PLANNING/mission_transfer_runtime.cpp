@@ -1,4 +1,5 @@
 #include "mission_transfer_runtime.hpp"
+#include "vehicle_capability_profile_resolver.hpp"
 
 #include <algorithm>
 
@@ -16,7 +17,9 @@ bool vehicle_assignment_matches(
     if (mission.vehicle_assignments.size() != 1) return false;
     const auto& assignment = mission.vehicle_assignments.front();
     return assignment.vehicle_id == capabilities.identity.vehicle_id &&
-           assignment.configuration_version == capabilities.configuration.configuration_version;
+           assignment.configuration_version == capabilities.configuration.configuration_version &&
+           (assignment.configuration_id.empty()
+                || assignment.configuration_id == capabilities.provenance.configuration_id);
 }
 
 bool capability_valid(const VehicleEquipmentCapabilityProfile& capabilities) {
@@ -118,6 +121,25 @@ MissionTransferResult MissionTransferRuntime::execute(
     if (!has_value(mission.identity.mission_id) ||
         !has_value(mission.identity.mission_version)) {
         result.reason = "MISSION_ID_AND_VERSION_REQUIRED";
+        return result;
+    }
+
+    if (mission.lifecycle.execution_mode != MissionExecutionMode::Physical) {
+        result.reason = "PHYSICAL_TRANSFER_REQUIRES_PHYSICAL_EXECUTION_MODE";
+        return result;
+    }
+
+    VehicleCapabilityProfileResolutionRequest profileRequest;
+    profileRequest.execution_mode = mission.lifecycle.execution_mode;
+    profileRequest.profile = capabilities;
+    profileRequest.required_parameter_ids = {
+        "minimum_airspeed", "maximum_airspeed", "usable_energy_wh"
+    };
+    const auto profileResolution = VehicleCapabilityProfileResolver::resolve(profileRequest);
+    if (!profileResolution.accepted) {
+        result.reason = profileResolution.blockers.empty()
+            ? "VEHICLE_CAPABILITY_PROFILE_REJECTED"
+            : "VEHICLE_CAPABILITY_PROFILE_REJECTED:" + profileResolution.blockers.front();
         return result;
     }
 

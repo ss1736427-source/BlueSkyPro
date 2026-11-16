@@ -121,10 +121,31 @@ int main()
 
     VehicleEquipmentCapabilityProfile profile;
     profile.identity.vehicle_id = "veh-048";
+    profile.identity.vehicle_type_model = "TEST-UAV-MODEL";
+    profile.identity.airframe_configuration = "TEST-VARIANT";
     profile.identity.autopilot_type = "test";
     profile.identity.supported_protocols = {"MAVLink"};
     profile.configuration.configuration_version = "cfg-048";
     profile.configuration.valid_for_mission = true;
+    profile.flight.minimum_airspeed = 5.0;
+    profile.flight.maximum_airspeed = 20.0;
+    profile.energy.usable_energy = 250.0;
+    profile.provenance.source_kind = "PHYSICAL_CONFIGURATION_VERIFIED";
+    profile.provenance.source_reference = "controlled-physical-configuration";
+    profile.provenance.source_revision = "record-1";
+    profile.provenance.profile_id = "PROFILE-048";
+    profile.provenance.profile_revision = "model-1";
+    profile.provenance.configuration_id = "cfg-048";
+    profile.provenance.configuration_revision = "cfg-048";
+    profile.provenance.configuration_verified = true;
+    profile.provenance.parameter_evidence = {
+        {"minimum_airspeed", CapabilityParameterSource::PhysicalConfigurationVerified,
+         "controlled-physical-configuration", "record-1", true},
+        {"maximum_airspeed", CapabilityParameterSource::PhysicalConfigurationVerified,
+         "controlled-physical-configuration", "record-1", true},
+        {"usable_energy_wh", CapabilityParameterSource::PhysicalConfigurationVerified,
+         "controlled-physical-configuration", "record-1", true}
+    };
 
     bluesky::autopilot::Identity adapter_identity;
     adapter_identity.vehicleId = "veh-048";
