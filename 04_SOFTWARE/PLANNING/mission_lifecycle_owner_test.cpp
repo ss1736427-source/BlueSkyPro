@@ -136,6 +136,14 @@ void testDraftRevisionAdvancesOnlyBeforeAdmission()
     Mission first = makeMission();
     assert(owner.synchronizeDraftMission(first));
 
+    Mission rollback = makeMission();
+    rollback.identity.mission_version = "0";
+    rollback.lifecycle.mission_version = "0";
+    std::vector<std::string> rollbackBlockers;
+    assert(!owner.synchronizeDraftMission(rollback, &rollbackBlockers));
+    assert(rollbackBlockers.size() == 1);
+    assert(rollbackBlockers.front() == "MISSION_DRAFT_VERSION_NOT_ADVANCED");
+
     Mission revised = makeMission();
     revised.identity.mission_version = "2";
     revised.lifecycle.mission_version = "2";
