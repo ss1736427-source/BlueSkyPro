@@ -37,6 +37,7 @@ struct TerrainProfileValidationOptions {
     double maximum_sample_gap_m{0.0};
     // Additional clearance margin beyond the DEM's published vertical accuracy.
     double additional_clearance_margin_m{0.0};
+    std::size_t maximum_profile_samples{2000000};
 };
 
 struct TerrainProfileAssessment {
