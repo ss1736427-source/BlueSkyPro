@@ -1073,12 +1073,31 @@ WeatherCalculationWorkerResult evaluateCandidateSetOnWorker(
 
     // Preserve the exact typed evidence used by the orchestrator. Do not reconstruct
     // safety/NOTAM/weather attestations from serialized status strings in QML.
+    const auto selectedAssessment = assessments.find(decision.selected_candidate_id);
+    const auto selectedPerformance = performanceByCandidate.find(decision.selected_candidate_id);
     if (decision.feasibility == bluesky::planning::Feasibility::Feasible
+        && decision.weather_assessment_applied
         && decision.selected_route.has_value()
         && decision.selected_flight_safety_validation.has_value()
         && decision.selected_notam_validation.has_value()
-        && decision.selected_weather_trajectory.has_value()) {
+        && decision.selected_weather_trajectory.has_value()
+        && selectedAssessment != assessments.end()
+        && selectedAssessment->second.evaluated
+        && selectedAssessment->second.trajectory.has_value()
+        && selectedPerformance != performanceByCandidate.end()) {
+        // Keep the typed decision, immutable NOTAM input, weather trajectory
+        // evaluation and exact per-candidate performance input together. This
+        // bundle is the hand-off to lifecycle evidence assembly; the UI map is
+        // only a presentation projection and is not an evidence source.
         WeatherCandidateEvidenceBundle evidence;
+        evidence.planning_decision = decision;
+        evidence.notam_snapshot = notamSnapshot;
+        evidence.weather_evaluation.weather_ready = selectedAssessment->second.evaluated;
+        evidence.weather_evaluation.weather_error = selectedAssessment->second.error;
+        evidence.weather_evaluation.trajectory = *selectedAssessment->second.trajectory;
+        evidence.weather_evaluation.corrected_route = selectedAssessment->second.corrected_route;
+        evidence.performance_input = selectedPerformance->second;
+        evidence.vehicle_configuration_id = selectedPerformance->second.configuration_version;
         evidence.selected_candidate_id = decision.selected_candidate_id;
         evidence.selected_route = *decision.selected_route;
         evidence.flight_safety_validation = *decision.selected_flight_safety_validation;
