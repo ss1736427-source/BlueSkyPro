@@ -4,6 +4,13 @@
 #include "mission_lifecycle_regulatory_adapter.hpp"
 #include "mission_lifecycle_route_adapter.hpp"
 #include "mission_lifecycle_trajectory_geometry_adapter.hpp"
+#include "mission_lifecycle_notam_adapter.hpp"
+#include "mission_lifecycle_terrain_adapter.hpp"
+#include "mission_lifecycle_vehicle_adapter.hpp"
+#include "mission_lifecycle_weather_adapter.hpp"
+#include "notam_prohibited_zone_validator.hpp"
+#include "orchestrator/algorithm_orchestrator.hpp"
+#include "../WEATHER/weather_trajectory_calculator.hpp"
 #include "route_constraint_validator.hpp"
 #include <algorithm>
 #include <optional>
@@ -18,6 +25,19 @@ struct MissionLifecycleMt01QualityInputs {
 struct MissionLifecycleCoordinatorResult {
     MissionFinalizationRuntimeResult finalization;
     bool mt01_quality_evaluated{false};
+    std::vector<std::string> evidence_assembly_blockers;
+};
+
+// Explicit references to authoritative outputs. Null means that a service did
+// not produce the required result; the coordinator never manufactures PASS.
+struct MissionLifecycleAuthoritativeSources {
+    const OrchestratorDecision* planning_decision{nullptr};
+    const NotamSnapshot* notam_snapshot{nullptr};
+    const TerrainDemSnapshot* terrain_snapshot{nullptr};
+    const TerrainProfileValidationResult* terrain_validation{nullptr};
+    const weather::WeatherTrajectoryEvaluation* weather_evaluation{nullptr};
+    const TrajectoryPerformanceInput* performance_input{nullptr};
+    std::string vehicle_configuration_id;
 };
 // Single trusted C++ entry point for constructing the final validation bundle.
 // NOTAM, terrain, vehicle, weather/energy and non-MT01 task-quality evidence
