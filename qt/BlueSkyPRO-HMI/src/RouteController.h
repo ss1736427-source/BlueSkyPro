@@ -109,7 +109,7 @@ public:
         const QString airspaceSnapshotId = environment.value(QStringLiteral("airspaceSnapshotId")).toString().trimmed();
         const QString weatherSnapshotId = environment.value(QStringLiteral("weatherSnapshotId")).toString().trimmed();
         const QString windSnapshotId = environment.value(QStringLiteral("windSnapshotId")).toString().trimmed();
-        RouteConstraints routeConstraints;
+        bluesky::planning::RouteConstraints routeConstraints;
         if (candidate.contains(QStringLiteral("constraints"))) {
             const QVariantMap constraints = candidate.value(QStringLiteral("constraints")).toMap();
             bool minimumOk = false, maximumOk = false, clearanceOk = false;
