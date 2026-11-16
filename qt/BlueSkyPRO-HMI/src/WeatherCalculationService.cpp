@@ -1084,7 +1084,24 @@ WeatherCalculationWorkerResult evaluateCandidateSetOnWorker(
         && selectedAssessment != assessments.end()
         && selectedAssessment->second.evaluated
         && selectedAssessment->second.trajectory.has_value()
-        && selectedPerformance != performanceByCandidate.end()) {
+        && selectedAssessment->second.snapshot_id == decision.weather_snapshot_id
+        && selectedAssessment->second.snapshot_version == decision.weather_snapshot_version
+        && selectedAssessment->second.trajectory->route_id
+            == decision.selected_weather_trajectory->route_id
+        && selectedAssessment->second.trajectory->route_version
+            == decision.selected_weather_trajectory->route_version
+        && selectedAssessment->second.trajectory->wind_snapshot_id
+            == decision.weather_snapshot_id
+        && selectedAssessment->second.trajectory->wind_snapshot_version
+            == decision.weather_snapshot_version
+        && selectedPerformance != performanceByCandidate.end()
+        && decision.selected_route->speed_profile.has_value()
+        && decision.selected_route->environment.wind_snapshot_id == decision.weather_snapshot_id
+        && decision.selected_route->speed_profile->wind_snapshot_id == decision.weather_snapshot_id
+        && decision.selected_route->speed_profile->wind_snapshot_version
+            == decision.weather_snapshot_version
+        && selectedPerformance->second.configuration_version
+            == decision.selected_route->speed_profile->configuration_id) {
         // Keep the typed decision, immutable NOTAM input, weather trajectory
         // evaluation and exact per-candidate performance input together. This
         // bundle is the hand-off to lifecycle evidence assembly; the UI map is
