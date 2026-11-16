@@ -190,12 +190,15 @@ PlanningBridge::finalizeMissionReadyFromAuthoritativeSources(
     const bluesky::planning::MissionLifecycleMt01QualityInputs* mt01_quality,
     const QVariantList& pilotActions)
 {
-    const auto transition = m_lifecycleOwner.finalizeReadyFromAuthoritativeSources(
+    auto transition = m_lifecycleOwner.finalizeReadyFromAuthoritativeSources(
         mission_id, evidence, sources, regulatory_assessment, now_epoch_s,
         selected_flight_profile, assigned_vehicle, actor_id, timestamp,
         reason, mt01_quality);
     if (transition.accepted) {
-        publishOwnedLifecycleReadiness(mission_id, transition, pilotActions);
+        if (!publishOwnedLifecycleReadiness(mission_id, transition, pilotActions)) {
+            transition.accepted = false;
+            transition.blockers.emplace_back("LIFECYCLE_READINESS_PUBLICATION_REJECTED");
+        }
     } else {
         // A failed assessment can expose pilot-owned actions, but it never
         // grants READY. System-completed checks stay out of this list.
