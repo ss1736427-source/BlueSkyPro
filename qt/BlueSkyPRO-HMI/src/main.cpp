@@ -183,6 +183,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("canonicalRouteController"), &routeController);
     engine.rootContext()->setContextProperty(QStringLiteral("tileCacheManager"), &tileCacheManager);
     engine.rootContext()->setContextProperty(QStringLiteral("terrainDataService"), &terrainDataService);
+    engine.rootContext()->setContextProperty(QStringLiteral("terrainDataServiceContext"), &terrainDataService);
     engine.rootContext()->setContextProperty(QStringLiteral("credentialVault"), &credentialVault);
     engine.rootContext()->setContextProperty(QStringLiteral("faaNmsClient"), &faaNmsClient);
     engine.rootContext()->setContextProperty(QStringLiteral("weatherDataService"), &weatherDataService);

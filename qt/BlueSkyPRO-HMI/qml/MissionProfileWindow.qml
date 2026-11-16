@@ -861,7 +861,7 @@ Item {
         enabled: target !== null
         function onMissionVisualProfileReady(missionId, routeId, routeVersion,
                                              calculationInputVersion, samples) {
-            if (String(missionId) !== String(root.missionId)
+            if (String(missionId) !== root.visualTerrainProfileMissionId
                     || String(routeId) !== root.visualTerrainProfileRouteId
                     || String(routeVersion) !== root.visualTerrainProfileRouteVersion)
                 return

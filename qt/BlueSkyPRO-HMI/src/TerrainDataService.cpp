@@ -286,8 +286,6 @@ void TerrainDataService::finishTile(QNetworkReply *reply)
             for (auto *pending : m_active.keys())
                 pending->abort();
             failVisualProfile(lastError());
-            failVisualProfile(lastError());
-            failVisualProfile(lastError());
             emit missionTilesFailed(m_missionId, lastError());
             return;
         }
