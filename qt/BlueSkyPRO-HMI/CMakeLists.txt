@@ -187,7 +187,7 @@ add_executable(terrain_data_service_contract_test
     src/TerrainRgbRouteSampler.h
 )
 target_include_directories(terrain_data_service_contract_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(terrain_data_service_contract_test PRIVATE Qt6::Core Qt6::Gui Qt6::Network)
+target_link_libraries(terrain_data_service_contract_test PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Concurrent)
 target_compile_features(terrain_data_service_contract_test PRIVATE cxx_std_20)
 add_test(NAME terrain_data_service_contract COMMAND terrain_data_service_contract_test)
 

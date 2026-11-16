@@ -82,6 +82,7 @@ private:
     QString m_apiKey;
     QVariantMap m_pendingRouteSnapshot;
     bool m_visualProfileRequested{false};
+    quint64 m_profileGeneration{0};
     int m_zoom{0};
     int m_completedCount{0};
     int m_totalCount{0};

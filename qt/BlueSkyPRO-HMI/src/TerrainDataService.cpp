@@ -15,6 +15,8 @@
 #include <QTimer>
 #include <QStandardPaths>
 #include <QUrl>
+#include <QFutureWatcher>
+#include <QtConcurrent>
 
 #include <algorithm>
 #include <cmath>
@@ -175,6 +177,7 @@ bool TerrainDataService::requestVisualProfileForRoute(
     west = std::max(-180.0, west - lonMargin);
     east = std::min(180.0, east + lonMargin);
 
+    ++m_profileGeneration;
     m_pendingRouteSnapshot = routeSnapshot;
     m_visualProfileRequested = true;
     if (!requestVisualContextTiles(missionId, south, west, north, east, zoom, apiKey)) {
@@ -341,26 +344,49 @@ void TerrainDataService::finishMissionIfComplete()
         return;
     if (m_totalCount <= 0 || m_completedCount != m_totalCount)
         return;
-    setState(QStringLiteral("VISUAL_CONTEXT_READY"));
     emit missionTilesReady(m_missionId, m_completed);
     if (m_visualProfileRequested) {
-        QVariantList samples;
-        QString sampleError;
         const QVariantMap route = m_pendingRouteSnapshot;
-        const bool sampled = TerrainRgbRouteSampler::sampleRoute(
-            route, m_completed, &samples, &sampleError);
+        const QVariantList manifest = m_completed;
+        const QString missionId = m_missionId;
+        const quint64 generation = m_profileGeneration;
         const QString routeId = route.value(QStringLiteral("routeId")).toString();
         const QString routeVersion = route.value(QStringLiteral("routeVersion")).toString();
         const QString inputVersion = route.value(QStringLiteral("calculationInputVersion")).toString();
         m_visualProfileRequested = false;
         m_pendingRouteSnapshot.clear();
-        if (sampled) {
-            emit missionVisualProfileReady(m_missionId, routeId, routeVersion,
-                                           inputVersion, samples);
-        } else {
-            setState(QStringLiteral("VISUAL_PROFILE_FAILED"));
-            emit missionVisualProfileFailed(m_missionId, routeId, routeVersion, sampleError);
-        }
+        setState(QStringLiteral("SAMPLING_VISUAL_PROFILE"));
+        auto *watcher = new QFutureWatcher<QVariantMap>(this);
+        connect(watcher, &QFutureWatcher<QVariantMap>::finished, this,
+                [this, watcher, missionId, generation, routeId, routeVersion, inputVersion]() {
+            const QVariantMap result = watcher->result();
+            watcher->deleteLater();
+            if (generation != m_profileGeneration || missionId != m_missionId)
+                return;
+            if (result.value(QStringLiteral("ok")).toBool()) {
+                setState(QStringLiteral("VISUAL_PROFILE_READY"));
+                emit missionVisualProfileReady(
+                    missionId, routeId, routeVersion, inputVersion,
+                    result.value(QStringLiteral("samples")).toList());
+            } else {
+                const QString reason = result.value(QStringLiteral("error")).toString();
+                setState(QStringLiteral("VISUAL_PROFILE_FAILED"));
+                emit missionVisualProfileFailed(missionId, routeId, routeVersion, reason);
+            }
+        });
+        watcher->setFuture(QtConcurrent::run([route, manifest]() {
+            QVariantList samples;
+            QString sampleError;
+            const bool sampled = TerrainRgbRouteSampler::sampleRoute(
+                route, manifest, &samples, &sampleError);
+            return QVariantMap{
+                {QStringLiteral("ok"), sampled},
+                {QStringLiteral("samples"), samples},
+                {QStringLiteral("error"), sampleError}
+            };
+        }));
+    } else {
+        setState(QStringLiteral("VISUAL_CONTEXT_READY"));
     }
     m_apiKey.clear();
 }
@@ -370,6 +396,7 @@ void TerrainDataService::cancelMission(const QString &missionId)
     if (missionId.trimmed().isEmpty() || missionId.trimmed() != m_missionId)
         return;
     m_cancelled = true;
+    ++m_profileGeneration;
     m_visualProfileRequested = false;
     m_pendingRouteSnapshot.clear();
     m_queue.clear();
