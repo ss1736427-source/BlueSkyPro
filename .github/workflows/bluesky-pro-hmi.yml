@@ -56,6 +56,18 @@ jobs:
         working-directory: qt/BlueSkyPRO-HMI
         run: cmake --build build --parallel
 
+      - name: Stage GDAL and PROJ runtime data
+        shell: pwsh
+        run: |
+          $share = Join-Path $env:GITHUB_WORKSPACE "vcpkg/installed/x64-windows/share"
+          $build = Join-Path $env:GITHUB_WORKSPACE "qt/BlueSkyPRO-HMI/build"
+          $gdalSource = Join-Path $share "gdal"
+          $projSource = Join-Path $share "proj"
+          if (-not (Test-Path (Join-Path $projSource "proj.db"))) { throw "PROJ runtime database missing from vcpkg installation" }
+          if (-not (Test-Path $gdalSource)) { throw "GDAL runtime data missing from vcpkg installation" }
+          Copy-Item $gdalSource (Join-Path $build "gdal-data") -Recurse -Force
+          Copy-Item $projSource (Join-Path $build "proj-data") -Recurse -Force
+
       - name: Test
         working-directory: qt/BlueSkyPRO-HMI
         run: ctest --test-dir build --output-on-failure
@@ -275,18 +287,6 @@ jobs:
         run: |
           & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --compiler-runtime --qmldir qml build\appBlueSkyPRO.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Stage GDAL and PROJ runtime data
-        shell: pwsh
-        run: |
-          $share = Join-Path $env:GITHUB_WORKSPACE "vcpkg/installed/x64-windows/share"
-          $build = Join-Path $env:GITHUB_WORKSPACE "qt/BlueSkyPRO-HMI/build"
-          $gdalSource = Join-Path $share "gdal"
-          $projSource = Join-Path $share "proj"
-          if (-not (Test-Path (Join-Path $projSource "proj.db"))) { throw "PROJ runtime database missing from vcpkg installation" }
-          if (-not (Test-Path $gdalSource)) { throw "GDAL runtime data missing from vcpkg installation" }
-          Copy-Item $gdalSource (Join-Path $build "gdal-data") -Recurse -Force
-          Copy-Item $projSource (Join-Path $build "proj-data") -Recurse -Force
 
       - name: Enable Windows crash dump capture
         shell: pwsh
