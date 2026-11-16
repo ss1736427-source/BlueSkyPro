@@ -246,6 +246,10 @@ target_link_libraries(mission_lifecycle_terrain_adapter_test PRIVATE bluesky_pla
 
 add_executable(terrain_profile_validator_test terrain_profile_validator_test.cpp)
 target_link_libraries(terrain_profile_validator_test PRIVATE bluesky_planning)
+target_compile_options(terrain_profile_validator_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
 add_test(NAME terrain_profile_validator_contract COMMAND terrain_profile_validator_test)
 set_tests_properties(terrain_profile_validator_contract
     PROPERTIES LABELS "planning;terrain;dem" TIMEOUT 30)
