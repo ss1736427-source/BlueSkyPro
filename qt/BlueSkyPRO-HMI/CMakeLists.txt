@@ -70,6 +70,8 @@ qt_add_executable(appBlueSkyPRO
     src/TileCacheManager.h
     src/MapTilerTerrainRgbDecoder.cpp
     src/MapTilerTerrainRgbDecoder.h
+    src/TerrainRgbTileMatrix.cpp
+    src/TerrainRgbTileMatrix.h
     src/CredentialVault.cpp
     src/CredentialVault.h
     src/FaaNmsClient.cpp
@@ -168,6 +170,20 @@ target_compile_options(maptiler_terrain_rgb_decoder_test PRIVATE
     "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
 )
 add_test(NAME maptiler_terrain_rgb_decoder_contract COMMAND maptiler_terrain_rgb_decoder_test)
+
+add_executable(terrain_rgb_tile_matrix_test
+    tests/TerrainRgbTileMatrixTest.cpp
+    src/TerrainRgbTileMatrix.cpp
+    src/TerrainRgbTileMatrix.h
+)
+target_link_libraries(terrain_rgb_tile_matrix_test PRIVATE Qt6::Core)
+target_include_directories(terrain_rgb_tile_matrix_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_features(terrain_rgb_tile_matrix_test PRIVATE cxx_std_20)
+target_compile_options(terrain_rgb_tile_matrix_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME terrain_rgb_tile_matrix_contract COMMAND terrain_rgb_tile_matrix_test)
 
 add_executable(mt01_mapping_bridge_test
     tests/Mt01MappingBridgeTest.cpp
