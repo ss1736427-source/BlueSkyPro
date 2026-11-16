@@ -130,6 +130,49 @@ void testAcceptedTransitionPinsModeAndVehicle()
     assert(afterDrift->vehicle_source_provenance == "SIL_FIXTURE");
 }
 
+void testDraftRevisionAdvancesOnlyBeforeAdmission()
+{
+    MissionLifecycleOwner owner;
+    Mission first = makeMission();
+    assert(owner.synchronizeDraftMission(first));
+
+    Mission revised = makeMission();
+    revised.identity.mission_version = "2";
+    revised.lifecycle.mission_version = "2";
+    revised.selected_template_ids = {"MT-01", "MT-03"};
+    assert(owner.synchronizeDraftMission(revised));
+
+    const auto draft = owner.snapshot("OWNER-TEST-001");
+    assert(draft.has_value());
+    assert(draft->state == MissionLifecycleState::Draft);
+    assert(draft->mission_version == "2");
+    assert(draft->parent_mission_version == "1");
+    assert(draft->mission_template_ids.size() == 2);
+    assert(draft->history.empty());
+
+    const auto admitted = owner.transition(
+        "OWNER-TEST-001", MissionLifecycleState::Calculating,
+        initialEvidence(), "test-actor", "2026-11-16T00:00:00Z", "admit mission");
+    assert(!admitted.accepted); // evidence still names revision 1
+    assert(owner.snapshot("OWNER-TEST-001")->mission_version == "2");
+
+    auto revisionTwoEvidence = initialEvidence();
+    revisionTwoEvidence.mission_version = "2";
+    const auto accepted = owner.transition(
+        "OWNER-TEST-001", MissionLifecycleState::Calculating,
+        revisionTwoEvidence, "test-actor", "2026-11-16T00:00:01Z", "admit revision 2");
+    assert(accepted.accepted);
+
+    Mission afterAdmission = revised;
+    afterAdmission.identity.mission_version = "3";
+    afterAdmission.lifecycle.mission_version = "3";
+    std::vector<std::string> blockers;
+    assert(!owner.synchronizeDraftMission(afterAdmission, &blockers));
+    assert(blockers.size() == 1);
+    assert(blockers.front() == "MISSION_DRAFT_REVISION_NOT_ALLOWED_AFTER_ADMISSION");
+    assert(owner.snapshot("OWNER-TEST-001")->mission_version == "2");
+}
+
 void testUnknownMissionCannotBeTransitioned()
 {
     MissionLifecycleOwner owner;
@@ -148,6 +191,7 @@ int main()
     testDuplicateAndPrePopulatedLifecycleAreRejected();
     testRejectedTransitionDoesNotMutateCanonicalRecord();
     testAcceptedTransitionPinsModeAndVehicle();
+    testDraftRevisionAdvancesOnlyBeforeAdmission();
     testUnknownMissionCannotBeTransitioned();
     return 0;
 }
