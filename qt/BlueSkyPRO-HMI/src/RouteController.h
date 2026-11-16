@@ -328,6 +328,7 @@ public:
             const QVariantList profileSegments = sourceProfile.value(QStringLiteral("segments")).toList();
             if (profile.vehicle_model_id.empty() || profile.vehicle_model_version.empty()
                 || profile.configuration_id.empty() || profile.dynamics_source.empty()
+                || profile.profile_id.empty() || profile.profile_version.empty()
                 || (profile.speed_reference != "TAS" && profile.speed_reference != "AIR_RELATIVE")
                 || profileSegments.size() != segmentValues.size() || profileSegments.isEmpty()) {
                 return rejectCandidate(QStringLiteral("ROUTE_SPEED_PROFILE_IDENTITY_OR_COVERAGE_INVALID"));

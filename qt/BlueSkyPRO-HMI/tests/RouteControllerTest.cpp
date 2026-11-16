@@ -207,6 +207,15 @@ int main(int argc, char *argv[])
     assert(profileSegmentSnapshot.value(QStringLiteral("entrySpeedMps")).toDouble() == 10.0);
     assert(profileSegmentSnapshot.value(QStringLiteral("cruiseDistanceM")).toDouble() == 12400.0);
 
+    QVariantMap missingProfileIdentity = profiledCandidate;
+    QVariantMap incompleteProfile = missingProfileIdentity.value(QStringLiteral("speedProfile")).toMap();
+    incompleteProfile.remove(QStringLiteral("profileVersion"));
+    missingProfileIdentity.insert(QStringLiteral("speedProfile"), incompleteProfile);
+    assert(!profileController.loadCandidate(missingProfileIdentity));
+    assert(profileController.validationReason()
+           == QStringLiteral("ROUTE_SPEED_PROFILE_IDENTITY_OR_COVERAGE_INVALID"));
+
+    assert(profileController.loadCandidate(profiledCandidate));
     QVariantMap mismatchedProfile = profiledCandidate;
     QVariantMap badProfile = mismatchedProfile.value(QStringLiteral("speedProfile")).toMap();
     QVariantList badProfileSegments = badProfile.value(QStringLiteral("segments")).toList();
