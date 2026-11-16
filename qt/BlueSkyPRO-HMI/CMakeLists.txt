@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Quick Location Positioning Network Concurrent WebEngineQuick WebEngineCore WebChannel)
+find_package(GDAL CONFIG REQUIRED)
 
 # GRIB2 decoding is optional for developer builds, but CI packages enable it explicitly.
 option(BLUESKY_ENABLE_ECCODES "Build the ecCodes GRIB2 weather decoder" OFF)
@@ -76,6 +77,8 @@ qt_add_executable(appBlueSkyPRO
     src/TerrainDataService.h
     src/TerrainRgbRouteSampler.cpp
     src/TerrainRgbRouteSampler.h
+    src/GeoTiffTerrainReader.cpp
+    src/GeoTiffTerrainReader.h
     src/CredentialVault.cpp
     src/CredentialVault.h
     src/FaaNmsClient.cpp
@@ -143,7 +146,7 @@ qt_add_resources(appBlueSkyPRO maplibre_vendor
 
 target_compile_features(appBlueSkyPRO PRIVATE cxx_std_20)
 target_include_directories(appBlueSkyPRO PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.. ${CMAKE_CURRENT_SOURCE_DIR}/../../04_SOFTWARE/WEATHER)
-target_link_libraries(appBlueSkyPRO PRIVATE bluesky_planning Qt6::Core Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::Concurrent Qt6::WebEngineQuick Qt6::WebEngineCore Qt6::WebChannel)
+target_link_libraries(appBlueSkyPRO PRIVATE bluesky_planning Qt6::Core Qt6::Quick Qt6::Location Qt6::Positioning Qt6::Network Qt6::Concurrent Qt6::WebEngineQuick Qt6::WebEngineCore Qt6::WebChannel GDAL::GDAL)
 
 # BLUESKY_ENABLE_ECCODES is consumed by bluesky_planning above. Its public
 # compile definition and ecCodes link dependency propagate to the HMI runtime.
@@ -153,6 +156,29 @@ if(WIN32)
 endif()
 
 enable_testing()
+
+add_executable(geotiff_terrain_reader_test
+    tests/GeoTiffTerrainReaderTest.cpp
+    src/GeoTiffTerrainReader.cpp
+    src/GeoTiffTerrainReader.h
+    ../../04_SOFTWARE/PLANNING/terrain_profile_validator.hpp
+    ../../04_SOFTWARE/PLANNING/mission_lifecycle_terrain_adapter.hpp
+)
+target_include_directories(geotiff_terrain_reader_test PRIVATE
+    src
+    ../../04_SOFTWARE/PLANNING
+)
+target_link_libraries(geotiff_terrain_reader_test PRIVATE
+    Qt6::Core
+    GDAL::GDAL
+)
+target_compile_features(geotiff_terrain_reader_test PRIVATE cxx_std_20)
+target_compile_options(geotiff_terrain_reader_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME geotiff_terrain_reader_contract COMMAND geotiff_terrain_reader_test)
+
 add_executable(tile_cache_manager_test
     tests/TileCacheManagerTest.cpp
     src/TileCacheManager.cpp
