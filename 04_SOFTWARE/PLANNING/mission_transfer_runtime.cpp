@@ -129,6 +129,16 @@ MissionTransferResult MissionTransferRuntime::execute(
         return result;
     }
 
+    if (!capability_valid(capabilities)) {
+        result.reason = "VEHICLE_CAPABILITY_PROFILE_INVALID";
+        return result;
+    }
+
+    if (!vehicle_assignment_matches(mission, capabilities)) {
+        result.reason = "MISSION_VEHICLE_CONFIGURATION_MISMATCH";
+        return result;
+    }
+
     VehicleCapabilityProfileResolutionRequest profileRequest;
     profileRequest.execution_mode = mission.lifecycle.execution_mode;
     profileRequest.profile = capabilities;
@@ -140,16 +150,6 @@ MissionTransferResult MissionTransferRuntime::execute(
         result.reason = profileResolution.blockers.empty()
             ? "VEHICLE_CAPABILITY_PROFILE_REJECTED"
             : "VEHICLE_CAPABILITY_PROFILE_REJECTED:" + profileResolution.blockers.front();
-        return result;
-    }
-
-    if (!capability_valid(capabilities)) {
-        result.reason = "VEHICLE_CAPABILITY_PROFILE_INVALID";
-        return result;
-    }
-
-    if (!vehicle_assignment_matches(mission, capabilities)) {
-        result.reason = "MISSION_VEHICLE_CONFIGURATION_MISMATCH";
         return result;
     }
 

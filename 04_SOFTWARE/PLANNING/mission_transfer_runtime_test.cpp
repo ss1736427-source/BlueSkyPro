@@ -7,6 +7,8 @@
 
 namespace {
 
+using namespace bluesky::planning;
+
 bluesky::planning::Mission makeMission() {
     bluesky::planning::Mission mission;
     mission.identity.mission_id = "MISSION-020";
@@ -208,6 +210,35 @@ void testRejectsStaleRouteRevision() {
     assert(result.reason == "MISSION_LIFECYCLE_RELEASE_EVENT_REQUIRED");
 }
 
+
+void testRejectsPassportOnlyProfileForPhysicalTransfer() {
+    auto mission = makeMission();
+    setReleasedLifecycle(mission);
+    auto capabilities = makeCapabilities();
+    capabilities.provenance.source_kind = "REFERENCE_PASSPORT";
+    capabilities.provenance.configuration_verified = false;
+    for (auto& evidence : capabilities.provenance.parameter_evidence) {
+        evidence.source = CapabilityParameterSource::ManufacturerPassport;
+        evidence.verified = false;
+    }
+    auto adapter = makeAdapter();
+    assert(adapter.connect());
+    const auto result = MissionTransferRuntime::execute(mission, capabilities, adapter);
+    assert(result.state == MissionTransferState::Rejected);
+    assert(result.reason.find("VEHICLE_CAPABILITY_PROFILE_REJECTED:") == 0);
+}
+
+void testRejectsVirtualProfileAtPhysicalTransferBoundary() {
+    auto mission = makeMission();
+    mission.lifecycle.execution_mode = MissionExecutionMode::Virtual;
+    auto capabilities = makeCapabilities();
+    auto adapter = makeAdapter();
+    assert(adapter.connect());
+    const auto result = MissionTransferRuntime::execute(mission, capabilities, adapter);
+    assert(result.state == MissionTransferState::Rejected);
+    assert(result.reason == "PHYSICAL_TRANSFER_REQUIRES_PHYSICAL_EXECUTION_MODE");
+}
+
 void testRejectsConfigurationMismatch() {
     auto mission = makeMission();
     auto capabilities = makeCapabilities();
@@ -285,6 +316,8 @@ int main() {
     testRejectsInterleavedEventAfterReady();
     testRejectsSkippedReleaseTransition();
     testRejectsStaleRouteRevision();
+    testRejectsPassportOnlyProfileForPhysicalTransfer();
+    testRejectsVirtualProfileAtPhysicalTransferBoundary();
     testRejectsConfigurationMismatch();
     testRejectsInvalidCapabilities();
     testRejectsWhenDisconnected();
