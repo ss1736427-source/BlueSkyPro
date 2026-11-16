@@ -69,13 +69,18 @@ bool interpolateElevation(const TerrainDemGrid& dem, const GeoPoint& point, doub
     const auto at = [&](std::size_t row, std::size_t column) {
         return dem.elevation_m[row*dem.columns+column];
     };
-    const double z00=at(y0,x0), z10=at(y0,x1), z01=at(y1,x0), z11=at(y1,x1);
-    if (!std::isfinite(z00) || !std::isfinite(z10)
-        || !std::isfinite(z01) || !std::isfinite(z11))
-        return false;
-    const double lower = z00 + (z10-z00)*tx;
-    const double upper = z01 + (z11-z01)*tx;
-    elevation = lower + (upper-lower)*ty;
+    const double weights[4] = {
+        (1.0-tx)*(1.0-ty), tx*(1.0-ty), (1.0-tx)*ty, tx*ty};
+    const double values[4] = {
+        at(y0,x0), at(y0,x1), at(y1,x0), at(y1,x1)};
+    elevation = 0.0;
+    for (std::size_t i=0;i<4;++i) {
+        if (weights[i] <= 1e-12)
+            continue;
+        if (!std::isfinite(values[i]))
+            return false;
+        elevation += weights[i]*values[i];
+    }
     return std::isfinite(elevation);
 }
 
@@ -200,10 +205,15 @@ TerrainProfileAssessment TerrainProfileValidator::evaluate(
             return result;
         }
         const double requiredIntervals=std::ceil(length/sampleGap);
+        const std::size_t additionalSamples = std::isfinite(requiredIntervals)
+            && requiredIntervals >= 1.0
+            && requiredIntervals <= static_cast<double>(options.maximum_profile_samples)
+            ? static_cast<std::size_t>(requiredIntervals) + (segmentIndex==0 ? 1U : 0U)
+            : options.maximum_profile_samples + 1U;
         if (!std::isfinite(requiredIntervals) || requiredIntervals < 1.0
             || requiredIntervals > static_cast<double>(options.maximum_profile_samples)
-            || sampleCount + static_cast<std::size_t>(requiredIntervals)
-                > options.maximum_profile_samples) {
+            || additionalSamples > options.maximum_profile_samples
+            || sampleCount > options.maximum_profile_samples-additionalSamples) {
             fail(result, "TERRAIN_PROFILE_SAMPLE_LIMIT_EXCEEDED");
             return result;
         }
