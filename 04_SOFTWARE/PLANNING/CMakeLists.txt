@@ -39,6 +39,7 @@ add_library(bluesky_planning
     candidate_comparison.cpp
     selected_route_set.cpp
     route_constraint_validator.cpp
+    terrain_profile_validator.cpp
     flight_safety_constraints.cpp
     flight_profile.cpp
     vehicle_mission_compiler.cpp
@@ -242,6 +243,12 @@ add_executable(mission_lifecycle_terrain_adapter_test
     mission_lifecycle_terrain_adapter.hpp
 )
 target_link_libraries(mission_lifecycle_terrain_adapter_test PRIVATE bluesky_planning)
+
+add_executable(terrain_profile_validator_test terrain_profile_validator_test.cpp)
+target_link_libraries(terrain_profile_validator_test PRIVATE bluesky_planning)
+add_test(NAME terrain_profile_validator_contract COMMAND terrain_profile_validator_test)
+set_tests_properties(terrain_profile_validator_contract
+    PROPERTIES LABELS "planning;terrain;dem" TIMEOUT 30)
 add_test(NAME mission_lifecycle_terrain_adapter_contract
     COMMAND mission_lifecycle_terrain_adapter_test)
 set_tests_properties(mission_lifecycle_terrain_adapter_contract
