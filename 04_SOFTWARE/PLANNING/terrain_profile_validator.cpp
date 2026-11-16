@@ -205,19 +205,18 @@ TerrainProfileAssessment TerrainProfileValidator::evaluate(
             return result;
         }
         const double requiredIntervals=std::ceil(length/sampleGap);
-        const std::size_t additionalSamples = std::isfinite(requiredIntervals)
-            && requiredIntervals >= 1.0
-            && requiredIntervals <= static_cast<double>(options.maximum_profile_samples)
-            ? static_cast<std::size_t>(requiredIntervals) + (segmentIndex==0 ? 1U : 0U)
-            : options.maximum_profile_samples + 1U;
         if (!std::isfinite(requiredIntervals) || requiredIntervals < 1.0
-            || requiredIntervals > static_cast<double>(options.maximum_profile_samples)
-            || additionalSamples > options.maximum_profile_samples
-            || sampleCount > options.maximum_profile_samples-additionalSamples) {
+            || requiredIntervals > static_cast<double>(options.maximum_profile_samples)) {
             fail(result, "TERRAIN_PROFILE_SAMPLE_LIMIT_EXCEEDED");
             return result;
         }
         const std::size_t intervals = static_cast<std::size_t>(requiredIntervals);
+        const std::size_t additionalSamples = intervals + (segmentIndex==0 ? 1U : 0U);
+        if (additionalSamples > options.maximum_profile_samples
+            || sampleCount > options.maximum_profile_samples-additionalSamples) {
+            fail(result, "TERRAIN_PROFILE_SAMPLE_LIMIT_EXCEEDED");
+            return result;
+        }
         const double actualGap = length/static_cast<double>(intervals);
         maximumGap = std::max(maximumGap, actualGap);
         for (std::size_t i=(segmentIndex==0 ? 0 : 1); i<=intervals; ++i) {
