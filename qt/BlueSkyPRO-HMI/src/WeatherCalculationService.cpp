@@ -1151,6 +1151,11 @@ bool WeatherCalculationService::evaluateRoute(
         setError(QStringLiteral("WEATHER_ASSESSMENT_ALREADY_RUNNING"));
         return false;
     }
+    // A single-route evaluation cannot reuse a prior candidate-set attestation.
+    if (m_selectedCandidateEvidence.has_value()) {
+        m_selectedCandidateEvidence.reset();
+        emit selectedCandidateEvidenceChanged();
+    }
     if (!decoderAvailable()) {
         setError(QStringLiteral("GRIB2_DECODER_NOT_AVAILABLE"));
         return false;
@@ -1221,6 +1226,12 @@ bool WeatherCalculationService::evaluateCandidates(
     if (m_watcher.isRunning()) {
         setError(QStringLiteral("WEATHER_ASSESSMENT_ALREADY_RUNNING"));
         return false;
+    }
+    // A new request invalidates evidence from every previous candidate set,
+    // including requests rejected synchronously before the worker is launched.
+    if (m_selectedCandidateEvidence.has_value()) {
+        m_selectedCandidateEvidence.reset();
+        emit selectedCandidateEvidenceChanged();
     }
 
     bluesky::planning::NotamSnapshot notamSnapshot;
