@@ -101,6 +101,9 @@ public:
             && decision->weather_snapshot_id == weatherTrajectory.wind_snapshot_id
             && decision->weather_snapshot_version == weatherTrajectory.wind_snapshot_version
             && route.environment.wind_snapshot_id == weatherTrajectory.wind_snapshot_id
+            && route.speed_profile.has_value()
+            && route.speed_profile->wind_snapshot_id == weatherTrajectory.wind_snapshot_id
+            && route.speed_profile->wind_snapshot_version == weatherTrajectory.wind_snapshot_version
             && sources.performance_input->configuration_version == sources.vehicle_configuration_id;
         if (!selectedWeatherMatches)
             block("WEATHER_RESULT_NOT_BOUND_TO_SELECTED_ROUTE_OR_CONFIGURATION");
