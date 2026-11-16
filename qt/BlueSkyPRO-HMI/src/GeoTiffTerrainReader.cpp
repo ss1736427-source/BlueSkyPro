@@ -15,6 +15,7 @@
 #include <limits>
 #include <mutex>
 #include <vector>
+#include <utility>
 
 namespace
 {
@@ -211,7 +212,7 @@ bool GeoTiffTerrainReader::readForInspection(const QString &filePath,
         if (decoded.source_version == "SHA256:") {
             break;
         }
-        decoded.dataset_id = info.fileName().toStdString();
+        decoded.dataset_id = "UNATTESTED_FILE";
         decoded.dataset_version = "UNATTESTED";
         decoded.snapshot_id = "GEOTIFF-INSPECTION-" + decoded.source_version.substr(7);
         decoded.origin_longitude_deg = transform[0] + transform[1] * 0.5;
@@ -221,9 +222,9 @@ bool GeoTiffTerrainReader::readForInspection(const QString &filePath,
         const double metresPerLatitudeDegree = 111132.0;
         const double metresPerLongitudeDegree =
             111320.0 * std::max(0.0, std::cos(centreLatitude * 3.14159265358979323846 / 180.0));
-        decoded.horizontal_resolution_m = std::min(
-            decoded.latitude_step_deg * metresPerLatitudeDegree,
-            decoded.longitude_step_deg * metresPerLongitudeDegree);
+        decoded.horizontal_resolution_m = std::sqrt(
+            (decoded.latitude_step_deg * metresPerLatitudeDegree)
+            * (decoded.longitude_step_deg * metresPerLongitudeDegree));
         decoded.vertical_accuracy_m = 0.0;
         decoded.rows = static_cast<std::size_t>(height);
         decoded.columns = static_cast<std::size_t>(width);
