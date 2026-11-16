@@ -57,6 +57,7 @@ public:
         const bluesky::planning::MissionLifecycleTransitionResult &assessment,
         const QVariantList &pilotActions);
 
+    Q_INVOKABLE bool synchronizeDraftMissionLifecycle(const QString& missionModelJson);
     Q_INVOKABLE bool startProcess(const QString &program, const QStringList &arguments = {});
     Q_INVOKABLE void stopProcess();
     Q_INVOKABLE bool sendRequest(const QString &json);
