@@ -65,9 +65,14 @@ Item {
                 || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_READY"
                 || weatherAcquisitionStatus === "WEATHER_ASSESSMENT_INFEASIBLE")
             invalidateWeatherAcquisition("MISSION_ID_CHANGED_WEATHER_REQUEST_INVALIDATED")
-        if (root.terrainDataService && root.missionId)
+        if (root.terrainDataService && root.visualTerrainProfileMissionId)
             root.terrainDataService.cancelMission(root.visualTerrainProfileMissionId)
         root.visualTerrainProfileSamples = []
+        root.visualTerrainProfileRouteId = ""
+        root.visualTerrainProfileRouteVersion = ""
+        root.visualTerrainProfileInputVersion = ""
+        root.visualTerrainProfileMissionId = ""
+        root.visualTerrainProfileStatus = "WAITING_FOR_CANONICAL_ROUTE"
         root.requestVisualTerrainProfile()
     }
 
@@ -819,6 +824,7 @@ Item {
     property string visualTerrainProfileStatus: "NOT_REQUESTED"
     property string visualTerrainProfileRouteId: ""
     property string visualTerrainProfileRouteVersion: ""
+    property string visualTerrainProfileInputVersion: ""
     property string visualTerrainProfileMissionId: ""
     // Terrain samples are supplied by the shared terrain-data pipeline.
     // Each sample: { progress: 0..1, elevationM, snapshotId }.
@@ -837,15 +843,28 @@ Item {
         }
         var snapshot = root.routeController.routeSnapshot()
         if (!snapshot || !snapshot.routeId || !snapshot.routeVersion
-                || !Array.isArray(snapshot.waypoints) || snapshot.waypoints.length < 2) {
+                || !Array.isArray(snapshot.waypoints) || snapshot.waypoints.length < 2
+                || String(snapshot.missionId || "") !== String(root.missionId)) {
             root.visualTerrainProfileSamples = []
             root.visualTerrainProfileStatus = "WAITING_FOR_CANONICAL_ROUTE"
             return
         }
+        var nextRouteId = String(snapshot.routeId)
+        var nextRouteVersion = String(snapshot.routeVersion)
+        var nextInputVersion = String(snapshot.calculationInputVersion || "")
+        var nextMissionId = String(snapshot.missionId || root.missionId)
+        if (root.visualTerrainProfileRouteId === nextRouteId
+                && root.visualTerrainProfileRouteVersion === nextRouteVersion
+                && root.visualTerrainProfileInputVersion === nextInputVersion
+                && root.visualTerrainProfileMissionId === nextMissionId
+                && (root.visualTerrainProfileStatus === "ACQUIRING_VISUAL_TERRAIN"
+                    || root.visualTerrainProfileStatus === "READY_VISUAL_ONLY"))
+            return
         root.visualTerrainProfileSamples = []
-        root.visualTerrainProfileRouteId = String(snapshot.routeId)
-        root.visualTerrainProfileRouteVersion = String(snapshot.routeVersion)
-        root.visualTerrainProfileMissionId = String(snapshot.missionId || root.missionId)
+        root.visualTerrainProfileRouteId = nextRouteId
+        root.visualTerrainProfileRouteVersion = nextRouteVersion
+        root.visualTerrainProfileInputVersion = nextInputVersion
+        root.visualTerrainProfileMissionId = nextMissionId
         if (!root.terrainApiKey) {
             root.visualTerrainProfileStatus = "MAPTILER_CREDENTIAL_NOT_CONFIGURED"
             return
@@ -888,8 +907,17 @@ Item {
         target: root.routeController
         enabled: target !== null
         function onRouteChanged() {
+            var current = root.routeController && root.routeController.routeSnapshot
+                    ? root.routeController.routeSnapshot() : null
+            var sameRevision = current
+                    && String(current.routeId || "") === root.visualTerrainProfileRouteId
+                    && String(current.routeVersion || "") === root.visualTerrainProfileRouteVersion
+                    && String(current.calculationInputVersion || "") === root.visualTerrainProfileInputVersion
+            if (sameRevision)
+                return
             if (root.terrainDataService && root.visualTerrainProfileMissionId)
                 root.terrainDataService.cancelMission(root.visualTerrainProfileMissionId)
+            root.visualTerrainProfileSamples = []
             root.requestVisualTerrainProfile()
         }
     }
