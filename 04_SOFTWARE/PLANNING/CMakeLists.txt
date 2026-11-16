@@ -9,6 +9,7 @@ option(BLUESKY_ENABLE_ECCODES "Build the ecCodes GRIB2 decoder into planning" OF
 
 add_library(bluesky_planning
     mission_lifecycle.cpp
+    mission_lifecycle_owner.cpp
     command_lifecycle_runtime.cpp
     mission_transfer_runtime.cpp
     capability_execution_integration.cpp
@@ -186,6 +187,14 @@ add_executable(notam_prohibited_zone_validator_test
     notam_prohibited_zone_validator_test.cpp
 )
 target_link_libraries(notam_prohibited_zone_validator_test PRIVATE bluesky_planning)
+
+add_executable(mission_lifecycle_owner_test mission_lifecycle_owner_test.cpp)
+target_link_libraries(mission_lifecycle_owner_test PRIVATE bluesky_planning)
+target_compile_options(mission_lifecycle_owner_test PRIVATE
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>"
+)
+add_test(NAME mission_lifecycle_owner_contract COMMAND mission_lifecycle_owner_test)
 
 add_executable(authorization_readiness_gate_test
     authorization_readiness_gate_test.cpp
