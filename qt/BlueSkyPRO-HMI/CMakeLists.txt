@@ -161,6 +161,7 @@ add_executable(maptiler_terrain_rgb_decoder_test
     src/MapTilerTerrainRgbDecoder.h
 )
 target_link_libraries(maptiler_terrain_rgb_decoder_test PRIVATE Qt6::Core Qt6::Gui)
+target_include_directories(maptiler_terrain_rgb_decoder_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_features(maptiler_terrain_rgb_decoder_test PRIVATE cxx_std_20)
 target_compile_options(maptiler_terrain_rgb_decoder_test PRIVATE
     "$<$<CXX_COMPILER_ID:GNU,Clang>:-UNDEBUG>"
