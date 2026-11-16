@@ -303,7 +303,7 @@ static void testHmiDraftJsonIsSynchronizedIntoLifecycleOwner()
     using namespace bluesky::planning;
     PlanningBridge bridge;
     const QString virtualDraft = QStringLiteral(
-        "{\"missionId\":\"JSON-DRAFT-VF\",\"missionVersion\":1,"
+        "{\"missionId\":\"JSON-DRAFT-VF\",\"missionVersion\":1,\"status\":\"DRAFT\","
         "\"missionMode\":\"AUTO\",\"selectedTemplateIds\":[\"MT-01\"],"
         "\"lifecycle\":{\"missionId\":\"JSON-DRAFT-VF\",\"missionVersion\":1,"
         "\"state\":\"DRAFT\",\"nextEventSequence\":1,\"history\":[]},"
@@ -320,7 +320,7 @@ static void testHmiDraftJsonIsSynchronizedIntoLifecycleOwner()
     assert(snapshot->mission_template_ids.size() == 1);
 
     const QString revisedDraft = QStringLiteral(
-        "{\"missionId\":\"JSON-DRAFT-VF\",\"missionVersion\":2,"
+        "{\"missionId\":\"JSON-DRAFT-VF\",\"missionVersion\":2,\"status\":\"DRAFT\","
         "\"missionMode\":\"AUTO\",\"selectedTemplateIds\":[\"MT-01\",\"MT-03\"],"
         "\"lifecycle\":{\"missionId\":\"JSON-DRAFT-VF\",\"missionVersion\":2,"
         "\"state\":\"DRAFT\",\"nextEventSequence\":1,\"history\":[]},"
@@ -336,7 +336,7 @@ static void testHmiDraftJsonIsSynchronizedIntoLifecycleOwner()
     assert(snapshot->mission_template_ids.size() == 2);
 
     const QString unsafeDraft = QStringLiteral(
-        "{\"missionId\":\"JSON-UNSAFE-VF\",\"missionVersion\":1,"
+        "{\"missionId\":\"JSON-UNSAFE-VF\",\"missionVersion\":1,\"status\":\"DRAFT\","
         "\"selectedTemplateIds\":[\"MT-01\"],"
         "\"lifecycle\":{\"missionId\":\"JSON-UNSAFE-VF\",\"missionVersion\":1,"
         "\"state\":\"DRAFT\",\"nextEventSequence\":1,\"history\":[]},"
