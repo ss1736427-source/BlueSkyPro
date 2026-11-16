@@ -183,12 +183,10 @@ add_executable(planning_bridge_readiness_gate_test
     tests/PlanningBridgeReadinessGateTest.cpp
     src/PlanningBridge.cpp
     src/PlanningBridge.h
-    ../../04_SOFTWARE/PLANNING/mission_lifecycle.cpp
     ../../04_SOFTWARE/PLANNING/mission_lifecycle.hpp
-    ../../04_SOFTWARE/PLANNING/mission_lifecycle_owner.cpp
     ../../04_SOFTWARE/PLANNING/mission_lifecycle_owner.hpp
 )
-target_link_libraries(planning_bridge_readiness_gate_test PRIVATE Qt6::Core)
+target_link_libraries(planning_bridge_readiness_gate_test PRIVATE bluesky_planning Qt6::Core)
 target_include_directories(planning_bridge_readiness_gate_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_features(planning_bridge_readiness_gate_test PRIVATE cxx_std_20)
 target_compile_options(planning_bridge_readiness_gate_test PRIVATE
