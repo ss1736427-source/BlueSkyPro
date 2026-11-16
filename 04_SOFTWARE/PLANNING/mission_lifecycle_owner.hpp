@@ -18,6 +18,11 @@ class MissionLifecycleOwner final {
 public:
     bool registerMission(const Mission& mission, std::vector<std::string>* blockers = nullptr);
 
+    // Idempotently registers or advances an editable DRAFT revision. Once
+    // admission starts, the existing lifecycle record is immutable here.
+    bool synchronizeDraftMission(const Mission& mission,
+                                 std::vector<std::string>* blockers = nullptr);
+
     MissionLifecycleTransitionResult transition(
         const std::string& mission_id,
         MissionLifecycleState target,
