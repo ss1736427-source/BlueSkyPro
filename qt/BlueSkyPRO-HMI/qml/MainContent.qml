@@ -82,6 +82,13 @@ Item {
         : (!root.lifecycleModeProvenanceMatches ? "BLOCKED_EXECUTION_MODE_OR_PROVENANCE_MISMATCH"
         : String(root.lifecycleReadinessSnapshot.status || "BLOCKED"))
 
+    function synchronizeDraftLifecycle(modelJson) {
+        if (typeof planningBridge === "undefined" || planningBridge === null
+                || !modelJson || String(modelJson).length === 0)
+            return false
+        return planningBridge.synchronizeDraftMissionLifecycle(String(modelJson))
+    }
+
     // A workspace switch starts a distinct mission identity. Results, route
     // candidates and readiness from the previous execution mode are invalidated.
     // Manual geometry is retained for editing, but its mission aggregate must be
@@ -134,6 +141,10 @@ Item {
                     ? String(rebuilt.missionModelJson || "") : ""
             root.autoMissionModelStatus = rebuilt.valid
                     ? "DRAFT" : rebuilt.errors.join(", ")
+            if (rebuilt.valid && !root.synchronizeDraftLifecycle(root.autoMissionModelJson)) {
+                root.autoMissionModelJson = ""
+                root.autoMissionModelStatus = "LIFECYCLE_DRAFT_REGISTRATION_FAILED"
+            }
         }
     }
 
@@ -785,6 +796,14 @@ Item {
                             missionContext)
                 root.manualMissionModelJson = modelResult.valid
                         ? String(modelResult.missionModelJson || "") : ""
+                if (modelResult.valid
+                        && !root.synchronizeDraftLifecycle(root.manualMissionModelJson)) {
+                    root.manualModelValidationStatus = "LIFECYCLE_DRAFT_REGISTRATION_FAILED"
+                    root.manualSetRequested = false
+                    root.manualSetBlocked = true
+                    root.missionState = "MANUAL"
+                    return
+                }
                 if (!modelResult.valid) {
                     root.manualModelValidationStatus = modelResult.errors.join(", ")
                     root.manualSetRequested = false
@@ -1285,6 +1304,10 @@ Item {
             root.autoMissionModelStatus = autoBuild.valid
                     ? (autoBuild.geometryComplete ? "DRAFT" : "DRAFT_AOI_AND_CONFIGURATION_REQUIRED")
                     : autoBuild.errors.join(", ")
+            if (autoBuild.valid && !root.synchronizeDraftLifecycle(root.autoMissionModelJson)) {
+                root.autoMissionModelJson = ""
+                root.autoMissionModelStatus = "LIFECYCLE_DRAFT_REGISTRATION_FAILED"
+            }
             root.autoMissionVersion += 1
             root.missionState = "AUTO"
             root.taskCreationVisible = false
