@@ -809,6 +809,45 @@ Item {
 
     // Shared authoritative route model; local profile data is presentation-only.
     property var routeController: null
+    // Terrain samples are supplied by the shared terrain-data pipeline.
+    // Each sample: { progress: 0..1, elevationM, snapshotId }.
+    // They are display-only and must match the canonical route terrain snapshot.
+    property var terrainProfileSamples: []
+    property string terrainProfileSnapshotId: ""
+    property string terrainProfileVerticalDatum: ""
+    property string terrainProfileSourceLabel: ""
+    readonly property var validatedTerrainProfileSamples: {
+        var result = []
+        if (!root.hasCanonicalRoute || !root.routeController
+                || typeof root.routeController.routeSnapshot !== "function")
+            return result
+        var snapshot = root.routeController.routeSnapshot()
+        var expectedSnapshotId = snapshot && snapshot.environmentSnapshotRefs
+                ? String(snapshot.environmentSnapshotRefs.terrainSnapshotId || "") : ""
+        if (!expectedSnapshotId
+                || root.terrainProfileSnapshotId !== expectedSnapshotId
+                || !root.terrainProfileVerticalDatum
+                || root.terrainProfileVerticalDatum === "UNKNOWN"
+                || !Array.isArray(root.terrainProfileSamples))
+            return result
+        for (var i = 0; i < root.terrainProfileSamples.length; ++i) {
+            var sample = root.terrainProfileSamples[i]
+            var progress = Number(sample.progress)
+            var elevation = Number(sample.elevationM)
+            if (!sample || String(sample.snapshotId || "") !== expectedSnapshotId
+                    || !Number.isFinite(progress) || progress < 0 || progress > 1
+                    || !Number.isFinite(elevation))
+                return []
+            result.push({ progress: progress, elevationM: elevation })
+        }
+        if (result.length < 2)
+            return []
+        result.sort(function(a, b) { return a.progress - b.progress })
+        for (var j = 1; j < result.length; ++j)
+            if (result[j].progress <= result[j - 1].progress)
+                return []
+        return result
+    }
     readonly property bool hasCanonicalRoute: routeController !== null && routeController !== undefined
                                              && routeController.waypoints !== undefined
                                              && routeController.waypoints.length >= 2
@@ -1963,7 +2002,7 @@ Item {
                                 }
                                 Item { width: 18; height: 1 }
                                 Text {
-                                    text: "━ Профиль маршрута     ▰ Рельеф местности     ┄ Ограничение высоты     ○ Точки маршрута     ➜ Ветер"
+                                    text: "━ Маршрут AGL     ▰ Рельеф AMSL (правая шкала)     ┄ Ограничение высоты     ○ Точки маршрута"
                                     color: root.muted
                                     font.family: "B612"
                                     font.pixelSize: 9
@@ -2005,10 +2044,23 @@ Item {
                                 font.pixelSize: 9
                                 elide: Text.ElideRight
                             }
+                            Text {
+                                width: parent.width
+                                visible: true
+                                text: root.validatedTerrainProfileSamples.length >= 2
+                                      ? "РЕЛЬЕФ: " + (root.terrainProfileSourceLabel || "DEM")
+                                        + " · " + root.terrainProfileVerticalDatum
+                                        + " · SNAPSHOT " + root.terrainProfileSnapshotId
+                                      : "РЕЛЬЕФ: НЕТ ДАННЫХ ДЛЯ АКТИВНОГО TERRAIN SNAPSHOT"
+                                color: root.validatedTerrainProfileSamples.length >= 2 ? "#8FCB78" : "#FFD339"
+                                font.family: "B612"
+                                font.pixelSize: 9
+                                elide: Text.ElideRight
+                            }
                             Canvas {
                                 id: profileCanvas
                                 width: parent.width
-                                height: parent.height - 58
+                                height: parent.height - 72
                                 onWidthChanged: requestPaint()
                                 onHeightChanged: requestPaint()
                                 Connections {
@@ -2017,6 +2069,9 @@ Item {
                                     // is added, or is removed. The Canvas computes numbering from
                                     // the current progress-sorted route nodes during onPaint.
                                     function onMandatoryPointsChanged() { profileCanvas.requestPaint() }
+                                    function onTerrainProfileSamplesChanged() { profileCanvas.requestPaint() }
+                                    function onTerrainProfileSnapshotIdChanged() { profileCanvas.requestPaint() }
+                                    function onTerrainProfileVerticalDatumChanged() { profileCanvas.requestPaint() }
                                     function onLiveFlightActiveChanged() { profileCanvas.requestPaint() }
                                     function onLiveDistanceKmChanged() { profileCanvas.requestPaint() }
                                     function onLiveElapsedSecondsChanged() { profileCanvas.requestPaint() }
@@ -2037,17 +2092,50 @@ Item {
                                         var x = left + plotW * gx / 8
                                         ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke()
                                     }
-                                    // Terrain area
-                                    var terrain = [130,70,105,145,82,150,90,165,120,75,135,155,95,205,280,230,160,205,130,90,120,195]
-                                    ctx.beginPath(); ctx.moveTo(left, bottom)
-                                    for (var i = 0; i < terrain.length; i++) {
-                                        var tx = left + plotW * i / (terrain.length - 1)
-                                        var ty = bottom - (terrain[i] / root.profileAltitudeScaleMax()) * plotH
-                                        ctx.lineTo(tx, ty)
+                                    // Terrain uses its own AMSL scale on the right axis.
+                                    // Route target heights remain AGL on the left axis; the
+                                    // vertical gap between these two series is NOT clearance.
+                                    var terrain = root.validatedTerrainProfileSamples
+                                    if (terrain.length >= 2) {
+                                        var terrainMin = terrain[0].elevationM
+                                        var terrainMax = terrainMin
+                                        for (var ti = 1; ti < terrain.length; ++ti) {
+                                            terrainMin = Math.min(terrainMin, terrain[ti].elevationM)
+                                            terrainMax = Math.max(terrainMax, terrain[ti].elevationM)
+                                        }
+                                        var terrainSpan = Math.max(1, terrainMax - terrainMin)
+                                        var terrainPad = Math.max(5, terrainSpan * 0.10)
+                                        terrainMin -= terrainPad
+                                        terrainMax += terrainPad
+                                        var terrainY = function(value) {
+                                            return bottom - ((value - terrainMin) / (terrainMax - terrainMin)) * plotH
+                                        }
+                                        ctx.beginPath()
+                                        ctx.moveTo(left + plotW * terrain[0].progress, bottom)
+                                        for (var t = 0; t < terrain.length; ++t)
+                                            ctx.lineTo(left + plotW * terrain[t].progress,
+                                                       terrainY(terrain[t].elevationM))
+                                        ctx.lineTo(left + plotW * terrain[terrain.length - 1].progress, bottom)
+                                        ctx.closePath()
+                                        ctx.fillStyle = "rgba(72,132,66,0.30)"
+                                        ctx.fill()
+                                        ctx.beginPath()
+                                        for (var tl = 0; tl < terrain.length; ++tl) {
+                                            var terrainX = left + plotW * terrain[tl].progress
+                                            var terrainLineY = terrainY(terrain[tl].elevationM)
+                                            if (tl === 0) ctx.moveTo(terrainX, terrainLineY)
+                                            else ctx.lineTo(terrainX, terrainLineY)
+                                        }
+                                        ctx.strokeStyle = "#8FCB78"
+                                        ctx.lineWidth = 2
+                                        ctx.stroke()
+                                        ctx.fillStyle = "#8FCB78"
+                                        ctx.font = "10px sans-serif"
+                                        ctx.textAlign = "right"
+                                        ctx.fillText(Math.round(terrainMax) + " m", right + 30, top + 4)
+                                        ctx.fillText(Math.round(terrainMin) + " m", right + 30, bottom)
+                                        ctx.textAlign = "start"
                                     }
-                                    ctx.lineTo(right, bottom); ctx.closePath()
-                                    ctx.fillStyle = "#294B2D"; ctx.fill()
-                                    ctx.strokeStyle = "#64A83B"; ctx.lineWidth = 1; ctx.stroke()
                                     // Altitude restriction
                                     ctx.setLineDash([8, 5]); ctx.strokeStyle = "#FF3548"; ctx.lineWidth = 2
                                     ctx.beginPath(); ctx.moveTo(left, top + plotH * 0.12); ctx.lineTo(right, top + plotH * 0.12); ctx.stroke()
@@ -2137,7 +2225,8 @@ Item {
                                         ctx.fillText("ОБЯЗАТЕЛЬНАЯ", Math.min(right - 105, mandatoryX + 13), Math.max(top + 13, mandatoryY - 25))
                                     }
                                     ctx.fillStyle = "#DCE8F2"; ctx.font = "11px sans-serif"
-                                    ctx.fillText("Высота, м", 3, 12)
+                                    ctx.fillText("Маршрут AGL, м", 3, 12)
+                                    if (terrain.length >= 2) ctx.fillText("Рельеф AMSL, м", right - 92, 12)
                                     // Time axis: elapsed mission time, from departure to planned ETA.
                                     ctx.fillText("Время полёта", Math.max(45, width / 2 - 35), height - 4)
                                     ctx.fillText("00:00", left - 18, bottom + 14)

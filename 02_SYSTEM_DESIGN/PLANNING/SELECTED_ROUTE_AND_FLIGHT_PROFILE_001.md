@@ -37,3 +37,12 @@ The flight-profile view shall display the same applicable NOTAM restrictions as 
 - After route calculation, the displayed restrictions shall be filtered to those whose validity intervals overlap the mission interval. Where estimated time of passage is available, the profile should identify temporal applicability along the affected route segment.
 - AGL, AMSL, and Flight Level values must not be compared or drawn on one common vertical scale unless a valid conversion is available. If conversion is unavailable or a bound is missing, the profile must mark the band/limit as unknown rather than imply a safe vertical separation.
 - The profile is a synchronized presentation of the planning environment and does not independently calculate, remove, or authorize restrictions. Changes to the selected route or relevant planning inputs must update the displayed profile version and trigger the prescribed revalidation flow.
+
+
+## Terrain series in the interactive profile
+
+The interactive profile renders the planned route target-height series as AGL on the left vertical scale and the sampled ground-elevation series as AMSL on an independent right vertical scale. Both series share the same route-progress horizontal axis. Their screen-space separation is not a clearance measurement and must not be presented as one.
+
+The terrain series is accepted only when every sample is finite, ordered by strictly increasing route progress in the 0..1 interval, and bound to the exact terrain snapshot referenced by the current canonical route. The displayed vertical datum and source label are explicit. Missing, stale, mismatched, or unknown-datum samples are omitted and the profile reports that terrain data is unavailable; it must never substitute a synthetic terrain curve or a zero-elevation baseline.
+
+The profile consumes samples from the shared Terrain Data Service. It does not fetch map tiles or derive elevation independently. A route or terrain snapshot change invalidates the previous series until a matching sample set is published. The terrain curve is a presentation layer only; terrain clearance and READY continue to depend on the authoritative terrain validation evidence.
