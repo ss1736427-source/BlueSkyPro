@@ -83,6 +83,41 @@ public:
             segmentSnapshot.push_back(item);
         }
         snapshot.insert(QStringLiteral("segments"), segmentSnapshot);
+        if (m_route.speed_profile) {
+            const auto &profile = *m_route.speed_profile;
+            QVariantList profileSegments;
+            for (const auto &segment : profile.segments) {
+                profileSegments.push_back(QVariantMap{
+                    {QStringLiteral("segmentId"), QString::fromStdString(segment.segment_id)},
+                    {QStringLiteral("distanceM"), segment.distance_m},
+                    {QStringLiteral("entrySpeedMps"), segment.entry_speed_mps},
+                    {QStringLiteral("exitSpeedMps"), segment.exit_speed_mps},
+                    {QStringLiteral("maximumReachableSpeedMps"), segment.maximum_reachable_speed_mps},
+                    {QStringLiteral("accelerationDistanceM"), segment.acceleration_distance_m},
+                    {QStringLiteral("decelerationDistanceM"), segment.deceleration_distance_m},
+                    {QStringLiteral("cruiseDistanceM"), segment.cruise_distance_m},
+                    {QStringLiteral("maximumAccelerationMps2"), segment.maximum_acceleration_mps2},
+                    {QStringLiteral("maximumDecelerationMps2"), segment.maximum_deceleration_mps2},
+                    {QStringLiteral("minimumSpeedMps"), segment.minimum_speed_mps},
+                    {QStringLiteral("maximumSpeedMps"), segment.maximum_speed_mps},
+                    {QStringLiteral("appliedMinimumSpeedMps"), segment.applied_minimum_speed_mps},
+                    {QStringLiteral("appliedMaximumSpeedMps"), segment.applied_maximum_speed_mps}
+                });
+            }
+            snapshot.insert(QStringLiteral("speedProfile"), QVariantMap{
+                {QStringLiteral("vehicleModelId"), QString::fromStdString(profile.vehicle_model_id)},
+                {QStringLiteral("vehicleModelVersion"), QString::fromStdString(profile.vehicle_model_version)},
+                {QStringLiteral("configurationId"), QString::fromStdString(profile.configuration_id)},
+                {QStringLiteral("speedReference"), QString::fromStdString(profile.speed_reference)},
+                {QStringLiteral("dynamicsSource"), QString::fromStdString(profile.dynamics_source)},
+                {QStringLiteral("profileId"), QString::fromStdString(profile.profile_id)},
+                {QStringLiteral("profileVersion"), QString::fromStdString(profile.profile_version)},
+                {QStringLiteral("windSnapshotId"), QString::fromStdString(profile.wind_snapshot_id)},
+                {QStringLiteral("windSnapshotVersion"), QString::fromStdString(profile.wind_snapshot_version)},
+                {QStringLiteral("cameraConfigurationId"), QString::fromStdString(profile.camera_configuration_id)},
+                {QStringLiteral("segments"), profileSegments}
+            });
+        }
         snapshot.insert(QStringLiteral("trajectoryGeometryComplete"),
                         m_route.trajectory_geometry_complete);
         snapshot.insert(QStringLiteral("validationState"), m_validationState);
@@ -276,6 +311,84 @@ public:
                                    segment.lateral_acceleration_mps2))
                 return rejectCandidate(QStringLiteral("ROUTE_SEGMENT_DYNAMIC_LIMIT_INVALID"));
             m_route.segments.push_back(std::move(segment));
+        }
+        if (candidate.contains(QStringLiteral("speedProfile"))) {
+            const QVariantMap sourceProfile = candidate.value(QStringLiteral("speedProfile")).toMap();
+            bluesky::planning::RouteSpeedProfile profile;
+            profile.vehicle_model_id = sourceProfile.value(QStringLiteral("vehicleModelId")).toString().trimmed().toStdString();
+            profile.vehicle_model_version = sourceProfile.value(QStringLiteral("vehicleModelVersion")).toString().trimmed().toStdString();
+            profile.configuration_id = sourceProfile.value(QStringLiteral("configurationId")).toString().trimmed().toStdString();
+            profile.speed_reference = sourceProfile.value(QStringLiteral("speedReference")).toString().trimmed().toStdString();
+            profile.dynamics_source = sourceProfile.value(QStringLiteral("dynamicsSource")).toString().trimmed().toStdString();
+            profile.profile_id = sourceProfile.value(QStringLiteral("profileId")).toString().trimmed().toStdString();
+            profile.profile_version = sourceProfile.value(QStringLiteral("profileVersion")).toString().trimmed().toStdString();
+            profile.wind_snapshot_id = sourceProfile.value(QStringLiteral("windSnapshotId")).toString().trimmed().toStdString();
+            profile.wind_snapshot_version = sourceProfile.value(QStringLiteral("windSnapshotVersion")).toString().trimmed().toStdString();
+            profile.camera_configuration_id = sourceProfile.value(QStringLiteral("cameraConfigurationId")).toString().trimmed().toStdString();
+            const QVariantList profileSegments = sourceProfile.value(QStringLiteral("segments")).toList();
+            if (profile.vehicle_model_id.empty() || profile.vehicle_model_version.empty()
+                || profile.configuration_id.empty() || profile.dynamics_source.empty()
+                || (profile.speed_reference != "TAS" && profile.speed_reference != "AIR_RELATIVE")
+                || profileSegments.size() != segmentValues.size() || profileSegments.isEmpty()) {
+                return rejectCandidate(QStringLiteral("ROUTE_SPEED_PROFILE_IDENTITY_OR_COVERAGE_INVALID"));
+            }
+            double previousExitSpeed = 0.0;
+            for (qsizetype i = 0; i < profileSegments.size(); ++i) {
+                const QVariantMap item = profileSegments.at(i).toMap();
+                bluesky::planning::RouteSpeedProfileSegment segment;
+                segment.segment_id = item.value(QStringLiteral("segmentId")).toString().trimmed().toStdString();
+                const auto readProfileNumber = [&item](const QString &key, double &target) {
+                    bool ok = false;
+                    target = item.value(key).toDouble(&ok);
+                    return ok && std::isfinite(target);
+                };
+                if (!readProfileNumber(QStringLiteral("distanceM"), segment.distance_m)
+                    || !readProfileNumber(QStringLiteral("entrySpeedMps"), segment.entry_speed_mps)
+                    || !readProfileNumber(QStringLiteral("exitSpeedMps"), segment.exit_speed_mps)
+                    || !readProfileNumber(QStringLiteral("maximumReachableSpeedMps"), segment.maximum_reachable_speed_mps)
+                    || !readProfileNumber(QStringLiteral("accelerationDistanceM"), segment.acceleration_distance_m)
+                    || !readProfileNumber(QStringLiteral("decelerationDistanceM"), segment.deceleration_distance_m)
+                    || !readProfileNumber(QStringLiteral("cruiseDistanceM"), segment.cruise_distance_m)
+                    || !readProfileNumber(QStringLiteral("maximumAccelerationMps2"), segment.maximum_acceleration_mps2)
+                    || !readProfileNumber(QStringLiteral("maximumDecelerationMps2"), segment.maximum_deceleration_mps2)
+                    || !readProfileNumber(QStringLiteral("minimumSpeedMps"), segment.minimum_speed_mps)
+                    || !readProfileNumber(QStringLiteral("maximumSpeedMps"), segment.maximum_speed_mps)
+                    || !readProfileNumber(QStringLiteral("appliedMinimumSpeedMps"), segment.applied_minimum_speed_mps)
+                    || !readProfileNumber(QStringLiteral("appliedMaximumSpeedMps"), segment.applied_maximum_speed_mps)) {
+                    return rejectCandidate(QStringLiteral("ROUTE_SPEED_PROFILE_NUMERIC_FIELD_INVALID"));
+                }
+                const auto &routeSegment = m_route.segments[static_cast<std::size_t>(i)];
+                const double distanceTolerance = std::max(0.5, routeSegment.distance_m * 0.01);
+                const double phaseDistance = segment.acceleration_distance_m
+                    + segment.deceleration_distance_m + segment.cruise_distance_m;
+                if (segment.segment_id != routeSegment.segment_id
+                    || !std::isfinite(segment.distance_m) || segment.distance_m <= 0.0
+                    || std::abs(segment.distance_m - routeSegment.distance_m) > distanceTolerance
+                    || segment.entry_speed_mps <= 0.0 || segment.exit_speed_mps <= 0.0
+                    || segment.maximum_reachable_speed_mps <= 0.0
+                    || segment.maximum_acceleration_mps2 <= 0.0
+                    || segment.maximum_deceleration_mps2 <= 0.0
+                    || segment.acceleration_distance_m < 0.0
+                    || segment.deceleration_distance_m < 0.0
+                    || segment.cruise_distance_m < 0.0
+                    || std::abs(phaseDistance - segment.distance_m) > distanceTolerance
+                    || segment.minimum_speed_mps <= 0.0
+                    || segment.maximum_speed_mps < segment.minimum_speed_mps
+                    || segment.applied_minimum_speed_mps < segment.minimum_speed_mps
+                    || segment.applied_maximum_speed_mps > segment.maximum_speed_mps
+                    || segment.applied_maximum_speed_mps < segment.applied_minimum_speed_mps
+                    || segment.entry_speed_mps < segment.applied_minimum_speed_mps - 1e-6
+                    || segment.exit_speed_mps < segment.applied_minimum_speed_mps - 1e-6
+                    || segment.maximum_reachable_speed_mps > segment.applied_maximum_speed_mps + 1e-6
+                    || segment.maximum_reachable_speed_mps + 1e-9
+                        < std::max(segment.entry_speed_mps, segment.exit_speed_mps)
+                    || (i > 0 && std::abs(segment.entry_speed_mps - previousExitSpeed) > 1e-6)) {
+                    return rejectCandidate(QStringLiteral("ROUTE_SPEED_PROFILE_SEGMENT_BINDING_INVALID"));
+                }
+                previousExitSpeed = segment.exit_speed_mps;
+                profile.segments.push_back(std::move(segment));
+            }
+            m_route.speed_profile = std::move(profile);
         }
         m_route.trajectory_geometry_complete = trajectoryGeometryComplete;
         for (const QVariant &value : normalized) {

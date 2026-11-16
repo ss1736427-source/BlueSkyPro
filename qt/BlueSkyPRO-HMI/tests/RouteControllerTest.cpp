@@ -168,6 +168,57 @@ int main(int argc, char *argv[])
     assert(completeSnapshot.value(QStringLiteral("trajectoryGeometryComplete")).toBool());
     assert(completeSnapshot.value(QStringLiteral("segments")).toList().size() == 1);
 
+    QVariantMap profiledCandidate = completeCandidate;
+    profiledCandidate.insert(QStringLiteral("speedProfile"), QVariantMap{
+        {QStringLiteral("vehicleModelId"), QStringLiteral("DJI-M3E")},
+        {QStringLiteral("vehicleModelVersion"), QStringLiteral("catalog-1")},
+        {QStringLiteral("configurationId"), QStringLiteral("M3E-CONFIG-01")},
+        {QStringLiteral("speedReference"), QStringLiteral("AIR_RELATIVE")},
+        {QStringLiteral("dynamicsSource"), QStringLiteral("validated-uav-dynamics-v1")},
+        {QStringLiteral("profileId"), QStringLiteral("MT01-ROUTE-TEST-01-SPEED")},
+        {QStringLiteral("profileVersion"), QStringLiteral("input-1")},
+        {QStringLiteral("segments"), QVariantList{QVariantMap{
+            {QStringLiteral("segmentId"), QStringLiteral("SEG-1")},
+            {QStringLiteral("distanceM"), 12400.0},
+            {QStringLiteral("entrySpeedMps"), 10.0},
+            {QStringLiteral("exitSpeedMps"), 10.0},
+            {QStringLiteral("maximumReachableSpeedMps"), 15.0},
+            {QStringLiteral("accelerationDistanceM"), 0.0},
+            {QStringLiteral("decelerationDistanceM"), 0.0},
+            {QStringLiteral("cruiseDistanceM"), 12400.0},
+            {QStringLiteral("maximumAccelerationMps2"), 2.0},
+            {QStringLiteral("maximumDecelerationMps2"), 2.0},
+            {QStringLiteral("minimumSpeedMps"), 5.0},
+            {QStringLiteral("maximumSpeedMps"), 15.0},
+            {QStringLiteral("appliedMinimumSpeedMps"), 5.0},
+            {QStringLiteral("appliedMaximumSpeedMps"), 15.0}
+        }}}
+    });
+    RouteController profileController;
+    assert(profileController.loadCandidate(profiledCandidate));
+    const QVariantMap profileSnapshot = profileController.routeSnapshot()
+        .value(QStringLiteral("speedProfile")).toMap();
+    assert(profileSnapshot.value(QStringLiteral("profileId")).toString()
+           == QStringLiteral("MT01-ROUTE-TEST-01-SPEED"));
+    const QVariantMap profileSegmentSnapshot = profileSnapshot.value(QStringLiteral("segments"))
+        .toList().front().toMap();
+    assert(profileSegmentSnapshot.value(QStringLiteral("segmentId")).toString()
+           == QStringLiteral("SEG-1"));
+    assert(profileSegmentSnapshot.value(QStringLiteral("entrySpeedMps")).toDouble() == 10.0);
+    assert(profileSegmentSnapshot.value(QStringLiteral("cruiseDistanceM")).toDouble() == 12400.0);
+
+    QVariantMap mismatchedProfile = profiledCandidate;
+    QVariantMap badProfile = mismatchedProfile.value(QStringLiteral("speedProfile")).toMap();
+    QVariantList badProfileSegments = badProfile.value(QStringLiteral("segments")).toList();
+    QVariantMap badProfileSegment = badProfileSegments.front().toMap();
+    badProfileSegment.insert(QStringLiteral("segmentId"), QStringLiteral("OTHER-SEGMENT"));
+    badProfileSegments[0] = badProfileSegment;
+    badProfile.insert(QStringLiteral("segments"), badProfileSegments);
+    mismatchedProfile.insert(QStringLiteral("speedProfile"), badProfile);
+    assert(!profileController.loadCandidate(mismatchedProfile));
+    assert(profileController.validationReason()
+           == QStringLiteral("ROUTE_SPEED_PROFILE_SEGMENT_BINDING_INVALID"));
+
     QVariantMap malformedComplete = completeCandidate;
     malformedComplete.remove(QStringLiteral("segments"));
     assert(!controller.loadCandidate(malformedComplete));

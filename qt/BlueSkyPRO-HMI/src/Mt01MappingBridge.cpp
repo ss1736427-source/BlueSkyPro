@@ -89,10 +89,48 @@ QVariantMap serializeRouteCandidate(const Route &route)
         segments.push_back(item);
     }
 
+    QVariantMap speedProfile;
+    if (route.speed_profile) {
+        const RouteSpeedProfile &profile = *route.speed_profile;
+        QVariantList profileSegments;
+        for (const RouteSpeedProfileSegment &segment : profile.segments) {
+            profileSegments.push_back(QVariantMap{
+                {QStringLiteral("segmentId"), QString::fromStdString(segment.segment_id)},
+                {QStringLiteral("distanceM"), segment.distance_m},
+                {QStringLiteral("entrySpeedMps"), segment.entry_speed_mps},
+                {QStringLiteral("exitSpeedMps"), segment.exit_speed_mps},
+                {QStringLiteral("maximumReachableSpeedMps"), segment.maximum_reachable_speed_mps},
+                {QStringLiteral("accelerationDistanceM"), segment.acceleration_distance_m},
+                {QStringLiteral("decelerationDistanceM"), segment.deceleration_distance_m},
+                {QStringLiteral("cruiseDistanceM"), segment.cruise_distance_m},
+                {QStringLiteral("maximumAccelerationMps2"), segment.maximum_acceleration_mps2},
+                {QStringLiteral("maximumDecelerationMps2"), segment.maximum_deceleration_mps2},
+                {QStringLiteral("minimumSpeedMps"), segment.minimum_speed_mps},
+                {QStringLiteral("maximumSpeedMps"), segment.maximum_speed_mps},
+                {QStringLiteral("appliedMinimumSpeedMps"), segment.applied_minimum_speed_mps},
+                {QStringLiteral("appliedMaximumSpeedMps"), segment.applied_maximum_speed_mps}
+            });
+        }
+        speedProfile = {
+            {QStringLiteral("vehicleModelId"), QString::fromStdString(profile.vehicle_model_id)},
+            {QStringLiteral("vehicleModelVersion"), QString::fromStdString(profile.vehicle_model_version)},
+            {QStringLiteral("configurationId"), QString::fromStdString(profile.configuration_id)},
+            {QStringLiteral("speedReference"), QString::fromStdString(profile.speed_reference)},
+            {QStringLiteral("dynamicsSource"), QString::fromStdString(profile.dynamics_source)},
+            {QStringLiteral("profileId"), QString::fromStdString(profile.profile_id)},
+            {QStringLiteral("profileVersion"), QString::fromStdString(profile.profile_version)},
+            {QStringLiteral("windSnapshotId"), QString::fromStdString(profile.wind_snapshot_id)},
+            {QStringLiteral("windSnapshotVersion"), QString::fromStdString(profile.wind_snapshot_version)},
+            {QStringLiteral("cameraConfigurationId"), QString::fromStdString(profile.camera_configuration_id)},
+            {QStringLiteral("segments"), profileSegments}
+        };
+    }
+
     const RouteLineage &lineage = route.lineage;
     const RouteConstraints &constraints = route.constraints;
     const RouteEnvironmentReference &environment = route.environment;
-    return {
+    QVariantMap candidate{
+
         {QStringLiteral("routeId"), QString::fromStdString(lineage.route_id)},
         {QStringLiteral("routeVersion"), QString::fromStdString(lineage.route_version)},
         {QStringLiteral("missionId"), QString::fromStdString(lineage.mission_id)},
@@ -117,6 +155,9 @@ QVariantMap serializeRouteCandidate(const Route &route)
         {QStringLiteral("segments"), segments},
         {QStringLiteral("trajectoryGeometryComplete"), route.trajectory_geometry_complete}
     };
+    if (route.speed_profile)
+        candidate.insert(QStringLiteral("speedProfile"), speedProfile);
+    return candidate;
 }
 
 QVariantMap blocked(const QString &code)
