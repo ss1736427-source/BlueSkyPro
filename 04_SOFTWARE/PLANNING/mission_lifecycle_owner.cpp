@@ -1,5 +1,6 @@
 #include "mission_lifecycle_owner.hpp"
 
+#include <charconv>
 #include <utility>
 
 namespace bluesky::planning {
@@ -9,11 +10,30 @@ void addBlocker(std::vector<std::string>* blockers, const char* code)
     if (blockers)
         blockers->emplace_back(code);
 }
+
+bool numericVersion(const std::string& value, std::uint64_t& parsed)
+{
+    if (value.empty())
+        return false;
+    const auto result = std::from_chars(value.data(), value.data() + value.size(), parsed);
+    return result.ec == std::errc{} && result.ptr == value.data() + value.size();
+}
+
+bool versionAdvances(const std::string& current, const std::string& next)
+{
+    std::uint64_t currentNumber = 0;
+    std::uint64_t nextNumber = 0;
+    if (numericVersion(current, currentNumber) && numericVersion(next, nextNumber))
+        return nextNumber > currentNumber;
+    return current != next;
+}
 }
 
 bool MissionLifecycleOwner::registerMission(
     const Mission& mission, std::vector<std::string>* blockers)
 {
+    if (blockers)
+        blockers->clear();
     std::vector<std::string> localBlockers;
     if (mission.identity.mission_id.empty())
         localBlockers.emplace_back("MISSION_ID_REQUIRED");
@@ -102,6 +122,10 @@ bool MissionLifecycleOwner::synchronizeDraftMission(
         if (blockers)
             blockers->clear();
         return true;
+    }
+    if (!versionAdvances(current.mission_version, lifecycle.mission_version)) {
+        addBlocker(blockers, "MISSION_DRAFT_VERSION_NOT_ADVANCED");
+        return false;
     }
 
     current.parent_mission_version = current.mission_version;
