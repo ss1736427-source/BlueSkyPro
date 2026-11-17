@@ -273,6 +273,7 @@ static MissionLifecycleEvidence evidence() {
     e.energy_reserve_validation = weatherEvidence.energy;
     e.task_quality_validation = validation("TASK-QUALITY-RESULT");
     e.regulatory_validation = validation("REGULATORY-RESULT");
+    e.regulatory_validation.snapshot_id = "AIP-SNAPSHOT-1";
     e.operator_review_accepted = true;
     e.regulatory_submission_prepared = true;
     e.authorization_requirement_assessed = true;
