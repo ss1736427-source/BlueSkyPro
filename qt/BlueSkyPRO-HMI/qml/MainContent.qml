@@ -494,8 +494,9 @@ Item {
             missionVisible: root.missionVisible
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
-            notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
-            notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
+            notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? (faaNmsClient.missionNotamSnapshotId ? faaNmsClient.missionNotamRecords : faaNmsClient.notamRecords) : []
+            notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? (faaNmsClient.missionNotamSnapshotId || faaNmsClient.notamSnapshotId) : ""
+            notamDataScope: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null && faaNmsClient.missionNotamSnapshotId) ? "MISSION_AOI" : "MAP_VIEWPORT"
             leftPanelWidth: root.leftPanelOpen ? root.leftWidth : 0
             rightPanelWidth: root.rightPanelOpen ? root.rightWidth : 0
             useExternalMapState: true
@@ -768,8 +769,9 @@ Item {
             missionReleased: root.missionReleased
             pilotActions: root.pilotChecklistActions
             readinessStatus: root.lifecycleReadinessStatus
-            notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamRecords : []
-            notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? faaNmsClient.notamSnapshotId : ""
+            notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? (faaNmsClient.missionNotamSnapshotId ? faaNmsClient.missionNotamRecords : faaNmsClient.notamRecords) : []
+            notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? (faaNmsClient.missionNotamSnapshotId || faaNmsClient.notamSnapshotId) : ""
+            notamDataScope: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null && faaNmsClient.missionNotamSnapshotId) ? "MISSION_AOI" : "MAP_VIEWPORT"
             warningActive: root.warningActive
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
