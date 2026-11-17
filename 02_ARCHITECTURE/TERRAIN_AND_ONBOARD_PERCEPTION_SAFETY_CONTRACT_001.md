@@ -180,6 +180,31 @@ Virtual Flight uses the same terrain and vehicle capability contracts but must i
 
 The selected virtual aircraft model must have an explicit sensor/autonomy simulation profile. Missing simulated sensor behaviour remains UNKNOWN; it must not be filled with assumed real-aircraft capability.
 
+## 8.1 Russian AIP and obstacle-data source assessment (2026-11-17)
+
+The official CAI branch of the State ATM Corporation is now identified as the primary Russian aeronautical-data source candidate. This is a source assessment only; no production connection or data licence is implied.
+
+- CAI maintains an artificial-obstacle database. Its published description lists obstacle ID, type, coordinates, coordinate reference, elevation and lighting. CAI states that the database is supplied regularly for selected geographic regions and that its delivery format is close to ARINC 424; the detailed format specification is supplied to the customer before delivery.
+- CAI publishes an Obstacles Manual in open access and states that it is updated on AIRAC dates. The machine-readable obstacle database is supplied to interested users on a contractual basis.
+- CAI publishes the Russian AIP and its AIRAC amendments. The official-data download area currently states that access to its folders is available to registered users. The public pages do not establish a public machine API or an unrestricted bulk-download endpoint.
+- Russian Ministry of Transport Order No. 50 dated 2026-02-05 (effective 2026-04-19) defines digital datasets for Russian AIP, terrain, obstacles, aerodrome cartography and procedures, and requires the AIP provider to make AIP available on its official website. The same rules define quality/coverage classes for terrain and obstacles.
+
+**Coverage limitation for low-altitude UAV missions:** the Area 1 obstacle requirement covers obstacles at least 50 m above ground. It must not be interpreted as a complete inventory of lower structures, wires, trees or temporary objects relevant to low-altitude UAV operations. Area 1 terrain data has a nominal 3-arc-second (~90 m) posting and 30 m vertical accuracy; airport-related Areas 2-4 have materially tighter requirements. A 30 m terrain grid may be an acceptable visualization/preliminary-planning baseline, but it is not a universal safety-clearance qualification.
+
+**Integration decision:**
+1. Treat the CAI obstacle database as the preferred authoritative aviation-obstacle baseline candidate, subject to receipt and qualification of the actual dataset, data-product specification, update cycle, geographic coverage, vertical datum, accuracy and usage terms.
+2. Use the public Obstacles Manual for source inspection and verification only; do not build a production safety ingestion path by scraping its web presentation.
+3. Obtain the official AIP/airspace digital dataset and its amendment/NOTAM update procedure through the CAI registered-user or contractual channel. AIP text pages and map imagery are not substitutes for a versioned machine-readable source package.
+4. Keep low-altitude/local obstacle completeness as a separate evidence requirement. The CAI Area 1 dataset alone cannot prove that a low UAV route is obstacle-free.
+5. Until the actual datasets and specifications are qualified, the AIP and obstacle READY evidence remains unavailable and the lifecycle gate must fail closed.
+
+Source references:
+- CAI artificial-obstacle database: https://www.caica.ru/dbartif/?lang=ru
+- CAI Obstacles Manual: https://www.caica.ru/obslist/?lang=en
+- CAI Russian AIP products: https://www.caica.ru/products/?lang=ru
+- CAI official-data download area: https://www.caica.ru/dnload/
+- Ministry of Transport Order No. 50: https://www.consultant.ru/document/cons_doc_LAW_531369/2ff7a8c72de3994f30496a0ccbb1ddafdaddf518/
+
 ## 9. Current repository implementation status (verified on main)
 
 Implemented:
@@ -195,7 +220,7 @@ Implemented:
 Not yet demonstrated as production integration:
 - a live MapTiler Terrain RGB v2 acquisition/decoder/provider feeding `TerrainDemGrid`;
 - regional source-quality and vertical-datum validation for actual Russian mission areas;
-- an authoritative obstacle-data pipeline and production obstacle-clearance assessment;
+- production ingestion and qualification of the CAI artificial-obstacle database, including its machine-readable data specification and AIRAC update lineage;
 - a production import of permanent Russian AIP/airspace datasets with a source snapshot explicitly bound to regulatory validation;
 - production adapters that obtain and validate the required AIP and obstacle snapshots; the READY contract now blocks without them, but no authoritative provider is connected yet;
 - a typed, versioned per-aircraft vision/avoidance/terrain-follow capability registry connected to mission admission and readiness;
