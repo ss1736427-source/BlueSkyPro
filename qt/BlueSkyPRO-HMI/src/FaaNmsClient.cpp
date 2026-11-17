@@ -550,8 +550,21 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
             const double queryLatitude = std::round(latitude * 1e6) / 1e6;
             const double queryLongitude = std::round(longitude * 1e6) / 1e6;
             const double queryRadiusM = std::round(radiusNm * 100.0) / 100.0 * 1852.0;
+            QVariantList scopedRecords;
+            scopedRecords.reserve(batch.records.size());
+            for (const QVariant &entry : batch.records) {
+                QVariantMap record = entry.toMap();
+                record.insert(QStringLiteral("sourceSnapshotId"), snapshotId);
+                record.insert(QStringLiteral("sourceSnapshotEpochS"), snapshotEpoch);
+                record.insert(QStringLiteral("sourceScope"), missionScope
+                    ? QStringLiteral("MISSION_AOI") : QStringLiteral("MAP_VIEWPORT"));
+                record.insert(QStringLiteral("sourceQueryLatitude"), queryLatitude);
+                record.insert(QStringLiteral("sourceQueryLongitude"), queryLongitude);
+                record.insert(QStringLiteral("sourceQueryRadiusM"), queryRadiusM);
+                scopedRecords.push_back(record);
+            }
             if (missionScope) {
-                m_missionNotamRecords = batch.records;
+                m_missionNotamRecords = scopedRecords;
                 m_missionNotamSnapshotId = snapshotId;
                 m_missionNotamSnapshotEpochS = snapshotEpoch;
                 m_missionNotamQueryLatitude = queryLatitude;
@@ -559,7 +572,7 @@ void FaaNmsClient::requestNotams(const QString &accessToken, double latitude,
                 m_missionNotamQueryRadiusM = queryRadiusM;
                 emit missionNotamRecordsChanged();
             } else {
-                m_notamRecords = batch.records;
+                m_notamRecords = scopedRecords;
                 m_notamSnapshotId = snapshotId;
                 m_notamSnapshotEpochS = snapshotEpoch;
                 m_notamQueryLatitude = queryLatitude;
