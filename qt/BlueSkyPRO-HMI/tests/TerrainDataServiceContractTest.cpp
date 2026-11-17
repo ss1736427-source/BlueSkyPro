@@ -95,6 +95,18 @@ int main(int argc, char *argv[])
                == QStringLiteral("VISUAL_ONLY"));
     }
 
+    // A changed route geometry must produce a different immutable snapshot ID.
+    QVariantMap changedRoute = routeAcrossSeam;
+    QVariantList changedWaypoints = routeAcrossSeam.value(QStringLiteral("waypoints")).toList();
+    QVariantMap changedFirstPoint = changedWaypoints.first().toMap();
+    changedFirstPoint.insert(QStringLiteral("latitudeDeg"), 0.0001);
+    changedWaypoints[0] = changedFirstPoint;
+    changedRoute.insert(QStringLiteral("waypoints"), changedWaypoints);
+    assert(TerrainRgbRouteSampler::sampleRouteFromDecodedTiles(
+        changedRoute, 1, tiles, &samples, &error));
+    assert(samples.first().toMap().value(QStringLiteral("snapshotId")).toString()
+           != visualSnapshotId);
+
     // A changed source tile must produce a different immutable snapshot ID.
     eastTile.fill(encodedTerrainPixel(210));
     tiles.insert(QStringLiteral("1/1/1"), eastTile);
