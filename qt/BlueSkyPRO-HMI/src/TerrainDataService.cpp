@@ -57,14 +57,18 @@ QString TerrainDataService::cachePath(int zoom, int x, int y) const
         QStringLiteral("%1/%2/%3.webp").arg(zoom).arg(x).arg(y));
 }
 
-bool TerrainDataService::validCachedTile(const QString &path) const
+bool TerrainDataService::validCachedTile(const QString &path, QImage *decoded) const
 {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly) || file.size() <= 0
         || file.size() > kMaximumPayloadBytes)
         return false;
-    QImage decoded;
-    return MapTilerTerrainRgbDecoder::decodeWebpTile(file.readAll(), &decoded);
+    QImage image;
+    if (!MapTilerTerrainRgbDecoder::decodeWebpTile(file.readAll(), &image))
+        return false;
+    if (decoded)
+        *decoded = std::move(image);
+    return true;
 }
 
 bool TerrainDataService::requestVisualContextTiles(
@@ -93,6 +97,7 @@ bool TerrainDataService::requestVisualContextTiles(
     m_apiKey = apiKey;
     m_cancelled = false;
     m_completed.clear();
+    m_decodedProfileTiles.clear();
     m_completedCount = 0;
     m_totalCount = coordinates.size();
 
@@ -100,7 +105,10 @@ bool TerrainDataService::requestVisualContextTiles(
         const QString key = QStringLiteral("%1/%2/%3")
                                 .arg(zoom).arg(coordinate.x).arg(coordinate.y);
         const QString path = cachePath(zoom, coordinate.x, coordinate.y);
-        if (validCachedTile(path)) {
+        QImage decoded;
+        if (validCachedTile(path, m_visualProfileRequested ? &decoded : nullptr)) {
+            if (m_visualProfileRequested)
+                m_decodedProfileTiles.insert(key, std::move(decoded));
             m_completed.append(QVariantMap{
                 {QStringLiteral("zoom"), zoom},
                 {QStringLiteral("x"), coordinate.x},
@@ -183,6 +191,7 @@ bool TerrainDataService::requestVisualProfileForRoute(
     if (!requestVisualContextTiles(missionId, south, west, north, east, zoom, apiKey)) {
         m_pendingRouteSnapshot.clear();
         m_visualProfileRequested = false;
+        m_decodedProfileTiles.clear();
         return false;
     }
     return true;
@@ -197,6 +206,7 @@ void TerrainDataService::failVisualProfile(const QString &reason)
     const QString routeVersion = m_pendingRouteSnapshot.value(QStringLiteral("routeVersion")).toString();
     m_visualProfileRequested = false;
     m_pendingRouteSnapshot.clear();
+    m_decodedProfileTiles.clear();
     emit missionVisualProfileFailed(m_missionId, routeId, routeVersion, reason);
 }
 
@@ -307,6 +317,11 @@ void TerrainDataService::finishTile(QNetworkReply *reply)
             emit missionTilesFailed(m_missionId, lastError());
             return;
         }
+        if (m_visualProfileRequested) {
+            const QString tileKey = QStringLiteral("%1/%2/%3")
+                .arg(m_zoom).arg(active.tile.x).arg(active.tile.y);
+            m_decodedProfileTiles.insert(tileKey, decoded);
+        }
         m_completed.append(QVariantMap{
             {QStringLiteral("zoom"), m_zoom},
             {QStringLiteral("x"), active.tile.x},
@@ -347,7 +362,8 @@ void TerrainDataService::finishMissionIfComplete()
     emit missionTilesReady(m_missionId, m_completed);
     if (m_visualProfileRequested) {
         const QVariantMap route = m_pendingRouteSnapshot;
-        const QVariantList manifest = m_completed;
+        const QHash<QString, QImage> decodedTiles = m_decodedProfileTiles;
+        m_decodedProfileTiles.clear();
         const QString missionId = m_missionId;
         const quint64 generation = m_profileGeneration;
         const QString routeId = route.value(QStringLiteral("routeId")).toString();
@@ -374,11 +390,12 @@ void TerrainDataService::finishMissionIfComplete()
                 emit missionVisualProfileFailed(missionId, routeId, routeVersion, reason);
             }
         });
-        watcher->setFuture(QtConcurrent::run([route, manifest]() {
+        const int zoom = m_zoom;
+        watcher->setFuture(QtConcurrent::run([route, decodedTiles, zoom]() {
             QVariantList samples;
             QString sampleError;
-            const bool sampled = TerrainRgbRouteSampler::sampleRoute(
-                route, manifest, &samples, &sampleError);
+            const bool sampled = TerrainRgbRouteSampler::sampleRouteFromDecodedTiles(
+                route, zoom, decodedTiles, &samples, &sampleError);
             return QVariantMap{
                 {QStringLiteral("ok"), sampled},
                 {QStringLiteral("samples"), samples},
@@ -386,6 +403,7 @@ void TerrainDataService::finishMissionIfComplete()
             };
         }));
     } else {
+        m_decodedProfileTiles.clear();
         setState(QStringLiteral("VISUAL_CONTEXT_READY"));
     }
     m_apiKey.clear();
@@ -399,6 +417,7 @@ void TerrainDataService::cancelMission(const QString &missionId)
     ++m_profileGeneration;
     m_visualProfileRequested = false;
     m_pendingRouteSnapshot.clear();
+    m_decodedProfileTiles.clear();
     m_queue.clear();
     for (auto *reply : m_active.keys())
         reply->abort();
