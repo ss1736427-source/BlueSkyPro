@@ -22,6 +22,7 @@ Item {
     // Pass the normalized source snapshot explicitly through the map composition.
     property var notamRecords: []
     property string notamSnapshotId: ""
+    property string notamDataScope: "MAP_VIEWPORT"
     property var manualTemplateIds: []
     property string selectedNotamId: ""
     property int notamSearchRadiusNm: 20
@@ -100,6 +101,7 @@ Item {
         manualTemplateIds: root.manualTemplateIds
         notamRecords: root.notamRecords
         notamSnapshotId: root.notamSnapshotId
+        notamDataScope: root.notamDataScope
         selectedNotamId: root.selectedNotamId
         onUseLegacyMapRequested: root.useMapTilerWebGL = false
     }
