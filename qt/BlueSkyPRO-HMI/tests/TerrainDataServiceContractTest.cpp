@@ -79,6 +79,29 @@ int main(int argc, char *argv[])
     }
     assert(closestProgress < 1e-6);
     assert(std::abs(midpointElevation - 150.0) < 0.2);
+    const QString visualSnapshotId = samples.first().toMap()
+        .value(QStringLiteral("snapshotId")).toString();
+    assert(visualSnapshotId.startsWith(QStringLiteral("MAPTILER-VISUAL-SHA256:")));
+    for (const QVariant &sample : samples) {
+        const QVariantMap point = sample.toMap();
+        assert(point.value(QStringLiteral("snapshotId")).toString() == visualSnapshotId);
+        assert(point.value(QStringLiteral("sourceId")).toString()
+               == QStringLiteral("MAPTILER_TERRAIN_RGB_V2"));
+        assert(point.value(QStringLiteral("verticalDatum")).toString()
+               == QStringLiteral("UNKNOWN"));
+        assert(point.value(QStringLiteral("verticalAccuracy")).toString()
+               == QStringLiteral("UNKNOWN"));
+        assert(point.value(QStringLiteral("evidenceClass")).toString()
+               == QStringLiteral("VISUAL_ONLY"));
+    }
+
+    // A changed source tile must produce a different immutable snapshot ID.
+    eastTile.fill(encodedTerrainPixel(210));
+    tiles.insert(QStringLiteral("1/1/1"), eastTile);
+    assert(TerrainRgbRouteSampler::sampleRouteFromDecodedTiles(
+        routeAcrossSeam, 1, tiles, &samples, &error));
+    assert(samples.first().toMap().value(QStringLiteral("snapshotId")).toString()
+           != visualSnapshotId);
 
     // Transparent Terrain RGB pixels are NoData: reject the whole profile,
     // never return a partial series.
