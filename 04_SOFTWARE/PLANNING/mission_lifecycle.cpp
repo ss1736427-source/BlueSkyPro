@@ -301,6 +301,25 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
                     "NOTAM_VALIDATION_SNAPSHOT_ID_REQUIRED", result.blockers);
         require(evidence.notam_validation.snapshot_id == evidence.notam_recheck_snapshot_id,
                 "NOTAM_VALIDATION_SNAPSHOT_MISMATCH", result.blockers);
+        requireValidation(evidence.permanent_airspace_validation,
+                          "PERMANENT_AIRSPACE_VALIDATION_EVIDENCE_REQUIRED",
+                          "PERMANENT_AIRSPACE_VALIDATION_LINEAGE_MISMATCH");
+        requireText(evidence.permanent_airspace_snapshot_id,
+                    "PERMANENT_AIRSPACE_SNAPSHOT_ID_REQUIRED", result.blockers);
+        requireText(evidence.permanent_airspace_validation.snapshot_id,
+                    "PERMANENT_AIRSPACE_VALIDATION_SNAPSHOT_ID_REQUIRED", result.blockers);
+        require(evidence.permanent_airspace_validation.snapshot_id
+                    == evidence.permanent_airspace_snapshot_id,
+                "PERMANENT_AIRSPACE_VALIDATION_SNAPSHOT_MISMATCH", result.blockers);
+        requireValidation(evidence.obstacle_validation,
+                          "OBSTACLE_CLEARANCE_VALIDATION_EVIDENCE_REQUIRED",
+                          "OBSTACLE_CLEARANCE_VALIDATION_LINEAGE_MISMATCH");
+        requireText(evidence.obstacle_snapshot_id,
+                    "OBSTACLE_SNAPSHOT_ID_REQUIRED", result.blockers);
+        requireText(evidence.obstacle_validation.snapshot_id,
+                    "OBSTACLE_VALIDATION_SNAPSHOT_ID_REQUIRED", result.blockers);
+        require(evidence.obstacle_validation.snapshot_id == evidence.obstacle_snapshot_id,
+                "OBSTACLE_VALIDATION_SNAPSHOT_MISMATCH", result.blockers);
         requireValidation(evidence.terrain_validation,
                           "TERRAIN_VALIDATION_EVIDENCE_REQUIRED", "TERRAIN_VALIDATION_LINEAGE_MISMATCH");
         requireValidation(evidence.vehicle_envelope_validation,
