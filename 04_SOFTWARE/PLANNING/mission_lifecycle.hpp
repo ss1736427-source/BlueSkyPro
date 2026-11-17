@@ -61,6 +61,8 @@ struct MissionLifecycleEvidence {
     std::string performance_profile_revision;
     std::string terrain_snapshot_id;
     std::string mission_notam_snapshot_id;
+    std::string permanent_airspace_snapshot_id;
+    std::string obstacle_snapshot_id;
     std::string weather_snapshot_id;
     std::string notam_recheck_snapshot_id;
     std::string regulatory_submission_id;
@@ -98,6 +100,8 @@ struct MissionLifecycleEvidence {
     MissionLifecycleValidationEvidence trajectory_geometry_validation;
     MissionLifecycleValidationEvidence final_planning_integrity_validation;
     MissionLifecycleValidationEvidence notam_validation;
+    MissionLifecycleValidationEvidence permanent_airspace_validation;
+    MissionLifecycleValidationEvidence obstacle_validation;
     MissionLifecycleValidationEvidence terrain_validation;
     MissionLifecycleValidationEvidence vehicle_envelope_validation;
     MissionLifecycleValidationEvidence weather_validation;
