@@ -260,6 +260,12 @@ static MissionLifecycleEvidence evidence() {
         compiledFinalProfile, e.mission_id, e.mission_version, e.route_id,
         e.route_version, e.calculation_input_version);
     e.notam_validation = notamValidation();
+    e.permanent_airspace_validation = validation("PERMANENT-AIRSPACE-RESULT");
+    e.permanent_airspace_validation.snapshot_id = "AIP-SNAPSHOT-1";
+    e.permanent_airspace_snapshot_id = "AIP-SNAPSHOT-1";
+    e.obstacle_validation = validation("OBSTACLE-CLEARANCE-RESULT");
+    e.obstacle_validation.snapshot_id = "OBSTACLE-SNAPSHOT-1";
+    e.obstacle_snapshot_id = "OBSTACLE-SNAPSHOT-1";
     e.terrain_validation = validation("TERRAIN-RESULT");
     e.vehicle_envelope_validation = vehicleEnvelopeValidation();
     const auto weatherEvidence = weatherValidation();
