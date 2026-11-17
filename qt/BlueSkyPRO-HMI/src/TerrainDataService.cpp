@@ -67,7 +67,7 @@ bool TerrainDataService::validCachedTile(const QString &path, QImage *decoded) c
     if (!MapTilerTerrainRgbDecoder::decodeWebpTile(file.readAll(), &image))
         return false;
     if (decoded)
-        *decoded = std::move(image);
+        *decoded = image;
     return true;
 }
 
@@ -108,7 +108,7 @@ bool TerrainDataService::requestVisualContextTiles(
         QImage decoded;
         if (validCachedTile(path, m_visualProfileRequested ? &decoded : nullptr)) {
             if (m_visualProfileRequested)
-                m_decodedProfileTiles.insert(key, std::move(decoded));
+                m_decodedProfileTiles.insert(key, decoded);
             m_completed.append(QVariantMap{
                 {QStringLiteral("zoom"), zoom},
                 {QStringLiteral("x"), coordinate.x},
