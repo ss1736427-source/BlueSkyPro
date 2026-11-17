@@ -90,11 +90,11 @@ Failure at any stage leaves terrain evidence absent and READY blocked. A success
 
 1. Add GDAL as a pinned build dependency on Linux and Windows; package GDAL and PROJ runtime data for Windows.
 2. Implement a bounded GeoTIFF decoder that returns a typed decoded raster, not lifecycle evidence.
-3. Implement the approved source registry and checksum/attestation binding.
-4. Normalize datum and raster orientation in an explicit preprocessing stage.
-5. Adapt the trusted decoded raster to `TerrainDemGrid`.
-6. Connect the same immutable snapshot to the map/profile and `TerrainProfileValidator`.
-7. Add end-to-end lifecycle tests proving that unapproved, visual-only, stale, incomplete, or mismatched inputs cannot satisfy READY.
+3. Keep source metadata and eligibility checks inside the existing `TerrainDataService`/terrain ingestion path; do not introduce a separately administered source-registry subsystem.
+4. Normalize datum and raster orientation only when a real trusted DTM provider requires it.
+5. Adapt the trusted decoded raster to the existing `TerrainDemGrid` contract.
+6. Pass one immutable snapshot reference to the map, profile, and `TerrainProfileValidator`; reuse existing decoded/cached data rather than adding another acquisition pipeline.
+7. Add end-to-end lifecycle tests proving that visual-only, untrusted, stale, incomplete, or mismatched inputs cannot satisfy READY.
 
 ## 9. Current system boundary
 
@@ -111,3 +111,14 @@ The MapTiler Terrain RGB v2 route-profile path now computes a deterministic visu
 Every generated profile sample carries the same `snapshotId`, `sourceId`, `evidenceClass=VISUAL_ONLY`, `verticalDatum=UNKNOWN`, and `verticalAccuracy=UNKNOWN`. The HMI rejects a sample series with a missing or mixed snapshot identity and displays the snapshot suffix beside the profile.
 
 This closes profile-local visual lineage only. It does not claim that MapTiler tiles are the authoritative DTM, does not bind the map renderer and lifecycle validator to this visual snapshot, and cannot satisfy terrain clearance or READY. The authoritative registry, approved DTM attestation, checksum binding, and common map/profile/validator snapshot remain outstanding.
+
+
+## 11. Existing integration boundaries and implementation constraint
+
+The current code has three distinct paths; they must not be described as one shared snapshot yet:
+
+- **Map:** `FlightChart.ui.qml` hosts `MapTilerWebMap`. MapLibre requests MapTiler Terrain RGB directly for 3D terrain rendering and visual NOTAM terrain sampling.
+- **Profile:** `MissionProfileWindow.qml` calls the existing `TerrainDataService`, which acquires/caches the same MapTiler Terrain RGB v2 tiles and samples the route. Its generated snapshot ID is profile-local and explicitly `VISUAL_ONLY`.
+- **Safety validation:** `TerrainProfileValidator` evaluates a supplied `TerrainDemGrid`. `GeoTiffTerrainReader` currently produces inspection-only grids with unknown surface, datum, and accuracy; no production DTM acquisition is connected.
+
+Implementation constraint: preserve these boundaries until a real, qualified DTM source is available. Do not route MapTiler visual elevations into safety validation. Do not create a second registry/service or a second terrain cache. The next integration work should reuse `TerrainDataService` and the existing `TerrainDemGrid` contract, and only connect the map to the same snapshot when the map can actually consume that snapshot's tile/raster data—not merely copy its ID.
