@@ -349,6 +349,29 @@ static void testRuntimeFinalPlanningIntegrityGate() {
     assert(mismatchRecord.state == MissionLifecycleState::Validating);
 }
 
+static void testReadyRequiresCurrentAipAndObstacleSnapshots() {
+    auto run = [](MissionLifecycleEvidence e) {
+        MissionLifecycleRecord record{"MISSION-001", "7"};
+        assert(move(record, MissionLifecycleState::Calculating, e).accepted);
+        assert(move(record, MissionLifecycleState::Validating, e).accepted);
+        return move(record, MissionLifecycleState::Ready, e);
+    };
+
+    auto missingObstacle = evidence();
+    missingObstacle.obstacle_validation = {};
+    const auto missing = run(missingObstacle);
+    assert(!missing.accepted);
+    assert(std::find(missing.blockers.begin(), missing.blockers.end(),
+                     "OBSTACLE_CLEARANCE_VALIDATION_EVIDENCE_REQUIRED") != missing.blockers.end());
+
+    auto mismatchedAip = evidence();
+    mismatchedAip.permanent_airspace_validation.snapshot_id = "AIP-OLD";
+    const auto mismatch = run(mismatchedAip);
+    assert(!mismatch.accepted);
+    assert(std::find(mismatch.blockers.begin(), mismatch.blockers.end(),
+                     "PERMANENT_AIRSPACE_VALIDATION_SNAPSHOT_MISMATCH") != mismatch.blockers.end());
+}
+
 static void testSharedLifecycleForPhysicalAndVirtualExecutionModes() {
     // Contract-level fixtures prove both provenance classes traverse the same
     // lifecycle controller and transition sequence. PHYSICAL_LIVE here is
@@ -424,6 +447,7 @@ static void testSharedLifecycleForPhysicalAndVirtualExecutionModes() {
 
 int main() {
     testRuntimeFinalPlanningIntegrityGate();
+    testReadyRequiresCurrentAipAndObstacleSnapshots();
     testSharedLifecycleForPhysicalAndVirtualExecutionModes();
     MissionLifecycleRecord mt01Record{"MISSION-001", "7"};
     auto mt01Evidence = evidence();
