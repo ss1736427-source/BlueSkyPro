@@ -194,6 +194,8 @@ Not yet demonstrated as production integration:
 - a live MapTiler Terrain RGB v2 acquisition/decoder/provider feeding `TerrainDemGrid`;
 - regional source-quality and vertical-datum validation for actual Russian mission areas;
 - an authoritative obstacle-data pipeline;
+- a production import of permanent Russian AIP/airspace datasets with a source snapshot explicitly bound to regulatory validation;
+- a dedicated obstacle snapshot and obstacle-clearance evidence field in `MissionLifecycleEvidence`; the current READY gate requires NOTAM, terrain and regulatory evidence but does not independently prove obstacle-data coverage;
 - a typed, versioned per-aircraft vision/avoidance/terrain-follow capability registry connected to mission admission and readiness;
 - runtime ingestion of onboard obstacle/perception events and a verified aircraft-specific replan/contingency adapter;
 - a production AUTO/MANUAL path assembling all typed terrain, weather, regulatory, vehicle, and task evidence into lifecycle READY.
