@@ -347,6 +347,8 @@ MissionLifecycleTransitionResult MissionLifecycleController::transition(
         requireValidation(evidence.regulatory_validation,
                           "REGULATORY_VALIDATION_EVIDENCE_REQUIRED",
                           "REGULATORY_VALIDATION_LINEAGE_MISMATCH");
+        require(evidence.regulatory_validation.snapshot_id == evidence.permanent_airspace_snapshot_id,
+                "REGULATORY_AIP_SNAPSHOT_MISMATCH", result.blockers);
         require(evidence.operator_review_accepted, "OPERATOR_REVIEW_NOT_ACCEPTED", result.blockers);
         break;
     }
