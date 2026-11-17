@@ -280,6 +280,15 @@ bool TerrainRgbRouteSampler::sampleRouteFromDecodedTiles(
     addSnapshotField(routeSnapshot.value(QStringLiteral("routeId")).toString());
     addSnapshotField(routeSnapshot.value(QStringLiteral("routeVersion")).toString());
     addSnapshotField(routeSnapshot.value(QStringLiteral("calculationInputVersion")).toString());
+    addSnapshotField(routeSnapshot.value(QStringLiteral("coordinateReferenceSystem")).toString());
+    for (const QVariant &waypoint : waypoints) {
+        const QVariantMap point = waypoint.toMap();
+        addSnapshotField(point.value(QStringLiteral("waypointId")).toString());
+        addSnapshotField(QString::number(
+            point.value(QStringLiteral("latitudeDeg")).toDouble(), 'g', 17));
+        addSnapshotField(QString::number(
+            point.value(QStringLiteral("longitudeDeg")).toDouble(), 'g', 17));
+    }
     QStringList tileKeys = tiles.keys();
     std::sort(tileKeys.begin(), tileKeys.end());
     for (const QString &key : tileKeys) {
