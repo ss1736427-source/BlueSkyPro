@@ -241,8 +241,9 @@ jobs:
         shell: pwsh
         run: |
           $env:VCPKG_ROOT = Join-Path $env:GITHUB_WORKSPACE "vcpkg"
+          $env:VCPKG_INSTALLED_DIR = Join-Path $env:GITHUB_WORKSPACE "vcpkg/installed"
           Push-Location "qt/BlueSkyPRO-HMI"
-          & "$env:VCPKG_ROOT\\vcpkg.exe" install --triplet x64-windows
+          & "$env:VCPKG_ROOT\\vcpkg.exe" install --triplet x64-windows "--x-install-root=$env:VCPKG_INSTALLED_DIR"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Pop-Location
 
@@ -258,7 +259,8 @@ jobs:
         shell: pwsh
         run: |
           $env:VCPKG_ROOT = Join-Path $env:GITHUB_WORKSPACE "vcpkg"
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DBLUESKY_ENABLE_ECCODES=ON -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_APPLOCAL_DEPS=ON -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+          $env:VCPKG_INSTALLED_DIR = Join-Path $env:GITHUB_WORKSPACE "vcpkg/installed"
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DBLUESKY_ENABLE_ECCODES=ON -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_INSTALLED_DIR="$env:VCPKG_INSTALLED_DIR" -DVCPKG_APPLOCAL_DEPS=ON -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build
