@@ -43,6 +43,50 @@ The system shall distinguish:
 
 A generic terrain tile must not be treated as a complete obstacle database. MapTiler Terrain RGB product metadata must be treated according to the actual source specification; do not label it DTM unless bare-earth semantics are proven.
 
+### 3.1 Shared obstacle and airspace truth across map and planner
+
+The map and the planning/validation pipeline shall not maintain independent interpretations of the same obstacle or airspace restriction. They are separate consumers of source-grounded domain data, not separate authorities.
+
+The mission environment shall retain a **set of source-specific, immutable and versioned snapshots**. It is not one synthetic snapshot that erases the different authority, coverage, update cadence or quality of terrain, obstacle, permanent airspace and NOTAM sources. Each record/component shall retain, as applicable:
+
+- stable source record and component identity;
+- source/provider identity, original reference/payload and source revision;
+- retrieval time, publication/update time and effective validity interval;
+- geographic geometry and coordinate reference system;
+- original vertical limits, units and reference (SFC, AGL, AMSL, FL, etc.), plus any explicitly calculated normalized values and conversion lineage;
+- object/restriction class and operational meaning;
+- source coverage/completeness, quality/confidence and interpretation state;
+- integrity/checksum and normalization/parser version.
+
+The mission environment bundle binds the exact source-specific snapshots used for one planning/validation cycle. A shared bundle identity must never be used to imply that different sources contain identical physical data.
+
+**Consumer consistency rules:**
+
+1. The map projection and planner projection shall derive from the same normalized source record/component semantics and source revision wherever they refer to the same record. They may simplify geometry or select different features for display/query performance, but must not reinterpret restriction class, coordinates, altitude limits, validity or confidence independently.
+2. Viewport acquisition and mission-AOI acquisition may have different geographic coverage and query timing. They must remain separately identifiable. A viewport response is not proof of complete mission-area coverage; a map refresh must not replace or clear the mission planning snapshot.
+3. Where viewport and mission snapshots overlap, matching source record/component IDs and source revisions must yield matching normalized facts. A newer revision replaces the older fact atomically; the UI must not silently combine incompatible revisions.
+4. The map shall distinguish confirmed, ambiguous, unsupported, invalid, stale and unavailable data. Missing or unparseable geometry is shown as unavailable/unknown metadata; no footprint, altitude, clearance or empty-airspace state may be fabricated.
+5. A restriction may be displayed even when it cannot yet be normalized for route validation. The display must preserve source wording and identify the unresolved datum/geometry/interpretation. Display visibility is not a PASS and does not authorize flight.
+6. The planner shall consume typed constraints and provenance, never map-renderer features or styling objects. The map shall consume display projections, never make planning decisions.
+7. Obstacle points/volumes, terrain DTM/DSM, permanent airspace volumes, NOTAM restrictions and onboard detections remain distinct object classes. A terrain surface is not an obstacle register; a NOTAM polygon is not automatically a prohibited volume; an onboard detection is not automatically an authoritative static obstacle record.
+8. If sources disagree spatially, vertically, temporally or semantically, preserve both source facts, create an explicit conflict finding and prevent the affected area/route from being reported as clear until the conflict is resolved or conservatively bounded by an approved rule. Do not silently choose the most convenient source.
+9. Source freshness and coverage are evaluated against the mission AOI and planned occupancy interval. "No object returned" is a clear result only when the source query is complete, current and valid for that AOI/time; otherwise the result is UNKNOWN/INCOMPLETE.
+10. Any source revision, coverage change, expiry, normalization change or mission geometry/time change invalidates only the dependent projections and validation evidence, followed by the required revalidation.
+
+**Vertical and spatial presentation rules:**
+
+- Preserve the source altitude text/value/unit/reference beside normalized altitude values.
+- Never compare AGL, AMSL and flight levels as if they shared a datum. Convert only with an identified reference surface/pressure model and a recorded conversion method; otherwise mark vertical overlap UNKNOWN.
+- Render vertical extents only when both the value and reference are known. A partially known extent remains partial; never substitute zero or invent a lower/upper bound.
+- Keep obstacle top elevation/height, terrain elevation, and airspace/NOTAM vertical limits as separate attributes. Do not infer obstacle height from a terrain tile or DSM without a qualified derivation.
+- Map labels, colors, line styles and visibility filters are presentation only. They must not alter the source facts or the planner's constraint set.
+
+### 3.2 Relationship to the existing NOTAM architecture
+
+The existing `08_PLANNING/NOTAM_PROCESSING_ARCHITECTURE.md` remains authoritative for one-pass NOTAM interpretation and separate map/planning projections. Its viewport and mission-AOI snapshots are intentionally separate because their query coverage differs; they must not be mistaken for a shared complete dataset. This contract extends the same consistency principle to permanent airspace and obstacle data without duplicating the NOTAM parser or creating another registry/service/cache.
+
+The NOTAM HMI contract in `02_SYSTEM_DESIGN/PLANNING/NOTAM_PROHIBITED_ZONE_VALIDATION_001.md` remains authoritative for showing source-defined limits, preserving original vertical references, representing uncertainty, and retaining records when display filters change.
+
 ## 4. Onboard perception and competitor-derived design principles
 
 Commercial systems demonstrate two complementary patterns:
@@ -162,12 +206,15 @@ The current terrain validator is a consumer of decoded grids, not a DEM download
 2. MapTiler Terrain RGB is decoded into a normalized immutable planning snapshot; source precision is not represented as source accuracy.
 3. Source metadata, CRS, vertical datum, coverage, NoData, revision, and retrieval time are retained.
 4. Map, terrain profile, and planner reuse the same snapshot; UI interactions do not trigger redundant provider requests.
-5. Terrain, obstacle, NOTAM, and airspace data remain distinct safety inputs.
-6. Each aircraft variant has a verified capability profile; UNKNOWN values cannot be promoted to PASS.
-7. Onboard perception is treated as complementary local protection, not a substitute for terrain/airspace/energy validation.
-8. Degraded sensing invokes only an aircraft- and mission-validated contingency; no generic avoidance behaviour is assumed.
-9. Virtual sensor evidence is explicitly SIL and cannot satisfy physical evidence requirements.
-10. Performance metrics prove that data acquisition/decoding does not block the UI and that cache reuse prevents repeated downloads.
+5. Terrain, obstacle, NOTAM, and permanent airspace data remain distinct safety inputs with source-specific provenance and validity.
+6. Map and planner projections of the same source record/revision preserve identical normalized semantics; differing acquisition coverage is explicit and cannot be represented as complete mission coverage.
+7. Source conflicts, incomplete coverage, stale data, unknown vertical references and unsupported geometry remain visible as UNKNOWN/CONFLICT and cannot be silently treated as clear.
+8. Map display filtering, simplification and styling never modify the canonical facts or the planner's constraint set.
+9. Each aircraft variant has a verified capability profile; UNKNOWN values cannot be promoted to PASS.
+10. Onboard perception is treated as complementary local protection, not a substitute for terrain/airspace/energy validation.
+11. Degraded sensing invokes only an aircraft- and mission-validated contingency; no generic avoidance behaviour is assumed.
+12. Virtual sensor evidence is explicitly SIL and cannot satisfy physical evidence requirements.
+13. Performance metrics prove that data acquisition/decoding does not block the UI and that cache reuse prevents repeated downloads.
 
 ## 11. External technical references
 
