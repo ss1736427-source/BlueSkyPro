@@ -68,6 +68,7 @@ Item {
         if (root.terrainDataService && root.visualTerrainProfileMissionId)
             root.terrainDataService.cancelMission(root.visualTerrainProfileMissionId)
         root.visualTerrainProfileSamples = []
+        root.visualTerrainProfileSnapshotId = ""
         root.visualTerrainProfileRouteId = ""
         root.visualTerrainProfileRouteVersion = ""
         root.visualTerrainProfileInputVersion = ""
@@ -821,6 +822,7 @@ Item {
     property var terrainDataService: null
     property string terrainApiKey: ""
     property var visualTerrainProfileSamples: []
+    property string visualTerrainProfileSnapshotId: ""
     property string visualTerrainProfileStatus: "NOT_REQUESTED"
     property string visualTerrainProfileRouteId: ""
     property string visualTerrainProfileRouteVersion: ""
@@ -890,7 +892,30 @@ Item {
                     || String(current.routeVersion) !== String(routeVersion)
                     || String(current.calculationInputVersion || "") !== String(calculationInputVersion || ""))
                 return
+            if (!Array.isArray(samples) || samples.length < 2) {
+                root.visualTerrainProfileSamples = []
+                root.visualTerrainProfileSnapshotId = ""
+                root.visualTerrainProfileStatus = "FAILED: VISUAL_PROFILE_INCOMPLETE"
+                return
+            }
+            var snapshotId = String(samples[0].snapshotId || "")
+            if (!snapshotId || !snapshotId.startsWith("MAPTILER-VISUAL-SHA256:")) {
+                root.visualTerrainProfileSamples = []
+                root.visualTerrainProfileSnapshotId = ""
+                root.visualTerrainProfileStatus = "FAILED: VISUAL_SNAPSHOT_ID_MISSING"
+                return
+            }
+            for (var i = 0; i < samples.length; ++i) {
+                if (String(samples[i].snapshotId || "") !== snapshotId
+                        || String(samples[i].evidenceClass || "") !== "VISUAL_ONLY") {
+                    root.visualTerrainProfileSamples = []
+                    root.visualTerrainProfileSnapshotId = ""
+                    root.visualTerrainProfileStatus = "FAILED: VISUAL_SNAPSHOT_MISMATCH"
+                    return
+                }
+            }
             root.visualTerrainProfileSamples = samples
+            root.visualTerrainProfileSnapshotId = snapshotId
             root.visualTerrainProfileStatus = "READY_VISUAL_ONLY"
         }
         function onMissionVisualProfileFailed(missionId, routeId, routeVersion, reason) {
@@ -2158,7 +2183,8 @@ Item {
                                         + " · " + root.terrainProfileVerticalDatum
                                         + " · SNAPSHOT " + root.terrainProfileSnapshotId
                                       : (root.visualTerrainProfileSamples.length >= 2
-                                         ? "РЕЛЬЕФ: MAPTILER TERRAIN RGB · VISUAL ONLY · DATUM UNKNOWN"
+                                         ? "РЕЛЬЕФ: MAPTILER TERRAIN RGB · VISUAL ONLY · DATUM UNKNOWN · SNAPSHOT "
+                                           + root.visualTerrainProfileSnapshotId.slice(-12)
                                          : "РЕЛЬЕФ: " + root.visualTerrainProfileStatus)
                                 color: root.validatedTerrainProfileSamples.length >= 2 ? "#8FCB78"
                                        : (root.visualTerrainProfileSamples.length >= 2 ? root.muted : "#FFD339")
