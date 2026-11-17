@@ -2,6 +2,7 @@
 
 #include <QByteArray>
 #include <QHash>
+#include <QImage>
 #include <QNetworkAccessManager>
 #include <QObject>
 #include <QQueue>
@@ -67,13 +68,15 @@ private:
     void startTile(const TileRequest &tile);
     void finishTile(QNetworkReply *reply);
     QString cachePath(int zoom, int x, int y) const;
-    bool validCachedTile(const QString &path) const;
+    bool validCachedTile(const QString &path, QImage *decoded = nullptr) const;
     void finishMissionIfComplete();
     void failVisualProfile(const QString &reason);
 
     QNetworkAccessManager m_network;
     QQueue<TileRequest> m_queue;
     QHash<QNetworkReply *, ActiveRequest> m_active;
+    // Keep decoded images only for route-profile sampling to avoid a second decode.
+    QHash<QString, QImage> m_decodedProfileTiles;
     QVariantList m_completed;
     QString m_missionId;
     QString m_cacheDirectory;
