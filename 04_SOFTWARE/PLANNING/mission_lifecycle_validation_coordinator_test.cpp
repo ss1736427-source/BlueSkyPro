@@ -85,6 +85,12 @@ static void testAuthoritativeSourcePathRejectsMissingServicesBeforeFinalization(
         result.evidence_assembly_blockers.end(),"NOTAM_SNAPSHOT_REQUIRED")
         !=result.evidence_assembly_blockers.end());
     assert(std::find(result.evidence_assembly_blockers.begin(),
+        result.evidence_assembly_blockers.end(),"PERMANENT_AIRSPACE_VALIDATION_SOURCE_REQUIRED")
+        !=result.evidence_assembly_blockers.end());
+    assert(std::find(result.evidence_assembly_blockers.begin(),
+        result.evidence_assembly_blockers.end(),"OBSTACLE_CLEARANCE_VALIDATION_SOURCE_REQUIRED")
+        !=result.evidence_assembly_blockers.end());
+    assert(std::find(result.evidence_assembly_blockers.begin(),
         result.evidence_assembly_blockers.end(),"TERRAIN_VALIDATION_SOURCE_REQUIRED")
         !=result.evidence_assembly_blockers.end());
     assert(std::find(result.evidence_assembly_blockers.begin(),
