@@ -840,6 +840,7 @@ Item {
         if (!root.terrainDataService || !root.routeController
                 || typeof root.routeController.routeSnapshot !== "function") {
             root.visualTerrainProfileSamples = []
+            root.visualTerrainProfileSnapshotId = ""
             root.visualTerrainProfileStatus = "SERVICE_OR_ROUTE_UNAVAILABLE"
             return
         }
@@ -848,6 +849,7 @@ Item {
                 || !Array.isArray(snapshot.waypoints) || snapshot.waypoints.length < 2
                 || String(snapshot.missionId || "") !== String(root.missionId)) {
             root.visualTerrainProfileSamples = []
+            root.visualTerrainProfileSnapshotId = ""
             root.visualTerrainProfileStatus = "WAITING_FOR_CANONICAL_ROUTE"
             return
         }
@@ -863,6 +865,7 @@ Item {
                     || root.visualTerrainProfileStatus === "READY_VISUAL_ONLY"))
             return
         root.visualTerrainProfileSamples = []
+        root.visualTerrainProfileSnapshotId = ""
         root.visualTerrainProfileRouteId = nextRouteId
         root.visualTerrainProfileRouteVersion = nextRouteVersion
         root.visualTerrainProfileInputVersion = nextInputVersion
@@ -924,6 +927,7 @@ Item {
                     || String(routeVersion) !== root.visualTerrainProfileRouteVersion)
                 return
             root.visualTerrainProfileSamples = []
+            root.visualTerrainProfileSnapshotId = ""
             root.visualTerrainProfileStatus = "FAILED: " + String(reason)
         }
     }
@@ -943,6 +947,7 @@ Item {
             if (root.terrainDataService && root.visualTerrainProfileMissionId)
                 root.terrainDataService.cancelMission(root.visualTerrainProfileMissionId)
             root.visualTerrainProfileSamples = []
+            root.visualTerrainProfileSnapshotId = ""
             root.requestVisualTerrainProfile()
         }
     }
