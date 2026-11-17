@@ -771,7 +771,6 @@ Item {
             readinessStatus: root.lifecycleReadinessStatus
             notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? (faaNmsClient.missionNotamSnapshotId ? faaNmsClient.missionNotamRecords : faaNmsClient.notamRecords) : []
             notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? (faaNmsClient.missionNotamSnapshotId || faaNmsClient.notamSnapshotId) : ""
-            notamDataScope: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null && faaNmsClient.missionNotamSnapshotId) ? "MISSION_AOI" : "MAP_VIEWPORT"
             warningActive: root.warningActive
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
