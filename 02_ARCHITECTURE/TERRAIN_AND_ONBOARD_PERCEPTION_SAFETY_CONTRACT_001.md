@@ -188,14 +188,16 @@ Implemented:
 - Terrain validation feeds the existing lifecycle terrain evidence adapter.
 - Weather candidate processing retains a typed evidence bundle and exact selected route/source lineage.
 - Shared physical/virtual lifecycle contract requires terrain validation in both modes and keeps evidence provenance distinct.
+- The READY gate now requires separate permanent-airspace (AIP) validation evidence and obstacle-clearance validation evidence, each bound to its own snapshot ID and the exact mission/route/calculation lineage. Missing, failed, or mismatched evidence blocks READY in both physical and virtual modes.
+- The authoritative-source coordinator accepts explicit AIP and obstacle validation outputs; it does not synthesize either result.
 - End-to-end lifecycle baseline requires staged planning, environment updates by impact, and avoids unnecessary full recomputation.
 
 Not yet demonstrated as production integration:
 - a live MapTiler Terrain RGB v2 acquisition/decoder/provider feeding `TerrainDemGrid`;
 - regional source-quality and vertical-datum validation for actual Russian mission areas;
-- an authoritative obstacle-data pipeline;
+- an authoritative obstacle-data pipeline and production obstacle-clearance assessment;
 - a production import of permanent Russian AIP/airspace datasets with a source snapshot explicitly bound to regulatory validation;
-- a dedicated obstacle snapshot and obstacle-clearance evidence field in `MissionLifecycleEvidence`; the current READY gate requires NOTAM, terrain and regulatory evidence but does not independently prove obstacle-data coverage;
+- production adapters that obtain and validate the required AIP and obstacle snapshots; the READY contract now blocks without them, but no authoritative provider is connected yet;
 - a typed, versioned per-aircraft vision/avoidance/terrain-follow capability registry connected to mission admission and readiness;
 - runtime ingestion of onboard obstacle/perception events and a verified aircraft-specific replan/contingency adapter;
 - a production AUTO/MANUAL path assembling all typed terrain, weather, regulatory, vehicle, and task evidence into lifecycle READY.
