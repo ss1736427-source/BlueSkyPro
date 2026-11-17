@@ -371,6 +371,13 @@ static void testReadyRequiresCurrentAipAndObstacleSnapshots() {
     assert(!mismatch.accepted);
     assert(std::find(mismatch.blockers.begin(), mismatch.blockers.end(),
                      "PERMANENT_AIRSPACE_VALIDATION_SNAPSHOT_MISMATCH") != mismatch.blockers.end());
+
+    auto mismatchedRegulatoryAip = evidence();
+    mismatchedRegulatoryAip.regulatory_validation.snapshot_id = "AIP-OTHER";
+    const auto regulatoryMismatch = run(mismatchedRegulatoryAip);
+    assert(!regulatoryMismatch.accepted);
+    assert(std::find(regulatoryMismatch.blockers.begin(), regulatoryMismatch.blockers.end(),
+                     "REGULATORY_AIP_SNAPSHOT_MISMATCH") != regulatoryMismatch.blockers.end());
 }
 
 static void testSharedLifecycleForPhysicalAndVirtualExecutionModes() {
