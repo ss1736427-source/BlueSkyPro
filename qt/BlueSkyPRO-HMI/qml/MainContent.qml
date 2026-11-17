@@ -356,6 +356,27 @@ Item {
         return distanceM + area.requiredRadiusM <= snapshotRadius
     }
 
+    function activeNotamDataScope() {
+        var area = root.missionNotamQueryArea(root.activeMissionModelJson)
+        if (root.missionNotamSnapshotCovers(area))
+            return "MISSION_AOI"
+        return area.valid ? "MISSION_SNAPSHOT_REQUIRED" : "MAP_VIEWPORT"
+    }
+
+    function activeNotamRecords() {
+        if (typeof faaNmsClient === "undefined" || faaNmsClient === null)
+            return []
+        return root.activeNotamDataScope() === "MISSION_AOI"
+                ? faaNmsClient.missionNotamRecords : faaNmsClient.notamRecords
+    }
+
+    function activeNotamSnapshotId() {
+        if (typeof faaNmsClient === "undefined" || faaNmsClient === null)
+            return ""
+        return root.activeNotamDataScope() === "MISSION_AOI"
+                ? faaNmsClient.missionNotamSnapshotId : faaNmsClient.notamSnapshotId
+    }
+
     readonly property bool is3DMappingProfile: root.missionTemplateIds.indexOf("MT-02") >= 0
     // Example current automatic mission composition; supplied by mission/task aggregation in production.
     property var missionTemplateIndices: [0, 1, 7]
@@ -494,9 +515,9 @@ Item {
             missionVisible: root.missionVisible
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
-            notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? (faaNmsClient.missionNotamSnapshotId ? faaNmsClient.missionNotamRecords : faaNmsClient.notamRecords) : []
-            notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? (faaNmsClient.missionNotamSnapshotId || faaNmsClient.notamSnapshotId) : ""
-            notamDataScope: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null && faaNmsClient.missionNotamSnapshotId) ? "MISSION_AOI" : "MAP_VIEWPORT"
+            notamRecords: root.activeNotamRecords()
+            notamSnapshotId: root.activeNotamSnapshotId()
+            notamDataScope: root.activeNotamDataScope()
             leftPanelWidth: root.leftPanelOpen ? root.leftWidth : 0
             rightPanelWidth: root.rightPanelOpen ? root.rightWidth : 0
             useExternalMapState: true
@@ -769,8 +790,8 @@ Item {
             missionReleased: root.missionReleased
             pilotActions: root.pilotChecklistActions
             readinessStatus: root.lifecycleReadinessStatus
-            notamRecords: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? (faaNmsClient.missionNotamSnapshotId ? faaNmsClient.missionNotamRecords : faaNmsClient.notamRecords) : []
-            notamSnapshotId: (typeof faaNmsClient !== "undefined" && faaNmsClient !== null) ? (faaNmsClient.missionNotamSnapshotId || faaNmsClient.notamSnapshotId) : ""
+            notamRecords: root.activeNotamRecords()
+            notamSnapshotId: root.activeNotamSnapshotId()
             warningActive: root.warningActive
             manualCreationMode: root.missionCreationMode
             manualCompositionComplete: root.manualCompositionComplete
