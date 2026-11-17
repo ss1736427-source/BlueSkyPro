@@ -34,6 +34,8 @@ struct MissionLifecycleCoordinatorResult {
 struct MissionLifecycleAuthoritativeSources {
     const OrchestratorDecision* planning_decision{nullptr};
     const NotamSnapshot* notam_snapshot{nullptr};
+    const MissionLifecycleValidationEvidence* permanent_airspace_validation{nullptr};
+    const MissionLifecycleValidationEvidence* obstacle_validation{nullptr};
     const TerrainDemSnapshot* terrain_snapshot{nullptr};
     const TerrainProfileValidationResult* terrain_validation{nullptr};
     const weather::WeatherTrajectoryEvaluation* weather_evaluation{nullptr};
@@ -75,6 +77,10 @@ public:
             block("AUTHORITATIVE_PLANNING_DECISION_INCOMPLETE");
         if (!sources.notam_snapshot)
             block("NOTAM_SNAPSHOT_REQUIRED");
+        if (!sources.permanent_airspace_validation)
+            block("PERMANENT_AIRSPACE_VALIDATION_SOURCE_REQUIRED");
+        if (!sources.obstacle_validation)
+            block("OBSTACLE_CLEARANCE_VALIDATION_SOURCE_REQUIRED");
         if (!sources.terrain_snapshot || !sources.terrain_validation)
             block("TERRAIN_VALIDATION_SOURCE_REQUIRED");
         if (!sources.weather_evaluation || !sources.performance_input)
@@ -122,6 +128,15 @@ public:
         evidence.mission_notam_snapshot_current =
             evidence.notam_validation.status == MissionLifecycleValidationStatus::Passed;
         evidence.notam_recheck_complete = evidence.mission_notam_snapshot_current;
+
+        if (sources.permanent_airspace_validation) {
+            evidence.permanent_airspace_validation = *sources.permanent_airspace_validation;
+            evidence.permanent_airspace_snapshot_id = sources.permanent_airspace_validation->snapshot_id;
+        }
+        if (sources.obstacle_validation) {
+            evidence.obstacle_validation = *sources.obstacle_validation;
+            evidence.obstacle_snapshot_id = sources.obstacle_validation->snapshot_id;
+        }
 
         evidence.terrain_validation = makeTerrainValidationEvidence(
             route, *sources.terrain_snapshot, *sources.terrain_validation);
