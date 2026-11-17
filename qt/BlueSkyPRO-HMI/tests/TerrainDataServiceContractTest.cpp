@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
     QVariantMap changedRoute = routeAcrossSeam;
     QVariantList changedWaypoints = routeAcrossSeam.value(QStringLiteral("waypoints")).toList();
     QVariantMap changedFirstPoint = changedWaypoints.first().toMap();
-    changedFirstPoint.insert(QStringLiteral("latitudeDeg"), 0.0001);
+    changedFirstPoint.insert(QStringLiteral("longitudeDeg"), -0.35245182);
     changedWaypoints[0] = changedFirstPoint;
     changedRoute.insert(QStringLiteral("waypoints"), changedWaypoints);
     assert(TerrainRgbRouteSampler::sampleRouteFromDecodedTiles(
