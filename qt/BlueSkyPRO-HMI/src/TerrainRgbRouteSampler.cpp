@@ -3,6 +3,8 @@
 #include "MapTilerTerrainRgbDecoder.h"
 
 #include <QFile>
+#include <QCryptographicHash>
+#include <QStringList>
 #include <QVariant>
 #include <QtMath>
 
@@ -264,6 +266,32 @@ bool TerrainRgbRouteSampler::sampleRouteFromDecodedTiles(
         return false;
     }
 
+    // Bind the visual profile to the exact route revision and decoded tile
+    // pixels. This identity remains VISUAL_ONLY and is never DEM evidence.
+    QCryptographicHash snapshotHash(QCryptographicHash::Sha256);
+    const auto addSnapshotField = [&snapshotHash](const QString &value) {
+        const QByteArray bytes = value.toUtf8();
+        snapshotHash.addData(bytes);
+        snapshotHash.addData("|", 1);
+    };
+    addSnapshotField(QStringLiteral("MAPTILER_TERRAIN_RGB_V2"));
+    addSnapshotField(QString::number(zoom));
+    addSnapshotField(routeSnapshot.value(QStringLiteral("missionId")).toString());
+    addSnapshotField(routeSnapshot.value(QStringLiteral("routeId")).toString());
+    addSnapshotField(routeSnapshot.value(QStringLiteral("routeVersion")).toString());
+    addSnapshotField(routeSnapshot.value(QStringLiteral("calculationInputVersion")).toString());
+    QStringList tileKeys = tiles.keys();
+    std::sort(tileKeys.begin(), tileKeys.end());
+    for (const QString &key : tileKeys) {
+        const QImage canonical = tiles.value(key).convertToFormat(QImage::Format_RGBA8888);
+        addSnapshotField(key);
+        addSnapshotField(QStringLiteral("%1x%2").arg(canonical.width()).arg(canonical.height()));
+        snapshotHash.addData(reinterpret_cast<const char *>(canonical.constBits()),
+                             canonical.sizeInBytes());
+    }
+    const QString snapshotId = QStringLiteral("MAPTILER-VISUAL-SHA256:")
+        + QString::fromLatin1(snapshotHash.result().toHex());
+
     QVector<double> segmentDistances;
     double totalDistance = 0.0;
     for (int i = 1; i < coordinates.size(); ++i) {
@@ -305,6 +333,10 @@ bool TerrainRgbRouteSampler::sampleRouteFromDecodedTiles(
             samples->push_back(QVariantMap{
                 {QStringLiteral("progress"), progress},
                 {QStringLiteral("elevationM"), elevation},
+                {QStringLiteral("snapshotId"), snapshotId},
+                {QStringLiteral("sourceId"), QStringLiteral("MAPTILER_TERRAIN_RGB_V2")},
+                {QStringLiteral("verticalDatum"), QStringLiteral("UNKNOWN")},
+                {QStringLiteral("verticalAccuracy"), QStringLiteral("UNKNOWN")},
                 {QStringLiteral("evidenceClass"), QStringLiteral("VISUAL_ONLY")}
             });
             if (samples->size() > maximumSamples) {
