@@ -7,7 +7,7 @@
 int main(int argc,char**argv){
  QCoreApplication app(argc,argv);
  QVariantMap p{{"id","V7637/26"},{"originalText","E)AIRSPACE CLSD WI AREA: 433650N0393600E-433539N0394029E-433438N0394038E-433338N0394213E-433020N0393900E-433650N0393600E\nF)GND\nG)6000M AGL"},{"lowerLimitRaw","GND"},{"upperLimitRaw","6000M AGL"}};
- auto a=NotamGeometryEngine::normalize(p);assert(a["geometryValidated"].toBool());auto g=QJsonDocument::fromJson(a["geometryJson"].toString().toUtf8()).object();assert(g["type"].toString()=="Polygon");assert(g["coordinates"].toArray().first().toArray().size()==6);
+ auto a=NotamGeometryEngine::normalize(p);assert(a["geometryValidated"].toBool());assert(a["lowerDatum"].toString()=="AGL");assert(a["upperDatum"].toString()=="AGL");assert(qAbs(a["lowerMeters"].toDouble())<0.001);assert(qAbs(a["upperMeters"].toDouble()-6000.0)<0.001);auto g=QJsonDocument::fromJson(a["geometryJson"].toString().toUtf8()).object();assert(g["type"].toString()=="Polygon");assert(g["coordinates"].toArray().first().toArray().size()==6);
  assert(a["notamInterpretationVersion"].toInt()==1);
  assert(a["restrictionClass"].toString()=="PROHIBITED");
  assert(a["interpretationState"].toString()=="CONFIRMED");
