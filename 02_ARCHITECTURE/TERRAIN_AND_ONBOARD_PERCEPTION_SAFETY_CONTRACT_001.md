@@ -205,6 +205,38 @@ Source references:
 - CAI official-data download area: https://www.caica.ru/dnload/
 - Ministry of Transport Order No. 50: https://www.consultant.ru/document/cons_doc_LAW_531369/2ff7a8c72de3994f30496a0ccbb1ddafdaddf518/
 
+## 8.2 Temporary free-source profile for development and test
+
+Until licensed/authoritative Russian AIP and obstacle feeds are procured, development and integration tests may use the following public/community sources. These are explicitly test inputs and must never be promoted to operational-authoritative evidence.
+
+| Data class | Temporary source | Intended test use | Limitations / handling |
+|---|---|---|---|
+| Airspace, aerodromes, navigation objects, community obstacle records | openAIP API / country exports | Exercise ingestion, normalization, geometry, filtering and map/planner consistency | Community-maintained, coverage varies; API key required; verify current terms for each use. Treat as TEST_ONLY and do not use as primary navigation data. |
+| Regional aeronautical airspace | open flightmaps downloads | Validate AIXM-like/OPENAIR parsing, airspace geometry and vertical limits in supported regions | Coverage is country-dependent; publisher explicitly gives no accuracy/completeness warranty and says data is complementary, not primary navigation data. |
+| Aviation obstacle reference | FAA Digital Obstacle File (DOF) / Daily DOF (DDOF) | Validate obstacle import, height/datum conversion, identity, verification status and update/delta handling | US-centric with limited adjacent-region coverage; includes verified and unverified records; explicitly does not represent every obstruction. Preserve verification and accuracy codes. |
+| Local structures / towers / power lines / buildings | OpenStreetMap extracts (including relevant infrastructure tags) | Exercise low-level obstacle candidate visualization, spatial joins and conservative conflict checks | Volunteered geographic data; completeness and positional/height accuracy vary. Preserve OSM object ID, tags, version/timestamp and attribution; do not treat as exhaustive obstacle inventory. |
+| Terrain | Existing MapTiler Terrain RGB visual path; Copernicus DEM GLO-30 where a raster fixture is needed | Visual terrain profile and DEM ingestion/sampling tests | MapTiler remains VISUAL_ONLY. Copernicus GLO-30 is DSM (buildings/vegetation included), not bare-earth DTM; it cannot independently establish terrain clearance. |
+
+### Test-source lifecycle rules
+
+1. Every imported dataset must retain provider, dataset/product, source_record_id, source_version_or_cycle, retrieved_at, effective_from/to where supplied, coverage, horizontal_crs, vertical_datum, accuracy/verification, license and a content-derived snapshot ID.
+2. If the source does not publish a field (e.g. vertical datum, accuracy, update cycle or coverage), store it as unknown. Never infer a safe default.
+3. Keep sources in separate snapshots. Do not silently merge FAA, openAIP, open flightmaps and OSM records into one apparently authoritative dataset. A derived test view may overlay them, but each feature must retain its source lineage and test status.
+4. The test profile may feed map rendering, NOTAM/airspace interpretation tests, obstacle candidate rendering, route conflict regression tests and virtual-flight scenarios.
+5. Test-source evidence must carry TEST_ONLY provenance and cannot satisfy production permanent_airspace_validation or obstacle_validation for a real mission. The real-flight READY gate remains fail-closed.
+6. For repeatable tests, pin downloaded source files and their checksums in test fixtures; live API responses are not deterministic test fixtures. Use live source refresh only in explicitly marked integration tests.
+7. Keep commercial/product distribution rights separate from free download availability. In particular, review openAIP terms before any redistribution or commercial use; retain OSM attribution and comply with ODbL obligations; retain Copernicus attribution.
+
+### Public source references
+
+- openAIP API documentation: https://openaip.github.io/openaip-api-documentation/
+- open flightmaps downloads: https://openflightmaps.org/downloads/
+- open flightmaps data-quality / navigation disclaimer: https://openflightmaps.org/faq/
+- FAA Digital Obstacle File: https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/dof/
+- FAA Daily Digital Obstacle File: https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/DailyDOF/
+- OpenStreetMap licence: https://www.openstreetmap.org/copyright
+- Copernicus DEM GLO-30: https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM
+
 ## 9. Current repository implementation status (verified on main)
 
 Implemented:
