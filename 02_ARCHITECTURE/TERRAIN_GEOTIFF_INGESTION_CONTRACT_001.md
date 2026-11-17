@@ -4,7 +4,7 @@ Status: implementation contract; not evidence that a production DTM provider is 
 
 ## 1. Objective
 
-Provide a local, provider-neutral ingestion path from georeferenced raster datasets into the existing `TerrainDemGrid` consumed by `TerrainProfileValidator`. The first supported interchange format is GeoTIFF, decoded through GDAL. Acquisition, licensing, source approval, vertical-datum normalization, and mission lifecycle remain separate responsibilities.
+Provide a local, provider-neutral ingestion path from georeferenced raster datasets into the existing `TerrainDemGrid` consumed by `TerrainProfileValidator`. The first supported interchange format is GeoTIFF, decoded through GDAL. Acquisition, licensing, source qualification, vertical-datum normalization, and mission lifecycle remain explicit responsibilities.
 
 The importer is not a data provider and must not download terrain or select a dataset automatically.
 
@@ -12,8 +12,8 @@ The importer is not a data provider and must not download terrain or select a da
 
 A GeoTIFF file is untrusted input. Raster tags, file names, embedded descriptions, and user-entered sidecars do not prove that a surface is bare-earth DTM or that its accuracy is a conservative absolute bound.
 
-The importer must receive an immutable source attestation from an application-controlled, approved source registry. The attestation must bind:
-- source metadata record ID and approval/revision;
+The importer must receive immutable source metadata from application-controlled configuration maintained with the existing terrain data path. This is not a separate service or user-managed registry. The metadata must bind:
+- source metadata ID and configuration revision;
 - source and dataset identifiers and versions;
 - exact dataset checksum (SHA-256);
 - declared surface type, which must be `BARE_EARTH_DTM`;
@@ -21,7 +21,7 @@ The importer must receive an immutable source attestation from an application-co
 - vertical accuracy model, which must be `CONSERVATIVE_ABSOLUTE_BOUND`, and its positive bound in metres;
 - licensing/usage authorization and validity interval.
 
-A free-form manifest supplied alongside the raster must never be sufficient to create safety evidence. Until the source registry and checksum binding are implemented, GeoTIFF imports are inspection-only and must not be wired to READY.
+A free-form manifest supplied alongside the raster must never be sufficient to create safety evidence. Until source metadata and checksum binding are implemented, GeoTIFF imports are inspection-only and must not be wired to READY.
 
 ## 3. Supported raster contract
 
@@ -52,8 +52,8 @@ Reject rotated, skewed, south-up, non-regular, or non-geographic grids in the fi
 
 A decoded raster becomes eligible for terrain validation only if all checks pass:
 1. checksum matches the application-controlled source metadata;
-2. source attestation is current and explicitly approved;
-3. dataset identity/version matches the attestation;
+2. source metadata is current and explicitly qualified for the intended use;
+3. dataset identity/version matches the source metadata;
 4. surface type is bare-earth DTM;
 5. vertical datum is known and already normalized to the route's required datum;
 6. accuracy model is a conservative absolute bound, not RMSE, LE90, CE90, or an unspecified statistic;
@@ -81,7 +81,7 @@ Failure at any stage leaves terrain evidence absent and READY blocked. A success
 - NoData becomes NaN and is rejected by the route validator when sampled.
 - Wrong CRS, missing CRS, rotation/skew, invalid geotransform, non-metre units, and unsupported band count fail.
 - Raster size limits are enforced before allocation.
-- Checksum mismatch and unapproved/expired source attestation fail.
+- Checksum mismatch and unqualified/expired source metadata fail.
 - DSM, UNKNOWN surface, RMSE, LE90, missing vertical datum, and missing accuracy bound cannot produce safety-eligible output.
 - Vertical datum mismatch is rejected; no implicit EGM2008/Baltic-1977 conversion.
 - A complete import does not itself mark a mission READY; the existing route-vs-terrain validator and lifecycle coordinator remain mandatory.
