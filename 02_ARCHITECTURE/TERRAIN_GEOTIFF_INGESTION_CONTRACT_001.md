@@ -13,7 +13,7 @@ The importer is not a data provider and must not download terrain or select a da
 A GeoTIFF file is untrusted input. Raster tags, file names, embedded descriptions, and user-entered sidecars do not prove that a surface is bare-earth DTM or that its accuracy is a conservative absolute bound.
 
 The importer must receive an immutable source attestation from an application-controlled, approved source registry. The attestation must bind:
-- registry record ID and approval/revision;
+- source metadata record ID and approval/revision;
 - source and dataset identifiers and versions;
 - exact dataset checksum (SHA-256);
 - declared surface type, which must be `BARE_EARTH_DTM`;
@@ -51,8 +51,8 @@ Reject rotated, skewed, south-up, non-regular, or non-geographic grids in the fi
 ## 5. Safety eligibility
 
 A decoded raster becomes eligible for terrain validation only if all checks pass:
-1. checksum matches the approved registry record;
-2. registry attestation is current and explicitly approved;
+1. checksum matches the application-controlled source metadata;
+2. source attestation is current and explicitly approved;
 3. dataset identity/version matches the attestation;
 4. surface type is bare-earth DTM;
 5. vertical datum is known and already normalized to the route's required datum;
@@ -98,7 +98,7 @@ Failure at any stage leaves terrain evidence absent and READY blocked. A success
 
 ## 9. Current system boundary
 
-The current MapTiler Terrain RGB service remains `VISUAL_ONLY` with unknown datum and accuracy. It is not a substitute for this importer. The current terrain validator accepts an already decoded grid but does not acquire or decode a production DTM. No real DTM provider, approved source registry, or GeoTIFF ingestion is claimed by this contract.
+The current MapTiler Terrain RGB service remains `VISUAL_ONLY` with unknown datum and accuracy. It is not a substitute for this importer. The current terrain validator accepts an already decoded grid but does not acquire or decode a production DTM. No real DTM provider or production GeoTIFF ingestion is connected.
 
 ## 10. MapTiler visual-profile snapshot identity
 
@@ -110,7 +110,7 @@ The MapTiler Terrain RGB v2 route-profile path now computes a deterministic visu
 
 Every generated profile sample carries the same `snapshotId`, `sourceId`, `evidenceClass=VISUAL_ONLY`, `verticalDatum=UNKNOWN`, and `verticalAccuracy=UNKNOWN`. The HMI rejects a sample series with a missing or mixed snapshot identity and displays the snapshot suffix beside the profile.
 
-This closes profile-local visual lineage only. It does not claim that MapTiler tiles are the authoritative DTM, does not bind the map renderer and lifecycle validator to this visual snapshot, and cannot satisfy terrain clearance or READY. The authoritative registry, approved DTM attestation, checksum binding, and common map/profile/validator snapshot remain outstanding.
+This closes profile-local visual lineage only. It does not claim that MapTiler tiles are the authoritative DTM, does not bind the map renderer and lifecycle validator to this visual snapshot, and cannot satisfy terrain clearance or READY. A qualified DTM source, its verified metadata/checksum binding, and common map/profile/validator snapshot remain outstanding.
 
 
 ## 11. Existing integration boundaries and implementation constraint
