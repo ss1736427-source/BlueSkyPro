@@ -18,7 +18,8 @@ static RegulatoryComplianceAssessment regulatoryFixture() {
     RegulatoryComplianceAssessment a;a.assessment_id="REG-1";a.mission_id="M-1";a.mission_version="3";
     a.route_id="R-1";a.route_version="2";a.calculation_input_version="I-9";
     a.authority_id="rules-engine";a.rule_set_id="RULES";a.rule_set_version="2026.1";
-    a.source_reference="regulatory-snapshot:1";a.evaluated_at_epoch_s=1000;a.valid_until_epoch_s=2000;
+    a.source_reference="regulatory-rules:1";a.permanent_airspace_snapshot_id="AIP-SNAPSHOT-1";
+    a.evaluated_at_epoch_s=1000;a.valid_until_epoch_s=2000;
     a.applicable_rule_count=3;a.evaluated_rule_count=3;a.operation_scope_complete=true;
     a.decision=RegulatoryComplianceDecision::Compliant;return a;
 }
