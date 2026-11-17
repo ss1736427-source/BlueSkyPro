@@ -99,3 +99,15 @@ Failure at any stage leaves terrain evidence absent and READY blocked. A success
 ## 9. Current system boundary
 
 The current MapTiler Terrain RGB service remains `VISUAL_ONLY` with unknown datum and accuracy. It is not a substitute for this importer. The current terrain validator accepts an already decoded grid but does not acquire or decode a production DTM. No real DTM provider, approved source registry, or GeoTIFF ingestion is claimed by this contract.
+
+## 10. MapTiler visual-profile snapshot identity
+
+The MapTiler Terrain RGB v2 route-profile path now computes a deterministic visual snapshot identity from:
+- provider/version and zoom;
+- mission, route, route-version, and calculation-input lineage;
+- ordered route waypoint IDs and coordinates;
+- sorted tile coordinates, dimensions, and normalized decoded RGBA pixel content.
+
+Every generated profile sample carries the same `snapshotId`, `sourceId`, `evidenceClass=VISUAL_ONLY`, `verticalDatum=UNKNOWN`, and `verticalAccuracy=UNKNOWN`. The HMI rejects a sample series with a missing or mixed snapshot identity and displays the snapshot suffix beside the profile.
+
+This closes profile-local visual lineage only. It does not claim that MapTiler tiles are the authoritative DTM, does not bind the map renderer and lifecycle validator to this visual snapshot, and cannot satisfy terrain clearance or READY. The authoritative registry, approved DTM attestation, checksum binding, and common map/profile/validator snapshot remain outstanding.
