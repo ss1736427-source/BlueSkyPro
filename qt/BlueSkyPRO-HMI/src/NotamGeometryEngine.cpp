@@ -301,7 +301,22 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     static const QRegularExpression gr(QStringLiteral("(?:^|\\n)G\\)\\s*([^\\r\\n]+)"),QRegularExpression::CaseInsensitiveOption);
     if(lower.isEmpty()){auto m=fr.match(text);if(m.hasMatch())lower=m.captured(1).trimmed().split(QRegularExpression("\\s{2,}")).first();}
     if(upper.isEmpty()){auto m=gr.match(text);if(m.hasMatch())upper=m.captured(1).trimmed().split(QRegularExpression("\\s{2,}")).first();}
-    double lo=0,hi=0;QString ld,hd;bool vok=alt(lower,lo,ld)&&alt(upper,hi,hd)&&hi>lo&&ld==hd;
+    double lo=0,hi=0;QString ld,hd;const bool lowerParsed=alt(lower,lo,ld);
+    const bool upperParsed=alt(upper,hi,hd);
+    const bool vok=lowerParsed&&upperParsed&&hi>lo&&ld==hd;
+    // Rendering and operational validation are deliberately separate.
+    // Flight levels are pressure altitudes: they may be shown as a clearly
+    // marked visual volume, but must not satisfy the canonical safety datum check.
+    const bool sameDisplayDatum=lowerParsed&&upperParsed&&hi>lo&&ld==hd
+        &&(ld==QStringLiteral("AGL")||ld==QStringLiteral("AMSL")||ld==QStringLiteral("FL"));
+    const bool groundToFlightLevel=lowerParsed&&upperParsed&&hi>lo
+        &&ld==QStringLiteral("AGL")&&qAbs(lo)<0.001&&hd==QStringLiteral("FL");
+    const bool verticalDisplayEligible=sameDisplayDatum||groundToFlightLevel;
+    const QString verticalDisplayMode=groundToFlightLevel
+        ? QStringLiteral("GROUND_TO_FL_VISUAL_ONLY")
+        : (ld==QStringLiteral("FL")&&hd==QStringLiteral("FL")
+            ? QStringLiteral("FL_BAND_VISUAL_ONLY")
+            : (vok ? ld : QStringLiteral("UNRESOLVED")));
     out["lowerLimitRaw"]=lower;out["upperLimitRaw"]=upper;out["lowerMeters"]=lo;out["upperMeters"]=hi;
     out["lowerDatum"]=ld;out["upperDatum"]=hd;
     QJsonObject g;const QString raw=source.value("geometryJson").toString();
@@ -424,6 +439,9 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     out["restrictionGeometryStatus"]=areaGeometry?(vok?"VALIDATED":"MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS")
         :(displayGeometry?"DISPLAY_ONLY_NON_AREA_GEOMETRY":"MISSING_HORIZONTAL_BOUNDS");
     out["altitudeReference"]=vok?ld:"UNKNOWN";
+    out["verticalDisplayEligible"]=verticalDisplayEligible;
+    out["verticalDisplayOnly"]=verticalDisplayEligible&&!vok;
+    out["verticalDisplayMode"]=verticalDisplayMode;
 
     // Canonical interpretation contract shared by map and planning consumers.
     // The map-facing geometryJson remains unchanged; planning receives typed
