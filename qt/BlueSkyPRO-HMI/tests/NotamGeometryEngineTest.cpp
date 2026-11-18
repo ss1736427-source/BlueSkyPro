@@ -204,5 +204,43 @@ int main(int argc,char**argv){
  assert(!lineResult["geometryJson"].toString().isEmpty());
  assert(!lineResult["geometryValidated"].toBool());
  assert(lineResult["restrictionGeometryStatus"].toString()=="DISPLAY_ONLY_NON_AREA_GEOMETRY");
- QVariantMap qline{{"originalText","Q)URRV/QRTCA/IV/BO/W/000/999/4334N03938E004\\nF)GND\\nG)6000M AGL"}};auto q=NotamGeometryEngine::normalize(qline);assert(q["geometryJson"].toString().isEmpty());assert(!q["geometryValidated"].toBool());return 0;
+ QVariantMap qline{{"originalText","Q)URRV/QRTCA/IV/BO/W/000/999/4334N03938E004\\nF)GND\\nG)6000M AGL"}};auto q=NotamGeometryEngine::normalize(qline);assert(q["geometryJson"].toString().isEmpty());assert(!q["geometryValidated"].toBool());
+ // Flight-level NOTAMs regain their map volume without being promoted to
+ // safety-validated geometry: pressure altitude is display-only until converted
+ // against a verified atmospheric reference.
+ QVariantMap groundToFl{{"id","N-FL-GROUND-001"},
+   {"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[39.2,43.0],[39.2,43.2],[39.0,43.0]]]})")},
+   {"originalText","E)AIRSPACE CLSD WI AREA\\nF)GND\\nG)FL200"},
+   {"lowerLimitRaw","GND"},{"upperLimitRaw","FL200"}};
+ auto groundToFlResult=NotamGeometryEngine::normalize(groundToFl);
+ assert(groundToFlResult["verticalDisplayEligible"].toBool());
+ assert(groundToFlResult["verticalDisplayOnly"].toBool());
+ assert(groundToFlResult["verticalDisplayMode"].toString()=="GROUND_TO_FL_VISUAL_ONLY");
+ assert(!groundToFlResult["geometryValidated"].toBool());
+ assert(groundToFlResult["lowerDatum"].toString()=="AGL");
+ assert(groundToFlResult["upperDatum"].toString()=="FL");
+ assert(qAbs(groundToFlResult["upperMeters"].toDouble()-6096.0)<0.01);
+ assert(groundToFlResult["planningComponents"].toList().first().toMap()["geometryValidated"].toBool()==false);
+
+ QVariantMap flBand{{"id","N-FL-BAND-001"},
+   {"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[39.2,43.0],[39.2,43.2],[39.0,43.0]]]})")},
+   {"originalText","E)AIRSPACE CLSD WI AREA\\nF)FL050\\nG)FL200"},
+   {"lowerLimitRaw","FL050"},{"upperLimitRaw","FL200"}};
+ auto flBandResult=NotamGeometryEngine::normalize(flBand);
+ assert(flBandResult["verticalDisplayEligible"].toBool());
+ assert(flBandResult["verticalDisplayOnly"].toBool());
+ assert(flBandResult["verticalDisplayMode"].toString()=="FL_BAND_VISUAL_ONLY");
+ assert(!flBandResult["geometryValidated"].toBool());
+ assert(qAbs(flBandResult["lowerMeters"].toDouble()-1524.0)<0.01);
+ assert(qAbs(flBandResult["upperMeters"].toDouble()-6096.0)<0.01);
+
+ QVariantMap mixedDatum{{"id","N-MIXED-001"},
+   {"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[39.2,43.0],[39.2,43.2],[39.0,43.0]]]})")},
+   {"originalText","E)AIRSPACE CLSD WI AREA\\nF)500M AMSL\\nG)FL200"},
+   {"lowerLimitRaw","500M AMSL"},{"upperLimitRaw","FL200"}};
+ auto mixedDatumResult=NotamGeometryEngine::normalize(mixedDatum);
+ assert(!mixedDatumResult["verticalDisplayEligible"].toBool());
+ assert(!mixedDatumResult["geometryValidated"].toBool());
+
+ return 0;
 }
