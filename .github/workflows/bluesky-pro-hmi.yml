@@ -168,7 +168,7 @@ jobs:
           if ($source -match "\\['==',\\['literal',terrainOn\\],true\\]") {
             throw "NOTAM vertical volumes must remain visible when 3D terrain is OFF."
           }
-          if ($source -notmatch "terrainPlaneFlat=false;p\\.terrainPlaneStatus='AGL_REQUIRES_ACTIVE_TERRAIN_DEM'") {
+          if (-not $source.Contains("p.terrainPlaneFlat=false;p.terrainPlaneStatus='AGL_REQUIRES_ACTIVE_TERRAIN_DEM'")) {
             throw "AGL NOTAM extrusion must be withheld when terrain DEM is disabled."
           }
           if ($source -notmatch "heightDatumIsAgl") {
