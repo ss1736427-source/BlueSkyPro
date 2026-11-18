@@ -445,21 +445,26 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
             }
         }
     }
-    const QString preSanitiseType = g.value("type").toString();
+    // Keep the provider's original footprint for map display. Topology
+    // validation is a separate safety/planning concern: a rejected ring must
+    // not make an otherwise supplied NOTAM zone disappear from the map.
+    const QJsonObject mapGeometry = g;
+    const QString mapType = mapGeometry.value("type").toString();
+    const bool mapAreaGeometry = mapType == QStringLiteral("Polygon")
+        || mapType == QStringLiteral("MultiPolygon");
     g = sanitiseRawAreaGeometry(g);
-    QString type=g.value("type").toString();
+    const QString type=g.value("type").toString();
     const bool areaGeometry=type=="Polygon"||type=="MultiPolygon";
-    // Keep valid non-area GeoJSON for map display. Point/line geometry is useful
-    // for situational awareness, but must never be reported as a validated area restriction.
-    const bool displayGeometry=areaGeometry||type=="Point"||type=="MultiPoint"
-        ||type=="LineString"||type=="MultiLineString";
-    out["geometryJson"]=displayGeometry?QString::fromUtf8(QJsonDocument(g).toJson(QJsonDocument::Compact)):QString();
-    out["geometryType"]=displayGeometry?type:QString();
+    const bool displayGeometry=mapAreaGeometry||mapType=="Point"||mapType=="MultiPoint"
+        ||mapType=="LineString"||mapType=="MultiLineString";
+    out["geometryJson"]=displayGeometry?QString::fromUtf8(QJsonDocument(mapGeometry).toJson(QJsonDocument::Compact)):QString();
+    out["geometryType"]=displayGeometry?mapType:QString();
     out["geometryValidated"]=areaGeometry&&vok;
     out["restrictionGeometryStatus"]=areaGeometry?(vok?"VALIDATED":"MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS")
-        :(displayGeometry?"DISPLAY_ONLY_NON_AREA_GEOMETRY":"MISSING_HORIZONTAL_BOUNDS");
+        :(mapAreaGeometry?"DISPLAY_ONLY_INVALID_TOPOLOGY"
+            :(displayGeometry?"DISPLAY_ONLY_NON_AREA_GEOMETRY":"MISSING_HORIZONTAL_BOUNDS"));
     out["altitudeReference"]=vok?ld:"UNKNOWN";
-    out["verticalDisplayEligible"]=verticalDisplayEligible;
+    out["verticalDisplayEligible"]=verticalDisplayEligible&&areaGeometry;
     out["verticalDisplayOnly"]=verticalDisplayEligible&&!vok;
     out["verticalDisplayMode"]=verticalDisplayMode;
 
