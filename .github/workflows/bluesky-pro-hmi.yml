@@ -156,8 +156,11 @@ jobs:
           if ($source -notmatch "notamData=\{type:'FeatureCollection',features:features\};updateNotamLegend") {
             throw "NOTAM horizontal geometry must remain visible regardless of terrain toggle state."
           }
-          if ($source -notmatch "p\.sourceUpperPlaneMeters=upper;p\.terrainMinMeters=null;p\.terrainMaxMeters=null;p\.terrainSampleCount=0;p\.terrainPlaneFlat=true;p\.terrainPlaneStatus='FLAT_SOURCE_HEIGHT_PLANE'") {
-            throw "NOTAM upper boundary must remain a flat plane at the source upper altitude without terrain sampling."
+          if ($source -notmatch "p\\.renderBaseMeters=lower;p\\.renderUpperMeters=upper;p\\.sourceUpperPlaneMeters=upper" -or
+              $source -notmatch "p\\.renderBaseMeters=plane\\+lower;p\\.renderUpperMeters=plane\\+upper" -or
+              $source -notmatch "AGL_FLAT_PLANE_FROM_DEM_MINIMUM" -or
+              $source -notmatch "SOURCE_DATUM_PLANE") {
+            throw "NOTAM vertical rendering must preserve source bounds and apply DEM minimum only to AGL display geometry."
           }
           if ($source -notmatch "'fill-extrusion-height':\['get','renderUpperMeters'\],'fill-extrusion-opacity':0\.28") {
             throw "Expected compatible constant-opacity NOTAM extrusion layer."
@@ -165,8 +168,11 @@ jobs:
           if ($source -match "\\['==',\\['literal',terrainOn\\],true\\]") {
             throw "NOTAM vertical volumes must remain visible when 3D terrain is OFF."
           }
-          if ($source -match "terrainPlaneFlat=false;p\\.terrainPlaneStatus='TERRAIN_OFF'") {
-            throw "Turning terrain OFF must not invalidate source-defined NOTAM altitude planes."
+          if ($source -notmatch "terrainPlaneFlat=false;p\\.terrainPlaneStatus='AGL_REQUIRES_ACTIVE_TERRAIN_DEM'") {
+            throw "AGL NOTAM extrusion must be withheld when terrain DEM is disabled."
+          }
+          if ($source -notmatch "heightDatumIsAgl") {
+            throw "Only explicitly AGL-referenced NOTAM volumes may use terrain-relative rendering."
           }
           if ($source -notmatch "'boolean',\['get','terrainPlaneFlat'\],true") {
             throw "NOTAM extrusion must require a validated flat upper plane."
