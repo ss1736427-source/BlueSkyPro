@@ -157,10 +157,12 @@ jobs:
             throw "NOTAM horizontal geometry must remain visible regardless of terrain toggle state."
           }
           if (-not $source.Contains("p.renderBaseMeters=lower;p.renderUpperMeters=upper;p.sourceUpperPlaneMeters=upper") -or
-              -not $source.Contains("p.renderBaseMeters=plane+lower;p.renderUpperMeters=plane+upper") -or
+              -not $source.Contains("p.renderBaseMeters=plane+lower;p.renderUpperMeters=p.heightDatumIsGroundToAmsl?upper:plane+upper") -or
               -not $source.Contains("AGL_FLAT_PLANE_FROM_DEM_MINIMUM") -or
-              -not $source.Contains("SOURCE_DATUM_PLANE")) {
-            throw "NOTAM vertical rendering must preserve source bounds and apply DEM minimum only to AGL display geometry."
+              -not $source.Contains("AMSL_CEILING_FROM_DEM_MINIMUM") -or
+              -not $source.Contains("SOURCE_DATUM_PLANE") -or
+              -not $source.Contains("heightDatumIsAgl||p.heightDatumIsGroundToAmsl")) {
+            throw "NOTAM vertical rendering must preserve source bounds, anchor GND-to-AMSL lower plane to DEM, and keep AMSL upper plane absolute."
           }
           if ($source -notmatch "'fill-extrusion-height':\['get','renderUpperMeters'\],'fill-extrusion-opacity':0\.28") {
             throw "Expected compatible constant-opacity NOTAM extrusion layer."
