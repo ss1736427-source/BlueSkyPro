@@ -26,9 +26,21 @@ bool alt(QString s,double &m,QString &datum) {
     static const QRegularExpression fl(QStringLiteral("^FL\\s*(\\d{2,3})$"));
     auto f=fl.match(s);if(f.hasMatch()){m=f.captured(1).toDouble()*100*0.3048;datum="FL";return true;}
     static const QRegularExpression n(QStringLiteral("^(\\d+(?:[.,]\\d+)?)\\s*(FT|M)\\s*(AGL|AMSL|MSL)$"));
-    auto x=n.match(s);if(!x.hasMatch())return false;
-    m=x.captured(1).replace(',','.').toDouble()*(x.captured(2)=="FT"?0.3048:1.0);
-    datum=x.captured(3)=="MSL"?"AMSL":x.captured(3);return true;
+    auto x=n.match(s);
+    if(x.hasMatch()) {
+        m=x.captured(1).replace(',','.').toDouble()*(x.captured(2)=="FT"?0.3048:1.0);
+        datum=x.captured(3)=="MSL"?"AMSL":x.captured(3);
+        return true;
+    }
+    // Some source F/G limits carry a numeric unit but omit a vertical datum.
+    // Preserve the numeric value for map-only display; never promote it to
+    // AGL/AMSL validation without an explicit reference.
+    static const QRegularExpression unreferenced(QStringLiteral("^(\\d+(?:[.,]\\d+)?)\\s*(FT|M)$"));
+    const auto u=unreferenced.match(s);
+    if(!u.hasMatch()) return false;
+    m=u.captured(1).replace(',','.').toDouble()*(u.captured(2)=="FT"?0.3048:1.0);
+    datum="UNSPECIFIED";
+    return true;
 }
 QJsonArray circle(double lat,double lon,double km) {
     QJsonArray ring;const double rad=qDegreesToRadians(lat);constexpr double pi=3.14159265358979323846;
@@ -315,12 +327,16 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
         &&(ld==QStringLiteral("AGL")||ld==QStringLiteral("AMSL")||ld==QStringLiteral("FL"));
     const bool groundToFlightLevel=lowerParsed&&upperParsed&&hi>lo
         &&ld==QStringLiteral("AGL")&&qAbs(lo)<0.001&&hd==QStringLiteral("FL");
-    const bool verticalDisplayEligible=sameDisplayDatum||groundToFlightLevel;
+    const bool groundToUnreferencedHeight=lowerParsed&&upperParsed&&hi>lo
+        &&ld==QStringLiteral("AGL")&&qAbs(lo)<0.001&&hd==QStringLiteral("UNSPECIFIED");
+    const bool verticalDisplayEligible=sameDisplayDatum||groundToFlightLevel||groundToUnreferencedHeight;
     const QString verticalDisplayMode=groundToFlightLevel
         ? QStringLiteral("GROUND_TO_FL_VISUAL_ONLY")
-        : (ld==QStringLiteral("FL")&&hd==QStringLiteral("FL")
-            ? QStringLiteral("FL_BAND_VISUAL_ONLY")
-            : (vok ? ld : QStringLiteral("UNRESOLVED")));
+        : (groundToUnreferencedHeight
+            ? QStringLiteral("GROUND_TO_UNREFERENCED_HEIGHT_VISUAL_ONLY")
+            : (ld==QStringLiteral("FL")&&hd==QStringLiteral("FL")
+                ? QStringLiteral("FL_BAND_VISUAL_ONLY")
+                : (vok ? ld : QStringLiteral("UNRESOLVED"))));
     out["lowerLimitRaw"]=lower;out["upperLimitRaw"]=upper;out["lowerMeters"]=lo;out["upperMeters"]=hi;
     out["lowerDatum"]=ld;out["upperDatum"]=hd;
     QJsonObject g;const QString raw=source.value("geometryJson").toString();
