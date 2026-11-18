@@ -109,3 +109,14 @@ Do not create two independent text parsers. That would allow map and optimizer t
 - Map projection and rendering cannot block or change optimizer results.
 - Ambiguous applicable NOTAM cannot silently pass the planning gate.
 - Performance tests demonstrate cached reuse and bounded query/projection cost.
+
+## Vertical rendering versus operational validation
+
+The canonical interpreter exposes two separate outcomes:
+
+- `geometryValidated`: operationally trusted vertical interpretation. It requires compatible, explicitly referenced AGL or AMSL bounds and remains the only vertical evidence eligible for planning/safety validation.
+- `verticalDisplayEligible`: a map-only rendering decision. It may permit a clearly marked visual volume for FL-to-FL limits, GND-to-FL limits, or a ground-based numeric upper limit whose datum is absent. These cases carry `verticalDisplayOnly=true` and an explicit `verticalDisplayMode`.
+
+Display-only volumes must never set `geometryValidated`, satisfy READY evidence, or remove a planning blocker. FL values are pressure altitudes and are not silently converted to terrain-relative or AMSL safety heights. Numeric limits without an explicit datum retain their raw value and are marked `UNSPECIFIED`; they are not promoted to AGL/AMSL.
+
+The map consumes these typed fields from the shared interpreter. It must not add a second browser-side altitude parser. When vertical interpretation is unresolved or the horizontal area geometry is invalid, the NOTAM remains 2D-only (or is rejected if its footprint itself is invalid). A visual extrusion is an aid to situational awareness, not authoritative airspace geometry.
