@@ -327,16 +327,20 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
         &&(ld==QStringLiteral("AGL")||ld==QStringLiteral("AMSL")||ld==QStringLiteral("FL"));
     const bool groundToFlightLevel=lowerParsed&&upperParsed&&hi>lo
         &&ld==QStringLiteral("AGL")&&qAbs(lo)<0.001&&hd==QStringLiteral("FL");
+    const bool groundToAmsl=lowerParsed&&upperParsed&&hi>lo
+        &&ld==QStringLiteral("AGL")&&qAbs(lo)<0.001&&hd==QStringLiteral("AMSL");
     const bool groundToUnreferencedHeight=lowerParsed&&upperParsed&&hi>lo
         &&ld==QStringLiteral("AGL")&&qAbs(lo)<0.001&&hd==QStringLiteral("UNSPECIFIED");
-    const bool verticalDisplayEligible=sameDisplayDatum||groundToFlightLevel||groundToUnreferencedHeight;
+    const bool verticalDisplayEligible=sameDisplayDatum||groundToFlightLevel||groundToAmsl||groundToUnreferencedHeight;
     const QString verticalDisplayMode=groundToFlightLevel
         ? QStringLiteral("GROUND_TO_FL_VISUAL_ONLY")
-        : (groundToUnreferencedHeight
+        : (groundToAmsl
+            ? QStringLiteral("GROUND_TO_AMSL_VISUAL_ONLY")
+            : (groundToUnreferencedHeight
             ? QStringLiteral("GROUND_TO_UNREFERENCED_HEIGHT_VISUAL_ONLY")
             : (ld==QStringLiteral("FL")&&hd==QStringLiteral("FL")
                 ? QStringLiteral("FL_BAND_VISUAL_ONLY")
-                : (vok ? ld : QStringLiteral("UNRESOLVED"))));
+                : (vok ? ld : QStringLiteral("UNRESOLVED")))));
     out["lowerLimitRaw"]=lower;out["upperLimitRaw"]=upper;out["lowerMeters"]=lo;out["upperMeters"]=hi;
     out["lowerDatum"]=ld;out["upperDatum"]=hd;
     QJsonObject g;const QString raw=source.value("geometryJson").toString();
