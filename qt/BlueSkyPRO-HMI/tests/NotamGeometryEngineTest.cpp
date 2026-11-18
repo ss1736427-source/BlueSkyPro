@@ -242,6 +242,21 @@ int main(int argc,char**argv){
  assert(!mixedDatumResult["verticalDisplayEligible"].toBool());
  assert(!mixedDatumResult["geometryValidated"].toBool());
 
+ // Ground-to-AMSL is a valid visual volume when the terrain model can anchor
+ // its lower boundary. It remains display-only and is not safety-validated.
+ QVariantMap groundToAmsl{{"id","N-GROUND-AMSL-001"},
+   {"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[39.2,43.0],[39.2,43.2],[39.0,43.0]]]})")},
+   {"originalText","E)AIRSPACE CLSD WI AREA\\nF)GND\\nG)1500M AMSL"},
+   {"lowerLimitRaw","GND"},{"upperLimitRaw","1500M AMSL"}};
+ auto groundToAmslResult=NotamGeometryEngine::normalize(groundToAmsl);
+ assert(groundToAmslResult["verticalDisplayEligible"].toBool());
+ assert(groundToAmslResult["verticalDisplayOnly"].toBool());
+ assert(groundToAmslResult["verticalDisplayMode"].toString()=="GROUND_TO_AMSL_VISUAL_ONLY");
+ assert(!groundToAmslResult["geometryValidated"].toBool());
+ assert(groundToAmslResult["lowerDatum"].toString()=="AGL");
+ assert(groundToAmslResult["upperDatum"].toString()=="AMSL");
+ assert(qAbs(groundToAmslResult["upperMeters"].toDouble()-1500.0)<0.01);
+
  
  // A ground-referenced lower bound plus an upper numeric limit without an
  // explicit datum is displayable as a visual-only volume, never safety-valid.
