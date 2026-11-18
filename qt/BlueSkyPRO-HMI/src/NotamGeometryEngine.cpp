@@ -303,7 +303,11 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     if(upper.isEmpty()){auto m=gr.match(text);if(m.hasMatch())upper=m.captured(1).trimmed().split(QRegularExpression("\\s{2,}")).first();}
     double lo=0,hi=0;QString ld,hd;const bool lowerParsed=alt(lower,lo,ld);
     const bool upperParsed=alt(upper,hi,hd);
-    const bool vok=lowerParsed&&upperParsed&&hi>lo&&ld==hd;
+    // Only ground-referenced AGL and mean-sea-level bounds can validate
+    // an operational vertical restriction here. FL is pressure-referenced and
+    // remains visual-only even when both limits are flight levels.
+    const bool vok=lowerParsed&&upperParsed&&hi>lo&&ld==hd
+        &&(ld==QStringLiteral("AGL")||ld==QStringLiteral("AMSL"));
     // Rendering and operational validation are deliberately separate.
     // Flight levels are pressure altitudes: they may be shown as a clearly
     // marked visual volume, but must not satisfy the canonical safety datum check.
