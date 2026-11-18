@@ -445,28 +445,33 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
             }
         }
     }
-    // Keep the provider's original footprint for map display. Topology
-    // validation is a separate safety/planning concern: a rejected ring must
-    // not make an otherwise supplied NOTAM zone disappear from the map.
-    const QJsonObject mapGeometry = g;
-    const QString mapType = mapGeometry.value("type").toString();
-    const bool mapAreaGeometry = mapType == QStringLiteral("Polygon")
-        || mapType == QStringLiteral("MultiPolygon");
+    // Publish the sanitized geometry: independent rings become a
+    // MultiPolygon, while self-intersecting or degenerate areas remain
+    // excluded from display and planning. This keeps map geometry consistent
+    // with the canonical topology normalization contract.
+    const QString sourceType = g.value("type").toString();
+    const bool sourceAreaGeometry = sourceType == QStringLiteral("Polygon")
+        || sourceType == QStringLiteral("MultiPolygon");
     g = sanitiseRawAreaGeometry(g);
-    const QString type=g.value("type").toString();
-    const bool areaGeometry=type=="Polygon"||type=="MultiPolygon";
-    const bool displayGeometry=mapAreaGeometry||mapType=="Point"||mapType=="MultiPoint"
-        ||mapType=="LineString"||mapType=="MultiLineString";
-    out["geometryJson"]=displayGeometry?QString::fromUtf8(QJsonDocument(mapGeometry).toJson(QJsonDocument::Compact)):QString();
-    out["geometryType"]=displayGeometry?mapType:QString();
-    out["geometryValidated"]=areaGeometry&&vok;
-    out["restrictionGeometryStatus"]=areaGeometry?(vok?"VALIDATED":"MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS")
-        :(mapAreaGeometry?"DISPLAY_ONLY_INVALID_TOPOLOGY"
-            :(displayGeometry?"DISPLAY_ONLY_NON_AREA_GEOMETRY":"MISSING_HORIZONTAL_BOUNDS"));
-    out["altitudeReference"]=vok?ld:"UNKNOWN";
-    out["verticalDisplayEligible"]=verticalDisplayEligible&&areaGeometry;
-    out["verticalDisplayOnly"]=verticalDisplayEligible&&!vok;
-    out["verticalDisplayMode"]=verticalDisplayMode;
+    const QString type = g.value("type").toString();
+    const bool areaGeometry = type == QStringLiteral("Polygon")
+        || type == QStringLiteral("MultiPolygon");
+    const bool displayGeometry = areaGeometry || type == QStringLiteral("Point")
+        || type == QStringLiteral("MultiPoint") || type == QStringLiteral("LineString")
+        || type == QStringLiteral("MultiLineString");
+    out["geometryJson"] = displayGeometry
+        ? QString::fromUtf8(QJsonDocument(g).toJson(QJsonDocument::Compact)) : QString();
+    out["geometryType"] = displayGeometry ? type : QString();
+    out["geometryValidated"] = areaGeometry && vok;
+    out["restrictionGeometryStatus"] = areaGeometry
+        ? (vok ? "VALIDATED" : "MISSING_OR_INCOMPATIBLE_VERTICAL_BOUNDS")
+        : (sourceAreaGeometry ? "DISPLAY_ONLY_INVALID_TOPOLOGY"
+                              : (displayGeometry ? "DISPLAY_ONLY_NON_AREA_GEOMETRY"
+                                                  : "MISSING_HORIZONTAL_BOUNDS"));
+    out["altitudeReference"] = vok ? ld : "UNKNOWN";
+    out["verticalDisplayEligible"] = verticalDisplayEligible && areaGeometry;
+    out["verticalDisplayOnly"] = verticalDisplayEligible && !vok;
+    out["verticalDisplayMode"] = verticalDisplayMode;
 
     // Canonical interpretation contract shared by map and planning consumers.
     // The map-facing geometryJson remains unchanged; planning receives typed
