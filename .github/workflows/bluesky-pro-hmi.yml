@@ -170,8 +170,8 @@ jobs:
           if ($source -match "\\['==',\\['literal',terrainOn\\],true\\]") {
             throw "NOTAM vertical volumes must remain visible when 3D terrain is OFF."
           }
-          if (-not $source.Contains("p.terrainPlaneFlat=false;p.terrainPlaneStatus='AGL_REQUIRES_ACTIVE_TERRAIN_DEM'")) {
-            throw "AGL NOTAM extrusion must be withheld when terrain DEM is disabled."
+          if (-not $source.Contains("p.terrainPlaneStatus=p.heightDatumIsGroundToAmsl?'AMSL_REQUIRES_ACTIVE_TERRAIN_DEM':'AGL_REQUIRES_ACTIVE_TERRAIN_DEM'")) {
+            throw "AGL and ground-to-AMSL NOTAM extrusion must be withheld when terrain DEM is disabled."
           }
           if ($source -notmatch "heightDatumIsAgl") {
             throw "Only explicitly AGL-referenced NOTAM volumes may use terrain-relative rendering."
