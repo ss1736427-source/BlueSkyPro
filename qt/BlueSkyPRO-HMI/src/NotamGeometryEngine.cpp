@@ -449,9 +449,6 @@ QVariantMap NotamGeometryEngine::normalize(const QVariantMap &source) {
     // MultiPolygon, while self-intersecting or degenerate areas remain
     // excluded from display and planning. This keeps map geometry consistent
     // with the canonical topology normalization contract.
-    const QString sourceType = g.value("type").toString();
-    const bool sourceAreaGeometry = sourceType == QStringLiteral("Polygon")
-        || sourceType == QStringLiteral("MultiPolygon");
     g = sanitiseRawAreaGeometry(g);
     const QString type = g.value("type").toString();
     const bool areaGeometry = type == QStringLiteral("Polygon")
