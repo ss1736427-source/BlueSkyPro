@@ -170,8 +170,10 @@ jobs:
           if ($source -match "\\['==',\\['literal',terrainOn\\],true\\]") {
             throw "NOTAM vertical volumes must remain visible when 3D terrain is OFF."
           }
-          if (-not $source.Contains("p.terrainPlaneStatus=p.heightDatumIsGroundToAmsl?'AMSL_REQUIRES_ACTIVE_TERRAIN_DEM':'AGL_REQUIRES_ACTIVE_TERRAIN_DEM'")) {
-            throw "AGL and ground-to-AMSL NOTAM extrusion must be withheld when terrain DEM is disabled."
+          if (-not $source.Contains("terrainActivationFailed?'DEM_ACTIVATION_FAILED'") -or
+              -not $source.Contains("AMSL_REQUIRES_ACTIVE_TERRAIN_DEM") -or
+              -not $source.Contains("AGL_REQUIRES_ACTIVE_TERRAIN_DEM")) {
+            throw "AGL and ground-to-AMSL NOTAM extrusion must require a successfully activated and sampled DEM."
           }
           if ($source -notmatch "heightDatumIsAgl") {
             throw "Only explicitly AGL-referenced NOTAM volumes may use terrain-relative rendering."
@@ -185,8 +187,10 @@ jobs:
           if ($source -match "RAISED_TO_HIGHEST_TERRAIN|adjustedToTerrainPeak=true") {
             throw "NOTAM ceiling must not be raised to terrain peaks."
           }
-          if (-not $source.Contains("else{map.setTerrain(null);if(map.isStyleLoaded())applyNotams();}")) {
-            throw "Turning terrain OFF must remove the terrain surface while preserving the current camera pitch."
+          if (-not $source.Contains("exaggeration:terrainOn?1.0:0.0") -or
+              -not $source.Contains("if(needsTerrain&&!map.getTerrain())") -or
+              $source.Contains("map.setTerrain(null)")) {
+            throw "Turning 3D terrain OFF must preserve zero-exaggeration DEM availability for NOTAM altitude sampling."
           }
           if ($source -notmatch "notam-debug-open" -or $source -notmatch "NOTAM RENDER DIAGNOSTICS" -or $source -notmatch "notam-debug-refresh") {
             throw "Temporary NOTAM diagnostics panel and refresh control must be present."
