@@ -187,10 +187,12 @@ jobs:
           if ($source -match "RAISED_TO_HIGHEST_TERRAIN|adjustedToTerrainPeak=true") {
             throw "NOTAM ceiling must not be raised to terrain peaks."
           }
-          if (-not $source.Contains("exaggeration:terrainOn?1.0:0.0") -or
+          if (-not $source.Contains("exaggeration:terrainOn?1.0:TERRAIN_QUERY_EXAGGERATION") -or
+              -not $source.Contains("const TERRAIN_QUERY_EXAGGERATION=0.0001") -or
+              -not $source.Contains("elevations.push(h/sampleExaggeration)") -or
               -not $source.Contains("if(needsTerrain&&!map.getTerrain())") -or
               $source.Contains("map.setTerrain(null)")) {
-            throw "Turning 3D terrain OFF must preserve zero-exaggeration DEM availability for NOTAM altitude sampling."
+            throw "Turning 3D terrain OFF must preserve unexaggerated DEM sampling while keeping the rendered terrain visually flat."
           }
           if ($source -notmatch "notam-debug-open" -or $source -notmatch "NOTAM RENDER DIAGNOSTICS" -or $source -notmatch "notam-debug-refresh") {
             throw "Temporary NOTAM diagnostics panel and refresh control must be present."
