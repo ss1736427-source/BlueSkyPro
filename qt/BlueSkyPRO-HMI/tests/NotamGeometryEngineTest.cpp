@@ -242,5 +242,20 @@ int main(int argc,char**argv){
  assert(!mixedDatumResult["verticalDisplayEligible"].toBool());
  assert(!mixedDatumResult["geometryValidated"].toBool());
 
+ 
+ // A ground-referenced lower bound plus an upper numeric limit without an
+ // explicit datum is displayable as a visual-only volume, never safety-valid.
+ QVariantMap groundToUnspecified{{"id","N-GROUND-UNSPECIFIED-001"},
+   {"geometryJson",QStringLiteral(R"({"type":"Polygon","coordinates":[[[39.0,43.0],[39.2,43.0],[39.2,43.2],[39.0,43.0]]]})")},
+   {"originalText","E)AIRSPACE CLSD WI AREA\\nF)GND\\nG)950M"},
+   {"lowerLimitRaw","GND"},{"upperLimitRaw","950M"}};
+ auto groundToUnspecifiedResult=NotamGeometryEngine::normalize(groundToUnspecified);
+ assert(groundToUnspecifiedResult["verticalDisplayEligible"].toBool());
+ assert(groundToUnspecifiedResult["verticalDisplayOnly"].toBool());
+ assert(groundToUnspecifiedResult["verticalDisplayMode"].toString()=="GROUND_TO_UNREFERENCED_HEIGHT_VISUAL_ONLY");
+ assert(!groundToUnspecifiedResult["geometryValidated"].toBool());
+ assert(groundToUnspecifiedResult["upperDatum"].toString()=="UNSPECIFIED");
+ assert(qAbs(groundToUnspecifiedResult["upperMeters"].toDouble()-950.0)<0.01);
+
  return 0;
 }
