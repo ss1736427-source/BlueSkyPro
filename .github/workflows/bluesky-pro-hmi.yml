@@ -58,16 +58,7 @@ jobs:
 
       - name: Test
         working-directory: qt/BlueSkyPRO-HMI
-        shell: pwsh
-        run: |
-          $env:GDAL_DATA = Join-Path $PWD "build/gdal-data"
-          $env:PROJ_DATA = Join-Path $PWD "build/proj-data"
-          # PROJ_LIB remains supported by older PROJ releases used by downstream tools.
-          $env:PROJ_LIB = $env:PROJ_DATA
-          if (-not (Test-Path (Join-Path $env:PROJ_DATA "proj.db"))) { throw "Staged PROJ database is missing" }
-          if (-not (Test-Path $env:GDAL_DATA)) { throw "Staged GDAL runtime data is missing" }
-          ctest --test-dir build --output-on-failure
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        run: ctest --test-dir build --output-on-failure
 
 
   weather-engine-linux:
@@ -290,7 +281,17 @@ jobs:
 
       - name: Test
         working-directory: qt/BlueSkyPRO-HMI
-        run: ctest --test-dir build --output-on-failure
+        shell: pwsh
+        run: |
+          $build = Join-Path $PWD "build"
+          $env:GDAL_DATA = Join-Path $build "gdal-data"
+          $env:PROJ_DATA = Join-Path $build "proj-data"
+          # PROJ_LIB remains supported by older PROJ releases used by downstream tools.
+          $env:PROJ_LIB = $env:PROJ_DATA
+          if (-not (Test-Path (Join-Path $env:PROJ_DATA "proj.db"))) { throw "Staged PROJ database is missing" }
+          if (-not (Test-Path $env:GDAL_DATA)) { throw "Staged GDAL runtime data is missing" }
+          ctest --test-dir build --output-on-failure
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Deploy Qt runtime
         working-directory: qt/BlueSkyPRO-HMI
